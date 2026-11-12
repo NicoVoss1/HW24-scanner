@@ -1,1 +1,1 @@
-# HW24-scanner
+HW24 EAN-Artikelmanager
