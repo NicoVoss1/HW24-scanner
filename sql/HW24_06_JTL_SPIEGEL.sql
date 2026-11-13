@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS hw24_jtl_sync_meta (
     last_run_id VARCHAR(64) NULL,
     last_row_count BIGINT UNSIGNED NULL,
     last_message VARCHAR(500) NULL,
-    updated_utc DATETIME(6) NOT NULL DEFAULT UTC_TIMESTAMP(6)
+    updated_utc DATETIME(6) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS hw24_jtl_articles (
