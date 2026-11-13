@@ -55,13 +55,18 @@ async function lookupProductSources(ean){
         state.textContent='✓ Im aktuellen JTL-Spiegel vorhanden · Stand '+at+' UTC · '+(m[0].artikelname||m[0].artikelnummer||ean);
         $('status').textContent='Produktpflege: Artikel im aktuellen JTL-Spiegel gefunden.';
         const r=m[0];
+        if(current)current.Status='JTL_GEFUNDEN';
         for(const [k,v] of Object.entries({'Artikelnummer':r.artikelnummer,'GTIN':r.ean,'HAN':r.han,'ASIN':r.asin,'Artikelname':r.artikelname,'Hersteller':r.hersteller,'Brutto-VK':r.brutto_vk})){
-          if(!val(current?.[k])&&val(v))current[k]=String(v);
+          if(!val(v)||!current)continue;
+          const box=[...$('fields').querySelectorAll('.field')].find(x=>x.querySelector('label')?.textContent===k);
+          const input=box?.querySelector('input,textarea');
+          if(input?.dataset.userEdited==='1')continue;
+          current[k]=String(v);
+          if(input){input.value=current[k];box.className='field '+(box.classList.contains('wide')?'wide ':'')+'good';}
         }
         for(const box of $('fields').querySelectorAll('.field')){
           const label=box.querySelector('label')?.textContent;
           const input=box.querySelector('input,textarea');
-          if(input&&!input.readOnly&&!val(input.value)&&val(current?.[label])){input.value=current[label];input.dispatchEvent(new Event('input',{bubbles:true}))}
           if(input&&['Artikelnummer','GTIN','HAN','ASIN'].includes(label)&&val(input.value))input.readOnly=true;
         }
       }else if(m.length>1){
