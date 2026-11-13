@@ -64,7 +64,7 @@ try {
             $v = $cell[4] ?? $cell[3] ?? null; // historical cached Excel value; never recalculate formula
             if ($v === null || $v === '') continue;
             if (!is_scalar($v)) continue;
-            $fields[] = ['cell'=>(string)$cell[0], 'value'=>mb_substr((string)$v,0,400)];
+            $fields[] = ['cell'=>(string)$cell[0], 'value'=>(function_exists('mb_substr') ? mb_substr((string)$v,0,400) : substr((string)$v,0,400))];
             if (count($fields) >= 85) break;
         }
         $items[] = [
