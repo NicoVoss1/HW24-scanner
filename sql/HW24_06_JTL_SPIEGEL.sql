@@ -20,9 +20,14 @@ CREATE TABLE IF NOT EXISTS hw24_jtl_articles (
     asin VARCHAR(32) NULL,
     artikelname VARCHAR(600) NULL,
     hersteller VARCHAR(255) NULL,
-    brutto_vk DECIMAL(16,4) NULL,
+    netto_vk DECIMAL(16,4) NULL,
+    netto_ek DECIMAL(16,4) NULL,
+    amazon_vk DECIMAL(16,4) NULL,
+    ebay_preis DECIMAL(16,4) NULL,
     bestand DECIMAL(16,3) NULL,
+    source_modified_at DATETIME(6) NULL,
     raw_json LONGTEXT NULL,
+    beschreibungen_json LONGTEXT NULL,
     synced_at_utc DATETIME(6) NOT NULL,
     PRIMARY KEY (source_id, jtl_article_id),
     INDEX idx_hw24_jtl_ean (ean),
@@ -33,3 +38,8 @@ CREATE TABLE IF NOT EXISTS hw24_jtl_articles (
 -- Do NOT set status='ready' manually.
 -- Only a completed, validated, consistent Windows-side synchronisation may
 -- set ready/last_completed_utc, after successfully publishing a FULL snapshot.
+
+-- Netto and Brutto are deliberately NOT interchangeable.
+-- JTL fVKNetto is preserved as netto_vk; final customer gross price needs the
+-- appropriate tax mapping and customer/marketplace context.
+-- Descriptions are retained separately per kSprache/kPlattform/kShop.
