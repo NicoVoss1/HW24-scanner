@@ -92,7 +92,7 @@ function blockReasons(){
   if(!f.Hersteller)errors.push('Hersteller/Marke fehlt (für Amazon oftmals wichtig).');
   if(!f.Kosten)errors.push('Kosten/EK fehlt oder ist 0; bitte den tatsächlichen Einkaufspreis prüfen. Ø EK ist ein getrennter JTL-Rechenwert.');
   if(!f.ASIN)errors.push('ASIN fehlt: Recherche für Amazon-Zuordnung prüfen. Keine ASIN automatisch erfinden.');
-  if(f['Überverkäufe möglich']==='Y')errors.push('Überverkäufe aktiviert: Lieferfähigkeit, Beschaffungszeit und Amazon-Richtlinien vor Veröffentlichung prüfen.');
+  if(f['Überverkäufe möglich']==='Y')errors.push('AUSNAHME: Überverkäufe = JA. Nur mit bewusster manueller Einzelfreigabe; bitte Lieferfähigkeit prüfen.');
   if(!f['Brutto-VK']&&!f['Netto-VK'])errors.push('Kein positiver Verkaufspreis im aktuellen Entwurf vorhanden.');
   return errors;
 }
