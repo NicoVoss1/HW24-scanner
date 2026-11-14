@@ -49,12 +49,15 @@ $raw=file_get_contents('php://input',false,null,0,1500001);
 if ($raw===false||strlen($raw)>1500000||strlen($raw)<2) reply(413,['ok'=>false,'error'=>'payload_size']);
 $in=json_decode($raw,true);
 if (!is_array($in)) reply(400,['ok'=>false,'error'=>'invalid_json']);
-$run=(string)($in['run_id']??'');
-if (!preg_match('/^[a-f0-9]{32}$/D',$run)) reply(400,['ok'=>false,'error'=>'invalid_run']);
-$source='eazybusiness_'.$run;
-$total=filter_var($in['total']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1,'max_range'=>200000]]);
-if ($total===false) reply(400,['ok'=>false,'error'=>'invalid_total']);
 $mode=(string)($in['action']??'');
+$run=null;$source=null;$total=null;
+if ($mode!=='probe') {
+ $run=(string)($in['run_id']??'');
+ if (!preg_match('/^[a-f0-9]{32}$/D',$run)) reply(400,['ok'=>false,'error'=>'invalid_run']);
+ $source='eazybusiness_'.$run;
+ $total=filter_var($in['total']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1,'max_range'=>200000]]);
+ if ($total===false) reply(400,['ok'=>false,'error'=>'invalid_total']);
+}
 try {
  $pdo=new PDO('mysql:host=127.0.0.1;port=3306;dbname=hw24_artikelmanager;charset=utf8mb4',
    (string)$cfg['user'],(string)$cfg['password'],[
@@ -63,6 +66,15 @@ try {
      PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,
      PDO::ATTR_TIMEOUT=>10
    ]);
+ if ($mode==='probe') {
+   // No INSERT, UPDATE, DELETE or run_id needed. Authenticated readiness test.
+   $q=$pdo->query("SELECT TABLE_NAME FROM information_schema.TABLES
+     WHERE TABLE_SCHEMA=DATABASE()
+       AND TABLE_NAME IN ('hw24_jtl_articles','hw24_jtl_sync_meta')");
+   $found=$q->fetchAll(PDO::FETCH_COLUMN);
+   if (count($found)!==2) reply(409,['ok'=>false,'error'=>'mirror_tables_missing']);
+   reply(200,['ok'=>true,'status'=>'receiver_ready','min_rows'=>(int)($cfg['min_rows']??2500)]);
+ }
  if ($mode==='begin') {
    $q=$pdo->prepare('SELECT status FROM hw24_jtl_sync_meta WHERE source_id=?');
    $q->execute([$source]);
