@@ -54,6 +54,7 @@ const notAutoImport=new Set([...protectedFields,'Lagerkommentar_1 [ZepCh]',
  'Lagerkommentar_2 [ZepCh]','Lagerkommentar_1 [ZepCh - WMS-ZepCh]',
  'Lagerkommentar_2 [ZepCh - WMS-ZepCh]']);
 let rec=null,ean='',jtl=null,source='none',pending=false;
+let manuallyChanged=new Set();
 let lists={
  warengruppe:['Haarfarben','Haarpflege','Haarstyling','Sammelkarten','Beauty','Haarschmuck'],
  artikeltyp:['Normaler Artikel','Kartonage','Mehrzweckgutschein'],
@@ -109,7 +110,7 @@ function createControl(container,key,type,read){
  const field=document.createElement('div');field.className='field';field.style.padding='6px';
  const update=n=>{
    if(read)return;
-   rec[key]=n;
+   rec[key]=n;manuallyChanged.add(key);
    window.hw24AmeiseCurrent?.(rec);
    window.hw24ChannelCurrent?.(rec);
    window.hw24FlowRefresh?.();
@@ -157,12 +158,42 @@ function render(){
 }
 window.hw24ProfileOptions=setListFromRows;
 window.hw24ProfileScan=(id,record)=>{
- ean=val(id);rec=record||null;jtl=null;source=rec?.Status==='IM_CSV'?'csv':'none';pending=false;
+ ean=val(id);rec=record||null;jtl=null;source=rec?.Status==='IM_CSV'?'csv':'none';pending=false;manuallyChanged.clear();
  render();
 };
 window.hw24ProfileJtl=response=>{
  jtl=response||null;
- if(jtl?.jtl_status==='current_snapshot'&&jtl.matches?.length===1)source='jtl';
+ if(jtl?.jtl_status==='current_snapshot'&&jtl.matches?.length===1&&rec){
+  source='jtl';
+  const r=jtl.matches[0],fields=r.jtl_source_fields||{};
+  const names={
+   'Überverkäufe möglich':'cLagerKleinerNull',
+   'Stückzahl teilbar':'cTeilbar',
+   'Bestandsführung aktiv':'cLagerAktiv',
+   'Artikel aktiv':'cAktiv',
+   'Top-Artikel':'cTopArtikel',
+   'Neu im Sortiment':'cNeu',
+   'Zusätzliche Bearbeitungszeit':'nBearbeitungszeit',
+   'Beschaffungszeit automatisch ermitteln':'nAutomatischeLiefertageberechnung',
+   'Anmerkung':'cAnmerkung',
+   'Auf Lager':'nLagerbestand',
+   'Artikel zuletzt bearbeitet am':'dMod'
+  };
+  // Current SQL source outranks historical CSV unless the user edited a value.
+  for(const [target,jtlKey] of Object.entries(names)){
+   const value=fields[jtlKey];
+   if(value!==undefined&&value!==null&&String(value).trim()&&!manuallyChanged.has(target))rec[target]=String(value);
+  }
+  // The kBenutzerLetzteAenderung is only an ID. User's name needs a verified join.
+  if(fields.kBenutzerLetzteAenderung!=null&&!manuallyChanged.has('Artikel zuletzt bearbeitet durch')){
+   rec['Artikel zuletzt bearbeitet durch']='Benutzer-ID '+fields.kBenutzerLetzteAenderung+' (Name noch nicht verknüpft)';
+  }
+  if(r.netto_ek!=null&&!manuallyChanged.has('Durchschnittlicher Einkaufspreis (netto)')){
+   rec['Durchschnittlicher Einkaufspreis (netto)']=String(r.netto_ek);
+  }
+  if(!val(rec.ASIN)&&val(r.asin))rec.ASIN=String(r.asin);
+ }
+
  if(jtl?.jtl_status==='current_snapshot'&&jtl.matches?.length===0&&canPreset()&&!pending){
   pending=true;applyDefaults();
  }else render();
