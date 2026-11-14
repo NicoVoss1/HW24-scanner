@@ -47,7 +47,7 @@ function snapshot(){
       :n===0?{type:'new',name:'Neuanlage (EAN nicht im vollständigen JTL-Spiegel)',count:0}
       :{type:'duplicate',name:'Mehrdeutiger JTL-Treffer. Artikelnummer/Kennung prüfen',count:n};
   }
-  return {type:'unknown',name:'JTL-Status nicht bestätigt. Noch keine sichere Neu-/Update-Entscheidung',count:null};
+  return {type:'unknown',name:'JTL-Synchronisation fehlt; JTL-Ameise entscheidet beim Import anhand der Artikelnummer',count:null};
 }
 function candidateFields(){
   const p={};
@@ -64,8 +64,8 @@ function blockReasons(){
   const f=candidateFields(),found=snapshot(),errors=[];
   if(!f.Artikelnummer)errors.push('Artikelnummer fehlt. Bitte einen dauerhaft eindeutigen JTL-Artikelnummernschlüssel vergeben.');
   if(!f.Artikelname)errors.push('Artikelname fehlt.');
-  if(found.type==='duplicate')errors.push('EAN ist mehrfach in JTL vorhanden. Bitte zuerst über Artikelnummer zuordnen.');
-  if(found.type==='unknown')errors.push('JTL-Vorhandensein noch nicht live verifiziert. Nur Prüfdatei erzeugen.');
+  if(found.type==='duplicate')errors.push('EAN mehrfach vorhanden. In JTL-Ameise ausschließlich anhand der eindeutigen Artikelnummer identifizieren.');
+  if(found.type==='unknown')errors.push('Aktueller JTL-Abgleich fehlt. JTL-Ameise kann beim Trockenlauf mit Importart „Neue Artikel importieren, vorhandene aktualisieren“ nach Artikelnummer entscheiden.');
   if(!f.Steuerklasse)errors.push('Steuerklasse fehlt. Für Neuanlagen vor Import prüfen oder gesicherten JTL-Standardwert verwenden.');
   if(!f.Hersteller)errors.push('Hersteller/Marke fehlt (für Amazon oftmals wichtig).');
   if(!f.Brutto-VK&&!f['Netto-VK'])errors.push('Kein positiver Verkaufspreis im aktuellen Entwurf vorhanden.');
@@ -86,7 +86,7 @@ function paint(){
   const f=candidateFields(),s=snapshot(),reasons=blockReasons();
   $('ameiseIdentity').textContent='EAN '+ean+' · '+s.name;
   $('ameiseStatus').textContent=s.type==='new'?'JTL-Neuanlage als Entwurf vorbereiten':s.type==='update'?'JTL-Aktualisierung als Entwurf vorbereiten':
-    s.type==='duplicate'?'Mehrfachtreffer: kein sicherer Import':'JTL-Synchronisation fehlt: Prüfdaten vorbereiten, noch nicht importieren';
+    s.type==='duplicate'?'EAN mehrfach vorhanden: Artikelnummer als Importschlüssel prüfen':'JTL-Synchronisation fehlt: Ameise-Testlauf prüft Neuanlage/Aktualisierung anhand Artikelnummer';
   const body=$('ameisePreview');body.replaceChildren();
   const relevant=[
     'Artikelnummer','Artikelname','GTIN','HAN','Steuerklasse','Hersteller','Warengruppe',
@@ -123,9 +123,9 @@ function exportCSV(){
     $('ameiseSaved').textContent='Für eine Ameise-Prüfdatei fehlen Artikelnummer oder Artikelname.';return
   }
   const csv='\ufeff'+keys.map(csvCell).join(';')+'\r\n'+keys.map(k=>csvCell(f[k])).join(';')+'\r\n';
-  const status=reasons.length?'ENTWURF_NICHT_IMPORTIEREN':'TESTLAUF_ERFORDERLICH';
+  const status='TESTLAUF_ERFORDERLICH';
   download(csv,'HW24_Ameise_'+status+'_'+safeName(f.Artikelnummer)+'.csv','text/csv;charset=utf-8');
-  $('ameiseSaved').textContent='Ameise-'+(reasons.length?'Prüfentwurf':'Testlaufentwurf')+' heruntergeladen. Nicht ungeprüft importieren; keine Importvorlage automatisch angelegt.';
+  $('ameiseSaved').textContent='Ameise-Testlaufentwurf heruntergeladen. JTL-Ameise wählt anhand der Artikelnummer Neuanlage oder Aktualisierung. Erst Mapping kontrollieren, sichern und Testlauf durchführen.';
 }
 function exportJSON(){
   const f=candidateFields(),s=snapshot();
