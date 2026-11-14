@@ -64,7 +64,7 @@ function blockReasons(){
   const f=candidateFields(),found=snapshot(),errors=[];
   if(!f.Artikelnummer)errors.push('Artikelnummer fehlt. Bitte einen dauerhaft eindeutigen JTL-Artikelnummernschlüssel vergeben.');
   if(!f.Artikelname)errors.push('Artikelname fehlt.');
-  if(found.type==='duplicate')errors.push('EAN mehrfach vorhanden. In JTL-Ameise ausschließlich anhand der eindeutigen Artikelnummer identifizieren.');
+  if(found.type==='duplicate'||record?.Status==='MEHRFACH_CSV')errors.push('Mehrere Artikel teilen sich diese EAN. Artikelnummer und richtigen JTL-Datensatz zunächst eindeutig auswählen.');
   if(found.type==='unknown')errors.push('Aktueller JTL-Abgleich fehlt. JTL-Ameise kann beim Trockenlauf mit Importart „Neue Artikel importieren, vorhandene aktualisieren“ nach Artikelnummer entscheiden.');
   if(!f.Steuerklasse)errors.push('Steuerklasse fehlt. Für Neuanlagen vor Import prüfen oder gesicherten JTL-Standardwert verwenden.');
   if(!f.Hersteller)errors.push('Hersteller/Marke fehlt (für Amazon oftmals wichtig).');
@@ -119,6 +119,7 @@ function stage(){
 }
 function exportCSV(){
   const f=candidateFields(),reasons=blockReasons(),keys=schema.map(x=>x[0]).filter(k=>Object.prototype.hasOwnProperty.call(f,k));
+  if(snapshot().type==='duplicate'||record?.Status==='MEHRFACH_CSV'){$('ameiseSaved').textContent='Mehrdeutige EAN: Bitte zunächst die richtige Artikelnummer auswählen. Kein Export bis zur eindeutigen Zuordnung.';return}
   if(!keys.length||!f.Artikelnummer||!f.Artikelname){
     $('ameiseSaved').textContent='Für eine Ameise-Prüfdatei fehlen Artikelnummer oder Artikelname.';return
   }
