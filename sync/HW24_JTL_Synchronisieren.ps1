@@ -54,6 +54,11 @@ function Post-Chunk($payload){
   if(-not $response.ok){throw ('Uebertragung fehlgeschlagen: '+($response|ConvertTo-Json -Compress))}
   return $response
 }
+# Check Plesk endpoint + token + target tables WITHOUT any writes first.
+Write-Host 'HW24-Sync: Empfaenger pruefen, ohne Daten zu veraendern ...'
+$probe=Post-Chunk @{action='probe'}
+if($probe.status -ne 'receiver_ready'){throw 'Empfaenger nicht einsatzbereit'}
+Write-Host 'HW24-Sync: API-Empfaenger bestaetigt.'
 $connection=New-Object System.Data.SqlClient.SqlConnection($dsn.ConnectionString)
 try{
   $connection.Open()
