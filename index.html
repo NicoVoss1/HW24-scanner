@@ -309,13 +309,16 @@ $('file').onchange=async e=>{
   auditInit();
   map=new Map();
   for(const row of data){
-   const ean=digits(row.GTIN)||digits(row.EAN);
-   if(ean){
-    if(!map.has(ean))map.set(ean,[]);
-    map.get(ean).push(row);
+   // Check all independently sourced numeric identifiers. A missing GTIN
+   // must not hide an older article whose HAN or Artikelnummer equals its GTIN.
+   const keys=[row.GTIN,row.EAN,row.HAN,row.Artikelnummer].map(digits)
+     .filter(k=>goodGtin(k));
+   for(const code of new Set(keys)){
+    if(!map.has(code))map.set(code,[]);
+    if(!map.get(code).includes(row))map.get(code).push(row);
    }
   }
-  info.textContent='✓ '+data.length.toLocaleString('de-DE')+' JTL-Zeilen geladen · '+map.size.toLocaleString('de-DE')+' EANs · '+(broken?'Windows-1252':'UTF-8')+'. Aktuelle Daten bleiben lokale Arbeitskopie.';
+  info.textContent='✓ '+data.length.toLocaleString('de-DE')+' JTL-Zeilen geladen · '+map.size.toLocaleString('de-DE')+' gültige Kennungen (GTIN/HAN/Art.-Nr.) · '+(broken?'Windows-1252':'UTF-8')+'. Aktuelle Daten bleiben lokale Arbeitskopie.';
   $('ean').focus();
   if(digits($('ean').value))search();
  }catch(error){
