@@ -1,4 +1,4 @@
-/* HW24 v4.0: green=source-backed, amber=proposal, red=missing/conflict.
+/* HW24 v4.1: green=source-backed, amber=proposal, red=missing/conflict.
  * Never synthesize identifiers, costs, ASIN, prices or availability. */
 (function(){
 'use strict';
@@ -85,7 +85,7 @@ function renderProgress(){
  const root=get('hw24Milestones');if(!root)return;root.replaceChildren();
  const items=[
   ['Quellprüfung','Export 14.11.2026: 2.691 Artikel / 872 Felder ausgewertet'],
-  ['App-Code','v4.0 in GitHub · Bereitstellung in Plesk separat'],
+  ['App-Code','v4.1 in GitHub · Bereitstellung in Plesk separat'],
   ['Datenübernahme',csv.length?csv.length+' CSV-Zeilen im Browser geladen':'CSV lokal noch nicht geladen'],
   ['Live-JTL',jtl?.jtl_status==='current_snapshot'?'JTL-Spiegel aktuell':'Synchronisierung nicht live bestätigt'],
   ['MariaDB','Schema und Audit vorbereitet, produktive Einrichtung noch offen'],
