@@ -92,3 +92,37 @@ CREATE TABLE IF NOT EXISTS hw24_audit_events (
 -- A future authenticated application-user requires grants to drafts, source tables,
 -- category mappings and audit events, scoped to the respective operations.
 -- Creating these tables does not itself enable API writes or audit logging.
+
+
+-- Central NEW-ARTICLE default profile. Read-only client support can be added later.
+-- Existing JTL values always take precedence; never auto-overwrite current articles.
+CREATE TABLE IF NOT EXISTS hw24_profile_defaults (
+    field_key VARCHAR(150) NOT NULL PRIMARY KEY,
+    default_value VARCHAR(500) NOT NULL,
+    applies_to VARCHAR(24) NOT NULL DEFAULT 'new_only',
+    provenance VARCHAR(40) NOT NULL,
+    explanation VARCHAR(500) NULL,
+    enabled TINYINT(1) NOT NULL DEFAULT 1,
+    changed_by VARCHAR(120) NULL,
+    changed_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO hw24_profile_defaults
+(field_key,default_value,applies_to,provenance,explanation)
+VALUES
+('Überverkäufe möglich','Y','new_only','user','User override; previous export 2682 of 2683 rows used N. Review oversell risk.'),
+('Lieferstatus','2-4 Werktage','new_only','export','1834 export rows agree.'),
+('Stückzahl teilbar','N','new_only','user+export','2627 export rows used N.'),
+('Zusätzliche Bearbeitungszeit','2','new_only','user','New user default; historical mode was 1.'),
+('Beschaffungszeit automatisch ermitteln','0','new_only','export','2681 export rows used 0.'),
+('Beschaffungszeit manuell setzen','2','new_only','export','Historical mode was 2; user can change to 3.'),
+('Versandklasse','standard','new_only','user+export','All 2683 export rows use standard.'),
+('Artikel aktiv','Y','new_only','user+export','All 2683 export rows use Y.'),
+('Bestandsführung aktiv','Y','new_only','user+export','2675 export rows use Y.'),
+('Top-Artikel','N','new_only','user+export','Default N, review individually.'),
+('Warengruppe','Haarfarben','new_only','user+export','2390 source rows use Haarfarben. Never classify unrelated products blindly.'),
+('Artikeltyp','Normaler Artikel','new_only','user+export','2678 source rows use this value.'),
+('Neu im Sortiment','Y','new_only','user+export','2605 export rows use Y.'),
+('Steuerklasse','normaler steuersatz','new_only','user+export','19% is a proposed default for normally taxed hair-color products only.'),
+('Steuersatz in %','19,00','new_only','user+export','Tax class must be correctly mapped; do not impose this on other tax classes.'),
+('Währung','EUR','new_only','user','User standard; original export Währung field usually empty.');
