@@ -23,6 +23,32 @@ function txt(parent,tag,text,cls){let e=document.createElement(tag);e.textConten
 function slug(s){return val(s).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/ß/g,'ss').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,85)}
 function key(){return 'hw24_kanalentwurf_v31_'+ean}
 function remembered(){try{return JSON.parse(localStorage.getItem(key())||'{}')}catch(e){return {}}}
+function backedProductFacts(){
+ // Text proposals only from explicitly present product information.
+ const r=(jtl?.jtl_status==='current_snapshot'&&jtl.matches?.length===1)?jtl.matches[0]:null;
+ const title=val(r?.artikelname||item.Artikelname);
+ const res=[],set=new Set();
+ function add(value,source){
+   if(!value||set.has(value.toLowerCase()))return;
+   set.add(value.toLowerCase());res.push({value,src:source,kind:'derived'});
+ }
+ const sizeMatches=[...title.matchAll(/(?:^|[^\d])(\d+(?:[.,]\d+)?)\s*(ml|g|kg|l)\b/gi)];
+ const sourceText=r?'JTL-Artikelname':'Artikelname aus Arbeitskopie';
+ if(sizeMatches.length===1){
+   add('Inhalt: '+sizeMatches[0][1].replace(',','.')+' '+sizeMatches[0][2].toLowerCase(),sourceText+' · eindeutige Füllmenge');
+ }
+ const content=val(item.Inhalt||item.Füllmenge),unit=val(item.Inhaltseinheit||item.Füllmengeneinheit);
+ if(content&&unit&&/^\d+(?:[.,]\d+)?$/.test(content)&&/^(?:ml|l|g|kg)$/i.test(unit)){
+   add('Inhalt: '+content+' '+unit,'Explizit gepflegte Inhaltseinheit');
+ }
+ const explicitTone=title.match(/\b(?:nuance|farbton|farbnummer|shade)\s*[:#-]?\s*(\d{1,2}[/.-]\d{1,3}[a-z]?)\b/i);
+ if(explicitTone)add('Farbnuance: '+explicitTone[1],sourceText+' · explizite Nuance');
+ const color=val(item.Farbnuance||item.Farbton||item.Nuance);
+ if(color&&color.length<=40)add('Farbnuance: '+color,'Vorhandenes Feld Farbnuance/Farbton');
+ const group=val(item.Warengruppe||item['Kategorie Ebene 2']);
+ if(group&&group.length<=80)add('Produktart: '+group,'Vorhandene interne Produktgruppe (Begriff prüfen)');
+ return res;
+}
 function sourceCandidates(k){
  const results=[],seen=new Set();
  function add(raw,src,kind){
@@ -52,6 +78,11 @@ function sourceCandidates(k){
     }
   }
   if(results.length>=12)break;
+ }
+ if(k==='bullet1'||k==='bullet2'){
+   const facts=backedProductFacts();
+   const chosen=k==='bullet1'?facts[0]:facts.find(x=>x.value!==val(forms.amazon?.bullet1));
+   if(chosen)add(chosen.value,chosen.src,'derived');
  }
  if(k==='handle'&&item.Artikelname)add(slug(item.Artikelname),'Aus Artikelname abgeleitet','derived');
  return results.slice(0,12);
@@ -137,6 +168,8 @@ function paint(){
   const box=document.createElement('div');box.className='field';
   box.style.cssText='min-width:0;border:1px solid #d9e3ee;background:#fff;border-radius:9px';
   txt(box,'label',label);txt(box,'small',metadata[kind],'note');
+  if(active==='amazon'&&k==='bullet1')txt(box,'small','Merkmal 1: z. B. belegte Füllmenge oder konkrete Farbnuance. Kein Werbeversprechen erfinden.','note');
+  if(active==='amazon'&&k==='bullet2')txt(box,'small','Merkmal 2: ein anderer nachweisbarer Produktfakt, z. B. Produktart oder Nuance. Bei fehlender Quelle leer lassen.','note');
   const input=['description','specifics','bullet1','bullet2'].includes(k)?document.createElement('textarea'):document.createElement('input');
   if(input.tagName==='TEXTAREA')input.rows=3;
   input.value=val(forms[active][k]);input.style.cssText='width:100%;box-sizing:border-box;margin-top:6px';
@@ -175,7 +208,7 @@ function suggest(){
   const good=all.find(c=>{
    if(['price','qty','asin','category_id','specifics','image','condition','shipping','gtin'].includes(k))return false;
    if(kind==='kategorie')return false;
-   return c.kind==='jtl'||c.kind==='local'||(c.kind==='derived'&&k==='handle');
+   return c.kind==='jtl'||c.kind==='local'||(c.kind==='derived'&&['handle','bullet1','bullet2'].includes(k));
   });
   if(good){forms[active][k]=good.value;origins[active][k]=good.src+' · Entwurf';n++}
   else if(all.length)review++;
