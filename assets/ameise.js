@@ -44,7 +44,7 @@ function snapshot(){
   if(jtl?.jtl_status==='current_snapshot'){
     const n=(jtl.matches||[]).length;
     return n===1?{type:'update',name:'Aktualisierung (JTL-Treffer über EAN)',count:n}
-      :n===0?{type:'new',name:'Neuanlage (EAN nicht im vollständigen JTL-Spiegel)',count:0}
+      :n===0?{type:'new',name:'Mögliche Neuanlage (EAN fehlt im JTL-Spiegel; Artikelnummer separat prüfen)',count:0}
       :{type:'duplicate',name:'Mehrdeutiger JTL-Treffer. Artikelnummer/Kennung prüfen',count:n};
   }
   return {type:'unknown',name:'JTL-Synchronisation fehlt; JTL-Ameise entscheidet beim Import anhand der Artikelnummer',count:null};
@@ -131,14 +131,15 @@ function stage(){
 }
 function exportCSV(){
   const f=candidateFields(),reasons=blockReasons(),keys=schema.map(x=>x[0]).filter(k=>Object.prototype.hasOwnProperty.call(f,k));
-  if(snapshot().type==='duplicate'||record?.Status==='MEHRFACH_CSV'){$('ameiseSaved').textContent='Mehrdeutige EAN: Bitte zunächst die richtige Artikelnummer auswählen. Kein Export bis zur eindeutigen Zuordnung.';return}
+  if(snapshot().type==='duplicate'||record?.Status==='MEHRFACH_CSV'){$('ameiseSaved').textContent='Mehrdeutige EAN: Bitte zunächst die richtige Artikelnummer auswählen. Kein Export bis zur eindeutigen Zuordnung.';return false}
   if(!keys.length||!f.Artikelnummer||!f.Artikelname){
-    $('ameiseSaved').textContent='Für eine Ameise-Prüfdatei fehlen Artikelnummer oder Artikelname.';return
+    $('ameiseSaved').textContent='Für eine Ameise-Prüfdatei fehlen Artikelnummer oder Artikelname.';return false
   }
   const csv='\ufeff'+keys.map(csvCell).join(';')+'\r\n'+keys.map(k=>csvCell(f[k])).join(';')+'\r\n';
   const status='TESTLAUF_ERFORDERLICH';
   download(csv,'HW24_Ameise_'+status+'_'+safeName(f.Artikelnummer)+'.csv','text/csv;charset=utf-8');
   $('ameiseSaved').textContent='Ameise-Testlaufentwurf heruntergeladen. JTL-Ameise wählt anhand der Artikelnummer Neuanlage oder Aktualisierung. Erst Mapping kontrollieren, sichern und Testlauf durchführen.';
+  return true;
 }
 function exportJSON(){
   const f=candidateFields(),s=snapshot();
@@ -163,6 +164,7 @@ window.hw24AmeiseJtl=result=>{
   paint();
 };
 window.hw24AmeiseRefresh=paint;
+window.hw24AmeiseAutoExport=()=>{paint();return exportCSV()};
 $('ameiseLoadEan')?.addEventListener('click',()=>{
   const input=$('ean');
   if(!input||!v(input.value)){
