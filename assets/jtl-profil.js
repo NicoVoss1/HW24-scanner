@@ -42,7 +42,7 @@ const grouped=[
 // User-entered new-article defaults. The source export most commonly uses 1/2 for
 // the two times, but user explicitly requests 2 and a choice of 2/3.
 const newDefaults={
- 'Überverkäufe möglich':'Y','Lieferstatus':'2-4 Werktage','Stückzahl teilbar':'N',
+ 'Überverkäufe möglich':'N','Lieferstatus':'2-4 Werktage','Stückzahl teilbar':'N',
  'Zusätzliche Bearbeitungszeit':'2','Beschaffungszeit automatisch ermitteln':'0',
  'Beschaffungszeit manuell setzen':'2','Versandklasse':'standard',
  'Artikel aktiv':'Y','Bestandsführung aktiv':'Y','Top-Artikel':'N',
@@ -95,7 +95,7 @@ function applyDefaults(){
  window.hw24ChannelCurrent?.(rec);
  window.hw24FlowRefresh?.();
  render();
- status(count+' Standardwerte für Neuanlage ergänzt. Bitte Produktgruppe, Steuerklasse, Überverkäufe und Preise kontrollieren.');
+ status(count+' Standardwerte für Neuanlage ergänzt. Überverkäufe bleiben NEIN. Bitte Produktgruppe, Steuerklasse und Preise kontrollieren.');
  return count;
 }
 function status(msg){const o=$('profileStatus');if(o)o.textContent=msg}
@@ -121,7 +121,14 @@ function createControl(container,key,type,read){
    window.hw24ChannelCurrent?.(rec);
    window.hw24FlowRefresh?.();
  };
- if(type==='yn')sel(field,['Y','N'],value,update);
+ if(type==='yn'){
+  sel(field,['N','Y'],value,next=>{
+   if(key==='Überverkäufe möglich'&&next==='Y'&&value!=='Y'){
+    if(!window.confirm?.('ACHTUNG: Überverkäufe sind standardmäßig verboten. Möchtest Du diese Ausnahme ausdrücklich nur für diesen Artikel aktivieren?')){render();return;}
+   }
+   update(next);
+  });
+ }
  else if(type==='yn01')sel(field,['0','1'],value,update);
  else if(type==='artikeltyp')sel(field,lists.artikeltyp,value,update);
  else if(type==='warengruppe')sel(field,lists.warengruppe,value,update);
