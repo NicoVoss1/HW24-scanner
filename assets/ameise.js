@@ -6,37 +6,41 @@
 'use strict';
 const $=id=>document.getElementById(id),v=x=>String(x??'').trim();
 const schema=[
-  ['Artikelnummer',['Artikelnummer']],
-  ['GTIN',['GTIN','EAN']],
-  ['HAN',['HAN']],
-  ['Artikelname',['Artikelname']],
-  ['Kurzbeschreibung',['Kurzbeschreibung']],
-  ['Beschreibung',['Beschreibung']],
-  ['Verkaufskanal-Suchbegriffe',['Verkaufskanal-Suchbegriffe']],
-  ['URL-Pfad',['URL-Pfad']],
-  ['Titel-Tag (SEO)',['Titel-Tag (SEO)']],
-  ['Meta-Description (SEO)',['Meta-Description (SEO)']],
-  ['Brutto-VK',['Brutto-VK']],
-  ['Netto-VK',['Netto-VK']],
-  ['Steuerklasse',['Steuerklasse']],
-  ['Hersteller',['Hersteller']],
-  ['Warengruppe',['Warengruppe']],
-  ['Artikelgewicht',['Artikelgewicht']],
-  ['Versandgewicht',['Versandgewicht']],
-  ['Verkaufseinheit',['Verkaufseinheit']],
-  ['Inhalt/Menge',['Inhalt/Menge']],
-  ['Maßeinheit',['Maßeinheit']],
-  ['Grundpreis ausweisen',['Grundpreis ausweisen']],
-  ['GP-Bezugsmenge',['GP-Bezugsmenge']],
-  ['Einheit Bezugsmenge',['Einheit Bezugsmenge']],
-  ['Artikel aktiv',['Artikel aktiv']],
-  ['ASIN',['ASIN']],
-  ['Kategorie Ebene 1',['Kategorie Ebene 1']],
-  ['Kategorie Ebene 2',['Kategorie Ebene 2']],
-  ['Kategorie Ebene 3',['Kategorie Ebene 3']]
+ ['Artikelnummer',['Artikelnummer']],
+ ['GTIN',['GTIN','EAN']],['HAN',['HAN']],['Artikelname',['Artikelname']],
+ ['Kurzbeschreibung',['Kurzbeschreibung']],['Beschreibung',['Beschreibung']],
+ ['Anmerkung',['Anmerkung']],['Verkaufskanal-Suchbegriffe',['Verkaufskanal-Suchbegriffe']],
+ ['URL-Pfad',['URL-Pfad']],['Titel-Tag (SEO)',['Titel-Tag (SEO)']],
+ ['Meta-Description (SEO)',['Meta-Description (SEO)']],
+ ['Brutto-VK',['Brutto-VK']],['Netto-VK',['Netto-VK']],
+ ['Kosten',['Kosten']], // USER'S actual EK field; different from calculated GLD!
+ ['Steuerklasse',['Steuerklasse']],['Hersteller',['Hersteller']],
+ ['Warengruppe',['Warengruppe']],['Artikelgewicht',['Artikelgewicht']],
+ ['Versandgewicht',['Versandgewicht']],['Verkaufseinheit',['Verkaufseinheit']],
+ ['Inhalt/Menge',['Inhalt/Menge']],['Maßeinheit',['Maßeinheit']],
+ ['Grundpreis ausweisen',['Grundpreis ausweisen']],
+ ['GP-Bezugsmenge',['GP-Bezugsmenge']],['Einheit Bezugsmenge',['Einheit Bezugsmenge']],
+ ['Überverkäufe möglich',['Überverkäufe möglich']],
+ ['Lieferstatus',['Lieferstatus']],['Stückzahl teilbar',['Stückzahl teilbar']],
+ ['Zusätzliche Bearbeitungszeit',['Zusätzliche Bearbeitungszeit']],
+ ['Beschaffungszeit automatisch ermitteln',['Beschaffungszeit automatisch ermitteln']],
+ ['Beschaffungszeit manuell setzen',['Beschaffungszeit manuell setzen']],
+ ['Versandklasse',['Versandklasse']],['Artikel aktiv',['Artikel aktiv']],
+ ['Bestandsführung aktiv',['Bestandsführung aktiv']],['Top-Artikel',['Top-Artikel']],
+ ['Artikeltyp',['Artikeltyp']],['Neu im Sortiment',['Neu im Sortiment']],
+ ['Währung',['Währung']],['ASIN',['ASIN']],
+ ['JTL-Wawi: Amazon B2B Netto',['JTL-Wawi: Amazon B2B Netto']],
+ ['JTL-Wawi: Amazon B2B Brutto',['JTL-Wawi: Amazon B2B Brutto']],
+ ['JTL-Wawi: Amazon B2C Netto',['JTL-Wawi: Amazon B2C Netto']],
+ ['JTL-Wawi: Amazon B2C Brutto',['JTL-Wawi: Amazon B2C Brutto']],
+ ['JTL-Wawi: eBay Fb24 Netto',['JTL-Wawi: eBay Fb24 Netto']],
+ ['JTL-Wawi: eBay Fb24 Brutto',['JTL-Wawi: eBay Fb24 Brutto']],
+ ['Neuer Standardpreis für eBay-Angebote',['Neuer Standardpreis für eBay-Angebote']],
+ ['Kategorie Ebene 1',['Kategorie Ebene 1']],['Kategorie Ebene 2',['Kategorie Ebene 2']],
+ ['Kategorie Ebene 3',['Kategorie Ebene 3']]
 ];
 const calculated=new Set(['Durchschnittlicher Einkaufspreis (netto)','Letzter EK (JTL)','Datum letzter EK',
-  'Auf Lager','In Aufträgen','Verfügbar','Fehlbestand','Menge','Lagerbestand']);
+  'Auf Lager','In Aufträgen','Verfügbar','Fehlbestand','Menge','Lagerbestand','Artikel zuletzt bearbeitet am','Artikel zuletzt bearbeitet durch','Steuersatz in %']);
 let record=null,ean='',jtl=null,loadedArchive=null;
 function source(k){for(const key of k){const value=v(record?.[key]);if(value!=='')return value;}return ''}
 function nonZeroMoney(k){const x=source(k);if(!x)return '';const amount=Number(x.replace(/\./g,'').replace(',','.'));return Number.isFinite(amount)&&amount>0?x:''}
@@ -49,6 +53,7 @@ function snapshot(){
   }
   return {type:'unknown',name:'JTL-Synchronisation fehlt; JTL-Ameise entscheidet beim Import anhand der Artikelnummer',count:null};
 }
+function foundType(){return snapshot().type}
 function candidateFields(){
   const p={};
   for(const [key,aliases] of schema){
@@ -62,7 +67,7 @@ function candidateFields(){
 }
 function blockReasons(){
   const f=candidateFields(),found=snapshot(),errors=[];
-  if(!f.Artikelnummer)errors.push('Artikelnummer fehlt. Bitte einen dauerhaft eindeutigen JTL-Artikelnummernschlüssel vergeben.');
+  if(!f.Artikelnummer)errors.push('Artikelnummer fehlt. Nur bei eindeutig neuer Ware darf JTL-Ameise eine Artikelnummer über den konfigurierten Nummernkreis vergeben. Für vorhandene Artikel ist die alte Nummer beizubehalten.');
   if(!f.Artikelname)errors.push('Artikelname fehlt.');
   if(found.type==='duplicate'||record?.Status==='MEHRFACH_CSV')errors.push('Mehrere Artikel teilen sich diese EAN. Artikelnummer und richtigen JTL-Datensatz zunächst eindeutig auswählen.');
   if(found.type==='unknown')errors.push('Aktueller JTL-Abgleich fehlt. JTL-Ameise kann beim Trockenlauf mit Importart „Neue Artikel importieren, vorhandene aktualisieren“ nach Artikelnummer entscheiden.');
@@ -101,10 +106,10 @@ function paint(){
     s.type==='duplicate'?'EAN mehrfach vorhanden: Artikelnummer als Importschlüssel prüfen':'JTL-Synchronisation fehlt: Ameise-Testlauf prüft Neuanlage/Aktualisierung anhand Artikelnummer';
   const body=$('ameisePreview');body.replaceChildren();
   const relevant=[
-    'Artikelnummer','Artikelname','GTIN','HAN','Steuerklasse','Hersteller','Warengruppe',
+    'Artikelnummer','Artikelname','GTIN','HAN','ASIN','Kosten','Steuerklasse','Hersteller','Warengruppe','Überverkäufe möglich','Artikel aktiv','Bestandsführung aktiv',
     'Brutto-VK','Netto-VK','Kurzbeschreibung','Beschreibung','Artikelgewicht','Versandgewicht',
     'Verkaufseinheit','Inhalt/Menge','Maßeinheit','Grundpreis ausweisen',
-    'Kategorie Ebene 1','Kategorie Ebene 2','ASIN'
+    'Kategorie Ebene 1','Kategorie Ebene 2','Lieferstatus','Zusätzliche Bearbeitungszeit','Beschaffungszeit manuell setzen'
   ];
   for(const key of relevant){
     const tr=document.createElement('tr'),td=document.createElement('td'),tv=document.createElement('td');
@@ -132,12 +137,16 @@ function stage(){
 function exportCSV(){
   const f=candidateFields(),reasons=blockReasons(),keys=schema.map(x=>x[0]).filter(k=>Object.prototype.hasOwnProperty.call(f,k));
   if(snapshot().type==='duplicate'||record?.Status==='MEHRFACH_CSV'){$('ameiseSaved').textContent='Mehrdeutige EAN: Bitte zunächst die richtige Artikelnummer auswählen. Kein Export bis zur eindeutigen Zuordnung.';return false}
-  if(!keys.length||!f.Artikelnummer||!f.Artikelname){
+  const newArticle=foundType()==='new';
+  if(!keys.length||!f.Artikelname||(!f.Artikelnummer&&!newArticle)){
     $('ameiseSaved').textContent='Für eine Ameise-Prüfdatei fehlen Artikelnummer oder Artikelname.';return false
   }
-  const csv='\ufeff'+keys.map(csvCell).join(';')+'\r\n'+keys.map(k=>csvCell(f[k])).join(';')+'\r\n';
+  // Include a blank Artikelnummer only if the fresh JTL snapshot established a new EAN.
+  // JTL-Ameise must be configured to generate identifiers; never invent a SKU.
+  if(newArticle&&!keys.includes('Artikelnummer'))keys.unshift('Artikelnummer');
+  const csv='\ufeff'+keys.map(csvCell).join(';')+'\r\n'+keys.map(k=>csvCell(f[k]||'')).join(';')+'\r\n';
   const status='TESTLAUF_ERFORDERLICH';
-  download(csv,'HW24_Ameise_'+status+'_'+safeName(f.Artikelnummer)+'.csv','text/csv;charset=utf-8');
+  download(csv,'HW24_Ameise_'+status+'_'+safeName(f.Artikelnummer||ean)+'.csv','text/csv;charset=utf-8');
   $('ameiseSaved').textContent='Ameise-Testlaufentwurf heruntergeladen. JTL-Ameise wählt anhand der Artikelnummer Neuanlage oder Aktualisierung. Erst Mapping kontrollieren, sichern und Testlauf durchführen.';
   return true;
 }
@@ -164,7 +173,7 @@ window.hw24AmeiseJtl=result=>{
   paint();
 };
 window.hw24AmeiseRefresh=paint;
-window.hw24AmeiseAutoExport=()=>{paint();if(!record||!v(record.Artikelnummer)||!v(record.Artikelname))return false;stage();return exportCSV()};
+window.hw24AmeiseAutoExport=()=>{paint();if(!record||!v(record.Artikelname))return false;if(!v(record.Artikelnummer)&&foundType()!=='new')return false;stage();return exportCSV()};
 $('ameiseLoadEan')?.addEventListener('click',()=>{
   const input=$('ean');
   if(!input||!v(input.value)){
