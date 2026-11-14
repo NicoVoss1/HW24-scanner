@@ -55,14 +55,22 @@ try {
       'age_minutes'=>$age,'matches'=>[]]);
   }
   $q=$pdo->prepare('SELECT jtl_article_id,artikelnummer,ean,han,asin,artikelname,hersteller,kurzbeschreibung,beschreibung,seo_titel,seo_beschreibung,
-                           netto_vk,netto_ek,letzter_ek,letzter_ek_datum,amazon_vk,ebay_preis,bestand,synced_at_utc
+                           netto_vk,netto_ek,letzter_ek,letzter_ek_datum,amazon_vk,ebay_preis,bestand,synced_at_utc,raw_json
                     FROM hw24_jtl_articles WHERE source_id=? AND ean=?
                     ORDER BY jtl_article_id LIMIT 15');
   $q->execute([$meta['source_id'],$ean]);
+  $matches=$q->fetchAll();
+  foreach($matches as &$article){
+    $raw=json_decode((string)($article['raw_json']??''),true);
+    $article['steuerklasse_id']=is_array($raw)?($raw['kSteuerklasse']??null):null;
+    $article['hersteller_id']=is_array($raw)?($raw['kHersteller']??null):null;
+    unset($article['raw_json']); // internal raw DB fields are never exposed through the read API
+  }
+  unset($article);
   out(200,[
     'ok'=>true,'jtl_status'=>'current_snapshot',
     'snapshot_at'=>$meta['last_completed_utc'],'age_minutes'=>$age,
-    'matches'=>$q->fetchAll(),
+    'matches'=>$matches,
     'limited'=>false,
     'note'=>'JTL-Spiegelstand aus der letzten abgeschlossenen Synchronisation; keine direkte JTL-Datenbankverbindung'
   ]);
