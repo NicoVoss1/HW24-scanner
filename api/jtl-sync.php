@@ -126,8 +126,7 @@ try {
    // Older READY snapshots are deleted; the historical Excel archive stays untouched.
    try {
      $old=$pdo->query("SELECT source_id FROM hw24_jtl_sync_meta
-                       WHERE status='ready' ORDER BY last_completed_utc DESC
-                       LIMIT 200")->fetchAll(PDO::FETCH_COLUMN);
+                       WHERE status='ready' ORDER BY last_completed_utc DESC")->fetchAll(PDO::FETCH_COLUMN);
      if (count($old)>3) {
        $deleteArticles=$pdo->prepare('DELETE FROM hw24_jtl_articles WHERE source_id=?');
        $deleteMeta=$pdo->prepare("DELETE FROM hw24_jtl_sync_meta WHERE source_id=? AND status='ready'");
