@@ -19,12 +19,12 @@ $basicCredential=Import-Clixml -LiteralPath $config.http_credential_file
 if(-not ($basicCredential -is [PSCredential])){throw 'Plesk-HTTP-Zugang nicht lesbar'}
 $encryptedToken=(Get-Content -LiteralPath $config.api_token_file -Raw -Encoding UTF8).Trim()
 $secureToken=ConvertTo-SecureString -String $encryptedToken
-$token=(New-Object System.Net.NetworkCredential('token',$secureToken)).Password
+$token=(New-Object -TypeName System.Net.NetworkCredential -ArgumentList @('token',$secureToken)).Password
 if($token.Length -lt 32){throw 'API-Token ist zu kurz'}
 $login=$basicCredential.GetNetworkCredential()
 $basic=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($login.UserName+':'+$login.Password))
 $headers=@{'Authorization'='Basic '+$basic;'X-HW24-Sync-Token'=$token}
-$dsn=New-Object System.Data.SqlClient.SqlConnectionStringBuilder
+$dsn=New-Object -TypeName System.Data.SqlClient.SqlConnectionStringBuilder
 $dsn.DataSource=[string]$config.sql_server
 $dsn.InitialCatalog='eazybusiness'
 $dsn.IntegratedSecurity=$false
@@ -64,7 +64,7 @@ try{
 SELECT * FROM dbo.tArtikel ORDER BY kArtikel;
 SELECT * FROM dbo.tArtikelBeschreibung ORDER BY kArtikel, kSprache, kPlattform, kShop;
 '@
-  $adapter=New-Object System.Data.SqlClient.SqlDataAdapter($command)
+  $adapter=New-Object -TypeName System.Data.SqlClient.SqlDataAdapter -ArgumentList $command
   $dataset=New-Object System.Data.DataSet
   [void]$adapter.Fill($dataset)
 }finally{
