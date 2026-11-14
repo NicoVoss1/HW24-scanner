@@ -25,15 +25,27 @@ function missing(){
  for(const [label,fn] of checks)if(!fn())bad.push(label);
  return bad;
 }
+
+function currentJtlMissing(row){
+ const r=row||{},missingFields=[];
+ if(!v(r.artikelnummer))missingFields.push('Artikelnummer');
+ if(!v(r.artikelname))missingFields.push('Artikelname');
+ if(!v(r.hersteller))missingFields.push('Hersteller/Marke');
+ if(!v(r.steuerklasse))missingFields.push('Steuerklasse');
+ const price=Number(v(r.netto_vk).replace(',','.'));
+ if(!(Number.isFinite(price)&&price>0))missingFields.push('VK netto');
+ if(!gtin(v(r.ean)))missingFields.push('GTIN');
+ return missingFields;
+}
 function state(){
  const m=jtl?.jtl_status==='current_snapshot'?jtl.matches||[]:null;
  if(!ean)return {key:'idle',title:'EAN scannen',desc:'Eine EAN eingeben oder mit dem Scanner erfassen.'};
  if(!m)return {key:'unknown',title:'JTL-Bestand derzeit nicht verifiziert',desc:'Ohne frischen vollständigen JTL-Spiegel ist die Entscheidung „vorhanden oder neu“ noch offen.'};
  if(m.length>1)return {key:'multiple',title:'Mehrfach in JTL vorhanden',desc:'Bitte zunächst die richtige Artikelnummer zuordnen. Kein automatischer Import bei mehrdeutiger EAN.'};
  if(m.length===0)return {key:'new',title:'Mögliche Neuanlage',desc:'Kein EAN-Treffer im letzten vollständigen JTL-Spiegel. Die Artikelnummer muss separat auf Existenz geprüft werden.'};
- const gaps=missing();
- return gaps.length?{key:'maintenance',title:'Vorhanden · Produktpflege erforderlich',desc:gaps.length+' fehlende oder ungeprüfte Stammdaten-Basisfelder.'}
- :{key:'complete',title:'Vorhanden · Stammdaten-Basis vollständig',desc:'Die definierten Basisfelder sind befüllt. Marktplatzfreigaben und Lagerplatzabgleich sind separat zu prüfen.'};
+ const gaps=currentJtlMissing(m[0]);
+ return gaps.length?{key:'maintenance',title:'Vorhanden · Produktpflege erforderlich',desc:gaps.length+' noch nicht belegte Stammdaten in der aktuellen JTL-Quelle.'}
+ :{key:'complete',title:'Vorhanden · Stammdaten-Basis vollständig',desc:'Die Basisfelder stammen aus dem aktuellen JTL-Spiegel. Marktplatzfreigaben und Lagerplatzabgleich sind separat zu prüfen.'};
 }
 function put(parent,tag,value){const e=document.createElement(tag);e.textContent=value;parent.append(e);return e}
 function render(){
@@ -55,7 +67,7 @@ function render(){
  const list=$('scanMissing');list.replaceChildren();
  const gaps=missing();
  if(!ean)put(list,'p','Nach dem Scan erscheinen hier nur die noch offenen Stammdaten.');
- else if(!gaps.length)put(list,'p','✓ Stammdaten-Basisprüfung ohne Lücken.');
+ else if(!gaps.length)put(list,'p','✓ Im aktuellen Bearbeitungsentwurf keine Basislücken. Die JTL-Quelle bleibt bis zum erfolgreichen Ameise-Import unverändert.');
  else{
   put(list,'strong','Noch offen oder zu prüfen:');
   const ul=document.createElement('ul');for(const k of gaps)put(ul,'li',k);list.append(ul);
@@ -131,7 +143,8 @@ window.hw24FlowHistorical=data=>{
  prepare();
 };
 window.hw24FlowHistoryUnavailable=()=>{historyText='Historische Quelle nicht erreichbar';render()};
-window.hw24FlowNeedsHistory=()=>!(jtl?.jtl_status==='current_snapshot'&&jtl.matches?.length===1&&!missing().length);
+window.hw24FlowHistorySkipped=()=>{historyText='Nicht erforderlich: JTL-Stammdaten-Basis vollständig';render()};
+window.hw24FlowNeedsHistory=()=>!(jtl?.jtl_status==='current_snapshot'&&jtl.matches?.length===1&&currentJtlMissing(jtl.matches[0]).length===0);
 window.hw24FlowRefresh=render;
 $('scanOneClick')?.addEventListener('click',()=>{
  if(!ean)return;
