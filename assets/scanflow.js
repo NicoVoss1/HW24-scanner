@@ -15,6 +15,9 @@ function missing(){
  ['Artikelnummer',()=>Boolean(v(r.Artikelnummer))],
  ['Artikelname',()=>Boolean(v(r.Artikelname))],
  ['Hersteller / Marke',()=>Boolean(v(r.Hersteller))],
+ ['Kosten (EK)',()=>{const n=Number(v(r.Kosten).replace(',','.'));return Number.isFinite(n)&&n>0}],
+ ['Warengruppe / Kategorie',()=>Boolean(v(r.Warengruppe))],
+ ['ASIN (Amazon-Recherche)',()=>/^[A-Z0-9]{10}$/i.test(v(r.ASIN))],
  ['Steuerklasse',()=>Boolean(v(r.Steuerklasse))],
  ['Verkaufspreis',()=>['Netto-VK','Brutto-VK'].some(k=>{
   const x=v(r[k]).replace(/\s/g,''),normalized=x.includes(',')?x.replace(/\./g,'').replace(',','.'):x;
@@ -30,7 +33,11 @@ function currentJtlMissing(row){
  const r=row||{},missingFields=[];
  if(!v(r.artikelnummer))missingFields.push('Artikelnummer');
  if(!v(r.artikelname))missingFields.push('Artikelname');
- if(!v(r.hersteller))missingFields.push('Hersteller/Marke');
+ if(!v(r.hersteller)&&!v(current?.Hersteller))missingFields.push('Hersteller/Marke');
+ const cost=Number(v(current?.Kosten).replace(',','.'));
+ if(!(Number.isFinite(cost)&&cost>0))missingFields.push('Kosten (EK, eigener Wert)');
+ if(!v(current?.Warengruppe))missingFields.push('Warengruppe/Kategorie, Zuordnung prüfen');
+ if(!/^[A-Z0-9]{10}$/i.test(v(r.asin||current?.ASIN)))missingFields.push('ASIN für Amazon-Recherche');
  if(!v(r.steuerklasse)&&!(Number(r.steuerklasse_id)>0))missingFields.push('Steuerklasse in JTL');
  const price=Number(v(r.netto_vk).replace(',','.'));
  if(!(Number.isFinite(price)&&price>0))missingFields.push('VK netto');
