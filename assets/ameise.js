@@ -164,7 +164,7 @@ window.hw24AmeiseJtl=result=>{
   paint();
 };
 window.hw24AmeiseRefresh=paint;
-window.hw24AmeiseAutoExport=()=>{paint();return exportCSV()};
+window.hw24AmeiseAutoExport=()=>{paint();if(!record||!v(record.Artikelnummer)||!v(record.Artikelname))return false;stage();return exportCSV()};
 $('ameiseLoadEan')?.addEventListener('click',()=>{
   const input=$('ean');
   if(!input||!v(input.value)){
