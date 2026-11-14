@@ -16,10 +16,20 @@ Ziel: hw24_artikelmanager (MariaDB auf artikelmanager.hairworld24.de).
 
 ## Schritt 1: MariaDB vorbereiten
 
-Zuerst in Plesk/phpMyAdmin ein Backup erstellen. Dann im Schema hw24_artikelmanager
-den Inhalt der Datei sql/HW24_06_JTL_SPIEGEL.sql ausführen.
+Zuerst in Plesk/phpMyAdmin ein vollständiges Backup erstellen.
+Danach in der ausgewählten Datenbank hw24_artikelmanager die Skripte in dieser
+Reihenfolge verwenden:
+
+1. sql/HW24_08_MARIADB_STATUS_PRUEFEN_LESEND.sql (nur prüfen).
+2. sql/HW24_06_JTL_SPIEGEL.sql (JTL-Artikelsnapshot und Status).
+3. sql/HW24_07_QUELLEN_ENTWUERFE_KATEGORIEN_AUDIT.sql (Quellen, Drafts,
+   Kategorie-Mapping, Log-Tabellen und Standardprofil).
+4. Schritt 1 erneut prüfen. CREATE TABLE IF NOT EXISTS aktualisiert keine
+   bereits vorhandene alte Spaltenstruktur. Bei abweichenden bestehenden
+   JTL-Mirror-Tabellen nicht blind ALTER/DROP verwenden.
 
 Den bestehenden reinen Lesebenutzer hw24_app unverändert lassen.
+Die neuen Tabellen allein aktivieren noch kein serverseitiges Schreiben oder Audit.
 
 Über einen MariaDB-Administrator einen NEUEN Benutzer hw24_sync anlegen,
 der nur SELECT/INSERT/UPDATE/DELETE für diese beiden Tabellen bekommt:
@@ -113,3 +123,14 @@ Ausführung einrichten (als Ziel etwa alle fünf Minuten).
 
 Das Paket ist kein direkter JTL-Import. Keine Produktionsautomatik aktivieren,
 bevor Rechte, TLS, Datenqualität, Testläufe und Backups geprüft wurden.
+
+
+## Datenqualität und Importregeln
+
+Das Originalexport-Schema 12.11.2026 mit 872 Spalten und 2683 Artikeln
+wurde geprüft. Siehe docs/JTL_FELDKATALOG_STANDARDS_20261114.md.
+Kosten ist vom durchschnittlichen GLD-EK getrennt; Auf Lager / In Aufträgen /
+Verfügbar sind verschiedene Anzeige- und Prüfdaten, keine Ameise-Bestandsbuchung.
+Alle Preisfelder werden vor Ameise im Export mit dem definierten Komma-Dezimalformat
+kontrolliert. Bestehende Artikelnummern bleiben erhalten. Für echte Neuanlagen
+muss die JTL-Ameise-Nummernvergabe vorher als Test validiert werden.
