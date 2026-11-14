@@ -113,7 +113,7 @@ VALUES
 ('Überverkäufe möglich','N','new_only','user+export','Strict default NO overselling. Manual per-item exception only. 2690 of 2691 rows N (14.11.2026).'),
 ('Lieferstatus','2-4 Werktage','new_only','export','1834 export rows agree.'),
 ('Stückzahl teilbar','N','new_only','user+export','2627 export rows used N.'),
-('Zusätzliche Bearbeitungszeit','2','new_only','user','New user default; historical mode was 1.'),
+('Zusätzliche Bearbeitungszeit','1','new_only','curated_export','Preferred maintained JTL reference articles and screenshot have 1; editable per article.'),
 ('Beschaffungszeit automatisch ermitteln','0','new_only','export','2681 export rows used 0.'),
 ('Beschaffungszeit manuell setzen','2','new_only','export','Historical mode was 2; user can change to 3.'),
 ('Versandklasse','standard','new_only','user+export','All 2683 export rows use standard.'),
