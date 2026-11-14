@@ -63,6 +63,25 @@ try {
     $tables=$q->fetchAll(PDO::FETCH_COLUMN);
     $result['mirror_tables']=count($tables)===2?'present':'missing';
     if (count($tables)!==2) {$result['next']='install_mirror_tables';jtlStatusReply(200,$result);}
+    $required=[
+      'hw24_jtl_sync_meta'=>['source_id','status','last_completed_utc','last_row_count','last_run_id','last_message','updated_utc'],
+      'hw24_jtl_articles'=>['source_id','jtl_article_id','ean','han','asin','artikelnummer',
+        'artikelname','kurzbeschreibung','beschreibung','seo_titel','seo_beschreibung','hersteller',
+        'netto_vk','netto_ek','letzter_ek','letzter_ek_datum','amazon_vk','ebay_preis',
+        'bestand','source_modified_at','raw_json','beschreibungen_json','synced_at_utc']
+    ];
+    $cols=$pdo->query("SELECT TABLE_NAME,COLUMN_NAME FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA=DATABASE()
+         AND TABLE_NAME IN ('hw24_jtl_articles','hw24_jtl_sync_meta')")->fetchAll();
+    $present=[];
+    foreach ($cols as $column) $present[$column['TABLE_NAME']][$column['COLUMN_NAME']]=true;
+    foreach ($required as $table=>$names) foreach ($names as $name) {
+      if (empty($present[$table][$name])) {
+        $result['mirror_tables']='schema_incomplete';
+        $result['next']='check_mirror_schema';
+        jtlStatusReply(200,$result);
+      }
+    }
     $q=$pdo->query("SELECT last_completed_utc,last_row_count,
        TIMESTAMPDIFF(MINUTE,last_completed_utc,UTC_TIMESTAMP()) AS age_minutes
        FROM hw24_jtl_sync_meta
