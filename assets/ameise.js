@@ -82,7 +82,19 @@ function readSettings(){return {semicolon:true,encoding:'UTF-8-BOM',importType:'
  priceUpdates:'Vorhandene Preise nicht vorab löschen',categoryUpdates:'Vorhandene Kategorien nicht vorab löschen',
  images:'Nicht automatisch entfernen',stock:'Bestandsmengen nicht mit importieren'};}
 function paint(){
-  const root=$('ameisePanel');if(!root)return;root.hidden=!ean;if(!ean)return;
+  const root=$('ameisePanel');if(!root)return;
+  const hasArticle=Boolean(ean && record);
+  for(const id of ['ameisePrepare','ameiseExport','ameiseJSON']){
+    const button=$(id);if(button)button.disabled=!hasArticle;
+  }
+  if(!hasArticle){
+    $('ameiseIdentity').textContent='Noch kein Artikel ausgewählt';
+    $('ameiseStatus').textContent='Gib oben eine EAN ein und drücke Enter. Alternativ nutze „EAN oben prüfen und Artikel laden“. Der Bereich ist jederzeit aufklappbar.';
+    $('ameiseProblems').textContent='Nach einem Scan werden hier die fehlenden JTL-Stammdaten und die Importprüfung angezeigt.';
+    $('ameiseFieldCount').textContent='Noch keine Artikeldaten übernommen.';
+    $('ameisePreview').replaceChildren();
+    return;
+  }
   const f=candidateFields(),s=snapshot(),reasons=blockReasons();
   $('ameiseIdentity').textContent='EAN '+ean+' · '+s.name;
   $('ameiseStatus').textContent=s.type==='new'?'JTL-Neuanlage als Entwurf vorbereiten':s.type==='update'?'JTL-Aktualisierung als Entwurf vorbereiten':
@@ -134,8 +146,8 @@ function exportJSON(){
     fullJtlSchemaPresent:false,verified:false,exportedAt:new Date().toISOString()},null,2),
     'HW24_Ameise_Pruefung_'+safeName(f.Artikelnummer||ean)+'.json','application/json');
 }
-window.hw24AmeiseScan=(id,data)=>{ean=v(id);record=data||null;jtl=null;paint()};
-window.hw24AmeiseCurrent=data=>{record=data||null;/* avoid interrupting text typing; preview updates on button click */};
+window.hw24AmeiseScan=(id,data)=>{ean=v(id);record=data||null;jtl=null;if(ean&&$('ameisePanel'))$('ameisePanel').open=true;paint()};
+window.hw24AmeiseCurrent=data=>{record=data||null;paint()};
 window.hw24AmeiseJtl=result=>{
   jtl=result||null;
   if(jtl?.jtl_status==='current_snapshot'&&jtl.matches?.length===1&&record){
@@ -151,7 +163,20 @@ window.hw24AmeiseJtl=result=>{
   paint();
 };
 window.hw24AmeiseRefresh=paint;
+$('ameiseLoadEan')?.addEventListener('click',()=>{
+  const input=$('ean');
+  if(!input||!v(input.value)){
+    $('ameiseSaved').textContent='Bitte zuerst eine EAN in das Scan-Feld oben eingeben.';
+    input?.focus();return;
+  }
+  input.dispatchEvent(new Event('change',{bubbles:true}));
+});
+$('ameiseRefresh')?.addEventListener('click',()=>{
+  paint();
+  $('ameiseSaved').textContent=record?'Ameise-Vorschau aus den aktuellen Stammdaten aktualisiert.':'Bitte zunächst eine EAN scannen.';
+});
 $('ameisePrepare')?.addEventListener('click',()=>{paint();stage()});
 $('ameiseExport')?.addEventListener('click',()=>{paint();exportCSV()});
 $('ameiseJSON')?.addEventListener('click',()=>{paint();exportJSON()});
+paint();
 })();
