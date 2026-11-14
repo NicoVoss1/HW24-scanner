@@ -124,6 +124,15 @@ function render(){
 function take(key){
  const p=proposals.get(key);if(!row||!p||v(row[key]))return;
  row[key]=p.value;edited.add(key);
+ // Keep the existing core master-data form visually synchronized with the
+ // accepted recommendation; no artificial input event or second scan required.
+ const fields=document.getElementById('fields');
+ for(const box of fields?.querySelectorAll('.field')||[]){
+  const name=box.querySelector('label')?.textContent;
+  if(name!==key)continue;
+  const input=box.querySelector('input,textarea');
+  if(input&&!input.readOnly){input.value=p.value;box.className=box.className.replace(' bad',' good')}
+ }
  window.hw24AmeiseCurrent?.(row);window.hw24ProfileCurrent?.(row);
  window.hw24ChannelCurrent?.(row);window.hw24FlowRefresh?.();
  render();
