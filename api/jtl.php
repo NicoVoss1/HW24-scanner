@@ -56,10 +56,13 @@ try {
   }
   $q=$pdo->prepare('SELECT jtl_article_id,artikelnummer,ean,han,asin,artikelname,hersteller,kurzbeschreibung,beschreibung,seo_titel,seo_beschreibung,
                            netto_vk,netto_ek,letzter_ek,letzter_ek_datum,amazon_vk,ebay_preis,bestand,synced_at_utc,raw_json
-                    FROM hw24_jtl_articles WHERE source_id=? AND ean=?
-                    ORDER BY jtl_article_id LIMIT 15');
-  $q->execute([$meta['source_id'],$ean]);
+                    FROM hw24_jtl_articles
+                    WHERE source_id=? AND (ean=? OR han=? OR artikelnummer=?)
+                    ORDER BY jtl_article_id LIMIT 16');
+  $q->execute([$meta['source_id'],$ean,$ean,$ean]);
   $matches=$q->fetchAll();
+  $limited=count($matches)>15;
+  if ($limited) $matches=array_slice($matches,0,15);
   foreach($matches as &$article){
     $raw=json_decode((string)($article['raw_json']??''),true);
     $article['steuerklasse_id']=is_array($raw)?($raw['kSteuerklasse']??null):null;
@@ -78,6 +81,10 @@ try {
       }
     }
     $article['jtl_source_fields']=$fields;
+    $article['matched_on']=[];
+    foreach (['ean','han','artikelnummer'] as $identifier) {
+      if (trim((string)($article[$identifier]??''))===$ean) $article['matched_on'][]=$identifier;
+    }
     unset($article['raw_json']); // internal raw DB fields are never exposed through the read API
   }
   unset($article);
@@ -85,8 +92,8 @@ try {
     'ok'=>true,'jtl_status'=>'current_snapshot',
     'snapshot_at'=>$meta['last_completed_utc'],'age_minutes'=>$age,
     'matches'=>$matches,
-    'limited'=>false,
-    'note'=>'JTL-Spiegelstand aus der letzten abgeschlossenen Synchronisation; keine direkte JTL-Datenbankverbindung'
+    'limited'=>$limited,
+    'note'=>'JTL-Spiegelstand aus der letzten abgeschlossenen Synchronisation. Treffer über GTIN, HAN oder bestehende Artikelnummer; kein direkter Schreibzugriff auf JTL.'
   ]);
 } catch (Throwable $e) {
   error_log('HW24 JTL mirror lookup failed: '.$e->getMessage());
