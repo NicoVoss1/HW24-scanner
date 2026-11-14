@@ -19,6 +19,10 @@ CREATE TABLE IF NOT EXISTS hw24_jtl_articles (
     han VARCHAR(140) NULL,
     asin VARCHAR(32) NULL,
     artikelname VARCHAR(600) NULL,
+    kurzbeschreibung LONGTEXT NULL,
+    beschreibung LONGTEXT NULL,
+    seo_titel VARCHAR(400) NULL,
+    seo_beschreibung LONGTEXT NULL,
     hersteller VARCHAR(255) NULL,
     netto_vk DECIMAL(16,4) NULL,
     netto_ek DECIMAL(16,4) NULL, -- fEKNetto: durchschnittlicher EK netto / GLD
