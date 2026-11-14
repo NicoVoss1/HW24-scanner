@@ -122,6 +122,23 @@ try {
              last_message='Vollstaendig',updated_utc=UTC_TIMESTAMP(6)
          WHERE source_id=? AND status='staging'");
    $q->execute([$source]);
+   // Preserve last three successful snapshots for rollback.
+   // Older READY snapshots are deleted; the historical Excel archive stays untouched.
+   try {
+     $old=$pdo->query("SELECT source_id FROM hw24_jtl_sync_meta
+                       WHERE status='ready' ORDER BY last_completed_utc DESC
+                       LIMIT 200")->fetchAll(PDO::FETCH_COLUMN);
+     if (count($old)>3) {
+       $deleteArticles=$pdo->prepare('DELETE FROM hw24_jtl_articles WHERE source_id=?');
+       $deleteMeta=$pdo->prepare("DELETE FROM hw24_jtl_sync_meta WHERE source_id=? AND status='ready'");
+       foreach (array_slice($old,3) as $previous) {
+         $deleteArticles->execute([$previous]);
+         $deleteMeta->execute([$previous]);
+       }
+     }
+   } catch(Throwable $cleanupError) {
+     error_log('HW24 old JTL snapshot cleanup failed: '.$cleanupError->getMessage());
+   }
    reply(200,['ok'=>true,'status'=>'ready','articles'=>$actual]);
  }
  reply(400,['ok'=>false,'error'=>'unknown_action']);
