@@ -54,7 +54,7 @@ try {
     out(200,['ok'=>true,'jtl_status'=>'stale','snapshot_at'=>$meta['last_completed_utc'],
       'age_minutes'=>$age,'matches'=>[]]);
   }
-  $q=$pdo->prepare('SELECT jtl_article_id,artikelnummer,ean,han,asin,artikelname,hersteller,
+  $q=$pdo->prepare('SELECT jtl_article_id,artikelnummer,ean,han,asin,artikelname,hersteller,kurzbeschreibung,beschreibung,seo_titel,seo_beschreibung,
                            netto_vk,netto_ek,letzter_ek,letzter_ek_datum,amazon_vk,ebay_preis,bestand,synced_at_utc
                     FROM hw24_jtl_articles WHERE source_id=? AND ean=?
                     ORDER BY jtl_article_id LIMIT 15');
