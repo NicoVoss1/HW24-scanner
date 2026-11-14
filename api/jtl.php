@@ -55,7 +55,7 @@ try {
       'age_minutes'=>$age,'matches'=>[]]);
   }
   $q=$pdo->prepare('SELECT jtl_article_id,artikelnummer,ean,han,asin,artikelname,hersteller,
-                           brutto_vk,bestand,synced_at_utc
+                           netto_vk,netto_ek,amazon_vk,ebay_preis,bestand,synced_at_utc
                     FROM hw24_jtl_articles WHERE source_id=? AND ean=?
                     ORDER BY jtl_article_id LIMIT 15');
   $q->execute([$meta['source_id'],$ean]);
