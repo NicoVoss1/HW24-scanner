@@ -21,6 +21,8 @@ SELECT
    b.cName AS artikelname,
    b.cKurzBeschreibung AS kurzbeschreibung,
    b.cBeschreibung AS beschreibung,
+   b.cTitleTag AS seo_titel,
+   b.cMetaDescription AS seo_beschreibung,
    a.fVKNetto AS netto_vk,
    a.fEKNetto AS durchschnitt_ek_netto,
    a.fLetzterEK AS letzter_ek,
