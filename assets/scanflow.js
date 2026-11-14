@@ -151,8 +151,10 @@ $('scanOneClick')?.addEventListener('click',()=>{
  const s=state();
  if(s.key==='multiple'){ $('scanActionMsg').textContent='Zuerst die richtige JTL-Artikelnummer auswählen.';return }
  prepare();
- if(!v(current?.Artikelnummer)||!v(current?.Artikelname)){
-  $('scanActionMsg').textContent='Artikelnummer oder Artikelname fehlen. Nur diese Felder müssen noch ergänzt werden.';
+ if(!v(current?.Artikelname)||(!v(current?.Artikelnummer)&&s.key!=='new')){
+  $('scanActionMsg').textContent=s.key==='new'
+   ?'Für die Neuanlage wird zunächst ein eindeutiger Artikelname benötigt.'
+   :'Artikelnummer oder Artikelname fehlen. Vorhandene JTL-Artikelnummern müssen erhalten bleiben.';
   $('masterDataDetails').open=true;
   $('masterDataDetails').scrollIntoView({behavior:'smooth',block:'start'});
   return;
