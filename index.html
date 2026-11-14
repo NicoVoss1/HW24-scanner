@@ -41,10 +41,10 @@
 .scan-advanced>summary{cursor:pointer;font-weight:700;color:#173b7a;padding:6px}
 .scan-autofill{border:1px solid #e2bb4b;background:#fff7e0}
 button:disabled{opacity:.55;cursor:not-allowed}
-</style><h1>HW24 EAN-Artikelmanager <small>v4.1 GitHub</small></h1><p>EAN-Recherche mit historischen MariaDB-Daten. JTL-Wawi-Abgleich wird separat angebunden; noch keine direkte JTL-Buchung.</p><section id="hw24Project"><details open>
-<summary><strong>📋 Projektfortschritt · Artikelmanager v4.1</strong></summary>
+</style><h1>HW24 EAN-Artikelmanager <small>v4.2 GitHub</small></h1><p>EAN-Recherche mit historischen MariaDB-Daten. JTL-Wawi-Abgleich wird separat angebunden; noch keine direkte JTL-Buchung.</p><section id="hw24Project"><details open>
+<summary><strong>📋 Projektfortschritt · Artikelmanager v4.2</strong></summary>
 <p class="note">Hier siehst Du jederzeit, was bereits programmiert ist und welche Verbindung noch eingerichtet werden muss.</p>
-<ol id="hw24Milestones"></ol>
+<ol id="hw24Milestones"></ol><div class="local-actions"><button type="button" id="jtlApiCheck">🔌 Live-JTL-API prüfen</button><span id="jtlApiState" role="status" class="note">Verbindung noch nicht getestet</span></div>
 </details></section>
 <section id="importArea"><h3>📂 JTL-Export als CSV laden</h3>
 <p class="note">Die Datei aus JTL-Ameise (CSV mit Kopfzeilen) ergänzt die Artikelstammdaten. Die historische Excel-Arbeitsmappe ist unabhängig davon bereits in der MariaDB archiviert und wird nach dem EAN-Scan abgefragt. Hier bitte CSV und keine XLSX-Datei wählen.</p>
@@ -401,4 +401,4 @@ $('auditCancel').onclick=()=>{$('auditEditor').hidden=true;auditEditing=-1};
 $('auditAuto').onclick=()=>{let count=0;for(let i=0;i<data.length;i++){if(!auditSelected.has(auditId(data[i],i)))continue;let p=auditSuggest(data[i],i);if(Object.keys(p).length){auditApply(i,p);count++}}auditRender();alert(count+' ausgewählte Artikel mit sicheren Vorschlägen ergänzt. Bitte alle Vorschläge prüfen.')};
 $('auditFilter').onchange=auditRender;$('auditSearch').oninput=auditRender;
 $('auditExport').onclick=()=>{if(!auditDrafts.size){alert('Noch keine Änderungen vorhanden');return}let keys=['Artikelnummer',...new Set([...auditDrafts.values()].flatMap(Object.keys))].filter(k=>!isExcludedEditorField(k)&&k!=='Interner Schlüssel'&&k!=='GTIN'&&k!=='HAN'&&k!=='ASIN');let quote=v=>'"'+val(v).replace(/"/g,'""')+'"';let lines=[keys.map(quote).join(';')];for(let i=0;i<data.length;i++){let r=data[i],d=auditDrafts.get(auditId(r,i));if(!d)continue;lines.push(keys.map(k=>quote(k==='Artikelnummer'?r.Artikelnummer:Object.hasOwn(d,k)?d[k]:r[k])).join(';'))}let blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='HW24_JTL_Ameise_AENDERUNGEN_ZUERST_PRUEFEN.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};
-</script><script src="assets/kanalcheck.js?v=4.1"></script><script src="assets/ameise.js?v=4.1"></script><script src="assets/scanflow.js?v=4.1"></script><script src="assets/jtl-profil.js?v=4.1"></script><script src="assets/qualitaet.js?v=4.1"></script><script src="assets/reiter.js?v=4.1"></script></html>
+</script><script src="assets/kanalcheck.js?v=4.1"></script><script src="assets/ameise.js?v=4.1"></script><script src="assets/scanflow.js?v=4.1"></script><script src="assets/jtl-profil.js?v=4.1"></script><script src="assets/qualitaet.js?v=4.1"></script><script src="assets/reiter.js?v=4.1"></script><script src="assets/api-status.js?v=4.2"></script></html>
