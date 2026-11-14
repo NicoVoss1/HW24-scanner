@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS hw24_profile_defaults (
 INSERT IGNORE INTO hw24_profile_defaults
 (field_key,default_value,applies_to,provenance,explanation)
 VALUES
-('Überverkäufe möglich','Y','new_only','user','User override; previous export 2682 of 2683 rows used N. Review oversell risk.'),
+('Überverkäufe möglich','N','new_only','user+export','Strict default NO overselling. Manual per-item exception only. 2690 of 2691 rows N (14.11.2026).'),
 ('Lieferstatus','2-4 Werktage','new_only','export','1834 export rows agree.'),
 ('Stückzahl teilbar','N','new_only','user+export','2627 export rows used N.'),
 ('Zusätzliche Bearbeitungszeit','2','new_only','user','New user default; historical mode was 1.'),
