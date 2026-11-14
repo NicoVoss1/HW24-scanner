@@ -24,13 +24,15 @@ function strField($v, int $max): ?string {
 function numericField($v): ?string {
  if ($v===null || $v==='') return null;
  $s=(string)$v;
- if (!preg_match('/^-?[0-9]{1,12}(\.[0-9]{1,4})?$/D',$s)) throw new RuntimeException('invalid_numeric');
- return $s;
+ if (!preg_match('/^-?[0-9]{1,12}(\.[0-9]{1,14})?$/D',$s)) throw new RuntimeException('invalid_numeric');
+ // JTL stores prices at higher precision; MariaDB mirror DECIMAL(16,4).
+ return number_format((float)$s,4,'.','');
 }
 function dateField($v): ?string {
  if ($v===null || $v==='') return null;
  $s=(string)$v;
  if (!preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2}(\.\d{1,6})?)?$/D',$s)) throw new RuntimeException('invalid_date');
+ if ((int)substr($s,0,4)<1000) return null;
  return $s;
 }
 if (($_SERVER['REQUEST_METHOD']??'')!=='POST') {header('Allow: POST');reply(405,['ok'=>false,'error'=>'method']);}
