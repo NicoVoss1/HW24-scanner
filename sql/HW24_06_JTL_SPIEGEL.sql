@@ -21,7 +21,9 @@ CREATE TABLE IF NOT EXISTS hw24_jtl_articles (
     artikelname VARCHAR(600) NULL,
     hersteller VARCHAR(255) NULL,
     netto_vk DECIMAL(16,4) NULL,
-    netto_ek DECIMAL(16,4) NULL,
+    netto_ek DECIMAL(16,4) NULL, -- fEKNetto: durchschnittlicher EK netto / GLD
+    letzter_ek DECIMAL(16,4) NULL, -- fLetzterEK: letzter EK der Buchung
+    letzter_ek_datum DATETIME(6) NULL, -- dLetzterEK
     amazon_vk DECIMAL(16,4) NULL,
     ebay_preis DECIMAL(16,4) NULL,
     bestand DECIMAL(16,3) NULL,
@@ -43,3 +45,6 @@ CREATE TABLE IF NOT EXISTS hw24_jtl_articles (
 -- JTL fVKNetto is preserved as netto_vk; final customer gross price needs the
 -- appropriate tax mapping and customer/marketplace context.
 -- Descriptions are retained separately per kSprache/kPlattform/kShop.
+
+-- For pre-existing installations created from a prior draft of this schema,
+-- add the new columns separately after inspecting SHOW COLUMNS.
