@@ -43,7 +43,18 @@ const calculated=new Set(['Durchschnittlicher Einkaufspreis (netto)','Letzter EK
   'Auf Lager','In Aufträgen','Verfügbar','Fehlbestand','Menge','Lagerbestand','Artikel zuletzt bearbeitet am','Artikel zuletzt bearbeitet durch','Steuersatz in %']);
 let record=null,ean='',jtl=null,loadedArchive=null;
 function source(k){for(const key of k){const value=v(record?.[key]);if(value!=='')return value;}return ''}
-function nonZeroMoney(k){const x=source(k);if(!x)return '';const amount=Number(x.replace(/\./g,'').replace(',','.'));return Number.isFinite(amount)&&amount>0?x:''}
+function nonZeroMoney(k){
+ const raw=source(k).replace(/\s/g,'');
+ if(!raw)return '';
+ let normalized=raw;
+ // JTL SQL API uses "." decimal; native JTL exports normally use "," decimal.
+ // Reject unrecognized money formatting rather than risking a 100x price error.
+ if(/^\d{1,3}(?:\.\d{3})+,\d{1,4}$/.test(raw))normalized=raw.replace(/\./g,'');
+ else if(/^\d+\.\d{1,4}$/.test(raw))normalized=raw.replace('.',',');
+ else if(!/^\d+(?:,\d{1,4})?$/.test(raw))return '';
+ const amount=Number(normalized.replace(',','.'));
+ return Number.isFinite(amount)&&amount>0?normalized:'';
+}
 function snapshot(){
   if(jtl?.jtl_status==='current_snapshot'){
     const n=(jtl.matches||[]).length;
