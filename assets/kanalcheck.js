@@ -6,7 +6,7 @@ const gtin=s=>{if(!/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(s)||/^0+$/.test(s))re
 const schemes={
  amazon:{name:'Amazon',message:'Pflichtattribute hängen von Produkttyp und Angebotsart ab. Ohne offizielle Produkttyp-Vorlage keine vollständige Freigabe.',fields:[
  ['title','Produkttitel','basis'],['brand','Marke','basis'],['product_type','Produkttyp','kategorie'],['asin','Vorhandene ASIN','pruefen'],['gtin','GTIN','pruefen'],
- ['description','Beschreibung','empfohlen'],['bullet1','Merkmal 1','empfohlen'],['bullet2','Merkmal 2','empfohlen'],
+ ['description','Beschreibung','empfohlen'],['bullet1','Bullet 1 · belegtes Hauptmerkmal','empfohlen'],['bullet2','Bullet 2 · weiteres Produktmerkmal','empfohlen'],
  ['price','Brutto-Angebotspreis','verkauf'],['qty','Verkaufbarer Bestand','verkauf'],['image','Hauptbild-URL','verkauf']]},
  shopify:{name:'Shopify',message:'Für die erstmalige Produktanlage per CSV ist Title erforderlich. Zusätzliche Angaben und Variantenregeln separat prüfen.',fields:[
  ['title','Produkttitel','basis'],['vendor','Anbieter / Hersteller','empfohlen'],['product_type','Produkttyp / Kategorie','kategorie'],
