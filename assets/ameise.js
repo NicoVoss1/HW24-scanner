@@ -68,7 +68,7 @@ function blockReasons(){
   if(found.type==='unknown')errors.push('Aktueller JTL-Abgleich fehlt. JTL-Ameise kann beim Trockenlauf mit Importart „Neue Artikel importieren, vorhandene aktualisieren“ nach Artikelnummer entscheiden.');
   if(!f.Steuerklasse)errors.push('Steuerklasse fehlt. Für Neuanlagen vor Import prüfen oder gesicherten JTL-Standardwert verwenden.');
   if(!f.Hersteller)errors.push('Hersteller/Marke fehlt (für Amazon oftmals wichtig).');
-  if(!f.Brutto-VK&&!f['Netto-VK'])errors.push('Kein positiver Verkaufspreis im aktuellen Entwurf vorhanden.');
+  if(!f['Brutto-VK']&&!f['Netto-VK'])errors.push('Kein positiver Verkaufspreis im aktuellen Entwurf vorhanden.');
   return errors;
 }
 function safeName(s){return v(s).replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,65)||'unbekannt'}
