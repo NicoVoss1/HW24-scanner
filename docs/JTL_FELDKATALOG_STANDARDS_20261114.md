@@ -1,7 +1,7 @@
 # HW24 JTL field catalog and source priority (14 Nov 2026)
 
 ## Sources examined directly
-- JTL-Export-Artikelstammdaten-12112026.csv: 872 original column headers, 2683 article rows, Windows-1252, semicolon delimiter.
+- JTL-Export-Artikelstammdaten-14112026.csv: 872 original column headers, 2691 article rows, Windows-1252, semicolon delimiter.
 - JTL WAWI Felder aus DB.csv: real SQL Server 2017 columns of dbo.tArtikel (91), dbo.tArtikelBeschreibung (12), dbo.tArtikelAttribut (5) and dbo.tArtikelMerkmal (4).
 - Old Excel workbook is stored in hw24_excel_rows / hw24_excel_identifiers on Plesk and is historical, not current JTL.
 - Windows SQL Server current 'eazybusiness' previously contained 2689 JTL articles in an earlier separate query. Do not confuse counts at different times.
