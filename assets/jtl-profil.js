@@ -112,6 +112,11 @@ function createControl(container,key,type,read){
  const update=n=>{
    if(read)return;
    rec[key]=n;manuallyChanged.add(key);
+   if(key==='Steuerklasse'){
+    // A rate is only suitable for its actual tax class, never keep a stale 19% suggestion.
+    if(n!=='normaler steuersatz')delete rec['Steuersatz in %'];
+    else if(!val(rec['Steuersatz in %'])&&canPreset())rec['Steuersatz in %']='19,00';
+   }
    window.hw24AmeiseCurrent?.(rec);
    window.hw24ChannelCurrent?.(rec);
    window.hw24FlowRefresh?.();
