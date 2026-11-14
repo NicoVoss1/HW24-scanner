@@ -154,6 +154,7 @@ async function lookupProductSources(ean){
       };
       state.textContent=(reasons[jtl.jtl_status]||'JTL-Verbindung ungeprüft.')+' Kein verbindliches Urteil „Artikel neu“. Historische Daten werden dennoch durchsucht.';
     }
+    window.hw24FlowRefresh?.();
   }catch(err){
     if(seq!==sourceLookupSeq)return;
     window.hw24FlowJtl?.({jtl_status:'unavailable',matches:[]});
