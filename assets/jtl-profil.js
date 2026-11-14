@@ -43,7 +43,7 @@ const grouped=[
 // the two times, but user explicitly requests 2 and a choice of 2/3.
 const newDefaults={
  'Überverkäufe möglich':'N','Lieferstatus':'2-4 Werktage','Stückzahl teilbar':'N',
- 'Zusätzliche Bearbeitungszeit':'2','Beschaffungszeit automatisch ermitteln':'0',
+ 'Zusätzliche Bearbeitungszeit':'1','Beschaffungszeit automatisch ermitteln':'0',
  'Beschaffungszeit manuell setzen':'2','Versandklasse':'standard',
  'Artikel aktiv':'Y','Bestandsführung aktiv':'Y','Top-Artikel':'N',
  'Warengruppe':'Haarfarben','Artikeltyp':'Normaler Artikel','Neu im Sortiment':'Y',
@@ -86,7 +86,17 @@ function applyDefaults(){
  if(!canPreset()){status('Keine Neuanlage-Vorbelegung: Dieser Artikel ist bereits im JTL-Bestand oder CSV vorhanden.');return 0}
  let count=0;
  for(const [key,value] of defaults){
-  if(!val(rec[key])){rec[key]=value;count++}
+  if(val(rec[key]))continue;
+  if(key==='Warengruppe'){
+   const name=val(rec.Artikelname).toLowerCase();
+   // Product family cannot be guessed from a generic missing name.
+   if(/shampoo|conditioner|haarkur|pflegemaske|haarpflege/.test(name))rec[key]='Haarpflege';
+   else if(/styling|haarspray|haargel|haarwachs|haarschaum/.test(name))rec[key]='Haarstyling';
+   else if(/booster|pokemon|pokémon|sammelkart/.test(name))rec[key]='Sammelkarten';
+   else if(/haarfarb|tönung|koleston|illumina|color touch|igora|majirel|majiblond|tinta color|färbecreme/.test(name))rec[key]='Haarfarben';
+   else continue;
+  }else rec[key]=value;
+  count++;
  }
  // 19% is a proposed default only for the normal tax class, not for gift cards.
  if(val(rec.Steuerklasse).toLowerCase()!=='normaler steuersatz')delete rec['Steuersatz in %'];
@@ -94,6 +104,7 @@ function applyDefaults(){
  window.hw24AmeiseCurrent?.(rec);
  window.hw24ChannelCurrent?.(rec);
  window.hw24FlowRefresh?.();
+ window.hw24QualityEdit?.(rec);
  render();
  status(count+' Standardwerte für Neuanlage ergänzt. Überverkäufe bleiben NEIN. Bitte Produktgruppe, Steuerklasse und Preise kontrollieren.');
  return count;
@@ -118,6 +129,7 @@ function createControl(container,key,type,read){
     else if(!val(rec['Steuersatz in %'])&&canPreset())rec['Steuersatz in %']='19,00';
    }
    window.hw24AmeiseCurrent?.(rec);
+   window.hw24QualityEdited?.(key,rec);
    window.hw24ChannelCurrent?.(rec);
    window.hw24FlowRefresh?.();
  };
