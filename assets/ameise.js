@@ -59,7 +59,13 @@ function candidateFields(){
   for(const [key,aliases] of schema){
     let value=source(aliases);
     // Never create import fields from zero / derived prices or internal calculations.
-    if(['Brutto-VK','Netto-VK'].includes(key))value=nonZeroMoney(aliases);
+    // Never send missing/zero prices or zero purchase cost to Wawi.
+    // Zero in the export can mean unknown, and must not erase existing prices.
+    if(['Brutto-VK','Netto-VK','Kosten',
+      'JTL-Wawi: Amazon B2B Netto','JTL-Wawi: Amazon B2B Brutto',
+      'JTL-Wawi: Amazon B2C Netto','JTL-Wawi: Amazon B2C Brutto',
+      'JTL-Wawi: eBay Fb24 Netto','JTL-Wawi: eBay Fb24 Brutto',
+      'Neuer Standardpreis für eBay-Angebote'].includes(key))value=nonZeroMoney(aliases);
     if(!value)continue;
     p[key]=value;
   }
@@ -73,6 +79,9 @@ function blockReasons(){
   if(found.type==='unknown')errors.push('Aktueller JTL-Abgleich fehlt. JTL-Ameise kann beim Trockenlauf mit Importart „Neue Artikel importieren, vorhandene aktualisieren“ nach Artikelnummer entscheiden.');
   if(!f.Steuerklasse)errors.push('Steuerklasse fehlt. Für Neuanlagen vor Import prüfen oder gesicherten JTL-Standardwert verwenden.');
   if(!f.Hersteller)errors.push('Hersteller/Marke fehlt (für Amazon oftmals wichtig).');
+  if(!f.Kosten)errors.push('Kosten/EK fehlt oder ist 0; bitte den tatsächlichen Einkaufspreis prüfen. Ø EK ist ein getrennter JTL-Rechenwert.');
+  if(!f.ASIN)errors.push('ASIN fehlt: Recherche für Amazon-Zuordnung prüfen. Keine ASIN automatisch erfinden.');
+  if(f['Überverkäufe möglich']==='Y')errors.push('Überverkäufe aktiviert: Lieferfähigkeit, Beschaffungszeit und Amazon-Richtlinien vor Veröffentlichung prüfen.');
   if(!f['Brutto-VK']&&!f['Netto-VK'])errors.push('Kein positiver Verkaufspreis im aktuellen Entwurf vorhanden.');
   return errors;
 }
@@ -83,7 +92,7 @@ function download(content,filename,mime){
   a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);
 }
 function readSettings(){return {semicolon:true,encoding:'UTF-8-BOM',importType:'Artikel > Artikeldaten',matchKey:'Artikelnummer',
- mode:'Neue Artikel importieren, vorhandene aktualisieren',keepEmpty:true,
+ mode:'Neue Artikel importieren, vorhandene aktualisieren',autoNumberIfMissing:true,keepEmpty:true,
  priceUpdates:'Vorhandene Preise nicht vorab löschen',categoryUpdates:'Vorhandene Kategorien nicht vorab löschen',
  images:'Nicht automatisch entfernen',stock:'Bestandsmengen nicht mit importieren'};}
 function paint(){
@@ -120,7 +129,7 @@ function paint(){
   const problems=$('ameiseProblems');problems.replaceChildren();
   if(!reasons.length){const p=document.createElement('p');p.textContent='Basisprüfung bestanden. JTL-Ameise-Feldzuordnung, Importvorlage und Testlauf bleiben verpflichtend.';problems.append(p)}
   else{const l=document.createElement('ul');for(const err of reasons){const li=document.createElement('li');li.textContent=err;l.append(li)}problems.append(l)}
-  $('ameiseFieldCount').textContent=Object.keys(f).length+' befüllte Originalspalten aus der 872-Spalten-JTL-Exportstruktur. Keine Lagerbestände, keine internen EK-Berechnungswerte.';
+  $('ameiseFieldCount').textContent=Object.keys(f).length+' befüllte Originalspalten aus der 872-Spalten-JTL-Exportstruktur. Kein Lagerbestands-Import; Kosten ist eigener EK, der Ø EK bleibt reine JTL-Quellinformation.';
 }
 function stage(){
   if(!record)return;
