@@ -14,6 +14,36 @@ Ziel: hw24_artikelmanager (MariaDB auf artikelmanager.hairworld24.de).
 - Ein vollständiges Änderungs-Audit fehlt noch und muss separat umgesetzt werden.
 - Ameise führt spätere Neuanlagen/Aktualisierungen durch; keine direkte Wawi-Schreibanbindung.
 
+## Sofortstart: Erst prüfen, dann verbinden (ohne Datenänderung)
+
+1. In Plesk unter artikelmanager.HAIRWORLD24.de > Git zuerst **Jetzt Pull ausführen**
+   und anschließend **Jetzt bereitstellen**. Die neuen API-Dateien müssen
+   wirklich im Serververzeichnis /api liegen. GitHub Pages ist hierfür nicht geeignet.
+2. Im Browser die folgende Adresse öffnen und sich ggf. beim bestehenden
+   Website-Passwortschutz anmelden:
+   https://artikelmanager.hairworld24.de/api/jtl-status.php
+3. Die angezeigte JSON-Antwort enthält keine Kennwörter, Tokens oder privaten
+   Dateipfade und kann zur Diagnose weitergegeben werden.
+4. Bedeutung des Feldes `next`:
+
+   - `upgrade_php`: PHP auf 8.4 oder neuer einstellen (Plesk verwendet bereits 8.5.12).
+   - `enable_pdo_mysql`: MySQL-PDO-Erweiterung einschalten.
+   - `configure_read_api`: private Datei hw24_private/db.php außerhalb der
+     Website prüfen, vorhandenen Lesebenutzer hw24_app unverändert lassen.
+   - `install_mirror_tables`: nach Backup SQL-Datei HW24_06_JTL_SPIEGEL.sql ausführen.
+   - `check_mirror_schema`: vorhandene Tabellen/Spalten im phpMyAdmin
+     kontrollieren, keine Tabelle blind überschreiben.
+   - `fix_mariadb_access`: MariaDB-Berechtigungen bzw. Verbindungsparameter prüfen.
+   - `configure_and_run_windows_sync`: MariaDB-Spiegel bereit,
+     synchronisierten Windows-Dienst noch nicht gestartet.
+   - `rerun_windows_sync`: letzter vollständiger Spiegel älter als 30 Minuten.
+   - `query_known_ean`: aktueller Spiegel verfügbar, bekannte Kennung testen.
+
+Diese Diagnose macht **keine Änderungen** an JTL oder MariaDB.
+Der neue Windows-Test `sync/HW24_JTL_Verbindungstest.ps1` ist ebenfalls rein lesend.
+Der Schreibempfänger `api/jtl-sync.php` unterstützt zusätzlich
+`{"action":"probe"}` mit echtem Token, aber ebenfalls ohne Änderung an Datensätzen.
+
 ## Schritt 1: MariaDB vorbereiten
 
 Zuerst in Plesk/phpMyAdmin ein vollständiges Backup erstellen.
@@ -97,6 +127,19 @@ Der Windows-Aufgabenplaner muss exakt unter demselben Windows-Konto laufen.
 Achtung: Der SQL-Server benötigt ein gültiges, vertrauenswürdiges TLS-Zertifikat.
 Das Skript verwendet Encrypt=true und TrustServerCertificate=false.
 
+## Vor dem ersten vollständigen Sync: Verbindungstest
+
+Die Windows-Konfiguration und die DPAPI-Dateien müssen lokal auf dem
+Windows-Rechner gespeichert sein. Ohne Login- oder Tokenweitergabe an ChatGPT:
+
+    .\HW24_JTL_Verbindungstest.ps1 -ConfigFile C:\HW24\jtl-sync.json
+
+Das Skript liest SQL Server 2017 (SELECT COUNT_BIG und Testkennungen)
+und fragt die Plesk-Status-API ab. Es überträgt **keine** Artikel.
+Die SQL-Verbindung verwendet Encrypt=true und TrustServerCertificate=false:
+bei Zertifikatsfehlern nicht einfach die Prüfung abschalten; stattdessen
+SQL-Server-Zertifikat und Vertrauenskette korrekt einrichten.
+
 ## Schritt 5: Einmaligen Test und spätere Automatik durchführen
 
 Einmalig unter dem vorgesehenen Windows-Konto starten:
@@ -104,7 +147,7 @@ Einmalig unter dem vorgesehenen Windows-Konto starten:
     .\HW24_JTL_Synchronisieren.ps1 -ConfigFile C:\HW24\jtl-sync.json
 
 Vorher vollständige Datenbanksicherungen anfertigen und Verbindung prüfen.
-Testen: 2689 bzw. die aktuelle vollständige Artikelanzahl übertragen,
+Testen: die zur Laufzeit aktuelle vollständige Artikelanzahl übertragen,
 eine bekannte EAN im Artikelmanager finden, Dubletten erkennen und einen
 abgebrochenen Lauf simulieren. Ein abgebrochener Lauf darf den letzten
 vollständigen Snapshot nicht überschreiben.
@@ -127,7 +170,7 @@ bevor Rechte, TLS, Datenqualität, Testläufe und Backups geprüft wurden.
 
 ## Datenqualität und Importregeln
 
-Das Originalexport-Schema 12.11.2026 mit 872 Spalten und 2683 Artikeln
+Das aktuelle Originalexport-Schema 14.11.2026 mit 872 Spalten und 2691 Artikeln
 wurde geprüft. Siehe docs/JTL_FELDKATALOG_STANDARDS_20261114.md.
 Kosten ist vom durchschnittlichen GLD-EK getrennt; Auf Lager / In Aufträgen /
 Verfügbar sind verschiedene Anzeige- und Prüfdaten, keine Ameise-Bestandsbuchung.
