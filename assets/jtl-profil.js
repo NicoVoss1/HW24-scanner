@@ -9,6 +9,7 @@ const $=id=>document.getElementById(id),val=x=>String(x??'').trim();
 const grouped=[
  ['Identifikation und Kosten',[
   ['Kosten','text','edit'],['Durchschnittlicher Einkaufspreis (netto)','text','read'],
+  ['Lieferant','text','edit'],['Artikelnummer (Lieferant)','text','edit'],
   ['Auf Lager','text','read'],['In Aufträgen','text','read'],['Verfügbar','text','read']]],
  ['Artikelstandards und Versand',[
   ['Überverkäufe möglich','yn','edit'],['Lieferstatus','text','edit'],
