@@ -134,7 +134,7 @@ function suggest(){
   const all=sourceCandidates(k);
   const good=all.find(c=>{
    if(['price','qty','asin','category_id','specifics','image','condition','shipping','gtin'].includes(k))return false;
-   if(kind==='kategorie'&&c.kind==='historical')return false;
+   if(kind==='kategorie')return false;
    return c.kind==='jtl'||c.kind==='local'||(c.kind==='derived'&&k==='handle');
   });
   if(good){forms[active][k]=good.value;origins[active][k]=good.src+' · Entwurf';n++}
