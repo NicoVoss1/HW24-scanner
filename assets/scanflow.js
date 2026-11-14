@@ -31,7 +31,7 @@ function currentJtlMissing(row){
  if(!v(r.artikelnummer))missingFields.push('Artikelnummer');
  if(!v(r.artikelname))missingFields.push('Artikelname');
  if(!v(r.hersteller))missingFields.push('Hersteller/Marke');
- if(!v(r.steuerklasse))missingFields.push('Steuerklasse');
+ if(!v(r.steuerklasse)&&!(Number(r.steuerklasse_id)>0))missingFields.push('Steuerklasse in JTL');
  const price=Number(v(r.netto_vk).replace(',','.'));
  if(!(Number.isFinite(price)&&price>0))missingFields.push('VK netto');
  if(!gtin(v(r.ean)))missingFields.push('GTIN');
