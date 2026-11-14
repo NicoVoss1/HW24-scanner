@@ -163,6 +163,7 @@ window.hw24ChannelScan=(id,record)=>{
  }
  paint();status(Object.keys(saved).length?'Vorhandene lokale Entwürfe geladen.':'Neuer Entwurf. JTL- und historische Recherche laufen.');
 };
+window.hw24ChannelCurrent=data=>{item=data||{}; /* only re-render on next source/tab change to preserve field focus */};
 window.hw24ChannelJtl=data=>{jtl=data||null;paint()};
 window.hw24ChannelHistorical=data=>{historical=data||null;paint()};
 })();
