@@ -98,7 +98,8 @@ foreach($row in $articles.Rows){
   $a=To-DbObject $row
   $id=[string]$a['kArtikel']
   $main=if($primary.ContainsKey($id)){$primary[$id]}else{@{}}
-  $all=if($descriptions.ContainsKey($id)){$descriptions[$id].ToArray()}else{@()}
+  $all=@()
+  if($descriptions.ContainsKey($id)){$all=@($descriptions[$id].ToArray())}
   $record=@{
     jtl_article_id=$id
     artikelnummer=$a['cArtNr']
