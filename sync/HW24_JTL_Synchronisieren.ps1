@@ -25,14 +25,14 @@ $login=$basicCredential.GetNetworkCredential()
 $basic=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($login.UserName+':'+$login.Password))
 $headers=@{'Authorization'='Basic '+$basic;'X-HW24-Sync-Token'=$token}
 $dsn=New-Object -TypeName System.Data.SqlClient.SqlConnectionStringBuilder
-$dsn.DataSource=[string]$config.sql_server
-$dsn.InitialCatalog='eazybusiness'
-$dsn.IntegratedSecurity=$false
-$dsn.UserID=$sqlCredential.UserName
-$dsn.Password=$sqlCredential.GetNetworkCredential().Password
-$dsn.ConnectTimeout=15
-$dsn.Encrypt=$true
-$dsn.TrustServerCertificate=$false # install/verify proper SQL Server certificate before running
+$dsn['Data Source']=[string]$config.sql_server
+$dsn['Initial Catalog']='eazybusiness'
+$dsn['Integrated Security']=$false
+$dsn['User ID']=$sqlCredential.UserName
+$dsn['Password']=$sqlCredential.GetNetworkCredential().Password
+$dsn['Connect Timeout']=15
+$dsn['Encrypt']=$true
+$dsn['TrustServerCertificate']=$false # install/verify proper SQL Server certificate before running
 function To-DbObject($row) {
   $obj=@{}
   foreach($col in $row.Table.Columns){
@@ -59,7 +59,7 @@ Write-Host 'HW24-Sync: Empfaenger pruefen, ohne Daten zu veraendern ...'
 $probe=Post-Chunk @{action='probe'}
 if($probe.status -ne 'receiver_ready'){throw 'Empfaenger nicht einsatzbereit'}
 Write-Host 'HW24-Sync: API-Empfaenger bestaetigt.'
-$connection=New-Object System.Data.SqlClient.SqlConnection($dsn.ConnectionString)
+$connection=[System.Data.SqlClient.SqlConnection]::new($dsn.ConnectionString)
 try{
   $connection.Open()
   $command=New-Object System.Data.SqlClient.SqlCommand
