@@ -110,6 +110,7 @@ function autoPrefill(){
  // JTL current snapshot outranks a local CSV value. Manual / saved channel values stay untouched.
  const r=(jtl?.jtl_status==='current_snapshot'&&jtl.matches?.length===1)?jtl.matches[0]:null;
  const copy=(channel,k)=>{
+  if(!forms[channel]||!origins[channel])return;
   const fromJtl={
     title:r?.artikelname,brand:r?.hersteller,vendor:r?.hersteller,
     sku:r?.artikelnummer,gtin:r?.ean,asin:r?.asin,
