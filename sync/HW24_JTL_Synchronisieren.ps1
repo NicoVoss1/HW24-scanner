@@ -111,7 +111,7 @@ foreach($row in $articles.Rows){
     beschreibung=$main['cBeschreibung']
     seo_titel=$main['cTitleTag']
     seo_beschreibung=$main['cMetaDescription']
-    hersteller=$a['cHersteller'] # may be null; manufacturer join requires verified schema
+    hersteller=$null # tArtikel has kHersteller (ID), NOT cHersteller; names require a verified tHersteller join
     netto_vk=$a['fVKNetto']
     netto_ek=$a['fEKNetto']
     letzter_ek=$a['fLetzterEK']
