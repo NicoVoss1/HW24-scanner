@@ -16,24 +16,23 @@ if($TestEan -notmatch '^\d{8,14}$'){throw 'TestEan muss 8 bis 14 Ziffern haben'}
 $cred=Import-Clixml -LiteralPath $config.sql_credential_file
 if(-not ($cred -is [System.Management.Automation.PSCredential])){throw 'SQL DPAPI-Konto ungueltig'}
 $sb=New-Object System.Data.SqlClient.SqlConnectionStringBuilder
-$sb.DataSource=[string]$config.sql_server
-$sb.InitialCatalog='eazybusiness'
-$sb.IntegratedSecurity=$false
-$sb.UserID=$cred.UserName
-$sb.Password=$cred.GetNetworkCredential().Password
-$sb.ConnectTimeout=15
-$sb.Encrypt=$true
-$sb.TrustServerCertificate=$false
+$sb['Data Source']=[string]$config.sql_server
+$sb['Initial Catalog']='eazybusiness'
+$sb['Integrated Security']=$false
+$sb['User ID']=$cred.UserName
+$sb['Password']=$cred.GetNetworkCredential().Password
+$sb['Connect Timeout']=15
+$sb['Encrypt']=$true
+$sb['TrustServerCertificate']=$false
 Write-Host '1/2 JTL SQL Server testen (nur SELECT, TLS-Zertifikatspruefung aktiv) ...'
-$conn=New-Object System.Data.SqlClient.SqlConnection($sb.ConnectionString)
+$conn=[System.Data.SqlClient.SqlConnection]::new($sb.ConnectionString)
 try{
  $conn.Open()
- $count=New-Object System.Data.SqlClient.SqlCommand(
-  'SELECT COUNT_BIG(*) FROM dbo.tArtikel',$conn)
+ $count=[System.Data.SqlClient.SqlCommand]::new('SELECT COUNT_BIG(*) FROM dbo.tArtikel',$conn)
  $count.CommandTimeout=20
  $total=[int64]$count.ExecuteScalar()
  Write-Host ('   OK: eazybusiness / tArtikel. Artikelanzahl: '+$total)
- $cmd=New-Object System.Data.SqlClient.SqlCommand(
+ $cmd=[System.Data.SqlClient.SqlCommand]::new(
   'SELECT TOP (8) kArtikel,cArtNr,cBarcode,cHAN,cASIN
    FROM dbo.tArtikel
    WHERE cBarcode=@ean OR cHAN=@ean OR cArtNr=@ean ORDER BY kArtikel',$conn)
