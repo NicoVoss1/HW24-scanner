@@ -24,22 +24,22 @@
 - ASIN is important for Amazon; require sourced validation, not fabricated auto-fill.
 - Warengruppe and Kategorie Ebene 1/2/3 may point to internal classification. Amazon productType/browseNode matching requires verified mapping by product category and external seller requirements.
 
-## Original export distribution (2683 rows)
-- Kosten: 1645 entries at 1,50; 799 at 0,00.
-- Überverkäufe möglich: N 2682, Y 1. User now requests Y as default for **new** articles. Never overwrite the N values of existing articles automatically.
-- Lieferstatus: "2-4 Werktage" in 1834 nonblank records, 849 blank.
-- Stückzahl teilbar N in 2627 records.
-- Zusätzliche Bearbeitungszeit: 1 in 1434; 0 in 759; 3 in 471; 2 in 19. User overrides new-item default to 2.
-- Beschaffungszeit manuell setzen: 2 in 1428; 0 in 776; 3 in 468; 1 in 11. Default 2 for now, editable to 3.
-- Versandklasse: "standard" in all 2683.
-- Artikel aktiv Y in all 2683; Bestandsführung aktiv Y in 2675.
-- Warengruppe Haarfarben in 2390, Haarpflege in 181, Haarstyling in 76, Sammelkarten in 11. Do not force hair-color category on unrelated products.
-- Artikeltyp Normaler Artikel in 2678.
-- Neu im Sortiment Y in 2605.
-- Steuerklasse normaler steuersatz and Steuersatz in % 19,00 in all 2683 source rows. This is an article-type default, NOT a universal statement of tax law.
-- Währung: EUR in only 37 rows, 2646 blank. User requests EUR for new imports.
-- ASIN populated in 2415, blank in 268.
-- Artikel zuletzt bearbeitet durch includes two named users in the export, while the SQL source stores a numeric editor ID.
+## Original export distribution (current 14 Nov 2026; 2691 rows)
+- 1928 articles under Friseurbedarf; 750 under "1 Amazon-Import-mit-Bestand".
+- 710/750 Amazon-import articles lack GTIN; 709 lack manufacturer; 712 have zero Kosten.
+- The reference group Friseurbedarf has 99% GTIN/HAN, 99.9% manufacturer, 98.4% short descriptions and 97.5% descriptions.
+- **Überverkäufe möglich N in 2690 / Y in 1; mandatory DEFAULT N.** Only a confirmed manual per-article override may set Y.
+- Lieferstatus "2-4 Werktage" for 1842 entries, 849 blank.
+- Stückzahl teilbar N for most articles.
+- Zusätzliche Bearbeitungszeit: 1 for 1442, 0 for 759, 3 for 471, 2 for 19. Use reference value 1 for comparable products; this is category-sensitive.
+- Beschaffungszeit manuell setzen: 2 for 1429, 0 for 776, 3 for 468, 1 for 18.
+- Versandklasse standard 2691; Artikel aktiv Y 2691; Bestandsführung aktiv Y 2683.
+- Warengruppe Haarfarben 2394, Haarpflege 181, Haarstyling 75, Sammelkarten 18.
+- Artikeltyp Normaler Artikel 2685; Neu im Sortiment Y 2612.
+- Steuerklasse normaler steuersatz / 19.00% all 2691 export rows, subject to per-item correct category and current tax rules.
+- Währung EUR 44, otherwise blank.
+- ASIN 2415 present / 276 missing. Never invent ASIN.
+- Do not overwrite well-populated Friseurbedarf records based on blind global templates.
 
 ## JTL import workflow
 - An existing JTL article retains its **existing Artikelnummer**, including numbers equal to EAN.
