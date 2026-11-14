@@ -73,6 +73,46 @@ function score(id){
   missing:f.filter(x=>!isValid(x[0],forms[id][x[0]],id)).map(x=>x[1])};
 }
 function status(text){$('channelNotice').textContent=text}
+function autoPrefill(){
+ // Populates fields only from actual nonempty identification/master data.
+ // A green field means "nonempty", not necessarily verified.
+ // JTL current snapshot outranks a local CSV value. Manual / saved channel values stay untouched.
+ const r=(jtl?.jtl_status==='current_snapshot'&&jtl.matches?.length===1)?jtl.matches[0]:null;
+ const copy=(channel,k)=>{
+  const fromJtl={
+    title:r?.artikelname,brand:r?.hersteller,vendor:r?.hersteller,
+    sku:r?.artikelnummer,gtin:r?.ean,asin:r?.asin,
+    description:r?.beschreibung
+  };
+  const fromLocal={
+    title:item.Artikelname,brand:item.Hersteller,vendor:item.Hersteller,
+    sku:item.Artikelnummer,gtin:item.GTIN||item.EAN,asin:item.ASIN,
+    description:item.Beschreibung||item.Kurzbeschreibung,
+    product_type:item.Warengruppe||item['Shopify: Produkttyp']
+  };
+  let value=val(fromJtl[k]),source='JTL aktuell';
+  if(!value){value=val(fromLocal[k]);source='Identifikation / lokale Arbeitskopie'}
+  if(!value)return;
+  if(k==='gtin'&&!gtin(value))return;
+  if(k==='asin'&&!/^[A-Z0-9]{10}$/i.test(value))return;
+  if(!isValid(k,value,channel))return;
+  const previous=val(forms[channel][k]);
+  const previousOrigin=val(origins[channel][k]);
+  const isOldAutomatic=previousOrigin.startsWith('Automatisch:');
+  if(previous&&!isOldAutomatic)return;
+  if(previous&&isOldAutomatic&&source!=='JTL aktuell'&&previousOrigin.includes('JTL aktuell'))return;
+  // Show original source clearly; copies are drafts, never actual marketplace approvals.
+  forms[channel][k]=value;
+  origins[channel][k]='Automatisch: '+source+' · bitte prüfen';
+ };
+ for(const id of Object.keys(schemes)){
+  for(const field of ['title','brand','vendor','sku','gtin','asin','description']){
+   if(schemes[id].fields.some(f=>f[0]===field))copy(id,field);
+  }
+ }
+ // Shopify product type is merchant-defined. JTL internal Warengruppe is only a proposal.
+ copy('shopify','product_type');
+}
 function paint(){
  const root=$('channelWorkbench');if(!root)return;root.hidden=!ean;if(!ean)return;
  $('channelHeadline').textContent='Verkaufskanal-Check · '+ean;
@@ -125,7 +165,7 @@ function paint(){
  button('💾 Kanal lokal speichern',save);
  button('📥 Entwurf als JSON',download);
  form.append(actions);
- txt(form,'p','Noch keine vollständige Amazon-/eBay-Kategorieprüfung, kein JTL-Schreibzugriff und kein zentrales Änderungsprotokoll. Entwürfe verbleiben vorerst lokal im Browser.','note');
+ txt(form,'p','Identifikations- und Textwerte werden bei Vorliegen automatisch in alle geeigneten Kanäle übernommen. Das grüne Feld besagt nur „vorhanden“, nicht „von Amazon/eBay geprüft“. Preise, verfügbare Bestände und Kategoriepflichten werden getrennt geprüft. Kein JTL-Schreibzugriff und kein zentrales Änderungsprotokoll.','note');
 }
 function suggest(){
  let n=0,review=0;
@@ -161,9 +201,9 @@ window.hw24ChannelScan=(id,record)=>{
   if(saved?.[name]?.values)forms[name]={...saved[name].values};
   if(saved?.[name]?.sources)origins[name]={...saved[name].sources};
  }
- paint();status(Object.keys(saved).length?'Vorhandene lokale Entwürfe geladen.':'Neuer Entwurf. JTL- und historische Recherche laufen.');
+ autoPrefill();paint();status(Object.keys(saved).length?'Vorhandene lokale Entwürfe geladen. Fehlende Felder automatisch ergänzt.':'Vorhandene Identifikationsdaten kanalübergreifend als Entwurf übernommen; Kategoriepflichten noch offen.');
 };
-window.hw24ChannelCurrent=data=>{item=data||{}; /* only re-render on next source/tab change to preserve field focus */};
-window.hw24ChannelJtl=data=>{jtl=data||null;paint()};
-window.hw24ChannelHistorical=data=>{historical=data||null;paint()};
+window.hw24ChannelCurrent=data=>{item=data||{};autoPrefill(); /* next tab switch preserves active typing */};
+window.hw24ChannelJtl=data=>{jtl=data||null;autoPrefill();paint()};
+window.hw24ChannelHistorical=data=>{historical=data||null;autoPrefill();paint()};
 })();
