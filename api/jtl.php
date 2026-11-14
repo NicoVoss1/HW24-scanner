@@ -64,6 +64,20 @@ try {
     $raw=json_decode((string)($article['raw_json']??''),true);
     $article['steuerklasse_id']=is_array($raw)?($raw['kSteuerklasse']??null):null;
     $article['hersteller_id']=is_array($raw)?($raw['kHersteller']??null):null;
+    // Exact field names from the user's SQL Server 2017 tArtikel column listing.
+    // Names/classes/stock availability are NOT guessed from foreign-key IDs.
+    $safe=['kHersteller','kWarengruppe','kVersandklasse','kLieferStatus',
+      'cAktiv','cTopArtikel','cTeilbar','cLagerAktiv','cLagerKleinerNull','cNeu',
+      'cAnmerkung','nBearbeitungszeit','nLiefertageWennAusverkauft',
+      'nAutomatischeLiefertageberechnung','kBenutzerLetzteAenderung',
+      'dMod','nLagerbestand','kSteuerklasse','fEKNetto','fLetzterEK'];
+    $fields=[];
+    if(is_array($raw)){
+      foreach($safe as $key){
+        if(array_key_exists($key,$raw)) $fields[$key]=$raw[$key];
+      }
+    }
+    $article['jtl_source_fields']=$fields;
     unset($article['raw_json']); // internal raw DB fields are never exposed through the read API
   }
   unset($article);
