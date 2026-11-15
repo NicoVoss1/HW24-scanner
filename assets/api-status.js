@@ -12,7 +12,7 @@
   check_mirror_schema:'MariaDB: vorhandene Tabellenstruktur ist unvollständig',
   fix_mariadb_access:'MariaDB-Zugriff prüfen',
   configure_and_run_windows_sync:'Tabellen bereit. Windows-Synchronisation einrichten',
-  rerun_windows_sync:'JTL-Snapshot älter als 30 Minuten. Windows-Synchronisation prüfen',
+  rerun_windows_sync:'JTL-Snapshot älter als 90 Minuten. Windows-Aufgabe und Synchronisation prüfen',
   query_known_ean:'JTL-Spiegel aktuell. Bekannte EAN scannen'
  };
  async function check(){
@@ -28,13 +28,17 @@
    if(!response.ok){out.textContent='HTTP '+response.status+' · Bitte Plesk-Bereitstellung/Website-Schutz prüfen.';return}
    const d=await response.json();
    if(!d||d.service!=='hw24-jtl'){out.textContent='Ungültige API-Antwort. Ist das neue GitHub-Deployment aktiv?';return}
-   let message=next[d.next]||'Unbekannter API-Status';
-   out.textContent=(d.mirror_ready?'✓ ':'⚠ ')+message+
-    (Number.isFinite(Number(d.latest_rows))&&d.latest_rows!=null?' · '+Number(d.latest_rows).toLocaleString('de-DE')+' Artikel':'');
+   const message=next[d.next]||'Unbekannter API-Status';
+   const count=d.latest_rows!=null&&Number.isFinite(Number(d.latest_rows))?' · '+Number(d.latest_rows).toLocaleString('de-DE')+' Artikel':'';
+   const age=d.age_minutes!=null&&Number.isFinite(Number(d.age_minutes))?' · vor '+Number(d.age_minutes)+' Min.':'';
+   out.textContent=(d.mirror_ready?'✓ ':'⚠ ')+message+count+age;
    out.dataset.state=d.mirror_ready?'ready':'pending';
+   out.title=d.latest_snapshot_utc?'Letzter erfolgreicher JTL-Snapshot (UTC): '+d.latest_snapshot_utc:'Noch kein JTL-Snapshot vorhanden';
   }catch(e){
    out.textContent='API aktuell nicht erreichbar. HTTPS, Plesk-Schutz und jtl-status.php prüfen.';
   }finally{btn.disabled=false}
  }
  btn.addEventListener('click',check);
+ check(); // Show the last completed sync immediately, without requiring a click.
+ setInterval(()=>{if(!document.hidden)check()},5*60*1000); // Refresh dashboard when the page stays open.
 })();
