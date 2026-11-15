@@ -92,7 +92,8 @@ try {
     $result['latest_snapshot_utc']=$snapshot['last_completed_utc'];
     $result['latest_rows']=(int)$snapshot['last_row_count'];
     $result['age_minutes']=(int)$snapshot['age_minutes'];
-    $result['mirror_ready']=($result['age_minutes']>=0 && $result['age_minutes']<=30);
+    // Match the read endpoint: hourly sync with 30-minute scheduling grace.
+    $result['mirror_ready']=($result['age_minutes']>=0 && $result['age_minutes']<=90);
     $result['next']=$result['mirror_ready']?'query_known_ean':'rerun_windows_sync';
     jtlStatusReply(200,$result);
 } catch (Throwable $e) {
