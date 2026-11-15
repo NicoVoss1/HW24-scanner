@@ -49,9 +49,9 @@ try {
     out(200,['ok'=>true,'jtl_status'=>'not_connected','matches'=>[]]);
   }
   $age=(int)$meta['age_minutes'];
-  // Hourly Windows Task Scheduler sync plus a 30-minute tolerance for slow or delayed runs.
-  // Fail closed after 90 minutes: no definitive new-article decision from stale JTL data.
-  $fresh=$age>=0 && $age<=90;
+  // 15-minute Windows Task Scheduler sync plus a 30-minute buffer for occasional delayed runs.
+  // Fail closed after 45 minutes: no definitive new-article decision from stale JTL data.
+  $fresh=$age>=0 && $age<=45;
   if (!$fresh) {
     out(200,['ok'=>true,'jtl_status'=>'stale','snapshot_at'=>$meta['last_completed_utc'],
       'age_minutes'=>$age,'matches'=>[]]);
