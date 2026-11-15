@@ -66,6 +66,31 @@ function render(){
   :'JTL-Synchronisation noch nicht verfügbar';
  $('scanArchiveStatus').textContent=historyText;
  const match=jtl?.jtl_status==='current_snapshot'&&jtl.matches?.length===1?jtl.matches[0]:null;
+ // Keep source-backed core product details visible without opening 13 tabs.
+ const facts=$('scanQuickFacts');
+ if(facts){
+   facts.replaceChildren();facts.hidden=!match;
+   if(match){
+     const money=raw=>{
+       const value=Number(v(raw).replace(',','.'));
+       return Number.isFinite(value)&&value>0
+         ?new Intl.NumberFormat('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2}).format(value)+' €'
+         :'Nicht belegt';
+     };
+     const values=[
+       ['Artikelnummer',v(match.artikelnummer)||'Nicht belegt'],
+       ['Artikelname',v(match.artikelname)||'Nicht belegt'],
+       ['Hersteller',v(match.hersteller)||'In dieser JTL-Quelle nicht aufgelöst'],
+       ['EAN / GTIN',v(match.ean)||'Nicht belegt'],
+       ['VK netto (JTL)',money(match.netto_vk)],
+       ['Lagerbestand (JTL-Spiegel)',v(match.bestand)||'Nicht belegt']
+     ];
+     for(const [label,value] of values){
+       const cell=document.createElement('div');cell.className='hw24-fact';
+       put(cell,'small',label);put(cell,'strong',value);facts.append(cell);
+     }
+   }
+ }
  const location=v(match?.lagerplatz||match?.lagerort);
  const csvPlace=v(current?.Lagerplatz||current?.Lagerort||current?.Lagerortbezeichnung);
  $('scanLocation').textContent=location?'JTL-Lagerplatz: '+location
