@@ -41,16 +41,27 @@
 .scan-advanced>summary{cursor:pointer;font-weight:700;color:#173b7a;padding:6px}
 .scan-autofill{border:1px solid #e2bb4b;background:#fff7e0}
 button:disabled{opacity:.55;cursor:not-allowed}
-</style><h1>HW24 EAN-Artikelmanager <small>v4.2 GitHub</small></h1><p>EAN-Recherche mit historischen MariaDB-Daten. JTL-Wawi-Abgleich wird separat angebunden; noch keine direkte JTL-Buchung.</p><section id="hw24Project"><details open>
+</style>
+<link rel="stylesheet" href="assets/hw24-ui.css?v=4.3">
+<header class="hw24-hero">
+  <div class="hw24-eyebrow">HAIRWORLD24 · E-COMMERCE</div>
+  <h1>HW24 Artikelmanager <small>v4.3</small></h1>
+  <p>EAN scannen, vorhandene JTL-Artikel erkennen und fehlende Stammdaten gezielt bearbeiten. Datenquelle: automatisch synchronisierter JTL-Spiegel. Keine direkten Schreibzugriffe auf JTL.</p>
+  <div class="hw24-status-strip">
+    <span id="jtlApiState" role="status" class="note" data-state="loading">JTL-Synchronisation wird geprüft …</span>
+    <button type="button" class="scan-secondary" id="jtlApiCheck">↻ Status aktualisieren</button>
+  </div>
+</header>
+<section id="hw24Project"><details>
 <summary><strong>📋 Projektfortschritt · Artikelmanager v4.2</strong></summary>
 <p class="note">Hier siehst Du jederzeit, was bereits programmiert ist und welche Verbindung noch eingerichtet werden muss.</p>
-<ol id="hw24Milestones"></ol><div class="local-actions"><button type="button" id="jtlApiCheck">🔌 Live-JTL-API prüfen</button><span id="jtlApiState" role="status" class="note">Verbindung noch nicht getestet</span></div>
+<ol id="hw24Milestones"></ol>
 </details></section>
 <section id="importArea"><h3>📂 JTL-Export als CSV laden</h3>
 <p class="note">Die Datei aus JTL-Ameise (CSV mit Kopfzeilen) ergänzt die Artikelstammdaten. Die historische Excel-Arbeitsmappe ist unabhängig davon bereits in der MariaDB archiviert und wird nach dem EAN-Scan abgefragt. Hier bitte CSV und keine XLSX-Datei wählen.</p>
-<div class="scanrow"><label for="file">JTL-Exportdatei (.csv) auswählen</label><input id="file" type="file" accept=".csv,text/csv"></div>
+<div class="scanrow"><div><label for="file">JTL-Exportdatei (.csv) auswählen</label><input id="file" type="file" accept=".csv,text/csv"></div><div><label for="csvEncoding">Zeichencodierung der CSV</label><select id="csvEncoding"><option value="auto">Automatisch erkennen</option><option value="utf-8">UTF-8</option><option value="windows-1252">Windows-1252 (ANSI)</option></select><small>Bei fehlerhaften Umlauten die Kodierung wählen und die Datei erneut laden.</small></div></div>
 <p id="info" role="status">Noch keine CSV geladen. EAN-Scan und historische Recherche sind auch ohne CSV möglich.</p>
-</section><section><div id="deploymentNotice" hidden style="border:1px solid #c4d4e8;background:#eef5ff;color:#173b7a;padding:12px;border-radius:9px;margin-bottom:12px"><strong>GitHub Pages ist nur die öffentliche Testansicht.</strong> Auf github.io funktioniert PHP/MariaDB technisch nicht. Für die historische Datenbank und den JTL-Synchronisationsstatus nutze bitte <a href="https://artikelmanager.hairworld24.de/">artikelmanager.hairworld24.de</a>. Hinweis: Auch dort ist der JTL-Liveabgleich erst nach der Windows-Synchronisation verfügbar.</div><h3>1. EAN scannen und Produkt prüfen</h3><input id="ean" autofocus placeholder="EAN scannen"><button type="button" id="scanStart">🔎 Artikel prüfen</button><button type="button" class="scan-secondary" id="historyRetry">📚 Historische Daten abfragen</button><p id="status" role="status"></p>
+</section><section id="hw24ScanWorkspace"><div id="deploymentNotice" hidden style="border:1px solid #c4d4e8;background:#eef5ff;color:#173b7a;padding:12px;border-radius:9px;margin-bottom:12px"><strong>GitHub Pages ist nur die öffentliche Testansicht.</strong> Auf github.io funktioniert PHP/MariaDB technisch nicht. Für die historische Datenbank und den JTL-Synchronisationsstatus nutze bitte <a href="https://artikelmanager.hairworld24.de/">artikelmanager.hairworld24.de</a>. Hinweis: Der JTL-Spiegel wird auf dem Windows-Server automatisch synchronisiert.</div><h3>1. EAN scannen und Produkt prüfen</h3><input id="ean" autofocus placeholder="EAN scannen"><button type="button" id="scanStart">🔎 Artikel prüfen</button><button type="button" class="scan-secondary" id="historyRetry">📚 Historische Daten abfragen</button><p id="status" role="status"></p>
 <div id="scanCockpit" data-status="idle" class="scan-cockpit">
   <div class="scan-summary"><span class="scan-kicker">ARTIKELSTATUS NACH EAN-PRÜFUNG</span>
   <h3 id="scanDecision">EAN scannen</h3><p id="scanExplanation">Der Artikel wird anhand der aktuellen JTL-Daten geprüft.</p></div>
@@ -68,7 +79,7 @@ button:disabled{opacity:.55;cursor:not-allowed}
   </div>
   <p class="note" id="scanActionMsg" role="status"></p>
   <p class="note">Die erzeugte Ameise-Datei ist zunächst ein Importentwurf. Ohne aktuelle JTL-Synchronisation bleibt die Bestandsentscheidung ungeprüft; kein direkter Schreibzugriff auf JTL.</p>
-</div><div id="unknownActions" style="display:none;background:#ffe1e1;border:2px solid #c52b36;padding:14px;border-radius:10px;margin:12px 0"><strong>EAN nicht im geladenen JTL-Export gefunden.</strong><p>Historische Daten werden separat abgefragt. Treffer sind ungeprüfte Recherchehinweise.</p><button id="aiResearch" type="button">✨ Mit KI recherchieren</button><small id="aiInfo"></small></div><details id="scanSourceDetails" class="scan-advanced"><summary>Nachweise und detaillierte Recherche aus JTL und Excel einsehen</summary><div id="jtlPanel" class="group" style="margin:14px 0;border:1px solid #cbd6e8;padding:14px;border-radius:10px"><h3>🏷️ Aktueller JTL-Wawi-Status</h3><p id="jtlResult" role="status">Noch keine EAN geprüft. Der direkte JTL-Abgleich ist noch nicht angeschlossen.</p></div><div id="historicalPanel" class="group" hidden style="margin:14px 0;border:1px solid #b9c8dd;padding:14px;border-radius:10px"><h3>🔎 Historische EAN-Recherche (MariaDB)</h3><p class="note">Ungeprüfte Originaldaten aus früheren Excel-Tabellenblättern. Kein automatischer Nachweis eines aktuellen JTL-Artikels.</p><div id="historicalResults" role="status"></div></div></details><details id="masterDataDetails" class="scan-advanced"><summary>Stammdaten bearbeiten und fehlende Angaben ergänzen</summary><details id="hw24Tabs" class="hw24quality">
+</div><div id="unknownActions" style="display:none;background:#ffe1e1;border:2px solid #c52b36;padding:14px;border-radius:10px;margin:12px 0"><strong>EAN nicht im geladenen JTL-Export gefunden.</strong><p>Historische Daten werden separat abgefragt. Treffer sind ungeprüfte Recherchehinweise.</p><button id="aiResearch" type="button">✨ Mit KI recherchieren</button><small id="aiInfo"></small></div><details id="scanSourceDetails" class="scan-advanced"><summary>Nachweise und detaillierte Recherche aus JTL und Excel einsehen</summary><div id="jtlPanel" class="group" style="margin:14px 0;border:1px solid #cbd6e8;padding:14px;border-radius:10px"><h3>🏷️ Aktueller JTL-Wawi-Status</h3><p id="jtlResult" role="status">Noch keine EAN geprüft. Der aktuelle JTL-Spiegel wird nach dem EAN-Scan abgefragt.</p></div><div id="historicalPanel" class="group" hidden style="margin:14px 0;border:1px solid #b9c8dd;padding:14px;border-radius:10px"><h3>🔎 Historische EAN-Recherche (MariaDB)</h3><p class="note">Ungeprüfte Originaldaten aus früheren Excel-Tabellenblättern. Kein automatischer Nachweis eines aktuellen JTL-Artikels.</p><div id="historicalResults" role="status"></div></div></details><details id="masterDataDetails" class="scan-advanced"><summary>Stammdaten bearbeiten und fehlende Angaben ergänzen</summary><details id="hw24Tabs" class="hw24quality">
 <summary><strong>📚 JTL-Artikelkarte · Abdeckung aller 13 Reiter</strong></summary>
 <p class="note">Die aktuelle Stammdaten-CSV enthält 872 Spalten, aber keine Bilddateien, Attribute/Merkmale, Variationen oder Upload-Dateien. Dort sind für vollständige Daten zusätzliche JTL-Quellen nötig. Der Hauptimport bleibt eine Ameise-Datei.</p>
 <div id="hw24TabsItems"></div>
@@ -295,9 +306,20 @@ $('file').onchange=async e=>{
   if(!/\.csv$/i.test(file.name))throw new Error('Bitte eine CSV-Datei aus JTL-Ameise wählen. XLSX ist hier nicht unterstützt.');
   if(file.size>100*1024*1024)throw new Error('CSV-Datei über 100 MB: bitte einen kleineren JTL-Export wählen.');
   const buffer=await file.arrayBuffer();
-  let utf=new TextDecoder('utf-8',{fatal:false}).decode(buffer);
-  let broken=(utf.match(/\uFFFD/g)||[]).length;
-  let decoded=broken?new TextDecoder('windows-1252').decode(buffer):utf;
+  const preference=$('csvEncoding').value;
+  let decoded='',encoding='';
+  if(preference==='auto'){
+    try{
+      decoded=new TextDecoder('utf-8',{fatal:true}).decode(buffer);
+      encoding='UTF-8';
+    }catch(err){
+      decoded=new TextDecoder('windows-1252',{fatal:true}).decode(buffer);
+      encoding='Windows-1252';
+    }
+  }else{
+    decoded=new TextDecoder(preference,{fatal:true}).decode(buffer);
+    encoding=preference==='utf-8'?'UTF-8':'Windows-1252';
+  }
   const parsed=parseCSV(decoded);
   if(!parsed.length)throw new Error('Keine Datenzeilen gefunden. Prüfe Trennzeichen und Kopfzeilen.');
   const headers=Object.keys(parsed[0]);
@@ -318,7 +340,7 @@ $('file').onchange=async e=>{
     if(!map.get(code).includes(row))map.get(code).push(row);
    }
   }
-  info.textContent='✓ '+data.length.toLocaleString('de-DE')+' JTL-Zeilen geladen · '+map.size.toLocaleString('de-DE')+' gültige Kennungen (GTIN/HAN/Art.-Nr.) · '+(broken?'Windows-1252':'UTF-8')+'. Aktuelle Daten bleiben lokale Arbeitskopie.';
+  info.textContent='✓ '+data.length.toLocaleString('de-DE')+' JTL-Zeilen geladen · '+map.size.toLocaleString('de-DE')+' gültige Kennungen (GTIN/HAN/Art.-Nr.) · '+encoding+'. Aktuelle Daten bleiben lokale Arbeitskopie.';
   $('ean').focus();
   if(digits($('ean').value))search();
  }catch(error){
@@ -401,4 +423,12 @@ $('auditCancel').onclick=()=>{$('auditEditor').hidden=true;auditEditing=-1};
 $('auditAuto').onclick=()=>{let count=0;for(let i=0;i<data.length;i++){if(!auditSelected.has(auditId(data[i],i)))continue;let p=auditSuggest(data[i],i);if(Object.keys(p).length){auditApply(i,p);count++}}auditRender();alert(count+' ausgewählte Artikel mit sicheren Vorschlägen ergänzt. Bitte alle Vorschläge prüfen.')};
 $('auditFilter').onchange=auditRender;$('auditSearch').oninput=auditRender;
 $('auditExport').onclick=()=>{if(!auditDrafts.size){alert('Noch keine Änderungen vorhanden');return}let keys=['Artikelnummer',...new Set([...auditDrafts.values()].flatMap(Object.keys))].filter(k=>!isExcludedEditorField(k)&&k!=='Interner Schlüssel'&&k!=='GTIN'&&k!=='HAN'&&k!=='ASIN');let quote=v=>'"'+val(v).replace(/"/g,'""')+'"';let lines=[keys.map(quote).join(';')];for(let i=0;i<data.length;i++){let r=data[i],d=auditDrafts.get(auditId(r,i));if(!d)continue;lines.push(keys.map(k=>quote(k==='Artikelnummer'?r.Artikelnummer:Object.hasOwn(d,k)?d[k]:r[k])).join(';'))}let blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='HW24_JTL_Ameise_AENDERUNGEN_ZUERST_PRUEFEN.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};
-</script><script src="assets/kanalcheck.js?v=4.1"></script><script src="assets/ameise.js?v=4.1"></script><script src="assets/scanflow.js?v=4.1"></script><script src="assets/jtl-profil.js?v=4.1"></script><script src="assets/qualitaet.js?v=4.1"></script><script src="assets/reiter.js?v=4.1"></script><script src="assets/api-status.js?v=4.2"></script></html>
+</script><script src="assets/kanalcheck.js?v=4.1"></script><script src="assets/ameise.js?v=4.1"></script><script src="assets/scanflow.js?v=4.1"></script><script src="assets/jtl-profil.js?v=4.1"></script><script src="assets/qualitaet.js?v=4.1"></script><script src="assets/reiter.js?v=4.1"></script><script src="assets/api-status.js?v=4.3"></script>
+<script>
+(function(){
+  // Keep EAN scanning first; CSV uploads and project status remain available below.
+  const scan=document.getElementById('hw24ScanWorkspace');
+  const project=document.getElementById('hw24Project');
+  if(scan&&project)project.before(scan);
+})();
+</script></html>
