@@ -12,7 +12,7 @@
   check_mirror_schema:'MariaDB: vorhandene Tabellenstruktur ist unvollständig',
   fix_mariadb_access:'MariaDB-Zugriff prüfen',
   configure_and_run_windows_sync:'Tabellen bereit. Windows-Synchronisation einrichten',
-  rerun_windows_sync:'JTL-Snapshot älter als 90 Minuten. Windows-Aufgabe und Synchronisation prüfen',
+  rerun_windows_sync:'JTL-Snapshot älter als 45 Minuten. Windows-Aufgabe und Synchronisation prüfen',
   query_known_ean:'JTL-Spiegel aktuell. Bekannte EAN scannen'
  };
  async function check(){
