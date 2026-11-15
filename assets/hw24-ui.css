@@ -66,3 +66,20 @@ input,textarea,select{color:var(--hw-ink)}
   #importArea .scanrow>div{min-width:100%}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}button{transition:none}}
+
+/* v4.3 product facts and progressive disclosure: one useful overview, deeper forms only on demand. */
+.hw24-quick-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,215px),1fr));gap:10px;margin:14px 0}
+.hw24-quick-facts[hidden]{display:none!important}
+.hw24-fact{display:flex;flex-direction:column;justify-content:flex-start;gap:6px;padding:13px 15px;background:#fff;border:1px solid #d8e3eb;border-radius:12px;min-width:0}
+.hw24-fact small{display:block;font-weight:650;font-size:.72rem;color:#597087;line-height:1.4}
+.hw24-fact strong{font-size:.95rem;line-height:1.45;font-weight:700;color:#173b62;overflow-wrap:anywhere}
+.hw24-fact:nth-child(2){grid-column:span 2}
+.hw24-field-group{padding:0!important;overflow:hidden;border:1px solid #d8e3ed;border-radius:12px;background:#fff;margin:10px 0;box-shadow:none}
+.hw24-field-group>summary{display:list-item;cursor:pointer;list-style-position:inside;padding:14px 16px;font-weight:750;color:#204c79;background:#f5f9fd;font-size:.96rem}
+.hw24-field-group[open]>summary{border-bottom:1px solid #d8e3ed;background:#edf5fb}
+.hw24-field-group>.groupgrid,.hw24-field-group>.note{margin:13px 15px}
+.hw24-field-group>.groupgrid{padding-bottom:4px}
+#masterDataDetails>.hw24quality{margin:10px 0}
+#masterDataDetails>.hw24quality>summary{cursor:pointer;padding:8px 0}
+#jtlProfile>summary{font-weight:700}
+@media(max-width:650px){.hw24-fact:nth-child(2){grid-column:auto}.hw24-quick-facts{grid-template-columns:minmax(0,1fr)}}
