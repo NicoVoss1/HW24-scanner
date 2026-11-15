@@ -84,11 +84,11 @@ function flag(key){
 function renderProgress(){
  const root=get('hw24Milestones');if(!root)return;root.replaceChildren();
  const items=[
-  ['Quellprüfung','Export 14.11.2026: 2.691 Artikel / 872 Felder ausgewertet'],
-  ['App-Code','v4.1 in GitHub · Bereitstellung in Plesk separat'],
-  ['Datenübernahme',csv.length?csv.length+' CSV-Zeilen im Browser geladen':'CSV lokal noch nicht geladen'],
-  ['Live-JTL',jtl?.jtl_status==='current_snapshot'?'JTL-Spiegel aktuell':'Synchronisierung nicht live bestätigt'],
-  ['MariaDB','Schema und Audit vorbereitet, produktive Einrichtung noch offen'],
+  ['Quellprüfung','Historischer JTL-Export vom 14.11.2026: 2.691 Artikelzeilen / 872 Spalten analysiert'],
+  ['App-Code','v4.3 · produktive Bereitstellung über Plesk separat'],
+  ['Optionale CSV',csv.length?csv.length+' CSV-Zeilen im Browser geladen':'Nicht erforderlich für die JTL-Spiegelabfrage'],
+  ['JTL-Spiegel',jtl?.jtl_status==='current_snapshot'?'Letzter abgeschlossener Snapshot: '+(jtl.snapshot_at||'Zeit unbekannt')+' UTC':'Aktueller Snapshot noch nicht bestätigt'],
+  ['MariaDB',jtl?.jtl_status==='current_snapshot'?'Gespiegelte JTL-Stammdaten für die geprüfte EAN erreichbar':'Spiegelstatus über Synchronisationsanzeige prüfen'],
   ['Ameise','Hauptimport als Test-CSV, Importprofil und Testlauf noch erforderlich']
  ];
  for(const [name,desc] of items){
