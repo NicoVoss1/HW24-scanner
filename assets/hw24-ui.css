@@ -1,0 +1,68 @@
+/* HW24 v4.3: focused scanner workspace. Additive overrides; no JTL or export logic changes. */
+:root{color-scheme:light;--hw-ink:#14243a;--hw-muted:#52647b;--hw-line:#d8e3ed;--hw-primary:#153d71;--hw-aqua:#0b7f79;--hw-glow:#f1f7fc}
+html{scroll-behavior:smooth}
+body{max-width:1200px;margin:0 auto;padding:22px 22px 60px;background:linear-gradient(180deg,#eaf2fa 0,#f3f6fb 310px,#f5f7fa 100%);color:var(--hw-ink);line-height:1.52}
+button,input,select,textarea{font-family:inherit}
+button{font-weight:650;transition:background-color .15s ease,box-shadow .15s ease,transform .15s ease}
+button:not(:disabled):hover{filter:brightness(1.06)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid #5cb7b0;outline-offset:3px}
+section{background:#fff;border:1px solid var(--hw-line);box-shadow:0 5px 24px #102a4610;border-radius:16px;margin:16px 0}
+section>h3{font-size:1.25rem;line-height:1.35}
+.hw24-hero{background:linear-gradient(125deg,#112f55,#1b4d7d 76%,#246e83);color:#fff;border-radius:20px;padding:25px 30px;box-shadow:0 12px 30px #112f5522}
+.hw24-eyebrow{text-transform:uppercase;font-size:.7rem;letter-spacing:.17em;font-weight:750;color:#b9dbe5}
+.hw24-hero h1{margin:8px 0 5px;line-height:1.14;font-size:clamp(1.5rem,3vw,2.25rem);color:#fff;letter-spacing:-.02em}
+.hw24-hero h1 small{display:inline-block;font-size:.73rem;letter-spacing:normal;background:#ffffff24;border:1px solid #ffffff42;padding:4px 8px;border-radius:999px;vertical-align:middle}
+.hw24-hero p{max-width:880px;color:#e2edf8;font-size:.95rem;margin:10px 0 17px}
+.hw24-status-strip{display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:11px 13px;background:#fff;border-radius:12px;color:var(--hw-ink);border:1px solid #d8e8f4}
+.hw24-status-strip #jtlApiState{flex:1 1 300px;font-weight:650;line-height:1.5}
+.hw24-status-strip #jtlApiState[data-state=ready]{color:#186c48}
+.hw24-status-strip #jtlApiState[data-state=pending]{color:#ad4f14}
+.hw24-status-strip #jtlApiCheck{margin:0;white-space:nowrap;border:1px solid #b6d0e2;background:#f1f7ff;color:#173b69}
+#hw24ScanWorkspace{padding:26px 28px;border:2px solid #c2d6e8;background:linear-gradient(180deg,#fff,#fbfdff)}
+#hw24ScanWorkspace>h3{margin:0 0 18px;font-size:clamp(1.3rem,2.5vw,1.75rem);color:#183d6b}
+#ean{display:inline-block;width:min(100%,560px);height:60px;padding:12px 16px;font-size:clamp(1.05rem,2vw,1.45rem);font-variant-numeric:tabular-nums;letter-spacing:.055em;font-weight:650;background:#f9fcff;border:2px solid #9ab7d3;border-radius:12px}
+#ean:focus{border-color:#0b817a;background:#fff}
+#scanStart{min-height:58px;padding:11px 20px;border-radius:11px;background:#0f756f;border-color:#0f756f}
+#historyRetry{min-height:45px;background:#edf4fa;border-color:#d1e1ed;color:#173b69}
+#status{font-weight:600;min-height:20px;color:#244366}
+#scanCockpit{border:1px solid #cedfea;border-left:6px solid #9ab7d3;background:#f5f9fd;box-shadow:0 5px 16px #193b6010;border-radius:14px;padding:20px;margin-top:19px}
+#scanCockpit[data-status=complete]{border-left-color:#188453;background:#f4fbf7}
+#scanCockpit[data-status=maintenance]{border-left-color:#dc9b2e;background:#fffbf4}
+#scanCockpit[data-status=new]{border-left-color:#286bae;background:#f3f9ff}
+#scanCockpit[data-status=unknown],#scanCockpit[data-status=multiple]{border-left-color:#bc4e4e;background:#fff8f8}
+.scan-kicker{font-size:.7rem;letter-spacing:.12em;color:var(--hw-muted)}
+.scan-summary h3{font-size:clamp(1.2rem,2.8vw,1.65rem);line-height:1.28;margin:5px 0 8px;color:#133e66}
+.scan-summary p{margin:0;color:#425974}
+.scan-indicators{grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:10px;margin:18px 0}
+.scan-indicators>div{line-height:1.6;padding:12px 14px;background:#fff;border:1px solid #dbe5ec;box-shadow:0 1px 4px #102c4610}
+.scan-checklist{background:#fff;border:1px solid #dde7ee}
+.scan-actions{margin-top:17px;gap:9px}
+.scan-actions button{min-height:42px;margin:0;border-radius:10px;padding:10px 13px}
+.scan-actions button:first-child{background:#153d71}
+.scan-secondary{background:#ebf2fa;color:#153d71;border-color:#b9d0e4}
+#hw24Project{background:#fafcff;padding:13px 20px;box-shadow:none}
+#hw24Project details>summary{cursor:pointer;color:#23446c;list-style:revert}
+#importArea{background:#fafcff;box-shadow:none;padding:18px 21px}
+#importArea>h3{font-size:1.07rem;color:#284a73}
+#importArea .scanrow{gap:18px;align-items:end}
+#importArea .scanrow>div{min-width:min(100%,290px)}
+#importArea input[type=file],#csvEncoding{box-sizing:border-box;width:100%;padding:10px;background:#fff;border:1px solid #c2d2e4;border-radius:9px;color:#183d63}
+#importArea small{display:block;font-size:.78rem;margin:5px 0;color:#566c85}
+#hw24Project .note,#importArea .note{line-height:1.6}
+#masterDataDetails,#scanSourceDetails{padding:12px 15px;border:1px solid #d5e2ec;border-radius:12px}
+#hw24QualityRows .hw24q{border-radius:9px}
+#hw24QualitySummary{display:inline-block;margin-left:8px}
+#ameisePanel,#channelMore{scroll-margin-top:24px}
+input,textarea,select{color:var(--hw-ink)}
+@media(max-width:650px){
+  body{padding:10px 9px 34px;margin:0 auto}
+  .hw24-hero{padding:19px 16px;border-radius:14px}
+  .hw24-status-strip{gap:9px;padding:11px}
+  .hw24-status-strip button{width:100%}
+  #hw24ScanWorkspace{padding:19px 13px}
+  #ean{display:block;width:100%;min-width:0;height:56px;margin-bottom:11px}
+  #scanStart,#historyRetry{display:block;width:100%;margin:7px 0}
+  #scanCockpit{padding:15px}
+  #importArea .scanrow>div{min-width:100%}
+}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}button{transition:none}}
