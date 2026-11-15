@@ -53,14 +53,14 @@ button:disabled{opacity:.55;cursor:not-allowed}
   </div>
 </header>
 <section id="hw24Project"><details>
-<summary><strong>📋 Projektfortschritt · Artikelmanager v4.2</strong></summary>
-<p class="note">Hier siehst Du jederzeit, was bereits programmiert ist und welche Verbindung noch eingerichtet werden muss.</p>
+<summary><strong>📋 Projektfortschritt · Artikelmanager v4.3</strong></summary>
+<p class="note">Technischer Ausbaustand und verfügbare Datenquellen. Aktuelle JTL-Artikel werden über den SQL-MariaDB-Spiegel abgefragt.</p>
 <ol id="hw24Milestones"></ol>
 </details></section>
-<section id="importArea"><h3>📂 JTL-Export als CSV laden</h3>
+<section id="importArea"><h3>📂 Optional: JTL-CSV für Massenprüfung laden</h3>
 <p class="note">Die Datei aus JTL-Ameise (CSV mit Kopfzeilen) ergänzt die Artikelstammdaten. Die historische Excel-Arbeitsmappe ist unabhängig davon bereits in der MariaDB archiviert und wird nach dem EAN-Scan abgefragt. Hier bitte CSV und keine XLSX-Datei wählen.</p>
 <div class="scanrow"><div><label for="file">JTL-Exportdatei (.csv) auswählen</label><input id="file" type="file" accept=".csv,text/csv"></div><div><label for="csvEncoding">Zeichencodierung der CSV</label><select id="csvEncoding"><option value="auto">Automatisch erkennen</option><option value="utf-8">UTF-8</option><option value="windows-1252">Windows-1252 (ANSI)</option></select><small>Bei fehlerhaften Umlauten die Kodierung wählen und die Datei erneut laden.</small></div></div>
-<p id="info" role="status">Noch keine CSV geladen. EAN-Scan und historische Recherche sind auch ohne CSV möglich.</p>
+<p id="info" role="status">Keine CSV geladen. EAN-Scan, JTL-Spiegel und historische Recherche funktionieren ohne CSV.</p>
 </section><section id="hw24ScanWorkspace"><div id="deploymentNotice" hidden style="border:1px solid #c4d4e8;background:#eef5ff;color:#173b7a;padding:12px;border-radius:9px;margin-bottom:12px"><strong>GitHub Pages ist nur die öffentliche Testansicht.</strong> Auf github.io funktioniert PHP/MariaDB technisch nicht. Für die historische Datenbank und den JTL-Synchronisationsstatus nutze bitte <a href="https://artikelmanager.hairworld24.de/">artikelmanager.hairworld24.de</a>. Hinweis: Der JTL-Spiegel wird auf dem Windows-Server automatisch synchronisiert.</div><h3>1. EAN scannen und Produkt prüfen</h3><input id="ean" autofocus placeholder="EAN scannen"><button type="button" id="scanStart">🔎 Artikel prüfen</button><button type="button" class="scan-secondary" id="historyRetry">📚 Historische Daten abfragen</button><p id="status" role="status"></p>
 <div id="scanCockpit" data-status="idle" class="scan-cockpit">
   <div class="scan-summary"><span class="scan-kicker">ARTIKELSTATUS NACH EAN-PRÜFUNG</span>
@@ -423,7 +423,7 @@ $('auditCancel').onclick=()=>{$('auditEditor').hidden=true;auditEditing=-1};
 $('auditAuto').onclick=()=>{let count=0;for(let i=0;i<data.length;i++){if(!auditSelected.has(auditId(data[i],i)))continue;let p=auditSuggest(data[i],i);if(Object.keys(p).length){auditApply(i,p);count++}}auditRender();alert(count+' ausgewählte Artikel mit sicheren Vorschlägen ergänzt. Bitte alle Vorschläge prüfen.')};
 $('auditFilter').onchange=auditRender;$('auditSearch').oninput=auditRender;
 $('auditExport').onclick=()=>{if(!auditDrafts.size){alert('Noch keine Änderungen vorhanden');return}let keys=['Artikelnummer',...new Set([...auditDrafts.values()].flatMap(Object.keys))].filter(k=>!isExcludedEditorField(k)&&k!=='Interner Schlüssel'&&k!=='GTIN'&&k!=='HAN'&&k!=='ASIN');let quote=v=>'"'+val(v).replace(/"/g,'""')+'"';let lines=[keys.map(quote).join(';')];for(let i=0;i<data.length;i++){let r=data[i],d=auditDrafts.get(auditId(r,i));if(!d)continue;lines.push(keys.map(k=>quote(k==='Artikelnummer'?r.Artikelnummer:Object.hasOwn(d,k)?d[k]:r[k])).join(';'))}let blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='HW24_JTL_Ameise_AENDERUNGEN_ZUERST_PRUEFEN.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};
-</script><script src="assets/kanalcheck.js?v=4.1"></script><script src="assets/ameise.js?v=4.1"></script><script src="assets/scanflow.js?v=4.1"></script><script src="assets/jtl-profil.js?v=4.1"></script><script src="assets/qualitaet.js?v=4.1"></script><script src="assets/reiter.js?v=4.1"></script><script src="assets/api-status.js?v=4.3"></script>
+</script><script src="assets/kanalcheck.js?v=4.1"></script><script src="assets/ameise.js?v=4.1"></script><script src="assets/scanflow.js?v=4.1"></script><script src="assets/jtl-profil.js?v=4.1"></script><script src="assets/qualitaet.js?v=4.3"></script><script src="assets/reiter.js?v=4.1"></script><script src="assets/api-status.js?v=4.3"></script>
 <script>
 (function(){
   // Keep EAN scanning first; CSV uploads and project status remain available below.
