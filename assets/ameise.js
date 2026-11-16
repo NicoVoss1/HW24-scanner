@@ -39,6 +39,7 @@ const schema=[
  ['Kategorie Ebene 1',['Kategorie Ebene 1']],['Kategorie Ebene 2',['Kategorie Ebene 2']],
  ['Kategorie Ebene 3',['Kategorie Ebene 3']]
 ];
+window.hw24AmeiseSupportedFields=()=>schema.map(row=>row[0]);
 const calculated=new Set(['Durchschnittlicher Einkaufspreis (netto)','Letzter EK (JTL)','Datum letzter EK',
   'Auf Lager','In Aufträgen','Verfügbar','Fehlbestand','Menge','Lagerbestand','Artikel zuletzt bearbeitet am','Artikel zuletzt bearbeitet durch','Steuersatz in %']);
 let record=null,ean='',jtl=null,loadedArchive=null;
@@ -155,7 +156,10 @@ function stage(){
   $('ameiseSaved').textContent='Entwurf lokal gespeichert · '+new Date().toLocaleTimeString('de-DE')+'. Kein zentraler Audit-Log.';
 }
 function exportCSV(){
-  const f=candidateFields(),reasons=blockReasons(),keys=schema.map(x=>x[0]).filter(k=>Object.prototype.hasOwnProperty.call(f,k));
+  const f=candidateFields(),reasons=blockReasons();
+  const selected=typeof window.hw24TemplateExportFields==='function'
+    ?new Set(window.hw24TemplateExportFields()):null;
+  const keys=schema.map(x=>x[0]).filter(k=>Object.prototype.hasOwnProperty.call(f,k)&&(!selected||selected.has(k)));
   if(snapshot().type==='duplicate'||record?.Status==='MEHRFACH_CSV'){$('ameiseSaved').textContent='Mehrdeutige EAN: Bitte zunächst die richtige Artikelnummer auswählen. Kein Export bis zur eindeutigen Zuordnung.';return false}
   const newArticle=foundType()==='new';
   if(!keys.length||!f.Artikelname||(!f.Artikelnummer&&!newArticle)){
