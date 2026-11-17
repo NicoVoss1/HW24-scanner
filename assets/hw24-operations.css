@@ -77,3 +77,5 @@ body.hw24-warehouse-mode #hw24Desk .hw24-operations-tabs{display:flex!important}
   .hw24-wms-mobilecard.locked .hw24-wms-mobilestatus{color:#b04329}
   .hw24-wms-mobilehistory,.hw24-wms-mobileflags{font-size:12px;color:#5c7088;margin:6px 0}
 }
+
+body.hw24-warehouse-mode #hw24Desk .hw24-desk-profile{display:none!important} /* No export template selector in warehouse lookup */
