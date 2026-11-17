@@ -75,7 +75,8 @@ try {
       'cAktiv','cTopArtikel','cTeilbar','cLagerAktiv','cLagerKleinerNull','cNeu',
       'cAnmerkung','nBearbeitungszeit','nLiefertageWennAusverkauft',
       'nAutomatischeLiefertageberechnung','kBenutzerLetzteAenderung',
-      'dMod','nLagerbestand','kSteuerklasse','fEKNetto','fLetzterEK'];
+      'dMod','nLagerbestand','kSteuerklasse','fEKNetto','fLetzterEK',
+      'fAmazonVK','fEbayPreis','fVKNetto','cASIN'];
     $fields=[];
     if(is_array($raw)){
       foreach($safe as $key){
@@ -83,6 +84,11 @@ try {
       }
     }
     $article['jtl_source_fields']=$fields;
+    // These optional related records come only from an explicitly verified,
+    // admin-controlled, read-only Windows SQL source mapping. A missing
+    // mapping is not evidence that a JTL field/table does not exist.
+    $related=is_array($raw)?($raw['HW24_RelatedSources']??null):null;
+    $article['related_sources']=is_array($related)?$related:[];
     $article['matched_on']=[];
     foreach (['ean','han','artikelnummer'] as $identifier) {
       if (trim((string)($article[$identifier]??''))===$ean) $article['matched_on'][]=$identifier;
