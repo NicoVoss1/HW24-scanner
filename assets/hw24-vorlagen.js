@@ -12,6 +12,12 @@ const seedKeys=['Artikelnummer','Artikelname','GTIN','HAN','Hersteller','Warengr
  'Kosten','Brutto-VK','Netto-VK','Steuerklasse','Kurzbeschreibung','Beschreibung',
  'Inhalt/Menge','Maßeinheit','Grundpreis ausweisen','Versandklasse','Artikel aktiv',
  'Bestandsführung aktiv','Überverkäufe möglich','Kategorie Ebene 1','Kategorie Ebene 2','ASIN'];
+const completeKeys=[...new Set([...seedKeys,
+ 'Artikelgewicht','Versandgewicht','Verkaufseinheit','GP-Bezugsmenge','Einheit Bezugsmenge',
+ 'Währung','Lieferstatus','Stückzahl teilbar','Zusätzliche Bearbeitungszeit',
+ 'Beschaffungszeit automatisch ermitteln','Beschaffungszeit manuell setzen',
+ 'Top-Artikel','Artikeltyp','Neu im Sortiment','Titel-Tag (SEO)','Meta-Description (SEO)',
+ 'Kategorie Ebene 3','JTL-Wawi: Amazon B2C Brutto','JTL-Wawi: eBay Fb24 Brutto']])];
 const required=new Set(['Artikelnummer','Artikelname','GTIN']);
 const allowedDefaults=new Set(['Überverkäufe möglich','Artikel aktiv','Bestandsführung aktiv',
  'Stückzahl teilbar','Top-Artikel','Neu im Sortiment','Währung','Lieferstatus',
@@ -20,13 +26,16 @@ const allowedDefaults=new Set(['Überverkäufe möglich','Artikel aktiv','Bestan
 const staticDefaults={'Überverkäufe möglich':'N','Bestandsführung aktiv':'Y','Artikel aktiv':'Y'};
 let current=null,ean='',csvHeaders=[],supported=[];
 let profiles=[];
-function seed(){return [{id:'haarfarben',name:'Haarfarben · Stammdaten',columns:seedKeys.slice(),defaults:{...staticDefaults}}]}
+function seed(){return [{id:'haarfarben-komplett',name:'Haarfarben · Vollständige Anlage',columns:completeKeys.slice(),defaults:{...staticDefaults}}, {id:'haarfarben',name:'Haarfarben · kompakt',columns:seedKeys.slice(),defaults:{...staticDefaults}}]}
 function load(){
  try{const d=JSON.parse(localStorage.getItem(storeKey)||'null');return Array.isArray(d)&&d.length?d:seed()}
  catch(_){return seed()}
 }
 profiles=load();
-let active=profiles[0]?.id||'haarfarben',draft=null;
+if(!profiles.some(p=>p.id==='haarfarben-komplett')){
+ profiles.unshift(seed()[0]); // Add the new full profile without destroying existing user profiles.
+}
+let active=profiles.find(p=>p.id==='haarfarben-komplett')?.id||profiles[0]?.id||'haarfarben',draft=null;
 let root,inputs,fieldList,fieldCount,editorStatus,preview,oldName,saveButton,nameBox;
 const style=document.createElement('style');
 style.textContent='.hw24-miniwrap{border:1px solid #d5e0ef;border-radius:12px;background:#fff;padding:14px;margin:14px 0}.hw24-miniwrap h3{margin:0 0 8px}.hw24-mini-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:9px}.hw24-mini-grid label{display:block;font-size:12px;color:#41516b;margin:5px 0}.hw24-mini-grid input,.hw24-mini-grid select,.hw24-miniwrap input[type=search],.hw24-miniwrap select{box-sizing:border-box;width:100%;max-width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:7px;background:#fff;color:#14233c}.hw24-miniwrap .hw24-small{font-size:12px;color:#576983}.hw24-field-row{display:grid;grid-template-columns:minmax(0,1fr) 95px 110px;gap:10px;align-items:center;padding:8px;border-bottom:1px solid #e4e9ef;font-size:13px}.hw24-field-row small{display:block;color:#6b7788}.hw24-field-row label{display:flex;align-items:center;gap:6px;justify-content:center}.hw24-field-row input{width:18px;height:18px}.hw24-field-row.unmapped{opacity:.68}.hw24-miniwrap button{margin:5px 5px 5px 0}.hw24-name-preview{padding:10px;background:#f0f5fc;border-radius:8px;overflow-wrap:anywhere}.hw24-previews{display:grid;gap:8px}.hw24-scroll-list{max-height:330px;overflow:auto;border:1px solid #d8e1ed;border-radius:9px}.hw24-miniwrap details>summary{cursor:pointer;font-weight:700;margin:8px 0}@media(max-width:600px){.hw24-field-row{grid-template-columns:minmax(0,1fr) 65px 75px;gap:4px;font-size:12px}}';
