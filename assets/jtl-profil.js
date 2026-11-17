@@ -47,7 +47,7 @@ const newDefaults={
  'Beschaffungszeit manuell setzen':'2','Versandklasse':'standard',
  'Artikel aktiv':'Y','Bestandsführung aktiv':'Y','Top-Artikel':'N',
  'Artikeltyp':'Normaler Artikel','Neu im Sortiment':'Y',
- 'Steuerklasse':'normaler steuersatz','Steuersatz in %':'19,00','Währung':'EUR'
+ 'Steuerklasse':'normaler steuersatz','Währung':'EUR'
 };
 const protectedFields=new Set(['Auf Lager','In Aufträgen','Verfügbar','Durchschnittlicher Einkaufspreis (netto)',
  'Artikel zuletzt bearbeitet am','Artikel zuletzt bearbeitet durch','Steuersatz in %']);
