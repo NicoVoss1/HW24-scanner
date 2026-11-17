@@ -281,7 +281,7 @@ function build(){
      !child.classList.contains('hw24-desk-muted'))child.dataset.originalArticle='yes';
  }
  const prior=window.hw24SmartScanFinish;
- if(typeof prior==='function')window.hw24SmartScanFinish=(...args)=>{const ret=prior(...args);applyRules();show();return ret};
+ if(typeof prior==='function')window.hw24SmartScanFinish=(...args)=>{const ret=prior(...args);if(article.getAttribute('aria-selected')==='true')applyRules();show();return ret};
  const approval=window.hw24ApproveHistory;
  if(typeof approval==='function')window.hw24ApproveHistory=()=>{approval();show()};
  mode(true);show();
