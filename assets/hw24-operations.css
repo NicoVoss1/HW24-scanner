@@ -108,3 +108,33 @@ body.hw24-warehouse-mode #hw24Desk>.hw24-operations-asins{display:none!important
  .hw24-wms-highlights{grid-template-columns:repeat(2,minmax(0,1fr))}
  .hw24-wms-history{padding:12px}
 }
+
+/* v4.18: full-width title, generous bin columns, zero quantity visible. */
+#hw24Desk .hw24-wms-identity{grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+#hw24Desk .hw24-wms-product-title{grid-column:1/-1;padding:15px}
+#hw24Desk .hw24-wms-product-title strong{font-size:clamp(17px,2vw,22px);line-height:1.32}
+#hw24Desk .hw24-operations-warehouse{padding:clamp(12px,1.5vw,20px);min-width:0}
+#hw24Desk .hw24-wms-table-scroll{overflow-x:auto;max-width:100%}
+#hw24Desk table.hw24-wms-bin-table{table-layout:fixed!important;width:100%!important;min-width:790px!important;max-width:none!important;border-collapse:collapse}
+#hw24Desk .hw24-wms-bin-table :is(th,td){display:table-cell!important;position:static!important;min-width:0!important;max-width:none!important;word-break:normal!important;overflow-wrap:normal!important;vertical-align:middle;text-align:left;padding:12px 9px!important;font-size:13px;line-height:1.45}
+#hw24Desk .hw24-wms-bin-table th{white-space:nowrap!important;font-weight:700}
+#hw24Desk .hw24-wms-bin-table th:nth-child(1){width:13%}
+#hw24Desk .hw24-wms-bin-table th:nth-child(2){width:23%}
+#hw24Desk .hw24-wms-bin-table th:nth-child(3){width:10%;text-align:center}
+#hw24Desk .hw24-wms-bin-table td:nth-child(3){text-align:center;font-size:17px;font-weight:800;white-space:nowrap!important}
+#hw24Desk .hw24-wms-bin-table th:nth-child(4){width:17%}
+#hw24Desk .hw24-wms-bin-table th:nth-child(5){width:27%}
+#hw24Desk .hw24-wms-bin-table th:nth-child(6){width:10%}
+#hw24Desk .hw24-wms-bin-table td:nth-child(6){overflow-wrap:anywhere!important}
+#hw24Desk .hw24-wms-bin-table details{padding:0;margin:0;border:none}
+#hw24Desk .hw24-wms-bin-table details p{font-size:11px;overflow-wrap:anywhere}
+#hw24Desk .hw24-wms-highlights{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:920px){
+ #hw24Desk .hw24-wms-identity{grid-template-columns:repeat(3,minmax(0,1fr))}
+ #hw24Desk .hw24-wms-table-scroll{display:none}
+ #hw24Desk .hw24-wms-mobilelist{display:grid;gap:10px}
+}
+@media(max-width:640px){
+ #hw24Desk .hw24-wms-identity,#hw24Desk .hw24-wms-highlights{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #hw24Desk .hw24-wms-product-title{grid-column:1/-1}
+}
