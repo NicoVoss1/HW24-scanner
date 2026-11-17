@@ -50,6 +50,22 @@ function Get-HW24TaxAndBinSources {
   if($IncludeBins){
     Assert-Columns 'dbo.vWarenlagerPlatzArtikel' @('kArtikel','kWarenLagerPlatz','fAnzahl')
     Assert-Columns 'dbo.tWarenLagerPlatz' @('kWarenLagerPlatz','kWarenLager','cName','nGesperrt','nAuslieferungGesperrt','kWarenLagerPlatzTyp','nStatus','dWmsInventurDatum','kWmsInventur','nPreInvStatus','nInvGezaehlt','cKommentar')
+    # Optional lookup: only IDs and names, not broad table access.
+    $warehouseNames=@{}
+    try{
+      $warehouseCmd=$Connection.CreateCommand()
+      $warehouseCmd.CommandTimeout=20
+      $warehouseCmd.CommandText='SELECT kWarenLager,cName FROM dbo.tWarenLager'
+      $warehouseReader=$warehouseCmd.ExecuteReader()
+      try{
+        while($warehouseReader.Read()){
+          if(-not $warehouseReader.IsDBNull(0) -and -not $warehouseReader.IsDBNull(1)){
+            $warehouseNames[[string]$warehouseReader.GetValue(0)]=([string]$warehouseReader.GetValue(1)).Trim()
+          }
+        }
+      }finally{$warehouseReader.Close()}
+      Write-Host ('JTL-Warenlager-Klarnamen gelesen: '+$warehouseNames.Count)
+    }catch{Write-Warning 'Warenlager-Klarnamen nicht lesbar. ID bleibt sichtbar; dbo.tWarenLager(kWarenLager,cName) pruefen.'}
     foreach($id in $articleIDs){
       $key=[string]$id
       if(-not $result.ContainsKey($key)){$result[$key]=@{}}
@@ -106,6 +122,7 @@ ORDER BY p.kArtikel,l.kWarenLager,l.cName,p.kWarenLagerPlatz
             lagerplatz=$name
             menge=$quantity
             warenlager_id=[string]$rd.GetValue(4)
+            warenlager_name=if($warehouseNames.ContainsKey([string]$rd.GetValue(4))){$warehouseNames[[string]$rd.GetValue(4)]}else{$null}
             gesperrt=if($rd.IsDBNull(5)){$null}else{[string]$rd.GetValue(5)}
             auslieferung_gesperrt=if($rd.IsDBNull(6)){$null}else{[string]$rd.GetValue(6)}
             lagerplatztyp_id=if($rd.IsDBNull(7)){$null}else{[string]$rd.GetValue(7)}
