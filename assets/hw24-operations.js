@@ -151,7 +151,7 @@ function show(){
   ['HAN',match?.han||r.HAN],
   ['Artikelname',match?.artikelname||r.Artikelname],
   ['Hersteller',match?.hersteller||r.Hersteller],
-  ['Warengruppe',match?.warengruppe_name||r.Warengruppe]
+  ['Warengruppe',match?(match.warengruppe_name||(match.warengruppe_id?'JTL-ID '+match.warengruppe_id+' · Klarname noch nicht synchronisiert':'Nicht belegt')):r.Warengruppe]
  ];
  for(const [label,value] of identityFields){
   const cell=el('div',undefined,warehouseIdentity,'hw24-wms-identity-cell');
