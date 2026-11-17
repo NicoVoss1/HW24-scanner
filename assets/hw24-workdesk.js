@@ -207,6 +207,7 @@ function make(){
  exportBtn=node('button','📥 JTL-Ameise-Prüf-CSV exportieren',actions,'hw24-desk-primary');
  exportBtn.type='button';exportBtn.disabled=true;
  exportMsg=node('p','Erst CSV-Prüfexport und JTL-Ameise-Trockenlauf. Noch kein automatischer JTL-Import.',desk,'hw24-desk-muted');
+ exportMsg.id='hw24LegacyExportMessage';
  exportBtn.onclick=()=>{
   const s=source();if(!s.finished||s.jtl?.jtl_status!=='current_snapshot'){exportMsg.textContent='Aktueller JTL-Spiegel fehlt. Export gesperrt.';return;}
   const ok=window.hw24AmeiseAutoExport?.(),status=v($('ameiseSaved')?.textContent);
