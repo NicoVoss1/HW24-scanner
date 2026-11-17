@@ -24,7 +24,7 @@ const autoText=new Set(['Artikelname','Hersteller','Warengruppe','Kurzbeschreibu
 const sensitive=new Set(['GTIN','HAN','ASIN','Kosten','Netto-VK','Brutto-VK',
  'Steuerklasse','Artikelnummer','Ø EK netto (GLD)','Letzter EK (JTL)']);
 const normalize=x=>v(x).normalize('NFKC').replace(/\s+/g,' ').toLocaleLowerCase('de');
-let scan='',record=null,baseline={},jtl=null,history=null,origins=new Map(),pending=new Set(),edited=new Set();
+let scan='',record=null,baseline={},jtl=null,history=null,origins=new Map(),pending=new Set(),blocked=new Set(),edited=new Set();
 let basket=[],main,info,table,confirmBtn,basketList,basketMessage,finished=false;
 const maxBasket=100;
 const css=document.createElement('style');
@@ -51,7 +51,7 @@ function start(){
 }
 function begin(e,rec){
  scan=v(e);record=rec||null;baseline={...(record||{})};jtl=null;history=null;
- origins.clear();pending.clear();edited.clear();finished=false;render();
+ origins.clear();pending.clear();blocked.clear();edited.clear();finished=false;render();
 }
 function storeJtl(e,data){if(scan===v(e))jtl=data;}
 function storeHistory(e,data){
@@ -94,14 +94,37 @@ function reconcile(e,rec){
  if(scan!==v(e)||!rec||record!==rec)return;
  const live=jtl?.jtl_status==='current_snapshot'&&jtl.matches?.length===1?jtl.matches[0]:null;
  const {found,conflicts}=historicCandidates();
+ // For an EXISTING JTL article the foreign key is authoritative.
+ // The CSV "Haarstyling" must never masquerade as a resolved JTL group.
+ const jtlGroupId=v(live?.warengruppe_id||live?.jtl_source_fields?.kWarengruppe);
+ const jtlGroupName=v(live?.warengruppe_name);
+ if(live && (jtlGroupId||jtlGroupName)){
+   const input=[...document.querySelectorAll('#fields .field')]
+     .find(x=>x.querySelector('label')?.textContent==='Warengruppe')
+     ?.querySelector('input,textarea');
+   if(jtlGroupName){
+     record.Warengruppe=jtlGroupName;
+     blocked.delete('Warengruppe');
+     if(input && input.dataset.userEdited!=='1')input.value=jtlGroupName;
+   }else{
+     record.Warengruppe='';
+     blocked.add('Warengruppe');
+     if(input && input.dataset.userEdited!=='1')input.value='';
+   }
+ }
  const preset=window.hw24ApplyTemplateDefaults?.(record,jtl)||[];
  let filled=preset.length;
  for(const [key,data] of found){
   if(!autoText.has(key))continue;
+  if(key==='Warengruppe'&&live&&jtlGroupId)continue;
   if(live&&v(live[liveMap[key]]))continue;
   if(putField(key,data.value))filled++;
  }
  for(const key of labels){
+  if(blocked.has(key)){
+    origins.set(key,{name:'JTL Warengruppe-ID '+jtlGroupId+' vorhanden, Klarname noch nicht synchronisiert. Historie/CSV ignoriert.',kind:'conflict'});
+    continue;
+  }
   if(edited.has(key)){origins.set(key,{name:'Manuell geprüft',kind:'manual'});continue}
   if(preset.includes(key)){origins.set(key,{name:'Gespeicherte Anlagevorlage',kind:'template'});continue}
   const cur=v(record[key]);
@@ -194,7 +217,7 @@ function onEdit(ev){
  if(!box||!record)return;
  const k=box.querySelector('label')?.textContent;
  if(!k)return;
- edited.add(k);pending.delete(k);origins.set(k,{name:'Manuell geändert',kind:'manual'});
+ edited.add(k);pending.delete(k);blocked.delete(k);origins.set(k,{name:'Manuell geändert',kind:'manual'});
  render();
 }
 document.addEventListener('input',onEdit);
@@ -203,11 +226,12 @@ window.hw24SmartScanJtl=storeJtl;
 window.hw24SmartScanHistory=storeHistory;
 window.hw24SmartScanFinish=reconcile;
 window.hw24SourceFor=key=>origins.get(key)||null;
-window.hw24FieldExportApproved=key=>!pending.has(key);
+window.hw24FieldExportApproved=key=>!pending.has(key)&&!blocked.has(key);
+window.hw24HasUnresolvedJtlWarengruppe=()=>blocked.has('Warengruppe');
 window.hw24ScanReady=()=>finished&&jtl?.jtl_status==='current_snapshot';
 window.hw24AuditExtraRows=()=>basket.map(x=>({...x}));
 window.hw24MainRecord=()=>record;
-window.hw24SourceState=()=>({ean:scan,record,jtl,history,pending:[...pending],finished,basket:basket.map(x=>({...x}))});
+window.hw24SourceState=()=>({ean:scan,record,jtl,history,pending:[...pending],blocked:[...blocked],finished,basket:basket.map(x=>({...x}))});
 window.hw24ApproveHistory=approve;
 window.hw24MarkHistoricalDerivative=(key,desc)=>{
  if(!record||!key)return;
@@ -225,7 +249,7 @@ window.hw24MarkRuleDerived=(key,desc)=>{
 window.hw24WasManuallyEdited=key=>origins.get(key)?.kind==='manual';
 window.hw24MarkEdited=key=>{
  if(!record||!key)return;
- edited.add(key);pending.delete(key);
+ edited.add(key);pending.delete(key);blocked.delete(key);
  origins.set(key,{name:'Manuell bearbeitet, noch nicht in JTL',kind:'manual'});
  render();
 };
