@@ -47,8 +47,8 @@ function field(k,target){
 function renderSourcesCatalog(){
  if(!catalogTable)return;
  const s=source(),article=s.jtl?.jtl_status==='current_snapshot'&&s.jtl.matches?.length===1?s.jtl.matches[0]:null;
- const raw=article?.jtl_source_fields||{},historical=s.history?.ok?s.history.matches||[]:[];
- catalogNote.textContent=Object.keys(raw).length+' zusätzliche JTL-Spiegelfelder · '+historical.length+' historische Fundstellen. Hersteller-, Lieferanten-, WMS-, Bild- und Kategoriebezeichnungen sind noch nicht vollständig aus weiteren Tabellen aufgelöst.';
+ const raw=article?.jtl_source_fields||{},related=article?.related_sources||{},historical=s.history?.ok?s.history.matches||[]:[];
+ catalogNote.textContent=Object.keys(raw).length+' bekannte JTL-Artikelstammfelder · '+Object.keys(related).length+' zusätzliche verifizierte Quellbereiche · '+historical.length+' historische Fundstellen. Fehlende Bereiche sind noch nicht in der Windows-Synchronisation konfiguriert. IDs sind keine Klarnamen.';
  catalogTable.replaceChildren();if(!article)return;
  const head=node('tr',undefined,node('thead',undefined,catalogTable));
  for(const k of ['Quellfeld','Wert','Bedeutung'])node('th',k,head);
@@ -56,7 +56,19 @@ function renderSourcesCatalog(){
  for(const [key,value] of Object.entries(raw)){
   const row=node('tr',undefined,body);
   node('td',key,row);node('td',v(value)||'—',row);
-  node('td',key.startsWith('k')?'Interne ID, noch kein Klarname':'JTL-Quellwert',row);
+  node('td',key.startsWith('k')?'Interne ID, noch kein Klarname':'JTL-Artikelstamm',row);
+ }
+ for(const [area,detail] of Object.entries(related)){
+  const table=v(detail?.table)||'Zusatzquelle';
+  const rows=Array.isArray(detail?.rows)?detail.rows:[];
+  for(const record of rows){
+   for(const [key,val] of Object.entries(record||{})){
+    const row=node('tr',undefined,body);
+    node('td',area+' / '+key,row);
+    node('td',v(val)||'—',row);
+    node('td',table+' · JTL-Snapshot'+(detail?.truncated?' · begrenzte Trefferliste':'') ,row);
+   }
+  }
  }
 }
 function renderQueue(){
