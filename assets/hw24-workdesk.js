@@ -101,6 +101,7 @@ function render(){
   (Number.isFinite(Number(s.jtl?.age_minutes))?' · '+s.jtl.age_minutes+' Minuten alt':'')
   :'🔄 JTL und historische Daten werden parallel geprüft …';
  meta.textContent='EAN '+s.ean+(matches.length===1?' · Artikelnummer '+v(matches[0].artikelnummer):'')+
+  (v(r.GTIN)?' · GTIN '+v(r.GTIN):'')+(v(r.HAN)?' · HAN '+v(r.HAN):'')+
   ' · Archivwerte sind historisch und werden nicht laufend aktualisiert.';
  const selected=window.hw24TemplateExportFields?.()||[];
  const all=[...new Set([...keyFields,...selected])];
