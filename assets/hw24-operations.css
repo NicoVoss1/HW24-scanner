@@ -60,3 +60,20 @@ body.hw24-warehouse-mode #hw24Desk .hw24-operations-tabs{display:flex!important}
  .hw24-wms-stat{padding:9px 7px}
  .hw24-wms-stat strong{font-size:22px}
 }
+
+/* Native mobile warehouse cards, no forced sideways navigation */
+.hw24-wms-mobilelist{display:none}
+@media(max-width:680px){
+  .hw24-wms-table-scroll{display:none}
+  .hw24-wms-mobilelist{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+  .hw24-wms-mobilecard{background:#fff;border:1px solid #d3dfed;border-radius:12px;padding:12px;box-shadow:0 2px 10px #1022380c}
+  .hw24-wms-mobilecard.locked{border:2px solid #d77d60;background:#fff4ef}
+  .hw24-wms-mobiletop{display:flex;justify-content:space-between;align-items:start;gap:10px}
+  .hw24-wms-mobiletop small{display:block;font-size:11px;color:#536980;margin-bottom:4px}
+  .hw24-wms-mobiletop strong{font-size:17px;color:#173961;overflow-wrap:anywhere}
+  .hw24-wms-mobileamount{text-align:center;min-width:65px}
+  .hw24-wms-mobileamount strong{font-size:28px;display:block;line-height:1.1}
+  .hw24-wms-mobilestatus{font-weight:700;color:#275c41;font-size:12px;margin:9px 0}
+  .hw24-wms-mobilecard.locked .hw24-wms-mobilestatus{color:#b04329}
+  .hw24-wms-mobilehistory,.hw24-wms-mobileflags{font-size:12px;color:#5c7088;margin:6px 0}
+}
