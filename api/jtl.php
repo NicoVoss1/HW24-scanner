@@ -107,6 +107,41 @@ try {
     $article['steuerklasse_name']=$singleValue('steuerklasse','cName');
     $article['versandklasse_name']=$singleValue('versandklasse','cName');
     $article['bestand_verfuegbar']=$singleValue('bestand','fVerfuegbar');
+    // ASIN candidates: linked to THIS JTL article only. Do not assume EAN:ASIN
+    // is one-to-one. Multiple valid candidates stay separate and require review.
+    $candidateValues=[];
+    $addCandidate=static function($input,string $origin,array $context=[]) use (&$candidateValues): void {
+      if(!is_scalar($input)) return;
+      $asin=strtoupper(trim((string)$input));
+      if(!preg_match('/^[A-Z0-9]{10}$/D',$asin)) return;
+      if(!isset($candidateValues[$asin])) $candidateValues[$asin]=[
+        'asin'=>$asin,'sources'=>[],'review_required'=>true
+      ];
+      $candidateValues[$asin]['sources'][]=array_merge(['name'=>$origin],$context);
+    };
+    $addCandidate($article['asin']??null,'JTL-Artikelstamm');
+    if(is_array($related)){
+      $asinRows=$related['artikel_asin']['rows']??[];
+      if(is_array($asinRows)){
+        foreach(array_slice($asinRows,0,8) as $row){
+          if(is_array($row)) $addCandidate($row['cAsin']??null,'JTL-Artikel-ASIN-Zuordnung');
+        }
+      }
+      $offerRows=$related['amazon_angebote']['rows']??[];
+      if(is_array($offerRows)){
+        foreach(array_slice($offerRows,0,8) as $row){
+          if(!is_array($row)) continue;
+          $addCandidate($row['asin']??null,'JTL-Amazon-Angebot',[
+            'seller_sku'=>isset($row['seller_sku'])?(string)$row['seller_sku']:null,
+            'plattform'=>isset($row['plattform'])?(string)$row['plattform']:null
+          ]);
+        }
+      }
+    }
+    $article['asin_candidates']=array_values($candidateValues);
+    $article['asin_candidates_complete']=!is_array($related) ||
+      (empty($related['artikel_asin']['truncated']) &&
+       empty($related['amazon_angebote']['truncated']));
     $article['matched_on']=[];
     foreach (['ean','han','artikelnummer'] as $matchKey) {
       if (trim((string)($article[$matchKey]??''))===$identifier) $article['matched_on'][]=$matchKey;
