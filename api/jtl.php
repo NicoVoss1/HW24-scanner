@@ -77,6 +77,7 @@ try {
       'cAnmerkung','nBearbeitungszeit','nLiefertageWennAusverkauft',
       'nAutomatischeLiefertageberechnung','kBenutzerLetzteAenderung',
       'dMod','nLagerbestand','kSteuerklasse','fEKNetto','fLetzterEK',
+      'kMassEinheit','fMassMenge','kGrundPreisEinheit','fGrundpreisMenge','nVPE','fVPEWert','kVPEEinheit','kVerkaufsEinheit','fPackeinheit',
       'fAmazonVK','fEbayPreis','fVKNetto','cASIN'];
     $fields=[];
     if(is_array($raw)){
