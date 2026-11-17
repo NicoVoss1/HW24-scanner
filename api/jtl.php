@@ -14,8 +14,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
   header('Allow: GET');
   out(405,['ok'=>false,'error'=>'method_not_allowed']);
 }
-$ean=trim((string)($_GET['ean'] ?? ''));
-if (!preg_match('/^[0-9]{8,14}$/D',$ean)) {
+// Search by EAN/GTIN, JTL article number or HAN. Parameterized query below.
+$identifier=trim((string)($_GET['q'] ?? $_GET['ean'] ?? ''));
+if (!preg_match('/^[\p{L}\p{N}][\p{L}\p{N}._\/\-]{1,63}$/uD',$identifier)) {
   out(400,['ok'=>false,'error'=>'invalid_identifier_format']);
 }
 $path=dirname(__DIR__,2).'/hw24_private/db.php';
@@ -61,7 +62,7 @@ try {
                     FROM hw24_jtl_articles
                     WHERE source_id=? AND (ean=? OR han=? OR artikelnummer=?)
                     ORDER BY jtl_article_id LIMIT 16');
-  $q->execute([$meta['source_id'],$ean,$ean,$ean]);
+  $q->execute([$meta['source_id'],$identifier,$identifier,$identifier]);
   $matches=$q->fetchAll();
   $limited=count($matches)>15;
   if ($limited) $matches=array_slice($matches,0,15);
@@ -107,8 +108,8 @@ try {
     $article['versandklasse_name']=$singleValue('versandklasse','cName');
     $article['bestand_verfuegbar']=$singleValue('bestand','fVerfuegbar');
     $article['matched_on']=[];
-    foreach (['ean','han','artikelnummer'] as $identifier) {
-      if (trim((string)($article[$identifier]??''))===$ean) $article['matched_on'][]=$identifier;
+    foreach (['ean','han','artikelnummer'] as $matchKey) {
+      if (trim((string)($article[$matchKey]??''))===$identifier) $article['matched_on'][]=$matchKey;
     }
     unset($article['raw_json']); // internal raw DB fields are never exposed through the read API
   }
@@ -118,7 +119,7 @@ try {
     'snapshot_at'=>$meta['last_completed_utc'],'age_minutes'=>$age,
     'matches'=>$matches,
     'limited'=>$limited,
-    'note'=>'JTL-Spiegelstand aus der letzten abgeschlossenen Synchronisation. Treffer über GTIN, HAN oder bestehende Artikelnummer; kein direkter Schreibzugriff auf JTL.'
+    'note'=>'JTL-Spiegelstand aus der letzten abgeschlossenen Synchronisation. Suche über EAN/GTIN, HAN oder Artikelnummer; kein direkter Schreibzugriff auf JTL.'
   ]);
 } catch (Throwable $e) {
   error_log('HW24 JTL mirror lookup failed: '.$e->getMessage());
