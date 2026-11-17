@@ -35,3 +35,8 @@ body.hw24-warehouse-mode .hw24-batch{display:none!important}
  .hw24-batch-actions{display:grid;grid-template-columns:1fr}
  .hw24-batch-actions button{width:100%}
 }
+/* Only one export and one scan queue in the primary workspace. Legacy tools remain in advanced details. */
+#hw24Desk > .hw24-desk-actions > .hw24-desk-primary{display:none!important}
+#hw24Desk > #hw24LegacyBasket{display:none!important}
+#hw24Desk > #hw24LegacyExportMessage{display:none!important}
+.hw24-desk-field:not(.missing):has(.hw24-desk-badge.rule){background:#fff8e8;border-color:#dec17d}
