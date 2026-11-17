@@ -107,6 +107,40 @@ WHERE TABLE_SCHEMA='dbo' AND TABLE_NAME='tHersteller'
   } catch {
     Write-Warning 'Hersteller-Namensabfrage nicht möglich (JTL-Schema oder SELECT-Berechtigung prüfen). Keine Namen geraten.'
   }
+  # Resolve the authoritative article group directly on every completed
+  # JTL snapshot. Historical CSV categories are NEVER a replacement for
+  # tArtikel.kWarengruppe -> dbo.tWarengruppe.cName.
+  $warengroupNames=@{}
+  try {
+    $groupMetadata=[System.Data.SqlClient.SqlCommand]::new()
+    $groupMetadata.Connection=$connection
+    $groupMetadata.CommandTimeout=20
+    $groupMetadata.CommandText=@'
+SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA='dbo' AND TABLE_NAME='tWarengruppe'
+  AND COLUMN_NAME IN ('kWarengruppe','cName');
+'@
+    if([int]$groupMetadata.ExecuteScalar() -eq 2){
+      $groupQuery=[System.Data.SqlClient.SqlCommand]::new()
+      $groupQuery.Connection=$connection
+      $groupQuery.CommandTimeout=30
+      $groupQuery.CommandText='SELECT kWarengruppe,cName FROM dbo.tWarengruppe'
+      $groupReader=$groupQuery.ExecuteReader()
+      try{
+        while($groupReader.Read()){
+          if($groupReader.IsDBNull(0) -or $groupReader.IsDBNull(1)){continue}
+          $groupKey=[string]$groupReader.GetValue(0)
+          $groupName=([string]$groupReader.GetValue(1)).Trim()
+          if($groupKey -and $groupName){$warengroupNames[$groupKey]=$groupName}
+        }
+      } finally {$groupReader.Close()}
+      Write-Host ("JTL-Warengruppen verifiziert: "+$warengroupNames.Count)
+    }else{
+      Write-Warning 'tWarengruppe(kWarengruppe,cName) fehlt oder ist nicht lesbar. Unbekannte Namen niemals aus Excel ersetzen.'
+    }
+  }catch{
+    Write-Warning 'JTL-Warengruppenauflösung fehlgeschlagen. Kein Ersatz durch historische Klassifikation.'
+  }
   # Optional additional article-related sources. Admin mapping must use
   # verified SQL Server table/column names; no guesses and no JTL writes.
   $relatedSources=@{}
@@ -165,6 +199,12 @@ $sent=0
 foreach($row in $articles.Rows){
   $a=To-DbObject $row
   $id=[string]$a['kArtikel']
+  $warengroupId=[string]$a['kWarengruppe']
+  $warengroupName=$null
+  if($warengroupId -and $warengroupNames.ContainsKey($warengroupId)){
+    $warengroupName=$warengroupNames[$warengroupId]
+    $a['HW24_WarengruppeName']=$warengroupName
+  }
   if($relatedSources.ContainsKey($id)){$a['HW24_RelatedSources']=$relatedSources[$id]}
   $main=if($primary.ContainsKey($id)){$primary[$id]}else{@{}}
   $all=@()
@@ -184,6 +224,7 @@ foreach($row in $articles.Rows){
     seo_titel=$main['cTitleTag']
     seo_beschreibung=$main['cMetaDescription']
     hersteller=$manufacturer # Only a resolved, read-only manufacturer master row; never ID->name guessing
+    warengruppe_name=$warengroupName # Authoritative tWarengruppe.cName or null
     netto_vk=$a['fVKNetto']
     netto_ek=$a['fEKNetto']
     letzter_ek=$a['fLetzterEK']
