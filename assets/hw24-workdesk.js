@@ -4,7 +4,7 @@
 (function(){
 'use strict';
 const $=id=>document.getElementById(id),v=x=>String(x??'').trim();
-const keyFields=['Artikelname','Hersteller','Warengruppe','ASIN','Kosten','Netto-VK','Steuerklasse','Inhalt/Menge','Maßeinheit'];
+const keyFields=['Artikelname','Hersteller','Warengruppe','Inhalt/Menge','Maßeinheit','Kosten','Netto-VK','Steuerklasse','ASIN'];
 const prices=new Set(['Kosten','Netto-VK','Brutto-VK']);
 const locked=new Set(['Ø EK netto (GLD)','Letzter EK (JTL)','Datum letzter EK']);
 let main,fields,additional,extraNumber,meta,stateLine,warning,approveBtn,exportBtn,exportMsg,queue,queueMsg,queueBtn,profileSelect,catalogNote,catalogTable,manualChanges=new Set();
@@ -34,7 +34,7 @@ function changed(k,newValue){
 }
 function field(k,target){
  const s=source(),value=v(s.record?.[k]),missing=empty(k,value),src=provenance(k);
- const item=node('div',undefined,target,'hw24-desk-field'+(missing?' missing':''));
+ const item=node('div',undefined,target,'hw24-desk-field'+(missing?' missing':''));item.dataset.field=k;
  const label=node('label',undefined,item);
  node('strong',k,label);
  node('small',missing?'Fehlt':src.kind==='live'?'JTL':src.kind==='history'?'Historie':src.kind==='manual'?'Bearbeitet':'Prüfen',label,'hw24-desk-badge '+(missing?'missing':src.kind));
@@ -120,6 +120,7 @@ function renderQueue(){
 function render(){
  if(!main)return;
  const s=source(),r=s.record||{};
+ main.classList.toggle('hw24-no-article',!s.ean);
  if(!s.ean){
   stateLine.textContent='Bereit. Artikelnummer, EAN oder HAN eingeben und prüfen.';
   meta.textContent='Noch kein Artikel ausgewählt.';
@@ -145,15 +146,15 @@ function render(){
  const selected=window.hw24TemplateExportFields?.()||[];
  const all=[...new Set([...keyFields,...selected])];
  const gaps=all.filter(k=>empty(k,r[k]));
- const first=[...new Set([...keyFields,...gaps])];
+ const first=keyFields;
  fields.replaceChildren();
- for(const k of first.slice(0,16))field(k,fields);
+ for(const k of first)field(k,fields);
  additional.replaceChildren();
- const visible=new Set(first.slice(0,16)),rest=all.filter(k=>!visible.has(k));
+ const visible=new Set(first),rest=all.filter(k=>!visible.has(k));
  for(const k of rest)field(k,additional);
  extraNumber.textContent=' · '+rest.length+' Felder';
  warning.hidden=false;
- warning.textContent=s.finished?gaps.length+' unvollständige Felder der aktiven Vorlage. '+(s.pending?.length||0)+' historische Ergänzungen ungeprüft.'+((s.blocked||[]).includes('Warengruppe')?' ⚠ JTL-Warengruppe-ID vorhanden, Klarname nicht synchronisiert. Kein Ameise-Export mit vermuteter Kategorie.':''):
+ warning.textContent=s.finished?gaps.length+' offene Vorlagenfelder (Details aufklappen). '+(s.pending?.length||0)+' historische Vorschläge prüfen.'+((s.blocked||[]).includes('Warengruppe')?' ⚠ JTL-Warengruppe-ID vorhanden, Klarname nicht synchronisiert. Kein Ameise-Export mit vermuteter Kategorie.':''):
   'Prüfung läuft. CSV-Export erst nach dem JTL-Abgleich.';
  approveBtn.hidden=!(s.pending?.length);
  approveBtn.textContent=(s.pending?.length||0)+' historische Ergänzungen gesammelt bestätigen';
@@ -193,11 +194,11 @@ function make(){
  oldProfile?.addEventListener('change',()=>{syncProfiles();render()});
  const oldStatus=$('status');if(oldStatus)desk.append(oldStatus);
  stateLine=node('div','Bereit. Einmal EAN eingeben und prüfen.',desk,'hw24-desk-status');
- meta=node('p','Noch kein Artikel ausgewählt.',desk,'hw24-desk-muted');
- node('h3','Artikelangaben · Lücken zuerst',desk);
+ meta=node('p','Noch kein Artikel ausgewählt.',desk,'hw24-desk-muted hw24-primary-meta');
+ node('h3','Artikel prüfen',desk,'hw24-primary-heading');
  fields=node('div',undefined,desk,'hw24-desk-grid');
- const advancedFields=node('details',undefined,desk);
- const title=node('summary','Weitere Felder aus Deiner Vorlage',advancedFields);
+ const advancedFields=node('details',undefined,desk,'hw24-more-fields');
+ const title=node('summary','Weitere Artikelfelder',advancedFields);
  extraNumber=node('span','',title);
  additional=node('div',undefined,advancedFields,'hw24-desk-grid');
  warning=node('p','',desk,'hw24-desk-warning');warning.hidden=true;
@@ -227,16 +228,16 @@ function make(){
   renderQueue();
  };
  queue=node('div',undefined,basketWrap);
+ const expert=node('details',undefined,workspace,'hw24-desk-section');
+ expert.id='hw24DeskExpert';node('summary','Expertenbereich · Vorlagen, Quellen und technische Details',expert);
  const name=$('hw24NamingRoot');
  if(name){
-  const fold=node('details',undefined,workspace,'hw24-desk-section');
-  node('summary','✏️ Optional: Artikelname vereinheitlichen',fold);
+  const fold=node('details',undefined,expert,'hw24-desk-section');
+  node('summary','Artikelname vereinheitlichen',fold);
   fold.append(name);
  }
  const template=$('hw24TemplateSection');
- if(template)workspace.append(template);
- const expert=node('details',undefined,workspace,'hw24-desk-section');
- expert.id='hw24DeskExpert';node('summary','Weitere Funktionen und technische Details',expert);
+ if(template){const fold=node('details',undefined,expert,'hw24-desk-section');node('summary','Exportvorlagen und Pflichtfelder',fold);fold.append(template);}
  const catalog=node('details',undefined,expert);
  node('summary','Weitere verfügbare JTL-Quellfelder ansehen',catalog);
  catalogNote=node('p','Nach einem Scan erscheinen die vorhandenen Originalfelder.',catalog,'hw24-desk-muted');
@@ -253,6 +254,11 @@ function make(){
  if(importer)expert.append(importer.parentElement?.tagName==='DETAILS'?importer.parentElement:importer);
  const heading=[...workspace.children].find(x=>x.tagName==='H3'&&v(x.textContent).startsWith('1. EAN'));
  if(heading)heading.hidden=true;
+ // Preserve every original control, but keep secondary workspace panels behind one closed disclosure.
+ for(const child of [...workspace.children]){
+  if(child===desk||child===expert||child.id==='deploymentNotice'||child===heading)continue;
+  expert.append(child);
+ }
  const originalStart=window.hw24SmartScanBegin,originalFinish=window.hw24SmartScanFinish;
  if(typeof originalStart==='function')window.hw24SmartScanBegin=(...args)=>{
   manualChanges.clear();const x=originalStart(...args);render();return x;
