@@ -29,8 +29,9 @@ SELECT kFirma,kSteuerzone,cName AS Steuerzonenname
 FROM dbo.tSteuerzone
 WHERE kSteuerzone=3;
 
--- Abfrage 3: JTL-Wawi Firmenstammsatz. Am besten NUR Firmenname und ID mitteilen.
-SELECT TOP (1) *
+-- Abfrage 3: Nur ID und Firmenname lesen, keine Anschrift, Konten oder Kontaktfelder.
+-- Falls cName in dieser JTL-Version nicht existiert, bitte Ergebnis 1 senden.
+SELECT kFirma,cName AS Firmenname
 FROM dbo.tFirma
 WHERE kFirma=1;
 
