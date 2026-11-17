@@ -85,7 +85,7 @@ function render(){
  if(!main)return;
  const s=source(),r=s.record||{};
  if(!s.ean){
-  stateLine.textContent='Bereit. Einmal EAN eingeben und prüfen.';
+  stateLine.textContent='Bereit. Artikelnummer, EAN oder HAN eingeben und prüfen.';
   meta.textContent='Noch kein Artikel ausgewählt.';
   fields.replaceChildren();additional.replaceChildren();extraNumber.textContent='';
   warning.hidden=true;approveBtn.hidden=true;exportBtn.disabled=true;queueBtn.disabled=true;
@@ -100,9 +100,12 @@ function render(){
   ' · JTL-Snapshot: '+(s.jtl?.snapshot_at||'?')+' UTC'+
   (Number.isFinite(Number(s.jtl?.age_minutes))?' · '+s.jtl.age_minutes+' Minuten alt':'')
   :'🔄 JTL und historische Daten werden parallel geprüft …';
- meta.textContent='EAN '+s.ean+(matches.length===1?' · Artikelnummer '+v(matches[0].artikelnummer):'')+
-  (v(r.GTIN)?' · GTIN '+v(r.GTIN):'')+(v(r.HAN)?' · HAN '+v(r.HAN):'')+
-  ' · Archivwerte sind historisch und werden nicht laufend aktualisiert.';
+ meta.textContent='Suche '+s.ean+' · '+(v(r.Artikelname)||v(matches[0]?.artikelname)||'Artikelname nicht belegt')+
+  ' · Artikelnummer '+(v(r.Artikelnummer)||v(matches[0]?.artikelnummer)||'nicht belegt')+
+  ' · EAN '+(v(r.GTIN)||v(matches[0]?.ean)||'nicht belegt')+
+  ' · HAN '+(v(r.HAN)||v(matches[0]?.han)||'nicht belegt')+
+  ' · Warengruppe '+(v(r.Warengruppe)||v(matches[0]?.warengruppe_name)||'nicht belegt')+
+  ' · Historische Werte sind keine Live-Stammdaten.';
  const selected=window.hw24TemplateExportFields?.()||[];
  const all=[...new Set([...keyFields,...selected])];
  const gaps=all.filter(k=>empty(k,r[k]));
@@ -128,11 +131,11 @@ function make(){
  document.body.classList.add('hw24-desk-mode');
  const desk=node('section',undefined,null,'hw24-desk');
  workspace.insertBefore(desk,workspace.firstElementChild);
- main=desk;node('h2','EAN scannen · Artikel prüfen · exportieren',desk);
- node('p','Eine EAN, eine gemeinsame Datenprüfung, ein Ameise-Export.',desk,'hw24-desk-muted');
+ main=desk;node('h2','Artikelnummer, EAN oder HAN scannen · prüfen · exportieren',desk);
+ node('p','Eine Kennung, ein JTL-Abgleich mit Historie und ein Ameise-Export.',desk,'hw24-desk-muted');
  const bar=node('div',undefined,desk,'hw24-desk-bar');
  const scanWrap=node('div',undefined,bar,'hw24-desk-scan');
- node('label','EAN / GTIN',scanWrap);scanWrap.append(ean);ean.placeholder='EAN scannen oder eingeben';
+ node('label','Artikelnummer / EAN / HAN',scanWrap);scanWrap.append(ean);ean.placeholder='EAN, Artikelnummer (z. B. AR...) oder HAN';
  ean.onchange=null; // One explicit scan on Enter or button, not both blur and click.
  bar.append(scan);
  const profileWrap=node('div',undefined,bar,'hw24-desk-profile');
