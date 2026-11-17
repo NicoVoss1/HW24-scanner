@@ -38,6 +38,14 @@ function applyRules(){
   else window.hw24MarkRuleDerived?.('Artikelname','Aus JTL-Artikelname standardisiert');
  }
  const title=v(r.Artikelname);
+ // A package size in a title is a reviewable suggestion, never overwrite an existing value.
+ // The quantity of product inside a pack is not the stocked/shipped number of units.
+ const size=title.match(/\(\s*(\d+(?:[.,]\d+)?)\s*(ml|l|g|kg)\s*\)\s*$/i);
+ if(size){
+  const quantity=size[1].replace('.',','),unit=size[2].toLowerCase();
+  if(!v(r['Inhalt/Menge']))update('Inhalt/Menge',quantity,'Packungsinhalt aus Artikelname; am Produkt prüfen',true);
+  if(!v(r['Maßeinheit']))update('Maßeinheit',unit,'Maßeinheit aus Artikelname; am Produkt prüfen',true);
+ }
  if(title){
   for(const key of ['Kurzbeschreibung','Beschreibung']){
    if(!v(r[key])||(normalized&&original!==normalized&&v(r[key])===original)){
@@ -140,7 +148,7 @@ function renderAsinCandidates(s,match){
 
 function formatQty(value){
  const raw=v(value);
- if(!raw)return '0';
+ if(!raw)return 'Nicht belegt';
  const number=Number(raw.replace(',','.'));
  return Number.isFinite(number)?new Intl.NumberFormat('de-DE',{maximumFractionDigits:3}).format(number):raw;
 }
@@ -341,6 +349,19 @@ function show(){
  tax.textContent=taxLabel+'Der tatsächlich anzuwendende Satz hängt zusätzlich von Firma, Lieferung und Steuerkontext ab. Kein automatisches Überschreiben der JTL-Steuerregeln.';
  channels.replaceChildren();
  renderAsinCandidates(s,match);
+ const amazon=match?.related_sources?.amazon_angebote;
+ const offers=Array.isArray(amazon?.rows)?amazon.rows:[];
+ if(offers.length){
+  const amazonBox=el('div',undefined,channels,'hw24-channelcard');
+  el('strong','Amazon · eigene JTL-Angebote',amazonBox);
+  el('p',offers.length+' übertragene Angebote · JTL-Spiegel, keine Live-Katalogabfrage'+(amazon.truncated?' · weitere Angebote vorhanden':'')+'.',amazonBox);
+  for(const offer of offers){
+   const line=el('div',undefined,amazonBox,'hw24-amazon-offer');
+   el('strong',v(offer.asin)||'ASIN nicht belegt',line);
+   el('p',['SKU '+(v(offer.seller_sku)||'—'),'Plattform '+(v(offer.plattform)||'—'),'Angebotspreis '+(v(offer.preis_angebot)?formatQty(offer.preis_angebot):'—'),'Angebotsmenge '+(v(offer.menge_angebot)?formatQty(offer.menge_angebot):'—')].join(' · '),line);
+   if(v(offer.fulfillment))el('p','Versandkanal: '+v(offer.fulfillment),line);
+  }
+ }
  const common=[
   ['Amazon',[['GTIN',r.GTIN],['Hersteller',r.Hersteller],['Artikelname',r.Artikelname],['Preis',r['Brutto-VK']||r['Netto-VK']]]],
   ['eBay',[['Artikelname',r.Artikelname],['Marke',r.Hersteller],['Preis',r['Brutto-VK']||r['Netto-VK']]]],
