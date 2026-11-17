@@ -17,7 +17,7 @@ const completeKeys=[...new Set([...seedKeys,
  'Währung','Lieferstatus','Stückzahl teilbar','Zusätzliche Bearbeitungszeit',
  'Beschaffungszeit automatisch ermitteln','Beschaffungszeit manuell setzen',
  'Top-Artikel','Artikeltyp','Neu im Sortiment','Titel-Tag (SEO)','Meta-Description (SEO)',
- 'Kategorie Ebene 3','JTL-Wawi: Amazon B2C Brutto','JTL-Wawi: eBay Fb24 Brutto']])];
+ 'Kategorie Ebene 3','JTL-Wawi: Amazon B2C Brutto','JTL-Wawi: eBay Fb24 Brutto'])];
 const required=new Set(['Artikelnummer','Artikelname','GTIN']);
 const allowedDefaults=new Set(['Überverkäufe möglich','Artikel aktiv','Bestandsführung aktiv',
  'Stückzahl teilbar','Top-Artikel','Neu im Sortiment','Währung','Lieferstatus',
