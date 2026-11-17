@@ -24,7 +24,7 @@ const sensitive=new Set(['GTIN','HAN','ASIN','Kosten','Netto-VK','Brutto-VK',
  'Steuerklasse','Artikelnummer','Ø EK netto (GLD)','Letzter EK (JTL)']);
 const normalize=x=>v(x).normalize('NFKC').replace(/\s+/g,' ').toLocaleLowerCase('de');
 let scan='',record=null,baseline={},jtl=null,history=null,origins=new Map(),pending=new Set(),edited=new Set();
-let basket=[],main,info,table,confirmBtn,basketList,basketMessage;
+let basket=[],main,info,table,confirmBtn,basketList,basketMessage,finished=false;
 const css=document.createElement('style');
 css.textContent='.hw24-sources{background:#fff;border:1px solid #d3dfed;border-radius:12px;padding:14px;margin:13px 0}.hw24-sources h3{margin:0 0 7px}.hw24-sources p{font-size:13px;color:#53667f}.hw24-sources details{margin-top:12px}.hw24-sources details>summary{cursor:pointer;font-weight:700}.hw24-sources table{width:100%;border-collapse:collapse;display:table;max-width:100%}.hw24-sources table tr{display:table-row}.hw24-sources table td,.hw24-sources table th{font-size:12px;display:table-cell;white-space:normal;word-break:break-word;border-bottom:1px solid #e4eaf3;padding:8px 5px;text-align:left}.hw24-source-live{color:#166b42;font-weight:700}.hw24-source-history{color:#905900;font-weight:700}.hw24-source-missing{color:#a83239}.hw24-small-basket{padding:9px;border:1px solid #d3dfed;border-radius:9px;margin:8px 0;background:#f6f9fd}.hw24-small-basket button{background:#eef3fa;color:#163966}.hw24-sources button{margin:6px 8px 6px 0}.hw24-sources [hidden]{display:none!important}';
 document.head.append(css);
@@ -49,7 +49,7 @@ function start(){
 }
 function begin(e,rec){
  scan=v(e);record=rec||null;baseline={...(record||{})};jtl=null;history=null;
- origins.clear();pending.clear();edited.clear();render();
+ origins.clear();pending.clear();edited.clear();finished=false;render();
 }
 function storeJtl(e,data){if(scan===v(e))jtl=data;}
 function storeHistory(e,data){if(scan===v(e))history=data;}
@@ -88,7 +88,8 @@ function reconcile(e,rec){
  if(scan!==v(e)||!rec||record!==rec)return;
  const live=jtl?.jtl_status==='current_snapshot'&&jtl.matches?.length===1?jtl.matches[0]:null;
  const {found,conflicts}=historicCandidates();
- let filled=0;
+ const preset=window.hw24ApplyTemplateDefaults?.(record,jtl)||[];
+ let filled=preset.length;
  for(const [key,data] of found){
   if(!autoText.has(key))continue;
   if(live&&v(live[liveMap[key]]))continue;
@@ -96,6 +97,7 @@ function reconcile(e,rec){
  }
  for(const key of labels){
   if(edited.has(key)){origins.set(key,{name:'Manuell geprüft',kind:'manual'});continue}
+  if(preset.includes(key)){origins.set(key,{name:'Gespeicherte Anlagevorlage',kind:'template'});continue}
   const cur=v(record[key]);
   const liveValue=live&&liveMap[key]?v(live[liveMap[key]]):'';
   const hist=found.get(key);
@@ -122,7 +124,9 @@ function reconcile(e,rec){
  }
  window.hw24FlowRefresh?.();
  window.hw24AmeiseRefresh?.();
+ if(!document.activeElement?.closest?.('#hw24NamingRoot'))window.hw24NamingRefresh?.();
  window.hw24TemplatesRefresh?.();
+ finished=true;
  render();
 }
 function render(){
@@ -194,6 +198,7 @@ window.hw24SmartScanHistory=storeHistory;
 window.hw24SmartScanFinish=reconcile;
 window.hw24SourceFor=key=>origins.get(key)||null;
 window.hw24FieldExportApproved=key=>!pending.has(key);
+window.hw24ScanReady=()=>finished&&jtl?.jtl_status==='current_snapshot';
 window.hw24AuditExtraRows=()=>basket.map(x=>({...x}));
 window.hw24MainRecord=()=>record;
 start();
