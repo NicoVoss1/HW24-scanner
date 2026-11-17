@@ -219,7 +219,7 @@ function build(){
  article.type='button';warehouse.type='button';
  article.onclick=()=>mode(true);warehouse.onclick=()=>mode(false);
  camBtn=el('button','📷 Kamera',bar,'hw24-camera-button');camBtn.type='button';camBtn.onclick=startCamera;
- const input=$('ean');input.inputMode='numeric';input.autocomplete='off';
+ const input=$('ean');input.inputMode='text';input.autocomplete='off'; // Allow AR article numbers and alphanumeric HAN.
  camPanel=el('section',undefined,desk,'hw24-operations-camera');camPanel.hidden=true;
  desk.insertBefore(camPanel,desk.querySelector('.hw24-desk-status'));
  video=el('video',undefined,camPanel);video.autoplay=true;video.muted=true;video.setAttribute('playsinline','');
