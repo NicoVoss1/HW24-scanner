@@ -25,6 +25,7 @@ const sensitive=new Set(['GTIN','HAN','ASIN','Kosten','Netto-VK','Brutto-VK',
 const normalize=x=>v(x).normalize('NFKC').replace(/\s+/g,' ').toLocaleLowerCase('de');
 let scan='',record=null,baseline={},jtl=null,history=null,origins=new Map(),pending=new Set(),edited=new Set();
 let basket=[],main,info,table,confirmBtn,basketList,basketMessage,finished=false;
+const maxBasket=100;
 const css=document.createElement('style');
 css.textContent='.hw24-sources{background:#fff;border:1px solid #d3dfed;border-radius:12px;padding:14px;margin:13px 0}.hw24-sources h3{margin:0 0 7px}.hw24-sources p{font-size:13px;color:#53667f}.hw24-sources details{margin-top:12px}.hw24-sources details>summary{cursor:pointer;font-weight:700}.hw24-sources table{width:100%;border-collapse:collapse;display:table;max-width:100%}.hw24-sources table tr{display:table-row}.hw24-sources table td,.hw24-sources table th{font-size:12px;display:table-cell;white-space:normal;word-break:break-word;border-bottom:1px solid #e4eaf3;padding:8px 5px;text-align:left}.hw24-source-live{color:#166b42;font-weight:700}.hw24-source-history{color:#905900;font-weight:700}.hw24-source-missing{color:#a83239}.hw24-small-basket{padding:9px;border:1px solid #d3dfed;border-radius:9px;margin:8px 0;background:#f6f9fd}.hw24-small-basket button{background:#eef3fa;color:#163966}.hw24-sources button{margin:6px 8px 6px 0}.hw24-sources [hidden]{display:none!important}';
 document.head.append(css);
@@ -39,7 +40,7 @@ function start(){
  const details=node('details',undefined,main);node('summary','Felder, Werte und Datenherkunft ansehen',details);
  table=node('table',undefined,details);
  const b=node('div',undefined,main);b.className='hw24-small-basket';
- node('strong','📦 Begleitende Artikelpflege · maximal 3 weitere Artikel',b);
+ node('strong','📦 Begleitende Artikelpflege · bis zu 100 weitere Artikel',b);
  node('p','Nach der Bearbeitung zur Liste hinzufügen. Beim Ameise-Export kommen nur bestätigte Änderungen der Zusatzartikel hinzu.',b);
  const add=node('button','Aktuellen Artikel zur Pflege-Liste hinzufügen',b);
  add.type='button';add.addEventListener('click',addToBasket);
@@ -168,7 +169,7 @@ function addToBasket(){
  const row={Artikelnummer:id};
  for(const k of changes)row[k]=v(record[k]);
  basket=basket.filter(x=>v(x.Artikelnummer)!==id);
- if(basket.length>=3){basketMessage.textContent='Es sind bereits 3 zusätzliche Artikel vorgemerkt. Entferne zuerst einen.';return}
+ if(basket.length>=maxBasket){basketMessage.textContent='Maximal 100 zusätzliche Artikel pro Browser-Sitzung. Bitte die CSV exportieren und eine neue Liste beginnen.';return}
  basket.push(row);
  basketMessage.textContent=changes.length+' geprüfte Änderungen zu Artikel '+id+' vorgemerkt.';
  renderBasket();
@@ -201,5 +202,9 @@ window.hw24FieldExportApproved=key=>!pending.has(key);
 window.hw24ScanReady=()=>finished&&jtl?.jtl_status==='current_snapshot';
 window.hw24AuditExtraRows=()=>basket.map(x=>({...x}));
 window.hw24MainRecord=()=>record;
+window.hw24SourceState=()=>({ean:scan,record,jtl,history,pending:[...pending],finished,basket:basket.map(x=>({...x}))});
+window.hw24ApproveHistory=approve;
+window.hw24AddMaintenance=addToBasket;
+window.hw24RemoveMaintenance=id=>{basket=basket.filter(x=>v(x.Artikelnummer)!==v(id));renderBasket();};
 start();
 })();
