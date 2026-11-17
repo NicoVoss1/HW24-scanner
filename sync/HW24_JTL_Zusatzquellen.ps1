@@ -165,7 +165,7 @@ function Get-HW24RelatedSources {
         [void]$command.Parameters.Add($param,[System.Data.SqlDbType]::Int)
         $command.Parameters[$param].Value=[int]$part[$i]
       }
-      $command.CommandText=@'
+      $queryStart=@'
 SELECT m.kArtikel,m.cSellerSKU,a.nPlattform,a.cASIN1,a.fPrice,
        a.nQuantity,a.cListingId,a.cFulfillmentChannel,
        e.fPreis AS fPreisKonfig,e.nMaxBestand,e.nB2BPreiseSenden
@@ -176,10 +176,12 @@ LEFT JOIN dbo.pf_amazon_angebot_ext AS e
   ON e.cSellerSKU=a.cSellerSKU AND e.kUser=a.kUser
   AND e.nPlattform=a.nPlattform
 WHERE m.kArtikel IN (
-'@ + ($parameters -join ',') + @'
+'@
+      $queryEnd=@'
 )
 ORDER BY m.kArtikel,a.nPlattform,m.cSellerSKU
 '@
+      $command.CommandText=$queryStart+($parameters -join ',')+$queryEnd
       $rd=$command.ExecuteReader()
       try{
         while($rd.Read()){
