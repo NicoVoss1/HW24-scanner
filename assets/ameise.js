@@ -226,6 +226,8 @@ window.hw24AmeiseJtl=result=>{
   paint();
 };
 window.hw24AmeiseRefresh=paint;
+window.hw24AmeiseCandidateFields=()=>({...candidateFields()});
+window.hw24AmeiseSchemaFields=()=>schema.map(x=>x[0]);
 window.hw24AmeiseAutoExport=()=>{paint();if(!record||!v(record.Artikelname))return false;if(!v(record.Artikelnummer)&&foundType()!=='new')return false;stage();return exportCSV()};
 $('ameiseLoadEan')?.addEventListener('click',()=>{
   const input=$('ean');
