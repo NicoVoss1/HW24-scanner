@@ -66,8 +66,18 @@ try{
                   FROM hw24_wms_history WHERE run_id=? AND article_id=?
                   ORDER BY moved_at DESC,movement_id DESC LIMIT '.$limit.' OFFSET '.$offset);
   $q->execute([$meta['run_id'],$aid]);$rows=$q->fetchAll();
+  $latest=[];
+  if($offset===0){
+   $q=$pdo->prepare("SELECT bin_id,MAX(moved_at) AS latest_at FROM (
+      SELECT from_id AS bin_id,moved_at FROM hw24_wms_history WHERE run_id=? AND article_id=? AND from_id>0
+      UNION ALL
+      SELECT to_id AS bin_id,moved_at FROM hw24_wms_history WHERE run_id=? AND article_id=? AND to_id>0
+    ) AS m GROUP BY bin_id");
+   $q->execute([$meta['run_id'],$aid,$meta['run_id'],$aid]);
+   foreach($q->fetchAll() as $bin) $latest[(string)$bin['bin_id']]=$bin['latest_at'];
+  }
   result(200,['ok'=>true,'status'=>'ready','run_id'=>$meta['run_id'],'snapshot_at'=>$meta['completed_utc'],
-               'total'=>$total,'offset'=>$offset,'rows'=>$rows,'has_more'=>($offset+count($rows)<$total),
+               'total'=>$total,'offset'=>$offset,'rows'=>$rows,'latest_by_bin'=>(object)$latest,'has_more'=>($offset+count($rows)<$total),
                'note'=>'Vollstaendige verknuepfbare JTL-Quellhistorie zum Synchronisationsstand; kein Datumsfilter.']);
  }
  $body=file_get_contents('php://input',false,null,0,1500001);
