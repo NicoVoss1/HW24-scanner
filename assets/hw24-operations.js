@@ -65,6 +65,7 @@ function mode(isArticle){
 }
 function show(){
  if(!desk)return;
+ updateModes();
  const s=source(),r=s.record||{},match=s.jtl?.jtl_status==='current_snapshot'&&s.jtl.matches?.length===1?s.jtl.matches[0]:null;
  warehouseSummary.textContent=match?
   'Artikel '+v(match.artikelnummer)+' · Gesamtbestand '+v(match.bestand??'unbekannt')+
