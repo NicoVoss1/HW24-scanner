@@ -204,6 +204,12 @@ window.hw24AuditExtraRows=()=>basket.map(x=>({...x}));
 window.hw24MainRecord=()=>record;
 window.hw24SourceState=()=>({ean:scan,record,jtl,history,pending:[...pending],finished,basket:basket.map(x=>({...x}))});
 window.hw24ApproveHistory=approve;
+window.hw24MarkEdited=key=>{
+ if(!record||!key)return;
+ edited.add(key);pending.delete(key);
+ origins.set(key,{name:'Manuell bearbeitet, noch nicht in JTL',kind:'manual'});
+ render();
+};
 window.hw24AddMaintenance=addToBasket;
 window.hw24RemoveMaintenance=id=>{basket=basket.filter(x=>v(x.Artikelnummer)!==v(id));renderBasket();};
 start();
