@@ -16,6 +16,12 @@ function posInt($v,bool $zero=false):int{
  if($n===false)throw new InvalidArgumentException('bad_integer');
  return $n;
 }
+// SQL Server INT is signed. Legacy JTL history can use negative movement IDs.
+function movementInt($v):int{
+ $n=filter_var($v,FILTER_VALIDATE_INT,['options'=>['min_range'=>-2147483648,'max_range'=>2147483647]]);
+ if($n===false)throw new InvalidArgumentException('bad_movement_id');
+ return $n;
+}
 function runId($v):string{
  if(!is_string($v)||!preg_match('/^[0-9a-f]{32}$/D',$v))throw new InvalidArgumentException('bad_run');
  return $v;
@@ -87,7 +93,10 @@ try{
  if($action==='probe'){
   $pdo->query('SELECT run_id FROM hw24_wms_history_runs LIMIT 0');
   $pdo->query('SELECT movement_id FROM hw24_wms_history LIMIT 0');
-  result(200,['ok'=>true,'status'=>'receiver_ready']);
+  $q=$pdo->query("SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='hw24_wms_history' AND COLUMN_NAME='movement_id'");
+  $type=$q->fetchColumn();
+  if(!is_string($type)||stripos($type,'unsigned')!==false||!preg_match('/^(int|bigint)\b/i',$type))result(409,['ok'=>false,'error'=>'movement_id_must_be_signed']);
+  result(200,['ok'=>true,'status'=>'receiver_ready','movement_id_type'=>$type]);
  }
  $run=runId($in['run_id']??null);
  if($action==='begin'){
@@ -109,7 +118,7 @@ try{
    if($time!==null&&!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d{3})?$/D',$time))throw new InvalidArgumentException('bad_time');
    $qty=field($row['menge']??null,30);
    if($qty!==null&&!preg_match('/^-?\d{1,15}(?:\.\d{1,13})?$/D',$qty))throw new InvalidArgumentException('bad_quantity');
-   $q->execute([$run,posInt($row['bewegung_id']??null),posInt($row['artikel_id']??null),$time,
+   $q->execute([$run,movementInt($row['bewegung_id']??null),posInt($row['artikel_id']??null),$time,
     field($row['buchungsart_id']??null,11),field($row['buchungsart']??null,1020),$qty,
     field($row['start_id']??null,11),field($row['lagerplatz_von']??null,1020),
     field($row['ziel_id']??null,11),field($row['lagerplatz_nach']??null,1020)]);
