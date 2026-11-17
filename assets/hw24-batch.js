@@ -144,9 +144,9 @@ function inspect(){
  stats.textContent=mark+' '+a.green.length+' geprüfte Felder · '+a.warnings.length+' Hinweise · '+a.errors.length+' Hindernisse';
  validation.replaceChildren();
  for(const [type,values] of [['red',a.errors],['yellow',a.warnings]]){
-  for(const message of values.slice(0,6))el('div',(type==='red'?'🔴 ':'🟡 ')+message,validation,'hw24-batch-warning '+type);
+  for(const message of values)el('div',(type==='red'?'🔴 ':'🟡 ')+message,validation,'hw24-batch-warning '+type);
  }
- if(a.warnings.length+a.errors.length>12)el('small','Weitere Hinweise in den Feldern prüfen',validation);
+ const review=validation.parentElement;review.hidden=!present||(!a.warnings.length&&!a.errors.length);review.querySelector('summary').textContent='Prüfhinweise ('+(a.warnings.length+a.errors.length)+')';if(a.errors.length && present && a.ready)review.open=true;
  acceptButton.disabled=!a.ready||a.errors.length>0||!present||acceptedCounter===scanCounter;
  exportButton.disabled=!list.length;
  const incoming=new Set(list.map(x=>x.id));
@@ -158,6 +158,7 @@ function renderList(){
  rows.replaceChildren();
  stats.dataset.count=String(list.length);
  const total=list.length,updates=list.filter(x=>x.type==='update').length;
+ rows.parentElement.querySelector('summary').textContent='Scan-Stapel ('+total+')';
  el('span',total+' Positionen im Prüf-Stapel · '+(total-updates)+' neu · '+updates+' Aktualisierungen',rows,'hw24-batch-count');
  for(const item of list.slice(-8).reverse()){
   const row=el('div',undefined,rows,'hw24-batch-item');
@@ -224,16 +225,16 @@ function build(){
  const actions=desk.querySelector('.hw24-desk-actions');if(!actions)return;
  panel=el('section',undefined,desk,'hw24-batch');panel.dataset.originalArticle='yes';
  desk.insertBefore(panel,actions);
- el('h3','Scan-Stapel für JTL-Ameise',panel);
- el('p','Scannen → Prüfen → Übernehmen → weiter scannen. Nur freigegebene Felder, keine WMS-Buchung.',panel,'hw24-desk-muted');
+ el('h3','Übernehmen und weiterarbeiten',panel);
+ 
  stateLine=el('p','Bereit für einen Scan.',panel,'hw24-batch-state');
  stats=el('p','',panel,'hw24-batch-status');
- validation=el('div',undefined,panel,'hw24-batch-notices');
+ const review=el('details',undefined,panel,'hw24-batch-review');el('summary','Prüfhinweise anzeigen',review);validation=el('div',undefined,review,'hw24-batch-notices');
  const buttons=el('div',undefined,panel,'hw24-batch-actions');
  acceptButton=el('button','✓ Artikel übernehmen · weiter scannen',buttons);acceptButton.type='button';acceptButton.onclick=accept;
  exportButton=el('button','JTL-Ameise Stapel-CSV erstellen',buttons);exportButton.type='button';exportButton.onclick=exportList;
  clearButton=el('button','Stapel leeren',buttons);clearButton.type='button';clearButton.onclick=clearAll;
- rows=el('div',undefined,panel,'hw24-batch-items');
+ const basketDetails=el('details',undefined,panel,'hw24-batch-review hw24-batch-basket');el('summary','Scan-Stapel (0)',basketDetails);rows=el('div',undefined,basketDetails,'hw24-batch-items');basketDetails.append(clearButton);
  feedback=el('p','',panel,'hw24-batch-feedback');
  const previous=window.hw24SmartScanFinish;
  if(typeof previous==='function')window.hw24SmartScanFinish=(...args)=>{
