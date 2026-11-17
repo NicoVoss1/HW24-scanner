@@ -104,7 +104,7 @@ function render(){
   ' · Artikelnummer '+(v(r.Artikelnummer)||v(matches[0]?.artikelnummer)||'nicht belegt')+
   ' · EAN '+(v(r.GTIN)||v(matches[0]?.ean)||'nicht belegt')+
   ' · HAN '+(v(r.HAN)||v(matches[0]?.han)||'nicht belegt')+
-  ' · Warengruppe '+(v(r.Warengruppe)||v(matches[0]?.warengruppe_name)||'nicht belegt')+
+  ' · Warengruppe '+(v(matches[0]?.warengruppe_name)||((s.blocked||[]).includes('Warengruppe')?'JTL-ID '+v(matches[0]?.warengruppe_id)+' · Klarname fehlt':v(r.Warengruppe)||'nicht belegt'))+
   ' · Historische Werte sind keine Live-Stammdaten.';
  const selected=window.hw24TemplateExportFields?.()||[];
  const all=[...new Set([...keyFields,...selected])];
@@ -117,11 +117,11 @@ function render(){
  for(const k of rest)field(k,additional);
  extraNumber.textContent=' · '+rest.length+' Felder';
  warning.hidden=false;
- warning.textContent=s.finished?gaps.length+' unvollständige Felder der aktiven Vorlage. '+(s.pending?.length||0)+' historische Ergänzungen ungeprüft.':
+ warning.textContent=s.finished?gaps.length+' unvollständige Felder der aktiven Vorlage. '+(s.pending?.length||0)+' historische Ergänzungen ungeprüft.'+((s.blocked||[]).includes('Warengruppe')?' ⚠ JTL-Warengruppe-ID vorhanden, Klarname nicht synchronisiert. Kein Ameise-Export mit vermuteter Kategorie.':''):
   'Prüfung läuft. CSV-Export erst nach dem JTL-Abgleich.';
  approveBtn.hidden=!(s.pending?.length);
  approveBtn.textContent=(s.pending?.length||0)+' historische Ergänzungen gesammelt bestätigen';
- exportBtn.disabled=!s.finished||!ready||matches.length>1;
+ exportBtn.disabled=!s.finished||!ready||matches.length>1||(s.blocked||[]).includes('Warengruppe');
  queueBtn.disabled=!s.finished||!ready||matches.length!==1;
  renderQueue();renderSourcesCatalog();
 }
