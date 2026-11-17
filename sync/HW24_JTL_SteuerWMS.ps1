@@ -127,6 +127,28 @@ ORDER BY p.kArtikel,l.kWarenLager,l.cName,p.kWarenLagerPlatz
     Assert-Columns 'dbo.tSteuersatz' @('kSteuerklasse','kSteuerzone','fSteuersatz','nPrio')
     Assert-Columns 'dbo.tSteuerzone' @('kSteuerzone','kFirma','cName')
     Assert-Columns 'dbo.tSteuerzoneLand' @('kSteuerzone','cISO')
+    # Firm names are optional until dbo.tFirma is verified and the read-only
+    # account has explicit SELECT permission. Never turn the ID into a fake name.
+    $companyNames=@{}
+    try {
+      Assert-Columns 'dbo.tFirma' @('kFirma','cName')
+      $companyCommand=[System.Data.SqlClient.SqlCommand]::new()
+      $companyCommand.Connection=$Connection
+      $companyCommand.CommandTimeout=25
+      $companyCommand.CommandText='SELECT kFirma,cName FROM dbo.tFirma'
+      $companyReader=$companyCommand.ExecuteReader()
+      try {
+        while($companyReader.Read()){
+          if($companyReader.IsDBNull(0) -or $companyReader.IsDBNull(1)){continue}
+          $companyId=[string]$companyReader.GetValue(0)
+          $companyName=([string]$companyReader.GetValue(1)).Trim()
+          if($companyId -and $companyName){$companyNames[$companyId]=$companyName}
+        }
+      } finally {$companyReader.Close()}
+      Write-Host ('JTL-Firmen-Klarnamen gelesen: '+$companyNames.Count)
+    } catch {
+      Write-Warning 'Firmen-Klarname nicht nachgewiesen (dbo.tFirma/kFirma/cName oder SELECT-Rechte pruefen). Firmen-ID bleibt sichtbar.'
+    }
     $cmd=[System.Data.SqlClient.SqlCommand]::new()
     $cmd.Connection=$Connection
     $cmd.CommandTimeout=45
@@ -154,6 +176,7 @@ ORDER BY s.kSteuerklasse,z.kFirma,z.kSteuerzone,s.nPrio
           steuerklasse_id=$class
           steuerzone_id=[string]$rd.GetValue(1)
           firma_id=[string]$rd.GetValue(2)
+          firmenname=if($companyNames.ContainsKey([string]$rd.GetValue(2))){$companyNames[[string]$rd.GetValue(2)]}else{$null}
           steuerzone=if($rd.IsDBNull(3)){$null}else{[string]$rd.GetValue(3)}
           steuersatz_quellwert=$value
           prioritaet=if($rd.IsDBNull(5)){$null}else{[string]$rd.GetValue(5)}
