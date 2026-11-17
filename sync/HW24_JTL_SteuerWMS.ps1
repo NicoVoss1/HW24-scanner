@@ -61,16 +61,18 @@ function Get-HW24TaxAndBinSources {
         [void]$cmd.Parameters.Add($name,[System.Data.SqlDbType]::Int)
         $cmd.Parameters[$name].Value=[int]$chunk[$i]
       }
-      $cmd.CommandText=@'
+      $queryStart=@'
 SELECT p.kArtikel,p.kWarenLagerPlatz,p.fAnzahl,
        l.cName,l.kWarenLager,l.nGesperrt,l.nAuslieferungGesperrt
 FROM dbo.vWarenlagerPlatzArtikel AS p
 JOIN dbo.tWarenLagerPlatz AS l ON l.kWarenLagerPlatz=p.kWarenLagerPlatz
 WHERE p.kArtikel IN (
-'@+($p -join ',')+@'
+'@
+      $queryEnd=@'
 ) AND p.fAnzahl<>0
 ORDER BY p.kArtikel,l.kWarenLager,l.cName,p.kWarenLagerPlatz
 '@
+      $cmd.CommandText=$queryStart+($p -join ',')+$queryEnd
       $rd=$cmd.ExecuteReader()
       try{
         while($rd.Read()){
