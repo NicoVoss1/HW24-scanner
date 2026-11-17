@@ -11,7 +11,7 @@ function Get-HW24RelatedSources {
   $ErrorActionPreference='Stop'
   if(-not (Test-Path -LiteralPath $MapFile -PathType Leaf)){ throw 'Related-source config file not found' }
   $settings=Get-Content -LiteralPath $MapFile -Raw -Encoding UTF8 | ConvertFrom-Json
-  if($null -eq $settings.sources -or $settings.sources.Count -gt 8){
+  if($null -eq $settings.sources -or $settings.sources.Count -gt 12){
     throw 'Related-source mapping requires a sources list with at most 8 sources'
   }
   $output=@{}
@@ -119,5 +119,103 @@ function Get-HW24RelatedSources {
     }
     Write-Host ('HW24 Zusatzquelle '+$sourceId+' verifiziert: '+$schema+'.'+$table+', '+$found.Count+' Schluessel mit Treffern')
   }
+
+  # One article can have multiple Amazon offers. Match on verified composite
+  # seller SKU + seller user, and join configuration by platform as well.
+  # An Amazon offer must NEVER silently overwrite the JTL article's standard price.
+  if($settings.include_amazon_offers -eq $true) {
+    $required=@{
+      'dbo.pf_amazon_angebot_mapping'=@('kArtikel','cSellerSKU','kUser');
+      'dbo.pf_amazon_angebot'=@('cSellerSKU','kUser','nPlattform','cASIN1','fPrice','nQuantity','cListingId','cFulfillmentChannel');
+      'dbo.pf_amazon_angebot_ext'=@('cSellerSKU','kUser','nPlattform','fPreis','nMaxBestand','nB2BPreiseSenden')
+    }
+    foreach($tableId in $required.Keys){
+      $parts=$tableId.Split('.')
+      $cmd=[System.Data.SqlClient.SqlCommand]::new()
+      $cmd.Connection=$Connection;$cmd.CommandTimeout=20
+      $cmd.CommandText='SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@schema AND TABLE_NAME=@table'
+      [void]$cmd.Parameters.AddWithValue('@schema',$parts[0])
+      [void]$cmd.Parameters.AddWithValue('@table',$parts[1])
+      $reader=$cmd.ExecuteReader()
+      $available=@{}
+      try{while($reader.Read()){$available[[string]$reader.GetString(0)]=$true}}
+      finally{$reader.Close()}
+      foreach($requiredField in $required[$tableId]){
+        if(-not $available.ContainsKey([string]$requiredField)){
+          throw ('Amazon field not found in SQL catalog: '+$tableId+'.'+$requiredField)
+        }
+      }
+    }
+    $ids=New-Object System.Collections.ArrayList
+    foreach($row in $ArticleTable.Rows){
+      if(-not $row.IsNull('kArtikel')){[void]$ids.Add([int]$row['kArtikel'])}
+    }
+    $offerRows=@{}
+    $offerTooMany=@{}
+    for($offset=0;$offset -lt $ids.Count;$offset+=100){
+      $endOffset=[Math]::Min($offset+99,$ids.Count-1)
+      $part=@($ids[$offset..$endOffset])
+      $command=[System.Data.SqlClient.SqlCommand]::new()
+      $command.Connection=$Connection
+      $command.CommandTimeout=90
+      $parameters=New-Object System.Collections.ArrayList
+      for($i=0;$i -lt $part.Count;$i++){
+        $param='@article'+$i
+        [void]$parameters.Add($param)
+        [void]$command.Parameters.Add($param,[System.Data.SqlDbType]::Int)
+        $command.Parameters[$param].Value=[int]$part[$i]
+      }
+      $command.CommandText=@'
+SELECT m.kArtikel,m.cSellerSKU,a.nPlattform,a.cASIN1,a.fPrice,
+       a.nQuantity,a.cListingId,a.cFulfillmentChannel,
+       e.fPreis AS fPreisKonfig,e.nMaxBestand,e.nB2BPreiseSenden
+FROM dbo.pf_amazon_angebot_mapping AS m
+JOIN dbo.pf_amazon_angebot AS a
+  ON a.cSellerSKU=m.cSellerSKU AND a.kUser=m.kUser
+LEFT JOIN dbo.pf_amazon_angebot_ext AS e
+  ON e.cSellerSKU=a.cSellerSKU AND e.kUser=a.kUser
+  AND e.nPlattform=a.nPlattform
+WHERE m.kArtikel IN (
+'@ + ($parameters -join ',') + @'
+)
+ORDER BY m.kArtikel,a.nPlattform,m.cSellerSKU
+'@
+      $rd=$command.ExecuteReader()
+      try{
+        while($rd.Read()){
+          $id=[string]$rd.GetValue(0)
+          if(-not $offerRows.ContainsKey($id)){$offerRows[$id]=New-Object System.Collections.ArrayList}
+          if($offerRows[$id].Count -ge 5){$offerTooMany[$id]=$true;continue}
+          $columns=@('seller_sku','plattform','asin','preis_angebot','menge_angebot','listing_id',
+                     'fulfillment','preis_konfig','max_bestand','b2b_preise_aktiv')
+          $item=@{}
+          for($j=0;$j -lt $columns.Count;$j++){
+            if($rd.IsDBNull($j+1)){continue}
+            $object=$rd.GetValue($j+1)
+            if($object -is [DateTime]){
+              $value=$object.ToString('yyyy-MM-dd HH:mm:ss',[Globalization.CultureInfo]::InvariantCulture)
+            } elseif($object -is [IFormattable]){
+              $value=$object.ToString($null,[Globalization.CultureInfo]::InvariantCulture)
+            } else {$value=[string]$object}
+            if($value.Length -gt 200){$value=$value.Substring(0,200)}
+            $item[$columns[$j]]=$value
+          }
+          [void]$offerRows[$id].Add($item)
+        }
+      } finally {$rd.Close()}
+    }
+    foreach($id in $offerRows.Keys){
+      if(-not $output.ContainsKey($id)){$output[$id]=@{}}
+      $output[$id]['amazon_angebote'] = @{
+        source='JTL-Wawi SQL Server'
+        table='dbo.pf_amazon_angebot_mapping -> dbo.pf_amazon_angebot / dbo.pf_amazon_angebot_ext'
+        join='kArtikel + cSellerSKU + kUser + nPlattform'
+        rows=@($offerRows[$id].ToArray())
+        truncated=[bool]$offerTooMany.ContainsKey($id)
+      }
+    }
+    Write-Host ('HW24 Amazon-Angebote: '+$offerRows.Count+' Artikel mit konkreter SKU-Zuordnung')
+  }
   return ,$output
+}
 }
