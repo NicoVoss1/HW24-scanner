@@ -90,6 +90,7 @@ function blockReasons(){
   if(!f.Artikelname)errors.push('Artikelname fehlt.');
   if(found.type==='duplicate'||record?.Status==='MEHRFACH_CSV')errors.push('Mehrere Artikel teilen sich diese EAN. Artikelnummer und richtigen JTL-Datensatz zunächst eindeutig auswählen.');
   if(found.type==='unknown')errors.push('Aktueller JTL-Abgleich fehlt. JTL-Ameise kann beim Trockenlauf mit Importart „Neue Artikel importieren, vorhandene aktualisieren“ nach Artikelnummer entscheiden.');
+  if(window.hw24HasUnresolvedJtlWarengruppe?.())errors.push('JTL-Warengruppen-ID bekannt, Klarname noch nicht synchronisiert. Historische oder ähnliche Artikel dürfen die Gruppe nicht ersetzen.');
   if(!f.Steuerklasse)errors.push('Steuerklasse fehlt. Für Neuanlagen vor Import prüfen oder gesicherten JTL-Standardwert verwenden.');
   if(!f.Hersteller)errors.push('Hersteller/Marke fehlt (für Amazon oftmals wichtig).');
   if(!f.Kosten)errors.push('Kosten/EK fehlt oder ist 0; bitte den tatsächlichen Einkaufspreis prüfen. Ø EK ist ein getrennter JTL-Rechenwert.');
@@ -161,6 +162,9 @@ function stage(){
   $('ameiseSaved').textContent='Entwurf lokal gespeichert · '+new Date().toLocaleTimeString('de-DE')+'. Kein zentraler Audit-Log.';
 }
 function exportCSV(){
+  if(window.hw24HasUnresolvedJtlWarengruppe?.()){
+    $('ameiseSaved').textContent='Export gesperrt: JTL-Warengruppen-ID ist vorhanden, aber der Klarname wurde noch nicht synchronisiert. Keine falsche Warengruppe importieren.';return false;
+  }
   if(window.hw24ScanReady&&!window.hw24ScanReady()){
     $('ameiseSaved').textContent='Bitte die aktuelle JTL-Abfrage erst abschließen. Ein Importentwurf ohne bestätigten Spiegel ist gesperrt.';return false;
   }
