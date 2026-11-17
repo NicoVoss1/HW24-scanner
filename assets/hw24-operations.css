@@ -31,7 +31,8 @@
 .hw24-wms-blocked td{background:#fff1ea!important;color:#802d18!important;font-weight:650}
 
 /* v4.12: strict read-only warehouse mode and high-contrast compact cards */
-body.hw24-warehouse-mode #hw24ScanWorkspace > :not(#hw24Desk){display:none!important}
+/* Keep the scanner workdesk visible, also when an older cached JS has no id. */
+body.hw24-warehouse-mode #hw24ScanWorkspace > :not(.hw24-desk){display:none!important}
 body.hw24-warehouse-mode #hw24Desk > [data-original-article="yes"],
 body.hw24-warehouse-mode #hw24Desk > .hw24-operations-tax,
 body.hw24-warehouse-mode #hw24Desk > .hw24-operations-channel,
