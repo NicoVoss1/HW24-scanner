@@ -89,6 +89,23 @@ try {
     // mapping is not evidence that a JTL field/table does not exist.
     $related=is_array($raw)?($raw['HW24_RelatedSources']??null):null;
     $article['related_sources']=is_array($related)?$related:[];
+    // Only resolve one-to-one verified source values, never arbitrary rows
+    // from supplier or marketplace collections. Zero stays a source value
+    // and must not be mistaken for an actual purchase transaction.
+    $singleValue=static function(string $source,string $column) use ($related): ?string {
+      if (!is_array($related) || !isset($related[$source]) ||
+          !is_array($related[$source]) || !empty($related[$source]['truncated'])) return null;
+      $rows=$related[$source]['rows']??null;
+      if (!is_array($rows) || count($rows)!==1 || !is_array($rows[0])) return null;
+      $v=$rows[0][$column]??null;
+      return ($v===null||!is_scalar($v))?null:(string)$v;
+    };
+    $article['kosten']=$singleValue('kosten','fArtikelkosten');
+    $article['kosten_source']=$article['kosten']!==null?'Artikel.tArtikelkosten.fArtikelkosten':null;
+    $article['warengruppe_name']=$singleValue('warengruppe','cName');
+    $article['steuerklasse_name']=$singleValue('steuerklasse','cName');
+    $article['versandklasse_name']=$singleValue('versandklasse','cName');
+    $article['bestand_verfuegbar']=$singleValue('bestand','fVerfuegbar');
     $article['matched_on']=[];
     foreach (['ean','han','artikelnummer'] as $identifier) {
       if (trim((string)($article[$identifier]??''))===$ean) $article['matched_on'][]=$identifier;
