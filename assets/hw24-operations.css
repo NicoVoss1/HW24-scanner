@@ -29,3 +29,34 @@
 .hw24-wms-table-scroll{max-width:100%;overflow-x:auto}
 .hw24-wms-table-scroll table{min-width:760px}
 .hw24-wms-blocked td{background:#fff1ea!important;color:#802d18!important;font-weight:650}
+
+/* v4.12: strict read-only warehouse mode and high-contrast compact cards */
+body.hw24-warehouse-mode #hw24ScanWorkspace > :not(#hw24Desk){display:none!important}
+body.hw24-warehouse-mode #hw24Desk > [data-original-article="yes"],
+body.hw24-warehouse-mode #hw24Desk > .hw24-operations-tax,
+body.hw24-warehouse-mode #hw24Desk > .hw24-operations-channel,
+body.hw24-warehouse-mode #hw24Desk > .hw24-desk-muted{display:none!important}
+body.hw24-warehouse-mode #hw24Desk .hw24-operations-warehouse{display:block!important}
+body.hw24-warehouse-mode #hw24Desk .hw24-operations-tabs{display:flex!important}
+.hw24-operations-tabs button{min-height:56px;font-size:16px;line-height:1.3}
+.hw24-operations-tabs button:focus-visible{outline:3px solid #196cbd;outline-offset:2px}
+.hw24-warehouse-readonly{display:flex;align-items:center;gap:7px;background:#eaf2fc;border:1px solid #c7dbee;color:#204d78;font-weight:650;font-size:13px;padding:12px;border-radius:9px;margin:10px 0}
+.hw24-warehouse-readonly::before{content:"🔒";font-size:16px}
+.hw24-wms-highlights{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:14px 0}
+.hw24-wms-stat{background:#fff;border:1px solid #d3dfea;border-radius:10px;padding:14px;min-width:0}
+.hw24-wms-stat small{display:block;color:#536783;margin-bottom:5px;font-size:11px}
+.hw24-wms-stat strong{display:block;font-size:24px;color:#123b69}
+.hw24-operations-warehouse table{min-width:930px}
+.hw24-operations-warehouse thead{display:table-header-group!important}
+.hw24-operations-warehouse tbody{display:table-row-group!important}
+.hw24-operations-warehouse th{background:#edf4fd;color:#23466b;font-weight:700;white-space:normal}
+.hw24-operations-warehouse td:nth-child(2){font-weight:750;color:#193b67;min-width:120px}
+.hw24-operations-warehouse td:nth-child(3){font-weight:750;text-align:center;font-variant-numeric:tabular-nums}
+.hw24-operations-warehouse td:nth-child(5){min-width:165px}
+.hw24-operations-warehouse td:nth-child(6){min-width:220px;white-space:normal!important}
+@media(max-width:640px){
+ .hw24-operations-tabs button{font-size:14px;padding:12px 5px}
+ .hw24-wms-highlights{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .hw24-wms-stat{padding:9px 7px}
+ .hw24-wms-stat strong{font-size:22px}
+}
