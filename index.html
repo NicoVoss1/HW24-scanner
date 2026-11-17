@@ -188,7 +188,7 @@ async function lookupProductSources(ean){
         $('status').textContent='Produktpflege: Artikel im aktuellen JTL-Spiegel gefunden.';
         const r=m[0];
         if(current)current.Status='JTL_GEFUNDEN';
-        for(const [k,v] of Object.entries({'Artikelnummer':r.artikelnummer,'GTIN':r.ean,'HAN':r.han,'ASIN':r.asin,'Artikelname':r.artikelname,'Kurzbeschreibung':r.kurzbeschreibung,'Beschreibung':r.beschreibung,'Hersteller':r.hersteller,'Netto-VK':r.netto_vk,'Ø EK netto (GLD)':r.netto_ek,'Letzter EK (JTL)':r.letzter_ek,'Datum letzter EK':r.letzter_ek_datum})){
+        for(const [k,v] of Object.entries({'Artikelnummer':r.artikelnummer,'GTIN':r.ean,'HAN':r.han,'ASIN':r.asin,'Artikelname':r.artikelname,'Kurzbeschreibung':r.kurzbeschreibung,'Beschreibung':r.beschreibung,'Hersteller':r.hersteller,'Kosten':r.kosten,'Warengruppe':r.warengruppe_name,'Steuerklasse':r.steuerklasse_name,'Netto-VK':r.netto_vk,'Ø EK netto (GLD)':r.netto_ek,'Letzter EK (JTL)':r.letzter_ek,'Datum letzter EK':r.letzter_ek_datum})){
           if(!val(v)||!current)continue;
           const box=[...$('fields').querySelectorAll('.field')].find(x=>x.querySelector('label')?.textContent===k);
           const input=box?.querySelector('input,textarea');
