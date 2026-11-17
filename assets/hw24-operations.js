@@ -3,7 +3,7 @@
 (function(){
 'use strict';
 const $=id=>document.getElementById(id),v=x=>String(x??'').trim(),source=()=>window.hw24SourceState?.()||{};
-let desk,article,warehouse,warehousePanel,warehouseSummary,slotRows,tax,channels,camBtn,camPanel,video,camStatus,track,controls,active=false;
+let desk,article,warehouse,warehousePanel,warehouseSummary,warehouseIdentity,slotRows,tax,channels,camBtn,camPanel,video,camStatus,track,controls,active=false;
 const el=(tag,label,parent,css)=>{const x=document.createElement(tag);if(label!==undefined)x.textContent=label;if(css)x.className=css;if(parent)parent.append(x);return x};
 function update(k,value,msg,pending){
  const s=source(),r=s.record;if(!r||!v(value)||v(r[k])===v(value))return;
@@ -71,11 +71,27 @@ function show(){
  if(!desk)return;
  updateModes();
  const s=source(),r=s.record||{},match=s.jtl?.jtl_status==='current_snapshot'&&s.jtl.matches?.length===1?s.jtl.matches[0]:null;
+ // This identity block is visible in the warehouse view on every scan:
+ // article number, GTIN/EAN, HAN, product name, manufacturer and group.
+ warehouseIdentity.replaceChildren();
+ const identityFields=[
+  ['Artikelnummer',match?.artikelnummer||r.Artikelnummer],
+  ['EAN / GTIN',match?.ean||r.GTIN],
+  ['HAN',match?.han||r.HAN],
+  ['Artikelname',match?.artikelname||r.Artikelname],
+  ['Hersteller',match?.hersteller||r.Hersteller],
+  ['Warengruppe',match?.warengruppe_name||r.Warengruppe]
+ ];
+ for(const [label,value] of identityFields){
+  const cell=el('div',undefined,warehouseIdentity,'hw24-wms-identity-cell');
+  el('small',label,cell);
+  el('strong',v(value)||'Nicht belegt',cell);
+ }
  warehouseSummary.textContent=match?
-  'Artikel '+v(match.artikelnummer)+' · Gesamtbestand '+v(match.bestand??'unbekannt')+
-  ' · Verfügbar '+v(match.bestand_verfuegbar??'unbekannt')+
-  ' · JTL-Snapshot '+v(s.jtl.snapshot_at)+' UTC':
-  'Noch kein eindeutig gefundener JTL-Artikel. Bitte EAN scannen.';
+  'Gesamtbestand '+v(match.bestand??'unbekannt')+
+  ' Stück · Verfügbar '+v(match.bestand_verfuegbar??'unbekannt')+
+  ' Stück · JTL-Snapshot '+v(s.jtl.snapshot_at)+' UTC':
+  'Noch kein eindeutiger JTL-Treffer. Suche nach Artikelnummer, EAN oder HAN.';
  slotRows.replaceChildren();
  const wms=match?.related_sources?.wms_lagerplaetze,slots=Array.isArray(wms?.rows)?wms.rows:[];
  if(!slots.length){
@@ -86,11 +102,25 @@ function show(){
   const cell=el('td',message,row);cell.colSpan=5;
  }else for(const item of slots){
   const row=el('tr',undefined,slotRows);
-  el('td',v(item.warenlager_id)||'?',row);
-  el('td',v(item.lagerplatz)||'?',row);
-  el('td',v(item.menge)||'?',row);
-  el('td',v(item.gesperrt)==='1'?'Ja':'Nein',row);
-  el('td','JTL-WMS-Spiegel',row);
+  const locked=x=>['1','true','ja','y'].includes(v(x).toLowerCase());
+  const blocked=locked(item.gesperrt),shippingBlocked=locked(item.auslieferung_gesperrt);
+  if(blocked||shippingBlocked)row.className='hw24-wms-blocked';
+  el('td','Warenlager '+(v(item.warenlager_id)||'?'),row);
+  el('td',v(item.lagerplatz)||'Ohne Fachbezeichnung',row);
+  el('td',v(item.menge)||'0',row);
+  const status=blocked?'🔒 Fach gesperrt':shippingBlocked?'🔒 Auslieferung gesperrt':'Nicht gesperrt';
+  const detail=blocked&&shippingBlocked?' · Auslieferung ebenfalls gesperrt':'';
+  el('td',status+detail,row);
+  const flags=[];
+  if(v(item.lagerplatztyp_id))flags.push('Platztyp-ID '+v(item.lagerplatztyp_id));
+  if(v(item.status_id))flags.push('Status-ID '+v(item.status_id));
+  if(v(item.inventur_id))flags.push('Inventur-ID '+v(item.inventur_id));
+  if(v(item.inventur_datum))flags.push('Inventurdatum '+v(item.inventur_datum));
+  if(v(item.vorinventur_status_id))flags.push('Vorinventurstatus-ID '+v(item.vorinventur_status_id));
+  if(v(item.inventur_gezaehlt))flags.push('Inventur gezählt (Quellwert) '+v(item.inventur_gezaehlt));
+  if(/retour/i.test(v(item.lagerplatz)+' '+v(item.lagerplatz_hinweis)))flags.push('Retourenhinweis in Fachbezeichnung/Kommentar');
+  if(v(item.lagerplatz_hinweis))flags.push('Fachkommentar '+v(item.lagerplatz_hinweis));
+  el('td',flags.join(' · ')||'Keine weiteren JTL-Hinweise',row);
  }
  if(wms?.truncated){
   const row=el('tr',undefined,slotRows);
@@ -192,9 +222,11 @@ function build(){
  const before=desk.querySelector('.hw24-desk-actions');
  warehousePanel=el('section',undefined,desk,'hw24-operations-warehouse');desk.insertBefore(warehousePanel,before);
  el('h3','Bestand je Lagerplatz (JTL-WMS)',warehousePanel);
+ warehouseIdentity=el('div',undefined,warehousePanel,'hw24-wms-identity');
  warehouseSummary=el('p','Noch kein Artikel gewählt.',warehousePanel);
- const table=el('table',undefined,warehousePanel),tr=el('tr',undefined,el('thead',undefined,table));
- for(const label of ['Lager-ID','Fach','Stück','Gesperrt','Quelle'])el('th',label,tr);
+ const tableWrap=el('div',undefined,warehousePanel,'hw24-wms-table-scroll');
+ const table=el('table',undefined,tableWrap),tr=el('tr',undefined,el('thead',undefined,table));
+ for(const label of ['Warenlager','Lagerfach','Stück','Sperrstatus','Inventur / Retouren / weitere Hinweise'])el('th',label,tr);
  slotRows=el('tbody',undefined,table);
  el('p','Lagerplatzbuchung ist noch nicht aktiv. Die vorhandene Scanliste bleibt eine lokale Erfassung, keine WMS-Buchung.',warehousePanel);
  tax=el('p','Steuerprüfung ausstehend.',desk,'hw24-operations-tax');desk.insertBefore(tax,before);
