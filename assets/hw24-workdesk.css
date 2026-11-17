@@ -59,7 +59,7 @@ body.hw24-desk-mode #hw24ScanWorkspace{padding:clamp(8px,1.2vw,18px);margin-top:
 #hw24Desk .hw24-desk-field input,#hw24Desk .hw24-desk-field select{min-height:36px;padding:7px 9px;font-size:14px}
 #hw24Desk .hw24-desk-field[data-field="Artikelname"] input{font-weight:700;font-size:16px}
 #hw24Desk .hw24-desk-origin{font-size:10px;line-height:1.25;margin-top:3px}
-#hw24Desk .hw24-primary-meta{display:none}
+#hw24Desk .hw24-primary-meta{display:block;margin:4px 0 8px;font-size:12px;color:#536981;line-height:1.4}
 #hw24Desk .hw24-primary-heading{margin:10px 0 5px}
 #hw24Desk .hw24-desk-status{padding:9px 11px;margin-bottom:8px}
 #hw24Desk .hw24-desk-warning{font-size:12px;padding:8px;background:#f6f8fb;color:#53677f;margin:7px 0}
@@ -82,3 +82,5 @@ body.hw24-desk-mode #hw24ScanWorkspace{padding:clamp(8px,1.2vw,18px);margin-top:
 @media(max-width:1000px){#hw24Desk .hw24-desk-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:760px){#hw24Desk .hw24-desk-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:480px){#hw24Desk .hw24-desk-grid{grid-template-columns:minmax(0,1fr)}#hw24Desk .hw24-desk-bar .hw24-desk-scan{min-width:0;flex-basis:100%}#hw24Desk .hw24-desk-profile{flex-basis:100%}}
+
+.hw24-amazon-offer{border-top:1px solid #dbe4ed;padding:8px 0;overflow-wrap:anywhere}
