@@ -220,4 +220,3 @@ ORDER BY m.kArtikel,a.nPlattform,m.cSellerSKU
   }
   return ,$output
 }
-}
