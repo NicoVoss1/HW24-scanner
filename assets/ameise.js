@@ -161,6 +161,9 @@ function stage(){
   $('ameiseSaved').textContent='Entwurf lokal gespeichert · '+new Date().toLocaleTimeString('de-DE')+'. Kein zentraler Audit-Log.';
 }
 function exportCSV(){
+  if(window.hw24ScanReady&&!window.hw24ScanReady()){
+    $('ameiseSaved').textContent='Bitte die aktuelle JTL-Abfrage erst abschließen. Ein Importentwurf ohne bestätigten Spiegel ist gesperrt.';return false;
+  }
   const f=candidateFields(),reasons=blockReasons();
   const basket=Array.isArray(window.hw24AuditExtraRows?.())?window.hw24AuditExtraRows():[];
   const extras=basket.filter(row=>v(row.Artikelnummer)&&v(row.Artikelnummer)!==v(f.Artikelnummer)).slice(0,3);
