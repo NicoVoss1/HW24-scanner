@@ -3,7 +3,7 @@
 (function(){
 'use strict';
 const $=id=>document.getElementById(id),v=x=>String(x??'').trim(),source=()=>window.hw24SourceState?.()||{};
-let desk,article,warehouse,warehousePanel,warehouseSummary,warehouseIdentity,slotRows,tax,channels,camBtn,camPanel,video,camStatus,track,controls,active=false;
+let desk,article,warehouse,warehousePanel,warehouseSummary,warehouseIdentity,warehouseHighlights,slotRows,tax,channels,camBtn,camPanel,video,camStatus,track,controls,active=false;
 const el=(tag,label,parent,css)=>{const x=document.createElement(tag);if(label!==undefined)x.textContent=label;if(css)x.className=css;if(parent)parent.append(x);return x};
 function update(k,value,msg,pending){
  const s=source(),r=s.record;if(!r||!v(value)||v(r[k])===v(value))return;
@@ -56,6 +56,9 @@ function applyRules(){
 }
 function updateModes(){
  const isA=article.getAttribute('aria-selected')==='true';
+ document.body.classList.toggle('hw24-warehouse-mode',!isA);
+ const heading=desk.querySelector('h2');
+ if(heading)heading.textContent=isA?'Artikelpflege · scannen, prüfen und exportieren':'Lagerplatzübersicht · nur anzeigen';
  article.classList.toggle('selected',isA);warehouse.classList.toggle('selected',!isA);
  for(const c of desk.children){
   if(c===warehousePanel)c.hidden=isA;
@@ -94,12 +97,29 @@ function show(){
   'Noch kein eindeutiger JTL-Treffer. Suche nach Artikelnummer, EAN oder HAN.';
  slotRows.replaceChildren();
  const wms=match?.related_sources?.wms_lagerplaetze,slots=Array.isArray(wms?.rows)?wms.rows:[];
+ warehouseHighlights.replaceChildren();
+ if(slots.length){
+  const kinds=slots.filter(x=>['1','true','ja'].includes(v(x.gesperrt).toLowerCase())||['1','true','ja'].includes(v(x.auslieferung_gesperrt).toLowerCase()));
+  const positive=slots.filter(x=>Number(v(x.menge).replace(',','.'))>0);
+  const summary=[
+    ['Erfasste Fächer',String(slots.length)],
+    ['Fächer mit Bestand',String(positive.length)],
+    ['Gesperrte Fächer',String(kinds.length)]
+  ];
+  for(const [label,value] of summary){
+   const stat=el('div',undefined,warehouseHighlights,'hw24-wms-stat');
+   el('small',label,stat);el('strong',value,stat);
+  }
+  if(wms?.truncated)el('p','Hinweis: Der WMS-Spiegel enthält nicht alle Fachpositionen.',warehouseHighlights,'hw24-desk-warning');
+ }else if(wms?.confirmed===true){
+  el('p','Für diesen Artikel sind keine WMS-Fachzuordnungen im letzten Spiegel vorhanden.',warehouseHighlights,'hw24-desk-muted');
+ }
  if(!slots.length){
   const row=el('tr',undefined,slotRows);
   const message=wms?.confirmed===true?
     'Keine positiv oder negativ gebuchte Fachmenge im aktuellen JTL-WMS-Snapshot.':
     'WMS-Lagerplatzabfrage noch nicht aktiviert. Gesamtbestand ist keine Fachzuordnung.';
-  const cell=el('td',message,row);cell.colSpan=5;
+  const cell=el('td',message,row);cell.colSpan=6;
  }else for(const item of slots){
   const row=el('tr',undefined,slotRows);
   const locked=x=>['1','true','ja','y'].includes(v(x).toLowerCase());
@@ -111,6 +131,8 @@ function show(){
   const status=blocked?'🔒 Fach gesperrt':shippingBlocked?'🔒 Auslieferung gesperrt':'Nicht gesperrt';
   const detail=blocked&&shippingBlocked?' · Auslieferung ebenfalls gesperrt':'';
   el('td',status+detail,row);
+  const lastMove=v(item.letzte_bewegung_utc||item.letzte_bewegung);
+  el('td',lastMove?lastMove+' · '+(v(item.letzte_bewegung_quelle)||'JTL-Bewegungshistorie'):'Noch nicht aus der Bewegungshistorie ermittelt',row);
   const flags=[];
   if(v(item.lagerplatztyp_id))flags.push('Platztyp-ID '+v(item.lagerplatztyp_id));
   if(v(item.status_id))flags.push('Status-ID '+v(item.status_id));
@@ -125,7 +147,7 @@ function show(){
  if(wms?.truncated){
   const row=el('tr',undefined,slotRows);
   const cell=el('td','Achtung: Mehr als 100 Lagerplätze. Liste unvollständig, nicht zur Inventur verwenden.',row);
-  cell.colSpan=5;
+  cell.colSpan=6;
  }
  const steuer=v(r.Steuerklasse||match?.steuerklasse_name)||'nicht hinterlegt';
  const taxSource=match?.related_sources?.steuer_saetze_de;
@@ -215,7 +237,7 @@ function build(){
  const bar=desk.querySelector('.hw24-desk-bar');
  if(!bar)return;
  const tabs=el('div',undefined,desk,'hw24-operations-tabs');desk.insertBefore(tabs,bar);
- article=el('button','Artikelübersicht',tabs);warehouse=el('button','Lagerplatzübersicht',tabs);
+ article=el('button','Artikelpflege',tabs);warehouse=el('button','Lagerplatzübersicht',tabs);
  article.type='button';warehouse.type='button';
  article.onclick=()=>mode(true);warehouse.onclick=()=>mode(false);
  camBtn=el('button','📷 Kamera',bar,'hw24-camera-button');camBtn.type='button';camBtn.onclick=startCamera;
@@ -227,14 +249,16 @@ function build(){
  const close=el('button','Kamera schließen',camPanel);close.type='button';close.onclick=stopCamera;
  const before=desk.querySelector('.hw24-desk-actions');
  warehousePanel=el('section',undefined,desk,'hw24-operations-warehouse');desk.insertBefore(warehousePanel,before);
- el('h3','Bestand je Lagerplatz (JTL-WMS)',warehousePanel);
+ el('h3','Wo liegt der Artikel?',warehousePanel);
+ el('p','Nur lesende JTL-WMS-Ansicht. Hier kannst Du keine Artikel, Bestände oder Lagerplätze verändern.',warehousePanel,'hw24-warehouse-readonly');
  warehouseIdentity=el('div',undefined,warehousePanel,'hw24-wms-identity');
  warehouseSummary=el('p','Noch kein Artikel gewählt.',warehousePanel);
+ warehouseHighlights=el('div',undefined,warehousePanel,'hw24-wms-highlights');
  const tableWrap=el('div',undefined,warehousePanel,'hw24-wms-table-scroll');
  const table=el('table',undefined,tableWrap),tr=el('tr',undefined,el('thead',undefined,table));
- for(const label of ['Warenlager','Lagerfach','Stück','Sperrstatus','Inventur / Retouren / weitere Hinweise'])el('th',label,tr);
+ for(const label of ['Warenlager','Lagerfach','Stück','Sperrstatus','Letzte Lagerbewegung','Inventur / Retouren / Hinweise'])el('th',label,tr);
  slotRows=el('tbody',undefined,table);
- el('p','Lagerplatzbuchung ist noch nicht aktiv. Die vorhandene Scanliste bleibt eine lokale Erfassung, keine WMS-Buchung.',warehousePanel);
+ el('p','Buchungsdatum und ursprüngliche Einlagerung sind derzeit nicht verifiziert. Das Inventurdatum ist kein Buchungsdatum. Die Übersicht bleibt dauerhaft ohne Buchungsfunktion.',warehousePanel,'hw24-desk-muted');
  tax=el('p','Steuerprüfung ausstehend.',desk,'hw24-operations-tax');desk.insertBefore(tax,before);
  const details=el('details',undefined,desk,'hw24-operations-channel');desk.insertBefore(details,before);
  el('summary','Verkaufskanäle: Amazon, eBay, Kaufland, Shopify',details);
