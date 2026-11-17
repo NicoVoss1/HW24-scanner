@@ -243,6 +243,7 @@ function attach(){
   const p=draft&&draft.id===active?draft:preset(active);
   const applied=[];
   for(const [key,raw] of Object.entries(p?.defaults||{})){
+    if(key==='Warengruppe')continue; // JTL-ID mapping or explicit review only; no persisted browser default may assign Haarstyling.
     if(!allowedDefaults.has(key)||!supported.includes(key)||value(record[key]))continue;
     const proposed=value(raw);
     if(!proposed||key==='Überverkäufe möglich'&&proposed!=='N')continue;
