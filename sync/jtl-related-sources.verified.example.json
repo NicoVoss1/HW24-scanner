@@ -1,0 +1,143 @@
+{
+  "sources": [
+    {
+      "id": "kosten",
+      "schema": "Artikel",
+      "table": "tArtikelkosten",
+      "article_column": "kArtikel",
+      "table_column": "kArtikel",
+      "fields": [
+        "fArtikelkosten"
+      ]
+    },
+    {
+      "id": "warengruppe",
+      "schema": "dbo",
+      "table": "tWarengruppe",
+      "article_column": "kWarengruppe",
+      "table_column": "kWarengruppe",
+      "fields": [
+        "cName"
+      ]
+    },
+    {
+      "id": "steuerklasse",
+      "schema": "dbo",
+      "table": "tSteuerklasse",
+      "article_column": "kSteuerklasse",
+      "table_column": "kSteuerklasse",
+      "fields": [
+        "cName",
+        "nStandard"
+      ]
+    },
+    {
+      "id": "versandklasse",
+      "schema": "dbo",
+      "table": "tVersandklasse",
+      "article_column": "kVersandklasse",
+      "table_column": "kVersandklasse",
+      "fields": [
+        "cName"
+      ]
+    },
+    {
+      "id": "masseinheit",
+      "schema": "dbo",
+      "table": "tMassEinheit",
+      "article_column": "kMassEinheit",
+      "table_column": "kMassEinheit",
+      "fields": [
+        "cCode",
+        "cDisplayCode",
+        "cUnitCode"
+      ]
+    },
+    {
+      "id": "lieferantenartikel",
+      "schema": "dbo",
+      "table": "tliefartikel",
+      "article_column": "kArtikel",
+      "table_column": "tArtikel_kArtikel",
+      "fields": [
+        "fEKNetto",
+        "fEKBrutto",
+        "cLiefArtNr",
+        "nStandard",
+        "tLieferant_kLieferant"
+      ]
+    },
+    {
+      "id": "lieferantenpreise",
+      "schema": "dbo",
+      "table": "teklieferantpreise",
+      "article_column": "kArtikel",
+      "table_column": "kArtikel",
+      "fields": [
+        "kLieferant",
+        "nAnzahl1",
+        "fPreis1",
+        "nAnzahl2",
+        "fPreis2"
+      ]
+    },
+    {
+      "id": "bestand",
+      "schema": "dbo",
+      "table": "tlagerbestand",
+      "article_column": "kArtikel",
+      "table_column": "kArtikel",
+      "fields": [
+        "fLagerbestand",
+        "fVerfuegbar",
+        "fInAuftraegen",
+        "fZulauf"
+      ]
+    },
+    {
+      "id": "kategorien",
+      "schema": "dbo",
+      "table": "tkategorieartikel",
+      "article_column": "kArtikel",
+      "table_column": "kArtikel",
+      "fields": [
+        "kKategorie"
+      ]
+    },
+    {
+      "id": "amazon_zuordnung",
+      "schema": "dbo",
+      "table": "pf_amazon_angebot_mapping",
+      "article_column": "kArtikel",
+      "table_column": "kArtikel",
+      "fields": [
+        "cSellerSKU",
+        "kUser"
+      ]
+    },
+    {
+      "id": "artikel_asin",
+      "schema": "Artikel",
+      "table": "tArtikelAsin",
+      "article_column": "kArtikel",
+      "table_column": "kArtikel",
+      "fields": [
+        "cAsin"
+      ]
+    },
+    {
+      "id": "verkaufskanal",
+      "schema": "SCX",
+      "table": "tVerkaufskanalArtikelData",
+      "article_column": "kArtikel",
+      "table_column": "kArtikel",
+      "fields": [
+        "kShopScx",
+        "kCategory",
+        "nMaximalerBestand",
+        "nMindestbestand"
+      ]
+    }
+  ],
+  "include_amazon_offers": true
+}
