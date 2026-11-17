@@ -110,9 +110,16 @@ WHERE TABLE_SCHEMA='dbo' AND TABLE_NAME='tHersteller'
   # Optional additional article-related sources. Admin mapping must use
   # verified SQL Server table/column names; no guesses and no JTL writes.
   $relatedSources=@{}
-  if($config.related_sources_file) {
+  $relatedMap=''
+  if($config.related_sources_file){$relatedMap=[string]$config.related_sources_file}
+  else {
+    # Standard location: put the local verified map beside jtl-sync.json.
+    $defaultMap=Join-Path (Split-Path -Parent $ConfigFile) 'jtl-related-sources.json'
+    if(Test-Path -LiteralPath $defaultMap -PathType Leaf){$relatedMap=$defaultMap}
+  }
+  if($relatedMap){
     . (Join-Path $PSScriptRoot 'HW24_JTL_Zusatzquellen.ps1')
-    $relatedSources=Get-HW24RelatedSources -Connection $connection -ArticleTable $dataset.Tables[0] -MapFile ([string]$config.related_sources_file)
+    $relatedSources=Get-HW24RelatedSources -Connection $connection -ArticleTable $dataset.Tables[0] -MapFile $relatedMap
     Write-Host ("HW24 Zusatzquellen: "+$relatedSources.Count+" Artikel angereichert")
   }
 }finally{
