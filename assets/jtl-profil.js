@@ -46,7 +46,7 @@ const newDefaults={
  'Zusätzliche Bearbeitungszeit':'1','Beschaffungszeit automatisch ermitteln':'0',
  'Beschaffungszeit manuell setzen':'2','Versandklasse':'standard',
  'Artikel aktiv':'Y','Bestandsführung aktiv':'Y','Top-Artikel':'N',
- 'Warengruppe':'Haarfarben','Artikeltyp':'Normaler Artikel','Neu im Sortiment':'Y',
+ 'Artikeltyp':'Normaler Artikel','Neu im Sortiment':'Y',
  'Steuerklasse':'normaler steuersatz','Steuersatz in %':'19,00','Währung':'EUR'
 };
 const protectedFields=new Set(['Auf Lager','In Aufträgen','Verfügbar','Durchschnittlicher Einkaufspreis (netto)',
