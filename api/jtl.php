@@ -139,9 +139,10 @@ try {
       }
     }
     $article['asin_candidates']=array_values($candidateValues);
-    $article['asin_candidates_complete']=!is_array($related) ||
-      (empty($related['artikel_asin']['truncated']) &&
-       empty($related['amazon_angebote']['truncated']));
+    // Absence of a configured source does NOT mean the Amazon catalog is complete.
+    $article['asin_sources_truncated']=is_array($related) &&
+      (!empty($related['artikel_asin']['truncated']) ||
+       !empty($related['amazon_angebote']['truncated']));
     $article['matched_on']=[];
     foreach (['ean','han','artikelnummer'] as $matchKey) {
       if (trim((string)($article[$matchKey]??''))===$identifier) $article['matched_on'][]=$matchKey;
