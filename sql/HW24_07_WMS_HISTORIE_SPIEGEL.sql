@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS hw24_wms_history_runs (
 
 CREATE TABLE IF NOT EXISTS hw24_wms_history (
  run_id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
- movement_id INT UNSIGNED NOT NULL,
+ movement_id INT NOT NULL,
  article_id INT UNSIGNED NOT NULL,
  moved_at DATETIME(3) NULL,
  type_id INT NULL,
