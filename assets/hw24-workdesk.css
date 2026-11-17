@@ -41,3 +41,5 @@ body.hw24-desk-mode #hw24ScanWorkspace>h3{display:none}
 .hw24-desk-section>summary{padding:12px;cursor:pointer;font-weight:700;background:#f4f8fc;border-radius:11px;color:#24466b}
 .hw24-desk-section .hw24-miniwrap{margin:9px}
 @media(max-width:680px){.hw24-desk-scan{min-width:100%}.hw24-desk-profile{flex:1}.hw24-desk #scanStart{flex:1}.hw24-desk-actions button{width:100%}.hw24-desk-grid{grid-template-columns:1fr}}
+
+.hw24-desk-catalog{width:100%;border-collapse:collapse;display:table;font-size:12px}.hw24-desk-catalog tr{display:table-row}.hw24-desk-catalog th,.hw24-desk-catalog td{display:table-cell;padding:7px;border-bottom:1px solid #e7ebf3;text-align:left;overflow-wrap:anywhere}
