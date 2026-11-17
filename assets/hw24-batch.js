@@ -21,7 +21,7 @@ const knownGtin=x=>{
  let sum=0,weight=3;for(let i=t.length-2;i>=0;i--){sum+=Number(t[i])*weight;weight=weight===3?1:3}
  return (10-sum%10)%10===Number(t[t.length-1]);
 };
-let list=[],panel,stateLine,stats,validation,acceptButton,exportButton,clearButton,rows,feedback,focusNext;
+let list=[],panel,stateLine,stats,validation,acceptButton,exportButton,clearButton,rows,feedback,scanCounter=0,acceptedCounter=-1;
 const storage=()=>{
  try{let x=JSON.parse(localStorage.getItem(storeKey)||'[]');return Array.isArray(x)?x.slice(0,LIMIT):[]}catch(_){return []}
 };
@@ -56,12 +56,14 @@ function assess(s){
  if(unique&&v(j.warengruppe_name)&&v(r.Warengruppe)&&v(r.Warengruppe)!==v(j.warengruppe_name)){
   errors.push('Warengruppe weicht von JTL ab: '+v(j.warengruppe_name));
  }
- if(unseen&&ready&&knownGtin(s.ean)){
+ if(unseen&&ready&&!document.body.classList.contains('hw24-warehouse-mode')&&knownGtin(s.ean)){
+   let filled=false;
    for(const k of ['GTIN','HAN','Artikelnummer']){
     if(v(r[k]))continue;
-    r[k]=v(s.ean);data[k]=v(s.ean);
+    r[k]=v(s.ean);data[k]=v(s.ean);filled=true;
     window.hw24MarkRuleDerived?.(k,'Eindeutige gescannte GTIN für Neuanlage');
    }
+   if(filled)window.hw24WorkdeskRender?.();
  }
  // CandidateFields omits blank values and unapproved history.
  for(const k of required){
@@ -142,7 +144,7 @@ function inspect(){
   for(const message of values.slice(0,6))el('div',(type==='red'?'🔴 ':'🟡 ')+message,validation,'hw24-batch-warning '+type);
  }
  if(a.warnings.length+a.errors.length>12)el('small','Weitere Hinweise in den Feldern prüfen',validation);
- acceptButton.disabled=!a.ready||a.errors.length>0||!present;
+ acceptButton.disabled=!a.ready||a.errors.length>0||!present||acceptedCounter===scanCounter;
  exportButton.disabled=!list.length;
  const incoming=new Set(list.map(x=>x.id));
  if(a.ready&&a.record&&incoming.has(v(a.j.artikelnummer||a.record.Artikelnummer)))acceptButton.textContent='Artikel im Stapel aktualisieren';
@@ -158,7 +160,7 @@ function renderList(){
   const row=el('div',undefined,rows,'hw24-batch-item');
   const name=v(item.fields?.Artikelname)||v(item.title)||item.id;
   const label=el('span',undefined,row);
-  el('strong',item.id,label);el('small',name+' · '+(item.type==='new'?'Neuanlage':'Aktualisierung'),label);
+  el('strong',item.id,label);el('small',name+' · '+(item.type==='new'?'Neuanlage':'Aktualisierung')+(item.scans>1?' · '+item.scans+'× gescannt':'') ,label);
   const del=el('button','Entfernen',row);del.type='button';
   del.onclick=()=>{list=list.filter(x=>x.id!==item.id);persist();inspect()};
  }
@@ -173,6 +175,7 @@ function accept(){
  const item=toRow(a),id=v(a.j.artikelnummer||a.record?.Artikelnummer);
  if(!id){feedback.textContent='Keine gültige Artikelnummer. Übernahme gesperrt.';return;}
  if(!item){
+  acceptedCounter=scanCounter;
   feedback.textContent='Artikel '+id+' ist bereits vollständig beziehungsweise ohne bestätigte Änderung. Kein unnötiger Update-Import.';
   const input=$('ean');if(input){input.value='';input.focus();}return;
  }
@@ -180,10 +183,12 @@ function accept(){
  if(!list.some(x=>x.id===id)&&list.length>=LIMIT){
   feedback.textContent='Limit '+LIMIT+' erreicht. Bitte CSV exportieren und neuen Stapel beginnen.';return;
  }
- const payload={id,type:item.type,fields:item.fields,title:v(a.record?.Artikelname),date:new Date().toISOString(),
+ const scans=(list.find(x=>x.id===id)?.scans||0)+1;
+ const payload={id,type:item.type,fields:item.fields,scans,title:v(a.record?.Artikelname),date:new Date().toISOString(),
   notes:a.warnings.slice(0,12)};
  const old=list;list=list.filter(x=>x.id!==id);list.push(payload);
  if(!persist()){list=old;return;}
+ acceptedCounter=scanCounter;
  const input=$('ean');if(input){input.value='';input.focus();input.select?.();}
  feedback.textContent='✓ '+id+' in Stapel übernommen. '+list.length+' Positionen. Nächsten Artikel scannen.';
  inspect();
@@ -229,7 +234,7 @@ function build(){
  feedback=el('p','',panel,'hw24-batch-feedback');
  const previous=window.hw24SmartScanFinish;
  if(typeof previous==='function')window.hw24SmartScanFinish=(...args)=>{
-   const result=previous(...args);inspect();return result;
+   const result=previous(...args);scanCounter++;inspect();return result;
  };
  const previousApproved=window.hw24ApproveHistory;
  if(typeof previousApproved==='function')window.hw24ApproveHistory=(...args)=>{
