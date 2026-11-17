@@ -106,7 +106,15 @@ ORDER BY kArtikel
    Write-Host ('    Firma '+$rate['firma_id']+' / Zone '+$rate['steuerzone_id']+
     ' / Land '+$rate['zielland']+' / Steuersatz-Quellwert '+$rate['steuersatz_quellwert'])
   }
-  if($bins.Count -eq 0){Write-Warning 'Keine Fachposition gefunden. Bitte SQL12-Wertabfrage vergleichen.'}
+  if($bins.Count -eq 0){throw 'Keine Fachposition im WMS gefunden. SQL12-Wertabfrage vergleichen.'}
+  if($taxRows.Count -eq 0){throw 'Keine deutsche Steuerkonfiguration gefunden. SQL12-Wertabfrage vergleichen.'}
+  if($TestEan -eq '4015600040482'){
+    $binExpected=@($bins | Where-Object { $_['lagerplatz'] -eq 'R2-RF-F13-H' -and $_['warenlager_id'] -eq '4' -and $_['menge'] -eq '0' })
+    $taxExpected=@($taxRows | Where-Object { $_['firma_id'] -eq '1' -and $_['steuerzone_id'] -eq '3' -and $_['steuersatz_quellwert'] -eq '19' })
+    if($binExpected.Count -lt 1){throw 'Testfach R2-RF-F13-H / Lager 4 / 0 Stueck fehlt oder stimmt nicht.'}
+    if($taxExpected.Count -lt 1){throw 'JTL-Steuerkontext Firma 1 / Zone 3 / DE / 19 fehlt oder stimmt nicht.'}
+    Write-Host 'OK: Testartikel-Fach und DE-Steuerkontext exakt wie SQL12.' -ForegroundColor Green
+  }
   Write-Host 'OK: WMS-/Steuerabfrage abgeschlossen' -ForegroundColor Green
  }catch{
   $failure++
