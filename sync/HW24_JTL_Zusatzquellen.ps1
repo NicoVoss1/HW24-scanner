@@ -12,7 +12,7 @@ function Get-HW24RelatedSources {
   if(-not (Test-Path -LiteralPath $MapFile -PathType Leaf)){ throw 'Related-source config file not found' }
   $settings=Get-Content -LiteralPath $MapFile -Raw -Encoding UTF8 | ConvertFrom-Json
   if($null -eq $settings.sources -or $settings.sources.Count -gt 12){
-    throw 'Related-source mapping requires a sources list with at most 8 sources'
+    throw 'Related-source mapping requires a sources list with at most 12 sources'
   }
   $output=@{}
   $validateName='^[A-Za-z_][A-Za-z0-9_]{0,95}$'
@@ -42,21 +42,29 @@ function Get-HW24RelatedSources {
     if(-not $ArticleTable.Columns.Contains($articleColumn)){
       throw ('Article source field not found: '+$articleColumn)
     }
-    # Verify schema against SQL Server's actual accessible catalog.
+    # Validate the *actual readable object result schema* instead of
+    # INFORMATION_SCHEMA, which hides columns when metadata visibility is limited.
     $columns=@($tableColumn)+$fields
     $check=[System.Data.SqlClient.SqlCommand]::new()
     $check.Connection=$Connection
-    $check.CommandTimeout=15
-    $check.CommandText='SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@s AND TABLE_NAME=@t'
-    [void]$check.Parameters.AddWithValue('@s',$schema)
-    [void]$check.Parameters.AddWithValue('@t',$table)
-    $reader=$check.ExecuteReader()
+    $check.CommandTimeout=20
+    $check.CommandText='SELECT TOP (0) * FROM ['+$schema+'].['+$table+']'
+    $reader=$null
     $available=@{}
     try {
-      while($reader.Read()){ $available[[string]$reader.GetString(0)]=$true }
-    } finally { $reader.Close() }
-    foreach($col in $columns) {
-      if(-not $available.ContainsKey([string]$col)){ throw ('Related-source field not verified: '+$sourceId+'.'+$col) }
+      $reader=$check.ExecuteReader([System.Data.CommandBehavior]::SchemaOnly)
+      for($index=0;$index -lt $reader.FieldCount;$index++){
+        $available[[string]$reader.GetName($index)]=$true
+      }
+    } catch {
+      throw ('Zusatzquelle '+$sourceId+' ('+$schema+'.'+$table+') nicht lesbar. SQL-SELECT-Rechte pruefen: '+$_.Exception.Message)
+    } finally {
+      if($null -ne $reader){$reader.Close()}
+    }
+    $missing=@($columns | Where-Object {-not $available.ContainsKey([string]$_)})
+    if($missing.Count -gt 0) {
+      throw ('JTL-Spalten fehlen in '+$schema+'.'+$table+': '+($missing -join ', ')+
+        '. Verfuegbar: '+(@($available.Keys | Sort-Object) -join ', '))
     }
     $identifiers=@{}
     $sourceKeys=@{}
@@ -133,16 +141,22 @@ function Get-HW24RelatedSources {
       $parts=$tableId.Split('.')
       $cmd=[System.Data.SqlClient.SqlCommand]::new()
       $cmd.Connection=$Connection;$cmd.CommandTimeout=20
-      $cmd.CommandText='SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@schema AND TABLE_NAME=@table'
-      [void]$cmd.Parameters.AddWithValue('@schema',$parts[0])
-      [void]$cmd.Parameters.AddWithValue('@table',$parts[1])
-      $reader=$cmd.ExecuteReader()
+      $cmd.CommandText='SELECT TOP (0) * FROM ['+$parts[0]+'].['+$parts[1]+']'
+      $reader=$null
       $available=@{}
-      try{while($reader.Read()){$available[[string]$reader.GetString(0)]=$true}}
-      finally{$reader.Close()}
+      try{
+        $reader=$cmd.ExecuteReader([System.Data.CommandBehavior]::SchemaOnly)
+        for($columnIndex=0;$columnIndex -lt $reader.FieldCount;$columnIndex++){
+          $available[[string]$reader.GetName($columnIndex)]=$true
+        }
+      }catch{
+        throw ('Amazon-Tabelle '+$tableId+' nicht lesbar. SQL-SELECT-Rechte pruefen: '+$_.Exception.Message)
+      }finally{
+        if($null -ne $reader){$reader.Close()}
+      }
       foreach($requiredField in $required[$tableId]){
         if(-not $available.ContainsKey([string]$requiredField)){
-          throw ('Amazon field not found in SQL catalog: '+$tableId+'.'+$requiredField)
+          throw ('Amazon-Spalte fehlt in '+$tableId+': '+$requiredField)
         }
       }
     }
