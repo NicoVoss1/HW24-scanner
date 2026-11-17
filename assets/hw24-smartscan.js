@@ -227,7 +227,11 @@ window.hw24SmartScanHistory=storeHistory;
 window.hw24SmartScanFinish=reconcile;
 window.hw24SourceFor=key=>origins.get(key)||null;
 window.hw24FieldExportApproved=key=>!pending.has(key)&&!blocked.has(key);
-window.hw24HasUnresolvedJtlWarengruppe=()=>blocked.has('Warengruppe');
+window.hw24HasUnresolvedJtlWarengruppe=()=>{
+ const live=jtl?.jtl_status==='current_snapshot'&&jtl.matches?.length===1?jtl.matches[0]:null;
+ const id=v(live?.warengruppe_id||live?.jtl_source_fields?.kWarengruppe);
+ return blocked.has('Warengruppe')||Boolean(live&&id&&!v(live.warengruppe_name));
+};
 window.hw24ScanReady=()=>finished&&jtl?.jtl_status==='current_snapshot';
 window.hw24AuditExtraRows=()=>basket.map(x=>({...x}));
 window.hw24MainRecord=()=>record;
