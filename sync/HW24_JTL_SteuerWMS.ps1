@@ -35,7 +35,7 @@ function Get-HW24TaxAndBinSources {
   }
   if($IncludeBins){
     Assert-Columns 'dbo.vWarenlagerPlatzArtikel' @('kArtikel','kWarenLagerPlatz','fAnzahl')
-    Assert-Columns 'dbo.tWarenLagerPlatz' @('kWarenLagerPlatz','kWarenLager','cName','nGesperrt','nAuslieferungGesperrt')
+    Assert-Columns 'dbo.tWarenLagerPlatz' @('kWarenLagerPlatz','kWarenLager','cName','nGesperrt','nAuslieferungGesperrt','kWarenLagerPlatzTyp','nStatus','dWmsInventurDatum','kWmsInventur','nPreInvStatus','nInvGezaehlt','cKommentar')
     foreach($id in $articleIDs){
       $key=[string]$id
       if(-not $result.ContainsKey($key)){$result[$key]=@{}}
@@ -63,13 +63,15 @@ function Get-HW24TaxAndBinSources {
       }
       $queryStart=@'
 SELECT p.kArtikel,p.kWarenLagerPlatz,p.fAnzahl,
-       l.cName,l.kWarenLager,l.nGesperrt,l.nAuslieferungGesperrt
+       l.cName,l.kWarenLager,l.nGesperrt,l.nAuslieferungGesperrt,
+       l.kWarenLagerPlatzTyp,l.nStatus,l.dWmsInventurDatum,
+       l.kWmsInventur,l.nPreInvStatus,l.nInvGezaehlt,l.cKommentar
 FROM dbo.vWarenlagerPlatzArtikel AS p
 JOIN dbo.tWarenLagerPlatz AS l ON l.kWarenLagerPlatz=p.kWarenLagerPlatz
 WHERE p.kArtikel IN (
 '@
       $queryEnd=@'
-) AND p.fAnzahl<>0
+)
 ORDER BY p.kArtikel,l.kWarenLager,l.cName,p.kWarenLagerPlatz
 '@
       $cmd.CommandText=$queryStart+($p -join ',')+$queryEnd
@@ -92,6 +94,14 @@ ORDER BY p.kArtikel,l.kWarenLager,l.cName,p.kWarenLagerPlatz
             warenlager_id=[string]$rd.GetValue(4)
             gesperrt=if($rd.IsDBNull(5)){$null}else{[string]$rd.GetValue(5)}
             auslieferung_gesperrt=if($rd.IsDBNull(6)){$null}else{[string]$rd.GetValue(6)}
+            lagerplatztyp_id=if($rd.IsDBNull(7)){$null}else{[string]$rd.GetValue(7)}
+            status_id=if($rd.IsDBNull(8)){$null}else{[string]$rd.GetValue(8)}
+            inventur_datum=if($rd.IsDBNull(9)){$null}else{([DateTime]$rd.GetValue(9)).ToString('yyyy-MM-dd HH:mm:ss',[Globalization.CultureInfo]::InvariantCulture)}
+            inventur_id=if($rd.IsDBNull(10)){$null}else{[string]$rd.GetValue(10)}
+            vorinventur_status_id=if($rd.IsDBNull(11)){$null}else{[string]$rd.GetValue(11)}
+            inventur_gezaehlt=if($rd.IsDBNull(12)){$null}else{[string]$rd.GetValue(12)}
+            lagerplatz_hinweis=if($rd.IsDBNull(13)){$null}else{([string]$rd.GetValue(13)).Substring(0,[Math]::Min(160,([string]$rd.GetValue(13)).Length))}
+
           }
           $entry['rows']=$rows
         }
