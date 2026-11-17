@@ -205,6 +205,20 @@ window.hw24AuditExtraRows=()=>basket.map(x=>({...x}));
 window.hw24MainRecord=()=>record;
 window.hw24SourceState=()=>({ean:scan,record,jtl,history,pending:[...pending],finished,basket:basket.map(x=>({...x}))});
 window.hw24ApproveHistory=approve;
+window.hw24MarkHistoricalDerivative=(key,desc)=>{
+ if(!record||!key)return;
+ pending.add(key);
+ origins.set(key,{name:'Historische Ableitung: '+(desc||key),kind:'history'});
+ render();
+};
+window.hw24MarkRuleDerived=(key,desc)=>{
+ if(!record||!key)return;
+ edited.add(key);
+ pending.delete(key);
+ origins.set(key,{name:'Aus JTL/Scanregel: '+(desc||key),kind:'rule'});
+ render();
+};
+window.hw24WasManuallyEdited=key=>origins.get(key)?.kind==='manual';
 window.hw24MarkEdited=key=>{
  if(!record||!key)return;
  edited.add(key);pending.delete(key);
