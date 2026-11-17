@@ -214,6 +214,7 @@ window.hw24AmeiseJtl=result=>{
       'Artikelnummer':r.artikelnummer,'GTIN':r.ean,'HAN':r.han,'ASIN':r.asin,
       'Artikelname':r.artikelname,'Kurzbeschreibung':r.kurzbeschreibung,
       'Beschreibung':r.beschreibung,'Hersteller':r.hersteller,
+      'Kosten':r.kosten,'Warengruppe':r.warengruppe_name,'Steuerklasse':r.steuerklasse_name,
       'Netto-VK':r.netto_vk
     };
     for(const [key,value] of Object.entries(fields))if(v(value)!=='')record[key]=String(value);
