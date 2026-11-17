@@ -4,7 +4,7 @@
 (function(){
 'use strict';
 const $=id=>document.getElementById(id),v=x=>String(x??'').trim();
-const keyFields=['Artikelname','Hersteller','Warengruppe','Kosten','Netto-VK','Steuerklasse','Inhalt/Menge','Maßeinheit'];
+const keyFields=['Artikelname','Hersteller','Warengruppe','ASIN','Kosten','Netto-VK','Steuerklasse','Inhalt/Menge','Maßeinheit'];
 const prices=new Set(['Kosten','Netto-VK','Brutto-VK']);
 const locked=new Set(['Ø EK netto (GLD)','Letzter EK (JTL)','Datum letzter EK']);
 let main,fields,additional,extraNumber,meta,stateLine,warning,approveBtn,exportBtn,exportMsg,queue,queueMsg,queueBtn,profileSelect,catalogNote,catalogTable,manualChanges=new Set();
