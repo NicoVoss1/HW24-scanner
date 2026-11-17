@@ -51,7 +51,10 @@ function assess(s){
  const errors=[],warnings=[],green=[];
  if(!ready)errors.push('JTL-Spiegel nicht frisch oder Abgleich noch nicht abgeschlossen');
  if(matches.length>1)errors.push('Mehrdeutiger JTL-Treffer');
- if((s.blocked||[]).includes('Warengruppe'))errors.push('Warengruppen-ID vorhanden, Klarname fehlt');
+ if((s.blocked||[]).includes('Warengruppe')||
+   (unique&&v(j.warengruppe_id||j.jtl_source_fields?.kWarengruppe)&&!v(j.warengruppe_name))){
+    errors.push('JTL-Warengruppen-ID vorhanden, aber autoritativer Klarname fehlt');
+ }
  // A complete JTL article is authoritative; never replace its group with a historical guess.
  if(unique&&v(j.warengruppe_name)&&v(r.Warengruppe)&&v(r.Warengruppe)!==v(j.warengruppe_name)){
   errors.push('Warengruppe weicht von JTL ab: '+v(j.warengruppe_name));
