@@ -77,7 +77,7 @@ function render(){
   meta.textContent='Noch kein Artikel ausgewählt.';
   fields.replaceChildren();additional.replaceChildren();extraNumber.textContent='';
   warning.hidden=true;approveBtn.hidden=true;exportBtn.disabled=true;queueBtn.disabled=true;
-  renderQueue();return;
+  renderQueue();if(catalogTable)catalogTable.replaceChildren();if(catalogNote)catalogNote.textContent='Keine EAN ausgewählt.';return;
  }
  const ready=s.jtl?.jtl_status==='current_snapshot';
  const matches=ready?(s.jtl.matches||[]):[];
