@@ -242,8 +242,9 @@ function build(){
  };
  // Advance scans work with USB/Bluetooth scanners which send Enter, or camera.
  window.hw24BatchRefresh=inspect;
- window.hw24BatchAssess=()=>assess(src());
  inspect();
 }
+window.hw24BatchAssess=()=>assess(src());
+window.hw24BatchGtinValid=knownGtin;
 build();
 })();
