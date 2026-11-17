@@ -37,9 +37,27 @@ function field(k,target){
  const label=node('label',undefined,item);
  node('strong',k,label);
  node('small',missing?'Fehlt':src.kind==='live'?'JTL':src.kind==='history'?'Historie':src.kind==='manual'?'Bearbeitet':'Prüfen',label,'hw24-desk-badge '+(missing?'missing':src.kind));
+ const selectOptions={
+  'Warengruppe':['Haarfarben','Haarpflege','Haarstyling','Beauty','Haarschmuck','Sammelkarten'],
+  'Steuerklasse':['Normaler Steuersatz','Ermäßigter Steuersatz','Steuerfrei'],
+  'Maßeinheit':['ml','l','g','kg','Stk'],
+  'Versandklasse':['standard'],
+  'Artikel aktiv':['Y','N'],
+  'Bestandsführung aktiv':['Y','N'],
+  'Überverkäufe möglich':['N','Y']
+ };
  const textarea=['Beschreibung','Kurzbeschreibung','Artikelname'].includes(k)&&value.length>160;
- const input=node(textarea?'textarea':'input',undefined,item);
- if(!textarea)input.type='text';input.value=value;input.placeholder=missing?'Fehlenden Wert eintragen':'';
+ const isSelect=Object.hasOwn(selectOptions,k);
+ const input=node(isSelect?'select':textarea?'textarea':'input',undefined,item);
+ if(isSelect){
+  const options=[...new Set(['',value,...selectOptions[k]])];
+  for(const option of options){
+    const o=node('option',option||'Bitte auswählen',input);
+    o.value=option;
+  }
+ }else if(!textarea)input.type='text';
+ input.value=value;
+ if(!isSelect)input.placeholder=missing?'Fehlenden Wert eintragen':'';
  input.disabled=!s.finished||locked.has(k)||(['Artikelnummer','GTIN'].includes(k)&&s.jtl?.matches?.length===1);
  input.addEventListener('change',()=>changed(k,input.value));
  node('small',missing?'Nicht belegt':src.name,item,'hw24-desk-origin');
