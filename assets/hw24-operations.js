@@ -288,7 +288,7 @@ function show(){
   const summary=valid.slice(0,6).map(x=>{
     const value=Number(v(x.steuersatz_quellwert).replace(',','.'));
     const percent=value>=0&&value<=100?v(x.steuersatz_quellwert)+' %':'Quellwert '+v(x.steuersatz_quellwert)+' (Skalierung prüfen)';
-    return percent+' · '+(v(x.firmenname)||('Firma '+v(x.firma_id)))+' (Firma '+v(x.firma_id)+') · '+(v(x.steuerzone)||'Steuerzone')+' (Zone '+v(x.steuerzone_id)+')';
+    return percent+' · '+(v(x.firmenname)?v(x.firmenname)+' (Firma '+v(x.firma_id)+')':'Firma '+v(x.firma_id)+' (Klarname fehlt)')+' · '+(v(x.steuerzone)||'Steuerzone')+' (Zone '+v(x.steuerzone_id)+')';
   }).join(' | ');
   taxLabel+=valid.length?
     'JTL-Steuersätze für Deutschland: '+summary+(valid.length>6?' | weitere '+(valid.length-6)+' Kontexte':'')+'. ':
@@ -391,7 +391,7 @@ function build(){
  warehouseMobile=el('div',undefined,warehousePanel,'hw24-wms-mobilelist');
  historySection=el('section',undefined,warehousePanel,'hw24-wms-history');
  el('h3','Vollständige Bewegungshistorie des Artikels',historySection);
- el('p','Ohne Datumsfilter. Ältere Bewegungen werden nach erfolgreicher Quellenanbindung nachgeladen.',historySection,'hw24-desk-muted');
+ el('p','Ohne Datumsfilter. Alle verfügbaren Bewegungen werden nach der Quellenanbindung vollständig und bei Bedarf seitenweise angezeigt.',historySection,'hw24-desk-muted');
  historyNote=el('p','Bewegungsquelle noch nicht angebunden.',historySection,'hw24-history-note');
  historyRows=el('div',undefined,historySection,'hw24-history-rows');
  historyMore=el('button','Weitere 50 Bewegungen anzeigen',historySection);historyMore.type='button';historyMore.hidden=true;
