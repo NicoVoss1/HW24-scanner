@@ -13,6 +13,10 @@ const seedKeys=['Artikelnummer','Artikelname','GTIN','HAN','Hersteller','Warengr
  'Inhalt/Menge','Maßeinheit','Grundpreis ausweisen','Versandklasse','Artikel aktiv',
  'Bestandsführung aktiv','Überverkäufe möglich','Kategorie Ebene 1','Kategorie Ebene 2','ASIN'];
 const required=new Set(['Artikelnummer','Artikelname','GTIN']);
+const allowedDefaults=new Set(['Überverkäufe möglich','Artikel aktiv','Bestandsführung aktiv',
+ 'Stückzahl teilbar','Top-Artikel','Neu im Sortiment','Währung','Lieferstatus',
+ 'Versandklasse','Warengruppe','Artikeltyp','Steuerklasse','Zusätzliche Bearbeitungszeit',
+ 'Beschaffungszeit manuell setzen']);
 const staticDefaults={'Überverkäufe möglich':'N','Bestandsführung aktiv':'Y','Artikel aktiv':'Y'};
 let current=null,ean='',csvHeaders=[],supported=[];
 let profiles=[];
@@ -66,11 +70,16 @@ function renderCatalog(){
   ck.checked=allowed&&draft.columns.includes(key);
   ck.disabled=!allowed || required.has(key);
   ck.addEventListener('change',()=>{
-   const set=new Set(draft.columns);if(ck.checked)set.add(key);else set.delete(key);draft.columns=[...set];
+   const set=new Set(draft.columns);if(ck.checked)set.add(key);else set.delete(key);draft.columns=[...set];window.hw24AmeiseRefresh?.();
    renderCatalog();
   });
   el('span',{text:'Export'},cklabel);
-  el('span',{text:allowed?'Frei':'Prüfen'},row);
+  if(allowed&&allowedDefaults.has(key)){
+    const set=el('input',{type:'text',title:'Optionaler Standard nur für neue Artikel',placeholder:'Vorgabe'},row);
+    set.style.cssText='min-width:0;width:98px;box-sizing:border-box;padding:5px;border-radius:5px;border:1px solid #c8d4e4';
+    set.value=value(draft.defaults[key]);
+    set.addEventListener('change',()=>{const vv=value(set.value);if(vv)draft.defaults[key]=vv;else delete draft.defaults[key];notify('Vorgabe geändert. Vorlage bitte speichern.');});
+   }else el('span',{text:allowed?'Frei':'Prüfen'},row);
  }
  if(view.length>75)el('p',{class:'hw24-small',text:'Erste 75 Treffer sichtbar. Bitte Suchfeld verwenden; der Katalog ist nicht auf 75 Felder begrenzt.'},fieldList);
 }
@@ -135,6 +144,8 @@ function makeLayout(){
  newButton.onclick=createProfile;
  const storeButton=el('button',{type:'button',text:'Vorlage speichern'},actions);
  storeButton.onclick=persist;
+  const direct=el('button',{type:'button',text:'📥 Prüf-CSV mit dieser Vorlage exportieren'},actions);
+  direct.onclick=()=>{const ok=window.hw24AmeiseAutoExport?.();notify(ok?'Prüf-CSV erstellt: ausgewählte, belegte Felder. JTL-Ameise-Testlauf erforderlich.':'Noch kein Export möglich: Bitte EAN und Pflichtangaben prüfen.');};
  editorStatus=el('p',{class:'hw24-small'},section);
  const filterWrap=el('div',{},section);
  el('label',{text:'Spalten suchen'},filterWrap);
@@ -226,7 +237,21 @@ function attach(){
  const originalJtl=window.hw24AmeiseJtl;
  if(typeof originalJtl==='function')window.hw24AmeiseJtl=(data)=>{originalJtl(data);onJtl(data);};
  window.hw24AmeiseSupportedFields=window.hw24AmeiseSupportedFields||(()=>[]);
- window.hw24TemplateExportFields=()=>{const p=preset(active);return [...new Set([...required,...(p?.columns||[])])];};
+ window.hw24TemplateExportFields=()=>{const p=draft&&draft.id===active?draft:preset(active);return [...new Set([...required,...(p?.columns||[])])];};
+ window.hw24ApplyTemplateDefaults=(record,jtl)=>{
+  if(!record||jtl?.jtl_status!=='current_snapshot'||jtl.matches?.length!==0)return [];
+  const p=draft&&draft.id===active?draft:preset(active);
+  const applied=[];
+  for(const [key,raw] of Object.entries(p?.defaults||{})){
+    if(!allowedDefaults.has(key)||!supported.includes(key)||value(record[key]))continue;
+    const proposed=value(raw);
+    if(!proposed||key==='Überverkäufe möglich'&&proposed!=='N')continue;
+    record[key]=proposed;applied.push(key);
+  }
+  return applied;
+ };
+ window.hw24NamingRefresh=extractFromCurrent;
+ window.hw24TemplatesRefresh=()=>{renderCatalog();window.hw24AmeiseRefresh?.()};
  window.hw24TemplatesCatalog=headers=>{if(Array.isArray(headers)){csvHeaders=headers.filter(h=>typeof h==='string'&&h.length<200);renderCatalog();}};
 }
 attach();
