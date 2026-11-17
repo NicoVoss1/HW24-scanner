@@ -131,6 +131,8 @@ function mappedLabel(label){
  return m[v(label).toLocaleLowerCase('de').replace(/\s+/g,' ')]||null;
 }
 function historyFill(){
+ // v4.5 performs one consolidated, source-labelled merge after both APIs respond.
+ if(typeof window.hw24SmartScanFinish==='function')return;
  if(!current||!history?.ok||!history.gtin_valid)return;
  const fields=new Map();
  for(const row of history.matches||[])for(const cell of row.cells||[]){
