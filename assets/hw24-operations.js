@@ -229,21 +229,21 @@ function show(){
  // article number, GTIN/EAN, HAN, product name, manufacturer and group.
  warehouseIdentity.replaceChildren();
  const identityFields=[
+  ['Hersteller',match?.hersteller||r.Hersteller],
+  ['Warengruppe',match?(match.warengruppe_name||(match.warengruppe_id?'JTL-ID '+match.warengruppe_id+' · Klarname noch nicht synchronisiert':'Nicht belegt')):r.Warengruppe],
   ['Artikelnummer',match?.artikelnummer||r.Artikelnummer],
   ['EAN / GTIN',match?.ean||r.GTIN],
   ['HAN',match?.han||r.HAN],
-  ['Artikelname',match?.artikelname||r.Artikelname],
-  ['Hersteller',match?.hersteller||r.Hersteller],
-  ['Warengruppe',match?(match.warengruppe_name||(match.warengruppe_id?'JTL-ID '+match.warengruppe_id+' · Klarname noch nicht synchronisiert':'Nicht belegt')):r.Warengruppe]
+  ['Artikelname',match?.artikelname||r.Artikelname]
  ];
  for(const [label,value] of identityFields){
-  const cell=el('div',undefined,warehouseIdentity,'hw24-wms-identity-cell');
+  const cell=el('div',undefined,warehouseIdentity,'hw24-wms-identity-cell'+(label==='Artikelname'?' hw24-wms-product-title':''));
   el('small',label,cell);
   el('strong',v(value)||'Nicht belegt',cell);
  }
  warehouseSummary.textContent=match?
-  'Gesamtbestand '+v(match.bestand??'unbekannt')+
-  ' Stück · Verfügbar '+v(match.bestand_verfuegbar??'unbekannt')+
+  'Gesamtbestand '+(v(match.bestand)?formatQty(match.bestand):'unbekannt')+
+  ' Stück · Verfügbar '+(v(match.bestand_verfuegbar)?formatQty(match.bestand_verfuegbar):'unbekannt')+
   ' Stück · JTL-Snapshot '+v(s.jtl.snapshot_at)+' UTC':
   'Noch kein eindeutiger JTL-Treffer. Suche nach Artikelnummer, EAN oder HAN.';
  slotRows.replaceChildren();
@@ -282,7 +282,7 @@ function show(){
   const locked=x=>['1','true','ja','y'].includes(v(x).toLowerCase());
   const blocked=locked(item.gesperrt),shippingBlocked=locked(item.auslieferung_gesperrt);
   if(blocked||shippingBlocked)row.className='hw24-wms-blocked';
-  el('td','Warenlager '+(v(item.warenlager_id)||'?'),row);
+  el('td',v(item.warenlager_name)||('Lager '+(v(item.warenlager_id)||'?')),row);
   el('td',v(item.lagerplatz)||'Ohne Fachbezeichnung',row);
   el('td',formatQty(item.menge),row);
   const status=blocked?'🔒 Fach gesperrt':shippingBlocked?'🔒 Auslieferung gesperrt':'Nicht gesperrt';
@@ -293,18 +293,20 @@ function show(){
   if(v(item.lagerplatz_id))dateCell.dataset.historyBin=v(item.lagerplatz_id);
   const flags=[];
   if(v(item.lagerplatztyp_id))flags.push('Platztyp-ID '+v(item.lagerplatztyp_id));
-  if(v(item.status_id))flags.push('Status-ID '+v(item.status_id));
-  if(v(item.inventur_id))flags.push('Inventur-ID '+v(item.inventur_id));
+  if(v(item.status_id)&&v(item.status_id)!=='0')flags.push('Status-ID '+v(item.status_id));
+  if(v(item.inventur_id)&&v(item.inventur_id)!=='0')flags.push('Inventur-ID '+v(item.inventur_id));
   if(v(item.inventur_datum))flags.push('Inventurdatum '+v(item.inventur_datum));
-  if(v(item.vorinventur_status_id))flags.push('Vorinventurstatus-ID '+v(item.vorinventur_status_id));
-  if(v(item.inventur_gezaehlt))flags.push('Inventur gezählt (Quellwert) '+v(item.inventur_gezaehlt));
+  if(v(item.vorinventur_status_id)&&v(item.vorinventur_status_id)!=='0')flags.push('Vorinventurstatus-ID '+v(item.vorinventur_status_id));
+  if(v(item.inventur_gezaehlt)&&v(item.inventur_gezaehlt)!=='0')flags.push('Inventur gezählt (Quellwert) '+v(item.inventur_gezaehlt));
   if(/retour/i.test(v(item.lagerplatz)+' '+v(item.lagerplatz_hinweis)))flags.push('Retourenhinweis in Fachbezeichnung/Kommentar');
   if(v(item.lagerplatz_hinweis))flags.push('Fachkommentar '+v(item.lagerplatz_hinweis));
-  el('td',flags.join(' · ')||'Keine weiteren JTL-Hinweise',row);
+  const hint=el('td',undefined,row);
+  if(flags.length){const d=el('details',undefined,hint);el('summary','Details',d);el('p',flags.join(' · '),d);}
+  else el('span','—',hint);
   const mobile=el('div',undefined,warehouseMobile,'hw24-wms-mobilecard'+(blocked||shippingBlocked?' locked':''));
   const top=el('div',undefined,mobile,'hw24-wms-mobiletop');
   const location=el('div',undefined,top);
-  el('small','Warenlager '+(v(item.warenlager_id)||'?'),location);
+  el('small',v(item.warenlager_name)||('Lager '+(v(item.warenlager_id)||'?')),location);
   el('strong',v(item.lagerplatz)||'Lagerfach unbekannt',location);
   const amount=el('div',undefined,top,'hw24-wms-mobileamount');
   el('strong',formatQty(item.menge),amount);
@@ -312,7 +314,7 @@ function show(){
   el('p',status+detail,mobile,'hw24-wms-mobilestatus');
   const mobileDate=el('p','Letzte Bewegung: '+(lastMove||'Noch nicht ermittelt'),mobile,'hw24-wms-mobilehistory');
   if(v(item.lagerplatz_id)){mobileDate.dataset.historyBin=v(item.lagerplatz_id);mobileDate.dataset.historyPrefix='Letzte Bewegung: ';}
-  if(flags.length)el('p',flags.join(' · '),mobile,'hw24-wms-mobileflags');
+  if(flags.length){const d=el('details',undefined,mobile);el('summary','Fachdetails',d);el('p',flags.join(' · '),d,'hw24-wms-mobileflags');}
  }
  if(wms?.truncated){
   const row=el('tr',undefined,slotRows);
@@ -427,8 +429,8 @@ function build(){
  warehouseSummary=el('p','Noch kein Artikel gewählt.',warehousePanel);
  warehouseHighlights=el('div',undefined,warehousePanel,'hw24-wms-highlights');
  const tableWrap=el('div',undefined,warehousePanel,'hw24-wms-table-scroll');
- const table=el('table',undefined,tableWrap),tr=el('tr',undefined,el('thead',undefined,table));
- for(const label of ['Warenlager','Lagerfach','Stück','Sperrstatus','Letzte Lagerbewegung','Inventur / Retouren / Hinweise'])el('th',label,tr);
+ const table=el('table',undefined,tableWrap,'hw24-wms-bin-table'),tr=el('tr',undefined,el('thead',undefined,table));
+ for(const label of ['Lager','Lagerfach','Stück','Status','Letzte Bewegung','Details'])el('th',label,tr);
  slotRows=el('tbody',undefined,table);
  warehouseMobile=el('div',undefined,warehousePanel,'hw24-wms-mobilelist');
  historySection=el('section',undefined,warehousePanel,'hw24-wms-history');
@@ -446,6 +448,10 @@ function build(){
  const details=el('details',undefined,desk,'hw24-operations-channel');desk.insertBefore(details,before);
  el('summary','Verkaufskanäle: Amazon, eBay, Kaufland, Shopify',details);
  channels=el('div',undefined,details,'hw24-operations-channelgrid');
+ // Research and channel data remain accessible through the single expert disclosure.
+ const expert=$('hw24DeskExpert');
+ if(expert){const research=el('details',undefined,expert,'hw24-desk-section');el('summary','Produktquellen, ASIN, Steuern und Verkaufskanäle',research);research.append(tax,asinPanel,details);}
+
  for(const child of desk.children){
   if(child!==warehousePanel&&child!==tax&&child!==details&&child!==asinPanel&&child!==camPanel&&child!==tabs&&child!==bar&&
      child.tagName!=='H2'&&!child.classList.contains('hw24-desk-status')&&!child.matches('#status')&&
