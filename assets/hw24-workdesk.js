@@ -130,6 +130,7 @@ function make(){
  if(!workspace||!ean||!scan)return;
  document.body.classList.add('hw24-desk-mode');
  const desk=node('section',undefined,null,'hw24-desk');
+ desk.id='hw24Desk'; // Must match WMS focus CSS; otherwise the entire workspace is hidden.
  workspace.insertBefore(desk,workspace.firstElementChild);
  main=desk;node('h2','Artikelnummer, EAN oder HAN scannen · prüfen · exportieren',desk);
  node('p','Eine Kennung, ein JTL-Abgleich mit Historie und ein Ameise-Export.',desk,'hw24-desk-muted');
