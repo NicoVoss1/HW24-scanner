@@ -88,13 +88,10 @@ function applyDefaults(){
  for(const [key,value] of defaults){
   if(val(rec[key]))continue;
   if(key==='Warengruppe'){
-   const name=val(rec.Artikelname).toLowerCase();
-   // Product family cannot be guessed from a generic missing name.
-   if(/shampoo|conditioner|haarkur|pflegemaske|haarpflege/.test(name))rec[key]='Haarpflege';
-   else if(/styling|haarspray|haargel|haarwachs|haarschaum/.test(name))rec[key]='Haarstyling';
-   else if(/booster|pokemon|pokémon|sammelkart/.test(name))rec[key]='Sammelkarten';
-   else if(/haarfarb|tönung|koleston|illumina|color touch|igora|majirel|majiblond|tinta color|färbecreme/.test(name))rec[key]='Haarfarben';
-   else continue;
+   // A product name is not a JTL category master record.
+   // Never classify "spray" as Haarstyling or copy a preset group.
+   // Wait for a verified JTL kWarengruppe lookup / manual approval.
+   continue;
   }else rec[key]=value;
   count++;
  }
