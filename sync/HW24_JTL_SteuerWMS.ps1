@@ -131,11 +131,11 @@ ORDER BY p.kArtikel,l.kWarenLager,l.cName,p.kWarenLagerPlatz
     # account has explicit SELECT permission. Never turn the ID into a fake name.
     $companyNames=@{}
     try {
-      Assert-Columns 'dbo.tFirma' @('kFirma','cName')
+      # A column-restricted SQL login may read these two fields, not SELECT *.
       $companyCommand=[System.Data.SqlClient.SqlCommand]::new()
       $companyCommand.Connection=$Connection
       $companyCommand.CommandTimeout=25
-      $companyCommand.CommandText='SELECT kFirma,cName FROM dbo.tFirma'
+      $companyCommand.CommandText='SELECT kFirma,cName FROM dbo.tfirma'
       $companyReader=$companyCommand.ExecuteReader()
       try {
         while($companyReader.Read()){
