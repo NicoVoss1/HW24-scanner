@@ -104,6 +104,20 @@ try {
     $article['kosten']=$singleValue('kosten','fArtikelkosten');
     $article['kosten_source']=$article['kosten']!==null?'Artikel.tArtikelkosten.fArtikelkosten':null;
     $article['warengruppe_name']=$singleValue('warengruppe','cName');
+    // Prefer the authoritative kWarengruppe -> tWarengruppe resolution made
+    // during the Windows snapshot, independent of optional related-source maps.
+    $fromCore=is_array($raw)?($raw['HW24_WarengruppeName']??null):null;
+    if (is_scalar($fromCore) && trim((string)$fromCore)!=='') {
+      $article['warengruppe_name']=trim((string)$fromCore);
+    }
+    $article['warengruppe_id']=is_array($raw)?($raw['kWarengruppe']??null):null;
+    $article['warengruppe_source']=$article['warengruppe_name']!==null
+      ?(is_scalar($fromCore)&&trim((string)$fromCore)!==''
+         ?'dbo.tArtikel.kWarengruppe -> dbo.tWarengruppe.cName (Windows-Sync)'
+         :'dbo.tWarengruppe.cName (geprüfte Zusatzquelle)')
+      :null;
+    $article['warengruppe_unresolved']=!empty($article['warengruppe_id']) &&
+      ($article['warengruppe_name']===null || $article['warengruppe_name']==='');
     $article['steuerklasse_name']=$singleValue('steuerklasse','cName');
     $article['versandklasse_name']=$singleValue('versandklasse','cName');
     $article['bestand_verfuegbar']=$singleValue('bestand','fVerfuegbar');
