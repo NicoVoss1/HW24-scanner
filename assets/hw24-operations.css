@@ -1,0 +1,22 @@
+/* HW24 v4.9 · two workspace views and mobile scanner */
+.hw24-operations-tabs{display:flex;gap:8px;margin:8px 0 14px}
+.hw24-operations-tabs button{margin:0;flex:1;background:#f0f4fa;color:#1c416b;border:1px solid #c2d3e4;border-radius:8px;padding:12px;font-weight:700}
+.hw24-operations-tabs button.selected{background:#183b70;color:#fff}
+.hw24-camera-button{background:#e7f4ff!important;color:#1b4778!important;border:1px solid #b5cce6!important;border-radius:8px!important;margin:0!important;padding:11px 14px!important;min-height:45px!important}
+.hw24-operations-camera{border-radius:11px;padding:12px;background:#203047;color:#fff;margin:12px 0}
+.hw24-operations-camera video{width:100%;max-height:340px;object-fit:contain;display:block;background:#071322;border-radius:8px}
+.hw24-operations-camera p{color:#f2f6fc;font-size:13px}
+.hw24-operations-warehouse{border:1px solid #d4dfeb;background:#f8fbff;border-radius:10px;padding:13px;margin:14px 0}
+.hw24-operations-warehouse h3{margin:4px 0}
+.hw24-operations-warehouse p{font-size:13px}
+.hw24-operations-warehouse table{width:100%;border-collapse:collapse;display:table}
+.hw24-operations-warehouse tr{display:table-row}
+.hw24-operations-warehouse th,.hw24-operations-warehouse td{display:table-cell;text-align:left;border-bottom:1px solid #dde6f0;padding:8px 6px;font-size:13px}
+.hw24-operations-tax{border-radius:9px;padding:10px;margin:9px 0;background:#f0f5fc;color:#29445d;font-size:13px}
+.hw24-operations-channel{padding:9px 0;margin:9px 0}
+.hw24-operations-channel summary{cursor:pointer;font-size:13px;font-weight:700}
+.hw24-operations-channelgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:9px;margin:10px 0}
+.hw24-channelcard{border:1px solid #dfe6ee;padding:10px;border-radius:9px;background:white}
+.hw24-channelcard strong{font-weight:700}
+.hw24-channelcard p{font-size:12px;color:#50647b;margin:5px 0}
+@media(max-width:650px){.hw24-operations-tabs button{font-size:13px}.hw24-camera-button{flex:1}}
