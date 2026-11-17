@@ -219,5 +219,6 @@ function make(){
  };
  render();ean.focus();
 }
+window.hw24WorkdeskRender=render;
 make();
 })();
