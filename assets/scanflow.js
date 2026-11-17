@@ -73,16 +73,23 @@ function render(){
    if(match){
      const money=raw=>{
        const value=Number(v(raw).replace(',','.'));
-       return Number.isFinite(value)&&value>0
+       return v(raw)!==''&&Number.isFinite(value)&&value>=0
          ?new Intl.NumberFormat('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2}).format(value)+' €'
          :'Nicht belegt';
      };
+     const origin=window.hw24SourceFor?.('Hersteller');
+     const fallback=v(current?.Hersteller);
+     const manufacturer=v(match.hersteller)||(fallback?
+       fallback+' · '+(origin?.kind==='history'?'historischer Vorschlag, noch prüfen':origin?.kind==='manual'?'manuell bestätigt':'nicht aus JTL bestätigt'):
+       'In dieser JTL-Quelle nicht aufgelöst');
      const values=[
        ['Artikelnummer',v(match.artikelnummer)||'Nicht belegt'],
        ['Artikelname',v(match.artikelname)||'Nicht belegt'],
-       ['Hersteller',v(match.hersteller)||'In dieser JTL-Quelle nicht aufgelöst'],
+       ['Hersteller',manufacturer],
        ['EAN / GTIN',v(match.ean)||'Nicht belegt'],
        ['VK netto (JTL)',money(match.netto_vk)],
+       ['Ø EK netto (JTL)',money(match.netto_ek)],
+       ['Letzter EK (JTL)',money(match.letzter_ek)],
        ['Lagerbestand (JTL-Spiegel)',v(match.bestand)||'Nicht belegt']
      ];
      for(const [label,value] of values){
