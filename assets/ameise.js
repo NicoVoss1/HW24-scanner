@@ -166,7 +166,7 @@ function exportCSV(){
   }
   const f=candidateFields(),reasons=blockReasons();
   const basket=Array.isArray(window.hw24AuditExtraRows?.())?window.hw24AuditExtraRows():[];
-  const extras=basket.filter(row=>v(row.Artikelnummer)&&v(row.Artikelnummer)!==v(f.Artikelnummer)).slice(0,3);
+  const extras=basket.filter(row=>v(row.Artikelnummer)&&v(row.Artikelnummer)!==v(f.Artikelnummer)).slice(0,100);
   const chosen=new Set(typeof window.hw24TemplateExportFields==='function'
     ?window.hw24TemplateExportFields():schema.map(x=>x[0]));
   const keys=schema.map(x=>x[0]).filter(k=>chosen.has(k)&&
