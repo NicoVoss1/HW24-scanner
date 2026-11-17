@@ -188,5 +188,6 @@ function build(){
  mode(true);show();
  window.addEventListener('pagehide',stopCamera);
 }
+window.hw24NormalizeArticleTitle=formatTitle;
 build();
 })();
