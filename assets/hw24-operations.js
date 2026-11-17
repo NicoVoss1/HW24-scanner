@@ -144,41 +144,81 @@ function formatQty(value){
  const number=Number(raw.replace(',','.'));
  return Number.isFinite(number)?new Intl.NumberFormat('de-DE',{maximumFractionDigits:3}).format(number):raw;
 }
+let historyState=null,historySequence=0;
+function syncBinMovementDates(){
+ if(!historyState||historyState.status!=='ready')return;
+ for(const node of warehousePanel.querySelectorAll('[data-history-bin]')){
+  const stamp=v(historyState.latest?.[node.dataset.historyBin]);
+  const prefix=node.dataset.historyPrefix||'';
+  node.textContent=prefix+(stamp?stamp+' · JTL-Historienstand':'Keine Bewegung in gespeicherter Historie');
+ }
+}
+function drawHistory(){
+ if(!historyState)return;
+ const h=historyState;
+ historyRows.replaceChildren();
+ const date=h.snapshot?' · Historienstand '+h.snapshot+' UTC':'';
+ if(h.loading&&!h.rows.length)historyNote.textContent='Bewegungshistorie wird geladen …';
+ else if(h.status==='ready'){
+  historyNote.textContent=h.total===0?'Keine verknüpften Bewegungen gespeichert'+date:
+   h.rows.length+' von '+h.total+' gespeicherten Bewegungen · ohne Datumsfilter'+date;
+ }else if(h.status==='error')historyNote.textContent='Historie nicht abrufbar. Bitte erneut versuchen. Aktuelle Lagerfachdaten bleiben davon unabhängig.';
+ else historyNote.textContent='Bewegungshistorie noch nicht synchronisiert. Die Lagerfachdaten stammen separat aus JTL.';
+ for(const entry of h.rows){
+  const card=el('div',undefined,historyRows,'hw24-history-entry');
+  const time=v(entry.zeitstempel)||'Zeitstempel nicht belegt';
+  const kind=v(entry.buchungsart)||(v(entry.buchungsart_id)?'Buchungsart '+v(entry.buchungsart_id):'Buchungsart nicht belegt');
+  el('strong',time+' · '+kind,card);
+  el('p','Menge '+(entry.menge===null?'Nicht belegt':formatQty(entry.menge))+
+   ' · Von '+(v(entry.lagerplatz_von)||(v(entry.start_id)&&v(entry.start_id)!=='0'?'Fach-ID '+v(entry.start_id):'nicht dokumentiert'))+
+   ' · Nach '+(v(entry.lagerplatz_nach)||(v(entry.ziel_id)&&v(entry.ziel_id)!=='0'?'Fach-ID '+v(entry.ziel_id):'nicht dokumentiert')),card);
+  el('small','Bewegungs-ID '+v(entry.movement_id),card);
+ }
+ historyMore.disabled=h.loading;
+ historyMore.textContent=h.loading?'Lädt …':h.status==='error'?'Erneut versuchen':'Weitere 50 Bewegungen anzeigen';
+ historyMore.hidden=!(h.loading||h.status==='error'||(h.status==='ready'&&h.rows.length<h.total));
+ syncBinMovementDates();
+}
+async function loadHistory(){
+ const h=historyState;
+ if(!h||h.loading)return;
+ h.loading=true;drawHistory();
+ try{
+  const q=new URLSearchParams({article_id:h.article,offset:String(h.rows.length)});
+  if(h.run)q.set('run_id',h.run);
+  const reply=await fetch('api/jtl-wms-history.php?'+q,{cache:'no-store',credentials:'same-origin'});
+  if(!reply.ok)throw Error('Historie nicht verfügbar');
+  const result=await reply.json();
+  if(historyState!==h)return;
+  if(!result.ok)throw Error('Historie nicht verfügbar');
+  if(result.status!=='ready'){
+   if(h.run)throw Error('Historienstand nicht mehr verfügbar');
+   h.status='not_synchronized';
+  }else{
+   if(!Array.isArray(result.rows)||!Number.isInteger(result.total)||result.total<h.rows.length+result.rows.length)throw Error('Ungültige Antwort');
+   h.run=result.run_id;h.snapshot=result.snapshot_at;
+   h.total=result.total;h.rows.push(...result.rows);
+   h.latest=result.offset===0?(result.latest_by_bin||{}):h.latest;
+   h.status='ready';
+  }
+ }catch(err){if(historyState===h)h.status='error';}
+ finally{if(historyState===h){h.loading=false;drawHistory();}}
+}
 function renderWarehouseHistory(match){
  if(!historyRows||!historyNote||!historyMore)return;
- const history=match?.related_sources?.wms_bewegungshistorie;
- const entries=Array.isArray(history?.rows)?history.rows:[];
- const context=v(match?.jtl_article_id||match?.artikelnummer);
- if(context!==historyArticle){historyArticle=context;historyVisible=50;}
- historyRows.replaceChildren();
- if(!history){
-  historyNote.textContent='Die JTL-WMS-Bewegungshistorie ist noch nicht mit dem Artikelspiegel verbunden. Aktuelle Lagerfachmengen sind davon unabhängig.';
+ // Only retrieve stored movement history in the read-only warehouse tab.
+ if(article.getAttribute('aria-selected')==='true')return;
+ const id=v(match?.jtl_article_id);
+ if(!/^[1-9]\d*$/.test(id)){
+  historyState=null;historyRows.replaceChildren();
+  historyNote.textContent='Bitte zuerst einen eindeutigen JTL-Artikel scannen.';
   historyMore.hidden=true;return;
  }
- if(history.error){
-  historyNote.textContent='Bewegungshistorie konnte nicht gelesen werden: '+v(history.error);
-  historyMore.hidden=true;return;
- }
- const complete=history.complete===true&&!history.truncated;
- historyNote.textContent=entries.length?
-   (complete?'Alle '+entries.length+' gespeicherten Bewegungen dieser Quelle, ohne Datumsfilter.':
-   entries.length+' Bewegungen übermittelt. Die vollständige Datenübernahme ist noch nicht nachgewiesen.'):
-   (complete?'Keine Buchungen in dieser verifizierten JTL-Historienquelle vorhanden.':
-   'Keine Historienpositionen übertragen. Vollständigkeit der Quelle noch offen.');
- for(const entry of entries.slice(0,historyVisible)){
-  const item=el('div',undefined,historyRows,'hw24-history-entry');
-  const time=v(entry.zeitstempel)||'Zeitstempel nicht belegt';
-  const kind=v(entry.buchungsart)||'Buchungsart nicht aufgelöst';
-  el('strong',time+' · '+kind,item);
-  const text=[
-   'Menge '+formatQty(entry.menge),
-   'Von '+(v(entry.lagerplatz_von)||'nicht dokumentiert'),
-   'Nach '+(v(entry.lagerplatz_nach)||'nicht dokumentiert')
-  ].join(' · ');
-  el('p',text,item);
-  if(v(entry.beleg))el('small','Beleg/Referenz: '+v(entry.beleg),item);
- }
- historyMore.hidden=entries.length<=historyVisible;
+ const context=id+'|'+v(source().jtl?.snapshot_at);
+ if(!historyState||historyState.context!==context){
+  historyState={context,article:id,loading:false,status:'initial',rows:[],total:0,run:'',snapshot:'',latest:{}};
+  drawHistory();void loadHistory();
+ }else drawHistory();
 }
 
 function show(){
@@ -249,7 +289,8 @@ function show(){
   const detail=blocked&&shippingBlocked?' · Auslieferung ebenfalls gesperrt':'';
   el('td',status+detail,row);
   const lastMove=v(item.letzte_bewegung_utc||item.letzte_bewegung);
-  el('td',lastMove?lastMove+' · '+(v(item.letzte_bewegung_quelle)||'JTL-Bewegungshistorie'):'Noch nicht aus der Bewegungshistorie ermittelt',row);
+  const dateCell=el('td',lastMove?lastMove+' · '+(v(item.letzte_bewegung_quelle)||'JTL-Bewegungshistorie'):'Noch nicht aus der Bewegungshistorie ermittelt',row);
+  if(v(item.lagerplatz_id))dateCell.dataset.historyBin=v(item.lagerplatz_id);
   const flags=[];
   if(v(item.lagerplatztyp_id))flags.push('Platztyp-ID '+v(item.lagerplatztyp_id));
   if(v(item.status_id))flags.push('Status-ID '+v(item.status_id));
@@ -269,7 +310,8 @@ function show(){
   el('strong',formatQty(item.menge),amount);
   el('small','Stück',amount);
   el('p',status+detail,mobile,'hw24-wms-mobilestatus');
-  el('p','Letzte Bewegung: '+(lastMove||'Noch nicht ermittelt'),mobile,'hw24-wms-mobilehistory');
+  const mobileDate=el('p','Letzte Bewegung: '+(lastMove||'Noch nicht ermittelt'),mobile,'hw24-wms-mobilehistory');
+  if(v(item.lagerplatz_id)){mobileDate.dataset.historyBin=v(item.lagerplatz_id);mobileDate.dataset.historyPrefix='Letzte Bewegung: ';}
   if(flags.length)el('p',flags.join(' · '),mobile,'hw24-wms-mobileflags');
  }
  if(wms?.truncated){
@@ -287,7 +329,7 @@ function show(){
     Number.isFinite(Number(v(x.steuersatz_quellwert).replace(',','.'))));
   const summary=valid.slice(0,6).map(x=>{
     const value=Number(v(x.steuersatz_quellwert).replace(',','.'));
-    const percent=value>=0&&value<=100?v(x.steuersatz_quellwert)+' %':'Quellwert '+v(x.steuersatz_quellwert)+' (Skalierung prüfen)';
+    const percent=value>=0&&value<=100?formatQty(x.steuersatz_quellwert)+' %':'Quellwert '+v(x.steuersatz_quellwert)+' (Skalierung prüfen)';
     return percent+' · '+(v(x.firmenname)?v(x.firmenname)+' (Firma '+v(x.firma_id)+')':'Firma '+v(x.firma_id)+' (Klarname fehlt)')+' · '+(v(x.steuerzone)||'Steuerzone')+' (Zone '+v(x.steuerzone_id)+')';
   }).join(' | ');
   taxLabel+=valid.length?
@@ -395,8 +437,8 @@ function build(){
  historyNote=el('p','Bewegungsquelle noch nicht angebunden.',historySection,'hw24-history-note');
  historyRows=el('div',undefined,historySection,'hw24-history-rows');
  historyMore=el('button','Weitere 50 Bewegungen anzeigen',historySection);historyMore.type='button';historyMore.hidden=true;
- historyMore.onclick=()=>{historyVisible+=50;renderWarehouseHistory(source().jtl?.matches?.[0]);};
- el('p','Buchungsdatum und ursprüngliche Einlagerung sind derzeit nicht verifiziert. Das Inventurdatum ist kein Buchungsdatum. Die Übersicht bleibt dauerhaft ohne Buchungsfunktion.',warehousePanel,'hw24-desk-muted');
+ historyMore.onclick=()=>{void loadHistory();};
+ el('p','Letzte Bewegung und ursprüngliche Einlagerung sind unterschiedliche Werte. Das Inventurdatum ist kein Buchungsdatum. Die Übersicht bleibt ohne Buchungsfunktion.',warehousePanel,'hw24-desk-muted');
  tax=el('p','Steuerprüfung ausstehend.',desk,'hw24-operations-tax');desk.insertBefore(tax,before);
  asinPanel=el('details',undefined,desk,'hw24-operations-asins');desk.insertBefore(asinPanel,before);
  el('summary','ASIN und ergänzende EAN-Produktrecherche',asinPanel);
