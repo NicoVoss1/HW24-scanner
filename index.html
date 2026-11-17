@@ -207,8 +207,8 @@ async function lookupProductSources(ean){
         state.textContent='⚠ Mehrere JTL-Artikel mit dieser Kennung gefunden · Stand '+at+' UTC. Bitte Zuordnung prüfen.';
         $('status').textContent='Mehrfachtreffer in JTL: keine automatische Neuanlage.';
       }else{
-        state.textContent='Kein Artikel im aktuellen JTL-Spiegel · Stand '+at+' UTC. Historische Recherche für eine mögliche Neuanlage läuft.';
-        $('status').textContent='Neuanlage als Entwurf möglich, sofern die Kennung und Quellen geprüft sind.';
+        state.textContent='Kein Artikel im aktuellen JTL-Spiegel · Stand '+at+' UTC. '+(digits(ean)?'Historische Recherche für eine mögliche Neuanlage läuft.':'Über eine Artikelnummer/HAN ohne eindeutigen JTL-Treffer ist keine historische EAN-Abfrage möglich.');
+        $('status').textContent=digits(ean)?'Neuanlage als Entwurf möglich, sofern die EAN und Quellen geprüft sind.':'Kein JTL-Treffer. Für eine Neuanlage ist eine echte, geprüfte EAN erforderlich.';
       }
     }else{
       const reasons={
@@ -221,10 +221,18 @@ async function lookupProductSources(ean){
     }
     // Alphanumeric SKU/HAN: resolve and verify the article's GTIN through JTL,
     // then search historical data automatically without a second user click.
-    if(!digits(ean)&&response.ok&&jtl.ok&&jtl.jtl_status==='current_snapshot'&&m.length===1){
-      const resolved=val(m[0].ean);
-      if(goodGtin(resolved)){lastResolvedGtin=resolved;await lookupHistorical(resolved);}
-      else window.hw24FlowHistorySkipped?.();
+    if(!digits(ean)){
+      if(response.ok&&jtl.ok&&jtl.jtl_status==='current_snapshot'&&m.length===1){
+        const resolved=val(m[0].ean);
+        if(goodGtin(resolved)){lastResolvedGtin=resolved;await lookupHistorical(resolved);}
+        else{
+          window.hw24SmartScanHistory?.(ean,{ok:false,error:'no_valid_gtin'});
+          window.hw24FlowHistorySkipped?.();
+        }
+      }else{
+        window.hw24SmartScanHistory?.(ean,{ok:false,error:'no_unique_jtl_match'});
+        window.hw24FlowHistorySkipped?.();
+      }
     }
     window.hw24FlowRefresh?.();
   }catch(err){
