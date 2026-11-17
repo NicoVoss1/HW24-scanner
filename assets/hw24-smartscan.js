@@ -54,7 +54,11 @@ function begin(e,rec){
  origins.clear();pending.clear();edited.clear();finished=false;render();
 }
 function storeJtl(e,data){if(scan===v(e))jtl=data;}
-function storeHistory(e,data){if(scan===v(e))history=data;}
+function storeHistory(e,data){
+ const unique=jtl?.jtl_status==='current_snapshot'&&jtl.matches?.length===1;
+ const resolved=unique?v(jtl.matches[0].ean):'';
+ if(scan===v(e)||(unique&&resolved===v(e)))history=data;
+}
 function historicCandidates(){
  const found=new Map(),conflicts=new Set();
  if(!history?.ok||!Array.isArray(history.matches))return {found,conflicts};
