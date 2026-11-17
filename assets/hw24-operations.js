@@ -79,14 +79,35 @@ function show(){
  slotRows.replaceChildren();
  const wms=match?.related_sources?.wms_lagerplaetze,slots=Array.isArray(wms?.rows)?wms.rows:[];
  if(!slots.length){
-  const row=el('tr',undefined,slotRows),cell=el('td','Noch keine verifizierte WMS-Fachmenge synchronisiert. Gesamtbestand ist nicht gleich Lagerplatzbestand.',row);
-  cell.colSpan=3;
+  const row=el('tr',undefined,slotRows);
+  const message=wms?.confirmed===true?
+    'Keine positiv oder negativ gebuchte Fachmenge im aktuellen JTL-WMS-Snapshot.':
+    'WMS-Lagerplatzabfrage noch nicht aktiviert. Gesamtbestand ist keine Fachzuordnung.';
+  const cell=el('td',message,row);cell.colSpan=5;
  }else for(const item of slots){
   const row=el('tr',undefined,slotRows);
-  el('td',v(item.lagerplatz)||'?',row);el('td',v(item.menge)||'?',row);el('td','JTL-WMS-Snapshot',row);
+  el('td',v(item.warenlager_id)||'?',row);
+  el('td',v(item.lagerplatz)||'?',row);
+  el('td',v(item.menge)||'?',row);
+  el('td',v(item.gesperrt)==='1'?'Ja':'Nein',row);
+  el('td','JTL-WMS-Spiegel',row);
+ }
+ if(wms?.truncated){
+  const row=el('tr',undefined,slotRows);
+  const cell=el('td','Achtung: Mehr als 100 Lagerplätze. Liste unvollständig, nicht zur Inventur verwenden.',row);
+  cell.colSpan=5;
  }
  const steuer=v(r.Steuerklasse||match?.steuerklasse_name)||'nicht hinterlegt';
- tax.textContent='Steuerklasse: '+steuer+'. Für regulär besteuerte Haarfarben gilt in Deutschland üblicherweise 19 % USt. Der effektive Steuersatz ist hier noch nicht aus der JTL-Steuerkonfiguration nachgewiesen und wird nicht automatisch exportiert.';
+ const taxSource=match?.related_sources?.steuer_saetze_de;
+ const rates=Array.isArray(taxSource?.rows)?taxSource.rows:[];
+ let taxLabel='Steuerklasse: '+steuer+'. ';
+ if(taxSource?.confirmed===true){
+  const summary=rates.slice(0,5).map(x=>'Firma '+v(x.firma_id)+' / Zone '+v(x.steuerzone_id)+' / JTL-Quellwert '+v(x.steuersatz_quellwert)).join(' · ');
+  taxLabel+=rates.length?
+    'Konfigurierte deutsche Steuerzonen: '+summary+(rates.length>5?' · weitere '+(rates.length-5)+' Zonen':'')+'. ':
+    'Keine passende deutsche Steuerzonen-Konfiguration im gelesenen Snapshot. ';
+ }else taxLabel+='Deutsche Steuersätze aus der JTL-Konfiguration noch nicht synchronisiert. ';
+ tax.textContent=taxLabel+'Die konkrete Besteuerung hängt von Firma und Lieferkontext ab; es wird kein ungeprüfter 19-%-Wert in die Ameise-CSV übernommen.';
  channels.replaceChildren();
  const common=[
   ['Amazon',[['GTIN',r.GTIN],['Hersteller',r.Hersteller],['Artikelname',r.Artikelname],['Preis',r['Brutto-VK']||r['Netto-VK']]]],
@@ -173,7 +194,7 @@ function build(){
  el('h3','Bestand je Lagerplatz (JTL-WMS)',warehousePanel);
  warehouseSummary=el('p','Noch kein Artikel gewählt.',warehousePanel);
  const table=el('table',undefined,warehousePanel),tr=el('tr',undefined,el('thead',undefined,table));
- for(const label of ['Fach','Stück','Quelle'])el('th',label,tr);
+ for(const label of ['Lager-ID','Fach','Stück','Gesperrt','Quelle'])el('th',label,tr);
  slotRows=el('tbody',undefined,table);
  el('p','Lagerplatzbuchung ist noch nicht aktiv. Die vorhandene Scanliste bleibt eine lokale Erfassung, keine WMS-Buchung.',warehousePanel);
  tax=el('p','Steuerprüfung ausstehend.',desk,'hw24-operations-tax');desk.insertBefore(tax,before);
