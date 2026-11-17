@@ -72,6 +72,41 @@ SELECT * FROM dbo.tArtikelBeschreibung ORDER BY kArtikel, kSprache, kPlattform, 
   $adapter=New-Object -TypeName System.Data.SqlClient.SqlDataAdapter -ArgumentList $command
   $dataset=New-Object System.Data.DataSet
   [void]$adapter.Fill($dataset)
+  # Optional safe lookup: use manufacturer names only when the real
+  # SQL Server catalog confirms dbo.tHersteller(kHersteller,cName).
+  # If the read-only account has no permission, do NOT invent names.
+  $manufacturerNames=@{}
+  try {
+    $metadata=[System.Data.SqlClient.SqlCommand]::new()
+    $metadata.Connection=$connection
+    $metadata.CommandTimeout=20
+    $metadata.CommandText=@'
+SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA='dbo' AND TABLE_NAME='tHersteller'
+  AND COLUMN_NAME IN ('kHersteller','cName');
+'@
+    $verified=[int]$metadata.ExecuteScalar()
+    if($verified -eq 2){
+      $query=[System.Data.SqlClient.SqlCommand]::new()
+      $query.Connection=$connection
+      $query.CommandTimeout=30
+      $query.CommandText='SELECT kHersteller,cName FROM dbo.tHersteller'
+      $reader=$query.ExecuteReader()
+      try {
+        while($reader.Read()){
+          if($reader.IsDBNull(0) -or $reader.IsDBNull(1)){continue}
+          $key=[string]$reader.GetValue(0)
+          $name=([string]$reader.GetValue(1)).Trim()
+          if($key -and $name){$manufacturerNames[$key]=$name}
+        }
+      } finally {$reader.Close()}
+      Write-Host ("JTL-Herstellernamen verifiziert: "+$manufacturerNames.Count)
+    } else {
+      Write-Warning 'Hersteller-Tabelle bzw. Spalten nicht nachgewiesen. Namen bleiben leer, IDs bleiben im Rohdatensatz.'
+    }
+  } catch {
+    Write-Warning 'Hersteller-Namensabfrage nicht möglich (JTL-Schema oder SELECT-Berechtigung prüfen). Keine Namen geraten.'
+  }
 }finally{
   $connection.Dispose()
 }
@@ -105,6 +140,9 @@ foreach($row in $articles.Rows){
   $main=if($primary.ContainsKey($id)){$primary[$id]}else{@{}}
   $all=@()
   if($descriptions.ContainsKey($id)){$all=@($descriptions[$id].ToArray())}
+  $makerId=[string]$a['kHersteller']
+  $manufacturer=$null
+  if($makerId -and $manufacturerNames.ContainsKey($makerId)){$manufacturer=$manufacturerNames[$makerId]}
   $record=@{
     jtl_article_id=$id
     artikelnummer=$a['cArtNr']
@@ -116,7 +154,7 @@ foreach($row in $articles.Rows){
     beschreibung=$main['cBeschreibung']
     seo_titel=$main['cTitleTag']
     seo_beschreibung=$main['cMetaDescription']
-    hersteller=$null # tArtikel has kHersteller (ID), NOT cHersteller; names require a verified tHersteller join
+    hersteller=$manufacturer # Only a resolved, read-only manufacturer master row; never ID->name guessing
     netto_vk=$a['fVKNetto']
     netto_ek=$a['fEKNetto']
     letzter_ek=$a['fLetzterEK']
