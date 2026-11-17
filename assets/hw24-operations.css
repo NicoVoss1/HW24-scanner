@@ -79,3 +79,15 @@ body.hw24-warehouse-mode #hw24Desk .hw24-operations-tabs{display:flex!important}
 }
 
 body.hw24-warehouse-mode #hw24Desk .hw24-desk-profile{display:none!important} /* No export template selector in warehouse lookup */
+
+/* ASIN source candidates, visible only in article maintenance */
+.hw24-operations-asins{border:1px solid #cfdbed;background:#fafcfe;border-radius:10px;padding:12px;margin:10px 0}
+.hw24-operations-asins>summary{cursor:pointer;font-weight:700;color:#174b7b;font-size:14px}
+.hw24-asin-results{display:grid;gap:8px;padding-top:10px}
+.hw24-asin-results>p{font-size:12px;margin:0;color:#52667d}
+.hw24-asin-results>a{font-size:13px;color:#1456a2;text-decoration:underline;width:fit-content}
+.hw24-asin-candidate{padding:11px;border:1px solid #d9e2ee;border-radius:9px;background:#fff;display:grid;gap:7px}
+.hw24-asin-candidate-main strong{font-size:17px;font-variant-numeric:tabular-nums}
+.hw24-asin-candidate>small{font-size:11px;color:#5a6b85}
+.hw24-asin-candidate button{width:fit-content;background:#183c71;color:white;margin:0;font-size:12px}
+body.hw24-warehouse-mode #hw24Desk>.hw24-operations-asins{display:none!important}
