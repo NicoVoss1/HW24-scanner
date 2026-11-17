@@ -3,7 +3,7 @@
 (function(){
 'use strict';
 const $=id=>document.getElementById(id),v=x=>String(x??'').trim(),source=()=>window.hw24SourceState?.()||{};
-let desk,article,warehouse,warehousePanel,warehouseSummary,warehouseIdentity,warehouseHighlights,warehouseMobile,slotRows,tax,channels,camBtn,camPanel,video,camStatus,track,controls,active=false;
+let desk,article,warehouse,warehousePanel,warehouseSummary,warehouseIdentity,warehouseHighlights,warehouseMobile,slotRows,tax,channels,asinPanel,asinItems,camBtn,camPanel,video,camStatus,track,controls,active=false;
 const el=(tag,label,parent,css)=>{const x=document.createElement(tag);if(label!==undefined)x.textContent=label;if(css)x.className=css;if(parent)parent.append(x);return x};
 function update(k,value,msg,pending){
  const s=source(),r=s.record;if(!r||!v(value)||v(r[k])===v(value))return;
@@ -62,7 +62,7 @@ function updateModes(){
  article.classList.toggle('selected',isA);warehouse.classList.toggle('selected',!isA);
  for(const c of desk.children){
   if(c===warehousePanel)c.hidden=isA;
-  else if(c.classList.contains('hw24-operations-channel')||c.classList.contains('hw24-operations-tax'))c.hidden=!isA;
+  else if(c.classList.contains('hw24-operations-channel')||c.classList.contains('hw24-operations-tax')||c.classList.contains('hw24-operations-asins'))c.hidden=!isA;
   else if(c.dataset.originalArticle==='yes')c.hidden=!isA;
  }
 }
@@ -70,6 +70,74 @@ function mode(isArticle){
  article.setAttribute('aria-selected',String(isArticle));warehouse.setAttribute('aria-selected',String(!isArticle));
  updateModes();show();
 }
+
+function renderAsinCandidates(s,match){
+ if(!asinItems)return;
+ asinItems.replaceChildren();
+ const current=v(s.record?.ASIN||match?.asin).toUpperCase();
+ const suggestions=new Map();
+ const add=(value,provenance)=>{
+  const asin=v(value).toUpperCase();
+  if(!/^[A-Z0-9]{10}$/.test(asin))return;
+  if(!suggestions.has(asin))suggestions.set(asin,[]);
+  suggestions.get(asin).push(provenance);
+ };
+ for(const candidate of match?.asin_candidates||[]){
+  const sources=(candidate.sources||[]).map(x=>v(x.name)+
+    (v(x.seller_sku)?' · SKU '+v(x.seller_sku):'')).join(', ');
+  add(candidate.asin,sources||'JTL-Amazon-Zuordnung');
+ }
+ if(s.history?.ok&&s.history?.gtin_valid===true){
+  for(const row of s.history.matches||[]){
+   for(const cell of row.cells||[]){
+    if(!cell.header_verified)continue;
+    const label=v(cell.label).toLowerCase().replace(/[\s_-]+/g,'');
+    if(!['asin','asinausjtl','casin1'].includes(label))continue;
+    add(cell.value,'Historie: '+v(row.sheet_name||'Excel')+
+      ' · Zeile '+v(row.excel_row||'?'));
+   }
+  }
+ }
+ el('p',current?'Aktuelle ASIN im Artikelentwurf: '+current:
+  'Keine gesicherte ASIN im Artikelentwurf. Kandidaten aus JTL und Historie werden separat geprüft.',asinItems);
+ if(suggestions.size){
+  if(suggestions.size>1)el('p','Mehrere ASIN-Kandidaten gefunden. Bitte Nuance, Packungsgröße und Amazon-Marketplace vor der Auswahl prüfen.',asinItems,'hw24-desk-warning');
+  for(const [asin,sources] of suggestions){
+   const card=el('div',undefined,asinItems,'hw24-asin-candidate');
+   const line=el('div',undefined,card,'hw24-asin-candidate-main');
+   el('strong',asin,line);
+   el('small',sources.join(' · '),card);
+   if(!current){
+    const button=el('button','ASIN nach Prüfung übernehmen',card);
+    button.type='button';
+    button.onclick=()=>{
+     const latest=source();
+     if(!latest.finished||!latest.record||v(latest.record.ASIN))return;
+     latest.record.ASIN=asin;
+     window.hw24MarkEdited?.('ASIN');
+     window.hw24AmeiseCurrent?.(latest.record);
+     window.hw24WorkdeskRender?.();
+     show();
+    };
+   }else if(current!==asin){
+    el('small','Abweichend von bestehender ASIN. Keine automatische Überschreibung.',card);
+   }else el('small','Bereits im Artikelentwurf vorhanden.',card);
+  }
+ }else {
+  el('p','Noch kein bestätigter ASIN-Vorschlag aus den angebundenen Datenquellen. EAN Finder oder eine autorisierte Amazon-Katalogsuche können zusätzliche Hinweise liefern.',asinItems);
+ }
+ const gtin=v(match?.ean||s.record?.GTIN||s.ean);
+ if(/^\d{8,14}$/.test(gtin)){
+  const link=el('a','EAN Finder zu dieser EAN öffnen',asinItems);
+  link.href='https://ean-finder.com/codes/'+encodeURIComponent(gtin);
+  link.target='_blank';link.rel='noopener noreferrer';
+  const a=el('a','Amazon-Recherche bei EAN Finder öffnen',asinItems);
+  a.href='https://ean-finder.com/tools/amazon-research';
+  a.target='_blank';a.rel='noopener noreferrer';
+ }
+ el('small','Externe Webseiten werden nicht automatisch kopiert. Ein Import von Fremddaten erfordert eine freigegebene API bzw. Nutzungsberechtigung und Artikelabgleich.',asinItems);
+}
+
 function show(){
  if(!desk)return;
  updateModes();
@@ -178,6 +246,7 @@ function show(){
  }else taxLabel+='JTL-Steuersätze für Deutschland noch nicht synchronisiert. ';
  tax.textContent=taxLabel+'Der tatsächlich anzuwendende Satz hängt zusätzlich von Firma, Lieferung und Steuerkontext ab. Kein automatisches Überschreiben der JTL-Steuerregeln.';
  channels.replaceChildren();
+ renderAsinCandidates(s,match);
  const common=[
   ['Amazon',[['GTIN',r.GTIN],['Hersteller',r.Hersteller],['Artikelname',r.Artikelname],['Preis',r['Brutto-VK']||r['Netto-VK']]]],
   ['eBay',[['Artikelname',r.Artikelname],['Marke',r.Hersteller],['Preis',r['Brutto-VK']||r['Netto-VK']]]],
@@ -272,11 +341,14 @@ function build(){
  warehouseMobile=el('div',undefined,warehousePanel,'hw24-wms-mobilelist');
  el('p','Buchungsdatum und ursprüngliche Einlagerung sind derzeit nicht verifiziert. Das Inventurdatum ist kein Buchungsdatum. Die Übersicht bleibt dauerhaft ohne Buchungsfunktion.',warehousePanel,'hw24-desk-muted');
  tax=el('p','Steuerprüfung ausstehend.',desk,'hw24-operations-tax');desk.insertBefore(tax,before);
+ asinPanel=el('details',undefined,desk,'hw24-operations-asins');desk.insertBefore(asinPanel,before);
+ el('summary','ASIN und ergänzende EAN-Produktrecherche',asinPanel);
+ asinItems=el('div',undefined,asinPanel,'hw24-asin-results');
  const details=el('details',undefined,desk,'hw24-operations-channel');desk.insertBefore(details,before);
  el('summary','Verkaufskanäle: Amazon, eBay, Kaufland, Shopify',details);
  channels=el('div',undefined,details,'hw24-operations-channelgrid');
  for(const child of desk.children){
-  if(child!==warehousePanel&&child!==tax&&child!==details&&child!==camPanel&&child!==tabs&&child!==bar&&
+  if(child!==warehousePanel&&child!==tax&&child!==details&&child!==asinPanel&&child!==camPanel&&child!==tabs&&child!==bar&&
      child.tagName!=='H2'&&!child.classList.contains('hw24-desk-status')&&!child.matches('#status')&&
      !child.classList.contains('hw24-desk-muted'))child.dataset.originalArticle='yes';
  }
