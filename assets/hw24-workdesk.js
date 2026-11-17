@@ -62,6 +62,15 @@ function field(k,target){
  input.disabled=!s.finished||locked.has(k)||(['Artikelnummer','GTIN'].includes(k)&&s.jtl?.matches?.length===1);
  input.addEventListener('change',()=>changed(k,input.value));
  node('small',missing?'Nicht belegt':src.name,item,'hw24-desk-origin');
+ if(k==='Inhalt/Menge'||k==='Maßeinheit'){
+  const article=s.jtl?.jtl_status==='current_snapshot'&&s.jtl.matches?.length===1?s.jtl.matches[0]:null;
+  if(article){
+   const raw=article.jtl_source_fields||{},mass=article.related_sources?.masseinheit?.rows||[];
+   const q=v(raw.fMassMenge),code=mass.length===1?v(mass[0].cDisplayCode||mass[0].cCode||mass[0].cUnitCode):'';
+   if(k==='Inhalt/Menge'&&q&&Number.isFinite(Number(q))&&Number(q)>0)node('small','JTL-Inhalt: '+Number(q).toLocaleString('de-DE')+(code?' '+code:''),item,'hw24-desk-origin');
+   if(k==='Maßeinheit'&&code)node('small','JTL-Maßeinheit: '+code,item,'hw24-desk-origin');
+  }
+ }
 }
 function renderSourcesCatalog(){
  if(!catalogTable)return;
@@ -137,12 +146,9 @@ function render(){
   ' · JTL-Snapshot: '+(s.jtl?.snapshot_at||'?')+' UTC'+
   (Number.isFinite(Number(s.jtl?.age_minutes))?' · '+s.jtl.age_minutes+' Minuten alt':'')
   :'🔄 JTL und historische Daten werden parallel geprüft …';
- meta.textContent='Suche '+s.ean+' · '+(v(r.Artikelname)||v(matches[0]?.artikelname)||'Artikelname nicht belegt')+
-  ' · Artikelnummer '+(v(r.Artikelnummer)||v(matches[0]?.artikelnummer)||'nicht belegt')+
-  ' · EAN '+(v(r.GTIN)||v(matches[0]?.ean)||'nicht belegt')+
-  ' · HAN '+(v(r.HAN)||v(matches[0]?.han)||'nicht belegt')+
-  ' · Warengruppe '+(v(matches[0]?.warengruppe_name)||((s.blocked||[]).includes('Warengruppe')?'JTL-ID '+v(matches[0]?.warengruppe_id)+' · Klarname fehlt':v(r.Warengruppe)||'nicht belegt'))+
-  ' · Historische Werte sind keine Live-Stammdaten.';
+ meta.textContent='Art.-Nr. '+(v(matches[0]?.artikelnummer)||v(r.Artikelnummer)||'—')+
+  ' · EAN '+(v(matches[0]?.ean)||v(r.GTIN)||'—')+
+  ' · HAN '+(v(matches[0]?.han)||v(r.HAN)||'—');
  const selected=window.hw24TemplateExportFields?.()||[];
  const all=[...new Set([...keyFields,...selected])];
  const gaps=all.filter(k=>empty(k,r[k]));
