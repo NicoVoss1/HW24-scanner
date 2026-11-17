@@ -132,12 +132,18 @@ function show(){
  const rates=Array.isArray(taxSource?.rows)?taxSource.rows:[];
  let taxLabel='Steuerklasse: '+steuer+'. ';
  if(taxSource?.confirmed===true){
-  const summary=rates.slice(0,5).map(x=>'Firma '+v(x.firma_id)+' / Zone '+v(x.steuerzone_id)+' / JTL-Quellwert '+v(x.steuersatz_quellwert)).join(' · ');
-  taxLabel+=rates.length?
-    'Konfigurierte deutsche Steuerzonen: '+summary+(rates.length>5?' · weitere '+(rates.length-5)+' Zonen':'')+'. ':
-    'Keine passende deutsche Steuerzonen-Konfiguration im gelesenen Snapshot. ';
- }else taxLabel+='Deutsche Steuersätze aus der JTL-Konfiguration noch nicht synchronisiert. ';
- tax.textContent=taxLabel+'Die konkrete Besteuerung hängt von Firma und Lieferkontext ab; es wird kein ungeprüfter 19-%-Wert in die Ameise-CSV übernommen.';
+  const valid=rates.filter(x=>v(x.zielland)==='DE'&&
+    Number.isFinite(Number(v(x.steuersatz_quellwert).replace(',','.'))));
+  const summary=valid.slice(0,6).map(x=>{
+    const value=Number(v(x.steuersatz_quellwert).replace(',','.'));
+    const percent=value>=0&&value<=100?v(x.steuersatz_quellwert)+' %':'Quellwert '+v(x.steuersatz_quellwert)+' (Skalierung prüfen)';
+    return percent+' · Firma '+v(x.firma_id)+' · Steuerzone '+v(x.steuerzone_id)+(v(x.steuerzone)?' ('+v(x.steuerzone)+')':'');
+  }).join(' | ');
+  taxLabel+=valid.length?
+    'JTL-Steuersätze für Deutschland: '+summary+(valid.length>6?' | weitere '+(valid.length-6)+' Kontexte':'')+'. ':
+    'Kein eindeutig auslesbarer Steuersatz für Deutschland im aktuellen Spiegel. ';
+ }else taxLabel+='JTL-Steuersätze für Deutschland noch nicht synchronisiert. ';
+ tax.textContent=taxLabel+'Der tatsächlich anzuwendende Satz hängt zusätzlich von Firma, Lieferung und Steuerkontext ab. Kein automatisches Überschreiben der JTL-Steuerregeln.';
  channels.replaceChildren();
  const common=[
   ['Amazon',[['GTIN',r.GTIN],['Hersteller',r.Hersteller],['Artikelname',r.Artikelname],['Preis',r['Brutto-VK']||r['Netto-VK']]]],
