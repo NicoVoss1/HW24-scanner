@@ -88,6 +88,8 @@ function render(){
        ['Hersteller',manufacturer],
        ['EAN / GTIN',v(match.ean)||'Nicht belegt'],
        ['VK netto (JTL)',money(match.netto_vk)],
+       ['Artikelkosten (JTL)',match.kosten===null||match.kosten===undefined?'Noch nicht synchronisiert':money(match.kosten)],
+       ['Warengruppe (JTL)',v(match.warengruppe_name)||'Noch nicht aufgelöst'],
        ['Ø EK netto (JTL)',money(match.netto_ek)],
        ['Letzter EK (JTL)',money(match.letzter_ek)],
        ['Lagerbestand (JTL-Spiegel)',v(match.bestand)||'Nicht belegt']
