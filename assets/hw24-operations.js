@@ -45,6 +45,10 @@ function applyRules(){
    }
   }
  }
+ for(const box of document.querySelectorAll('#fields .field')){
+  const key=v(box.querySelector('label')?.textContent),input=box.querySelector('input,textarea');
+  if(key&&input&&!input.readOnly&&input.dataset.userEdited!=='1'&&r[key]!==undefined)input.value=v(r[key]);
+ }
  window.hw24AmeiseCurrent?.(r);
  window.hw24AmeiseRefresh?.();
  window.hw24WorkdeskRender?.();
