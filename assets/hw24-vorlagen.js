@@ -15,7 +15,7 @@ const seedKeys=['Artikelnummer','Artikelname','GTIN','HAN','Hersteller','Warengr
 const required=new Set(['Artikelnummer','Artikelname','GTIN']);
 const allowedDefaults=new Set(['Überverkäufe möglich','Artikel aktiv','Bestandsführung aktiv',
  'Stückzahl teilbar','Top-Artikel','Neu im Sortiment','Währung','Lieferstatus',
- 'Versandklasse','Warengruppe','Artikeltyp','Steuerklasse','Zusätzliche Bearbeitungszeit',
+ 'Versandklasse','Artikeltyp','Steuerklasse','Zusätzliche Bearbeitungszeit',
  'Beschaffungszeit manuell setzen']);
 const staticDefaults={'Überverkäufe möglich':'N','Bestandsführung aktiv':'Y','Artikel aktiv':'Y'};
 let current=null,ean='',csvHeaders=[],supported=[];
