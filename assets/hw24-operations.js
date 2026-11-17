@@ -3,7 +3,7 @@
 (function(){
 'use strict';
 const $=id=>document.getElementById(id),v=x=>String(x??'').trim(),source=()=>window.hw24SourceState?.()||{};
-let desk,article,warehouse,warehousePanel,warehouseSummary,warehouseIdentity,warehouseHighlights,slotRows,tax,channels,camBtn,camPanel,video,camStatus,track,controls,active=false;
+let desk,article,warehouse,warehousePanel,warehouseSummary,warehouseIdentity,warehouseHighlights,warehouseMobile,slotRows,tax,channels,camBtn,camPanel,video,camStatus,track,controls,active=false;
 const el=(tag,label,parent,css)=>{const x=document.createElement(tag);if(label!==undefined)x.textContent=label;if(css)x.className=css;if(parent)parent.append(x);return x};
 function update(k,value,msg,pending){
  const s=source(),r=s.record;if(!r||!v(value)||v(r[k])===v(value))return;
@@ -97,7 +97,7 @@ function show(){
   'Noch kein eindeutiger JTL-Treffer. Suche nach Artikelnummer, EAN oder HAN.';
  slotRows.replaceChildren();
  const wms=match?.related_sources?.wms_lagerplaetze,slots=Array.isArray(wms?.rows)?wms.rows:[];
- warehouseHighlights.replaceChildren();
+ warehouseHighlights.replaceChildren();warehouseMobile.replaceChildren();
  if(slots.length){
   const kinds=slots.filter(x=>['1','true','ja'].includes(v(x.gesperrt).toLowerCase())||['1','true','ja'].includes(v(x.auslieferung_gesperrt).toLowerCase()));
   const positive=slots.filter(x=>Number(v(x.menge).replace(',','.'))>0);
@@ -143,6 +143,17 @@ function show(){
   if(/retour/i.test(v(item.lagerplatz)+' '+v(item.lagerplatz_hinweis)))flags.push('Retourenhinweis in Fachbezeichnung/Kommentar');
   if(v(item.lagerplatz_hinweis))flags.push('Fachkommentar '+v(item.lagerplatz_hinweis));
   el('td',flags.join(' · ')||'Keine weiteren JTL-Hinweise',row);
+  const mobile=el('div',undefined,warehouseMobile,'hw24-wms-mobilecard'+(blocked||shippingBlocked?' locked':''));
+  const top=el('div',undefined,mobile,'hw24-wms-mobiletop');
+  const location=el('div',undefined,top);
+  el('small','Warenlager '+(v(item.warenlager_id)||'?'),location);
+  el('strong',v(item.lagerplatz)||'Lagerfach unbekannt',location);
+  const amount=el('div',undefined,top,'hw24-wms-mobileamount');
+  el('strong',v(item.menge)||'0',amount);
+  el('small','Stück',amount);
+  el('p',status+detail,mobile,'hw24-wms-mobilestatus');
+  el('p','Letzte Bewegung: '+(lastMove||'Noch nicht ermittelt'),mobile,'hw24-wms-mobilehistory');
+  if(flags.length)el('p',flags.join(' · '),mobile,'hw24-wms-mobileflags');
  }
  if(wms?.truncated){
   const row=el('tr',undefined,slotRows);
@@ -258,6 +269,7 @@ function build(){
  const table=el('table',undefined,tableWrap),tr=el('tr',undefined,el('thead',undefined,table));
  for(const label of ['Warenlager','Lagerfach','Stück','Sperrstatus','Letzte Lagerbewegung','Inventur / Retouren / Hinweise'])el('th',label,tr);
  slotRows=el('tbody',undefined,table);
+ warehouseMobile=el('div',undefined,warehousePanel,'hw24-wms-mobilelist');
  el('p','Buchungsdatum und ursprüngliche Einlagerung sind derzeit nicht verifiziert. Das Inventurdatum ist kein Buchungsdatum. Die Übersicht bleibt dauerhaft ohne Buchungsfunktion.',warehousePanel,'hw24-desk-muted');
  tax=el('p','Steuerprüfung ausstehend.',desk,'hw24-operations-tax');desk.insertBefore(tax,before);
  const details=el('details',undefined,desk,'hw24-operations-channel');desk.insertBefore(details,before);
