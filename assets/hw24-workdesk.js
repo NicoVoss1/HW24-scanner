@@ -7,7 +7,7 @@ const $=id=>document.getElementById(id),v=x=>String(x??'').trim();
 const keyFields=['Artikelname','Hersteller','Warengruppe','Kosten','Netto-VK','Steuerklasse','Inhalt/Menge','Maßeinheit'];
 const prices=new Set(['Kosten','Netto-VK','Brutto-VK']);
 const locked=new Set(['Ø EK netto (GLD)','Letzter EK (JTL)','Datum letzter EK']);
-let main,fields,additional,extraNumber,meta,stateLine,warning,approveBtn,exportBtn,exportMsg,queue,queueMsg,queueBtn,profileSelect,manualChanges=new Set();
+let main,fields,additional,extraNumber,meta,stateLine,warning,approveBtn,exportBtn,exportMsg,queue,queueMsg,queueBtn,profileSelect,catalogNote,catalogTable,manualChanges=new Set();
 function node(tag,label,parent,cls){
  const e=document.createElement(tag);if(label!==undefined)e.textContent=label;
  if(cls)e.className=cls;if(parent)parent.append(e);return e;
@@ -43,6 +43,21 @@ function field(k,target){
  input.disabled=!s.finished||locked.has(k)||(['Artikelnummer','GTIN'].includes(k)&&s.jtl?.matches?.length===1);
  input.addEventListener('change',()=>changed(k,input.value));
  node('small',missing?'Nicht belegt':src.name,item,'hw24-desk-origin');
+}
+function renderSourcesCatalog(){
+ if(!catalogTable)return;
+ const s=source(),article=s.jtl?.jtl_status==='current_snapshot'&&s.jtl.matches?.length===1?s.jtl.matches[0]:null;
+ const raw=article?.jtl_source_fields||{},historical=s.history?.ok?s.history.matches||[]:[];
+ catalogNote.textContent=Object.keys(raw).length+' zusätzliche JTL-Spiegelfelder · '+historical.length+' historische Fundstellen. Hersteller-, Lieferanten-, WMS-, Bild- und Kategoriebezeichnungen sind noch nicht vollständig aus weiteren Tabellen aufgelöst.';
+ catalogTable.replaceChildren();if(!article)return;
+ const head=node('tr',undefined,node('thead',undefined,catalogTable));
+ for(const k of ['Quellfeld','Wert','Bedeutung'])node('th',k,head);
+ const body=node('tbody',undefined,catalogTable);
+ for(const [key,value] of Object.entries(raw)){
+  const row=node('tr',undefined,body);
+  node('td',key,row);node('td',v(value)||'—',row);
+  node('td',key.startsWith('k')?'Interne ID, noch kein Klarname':'JTL-Quellwert',row);
+ }
 }
 function renderQueue(){
  const rows=source().basket||[];queue.replaceChildren();
@@ -92,7 +107,7 @@ function render(){
  approveBtn.textContent=(s.pending?.length||0)+' historische Ergänzungen gesammelt bestätigen';
  exportBtn.disabled=!s.finished||!ready||matches.length>1;
  queueBtn.disabled=!s.finished||!ready||matches.length!==1;
- renderQueue();
+ renderQueue();renderSourcesCatalog();
 }
 function make(){
  const workspace=$('hw24ScanWorkspace'),ean=$('ean'),scan=$('scanStart');
@@ -167,6 +182,10 @@ function make(){
  if(template)workspace.append(template);
  const expert=node('details',undefined,workspace,'hw24-desk-section');
  expert.id='hw24DeskExpert';node('summary','Weitere Funktionen und technische Details',expert);
+ const catalog=node('details',undefined,expert);
+ node('summary','Weitere verfügbare JTL-Quellfelder ansehen',catalog);
+ catalogNote=node('p','Nach einem Scan erscheinen die vorhandenen Originalfelder.',catalog,'hw24-desk-muted');
+ catalogTable=node('table',undefined,catalog);catalogTable.className='hw24-desk-catalog';
  for(const id of ['scanCockpit','hw24MergedSources','unknownActions','historyRetry','scanSourceDetails','masterDataDetails','ameisePanel','channelMore']){
   const elem=$(id);if(elem)expert.append(elem);
  }
