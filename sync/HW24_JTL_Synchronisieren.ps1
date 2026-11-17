@@ -107,6 +107,14 @@ WHERE TABLE_SCHEMA='dbo' AND TABLE_NAME='tHersteller'
   } catch {
     Write-Warning 'Hersteller-Namensabfrage nicht möglich (JTL-Schema oder SELECT-Berechtigung prüfen). Keine Namen geraten.'
   }
+  # Optional additional article-related sources. Admin mapping must use
+  # verified SQL Server table/column names; no guesses and no JTL writes.
+  $relatedSources=@{}
+  if($config.related_sources_file) {
+    . (Join-Path $PSScriptRoot 'HW24_JTL_Zusatzquellen.ps1')
+    $relatedSources=Get-HW24RelatedSources -Connection $connection -ArticleTable $dataset.Tables[0] -MapFile ([string]$config.related_sources_file)
+    Write-Host ("HW24 Zusatzquellen: "+$relatedSources.Count+" Artikel angereichert")
+  }
 }finally{
   $connection.Dispose()
 }
@@ -137,6 +145,7 @@ $sent=0
 foreach($row in $articles.Rows){
   $a=To-DbObject $row
   $id=[string]$a['kArtikel']
+  if($relatedSources.ContainsKey($id)){$a['HW24_RelatedSources']=$relatedSources[$id]}
   $main=if($primary.ContainsKey($id)){$primary[$id]}else{@{}}
   $all=@()
   if($descriptions.ContainsKey($id)){$all=@($descriptions[$id].ToArray())}
