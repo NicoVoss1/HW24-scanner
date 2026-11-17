@@ -121,6 +121,19 @@ WHERE TABLE_SCHEMA='dbo' AND TABLE_NAME='tHersteller'
     . (Join-Path $PSScriptRoot 'HW24_JTL_Zusatzquellen.ps1')
     $relatedSources=Get-HW24RelatedSources -Connection $connection -ArticleTable $dataset.Tables[0] -MapFile $relatedMap
     Write-Host ("HW24 Zusatzquellen: "+$relatedSources.Count+" Artikel angereichert")
+    $relatedSettings=Get-Content -LiteralPath $relatedMap -Raw -Encoding UTF8 | ConvertFrom-Json
+    if($relatedSettings.include_wms_bins -eq $true -or $relatedSettings.include_tax_de -eq $true){
+      . (Join-Path $PSScriptRoot 'HW24_JTL_SteuerWMS.ps1')
+      $enrichment=Get-HW24TaxAndBinSources -Connection $connection -ArticleTable $dataset.Tables[0] `
+        -IncludeBins ([bool]$relatedSettings.include_wms_bins) -IncludeTax ([bool]$relatedSettings.include_tax_de)
+      foreach($aid in $enrichment.Keys){
+        if(-not $relatedSources.ContainsKey($aid)){$relatedSources[$aid]=@{}}
+        foreach($sourceName in $enrichment[$aid].Keys){
+          $relatedSources[$aid][$sourceName]=$enrichment[$aid][$sourceName]
+        }
+      }
+      Write-Host ("HW24 WMS/Steuer: "+$enrichment.Count+" Artikel mit verifizierten Zusatzdaten")
+    }
   }
 }finally{
   $connection.Dispose()
