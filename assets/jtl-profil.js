@@ -95,8 +95,8 @@ function applyDefaults(){
   }else rec[key]=value;
   count++;
  }
- // 19% is a proposed default only for the normal tax class, not for gift cards.
- if(val(rec.Steuerklasse).toLowerCase()!=='normaler steuersatz')delete rec['Steuersatz in %'];
+ // Never infer an effective VAT percentage from a tax class label.
+ delete rec['Steuersatz in %'];
  source='new_template';
  window.hw24AmeiseCurrent?.(rec);
  window.hw24ChannelCurrent?.(rec);
@@ -121,10 +121,12 @@ function createControl(container,key,type,read){
    if(read)return;
    rec[key]=n;manuallyChanged.add(key);
    if(key==='Steuerklasse'){
-    // A rate is only suitable for its actual tax class, never keep a stale 19% suggestion.
-    if(n!=='normaler steuersatz')delete rec['Steuersatz in %'];
-    else if(!val(rec['Steuersatz in %'])&&canPreset())rec['Steuersatz in %']='19,00';
+    // Tax percentage is contextual: company, delivery country and zone determine
+    // its value. Never set a flat 19% simply because a class was chosen.
+    delete rec['Steuersatz in %'];
    }
+   window.hw24MarkEdited?.(key);
+   window.hw24BatchRefresh?.();
    window.hw24AmeiseCurrent?.(rec);
    window.hw24QualityEdited?.(key,rec);
    window.hw24ChannelCurrent?.(rec);
