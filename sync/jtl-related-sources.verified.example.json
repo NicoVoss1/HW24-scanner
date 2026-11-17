@@ -139,5 +139,7 @@
       ]
     }
   ],
-  "include_amazon_offers": true
+  "include_amazon_offers": true,
+  "include_wms_bins": false,
+  "include_tax_de": false
 }
