@@ -1,8 +1,9 @@
 # HW24: separate, read-only JTL WMS history mirror.
 # Default: one-article SELECT probe. -Publish explicitly transfers ALL joined rows
 # to the private MariaDB mirror. Does not change JTL data or article snapshot.
-param([string]$ConfigFile='C:\HW24\jtl-sync.json',[int]$TestArticle=2594,[switch]$Publish)
+param([string]$ConfigFile='C:\HW24\jtl-sync.json',[int]$TestArticle=2594,[switch]$Publish,[switch]$ReceiverProbe)
 $ErrorActionPreference='Stop'
+if($Publish -and $ReceiverProbe){throw 'Use -Publish OR -ReceiverProbe, not both.'}
 [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
 $config=Get-Content -LiteralPath $ConfigFile -Raw -Encoding UTF8 | ConvertFrom-Json
 $cred=Import-Clixml -LiteralPath $config.sql_credential_file
@@ -23,9 +24,10 @@ function Read-Value($rd,[int]$i){
  if($value -is [IFormattable]){return $value.ToString($null,[Globalization.CultureInfo]::InvariantCulture)}
  return [string]$value
 }
-if($Publish){
+if($Publish -or $ReceiverProbe){
  $endpoint=[Uri]::new([Uri]$config.endpoint,'jtl-wms-history.php')
  if($endpoint.Scheme -ne 'https'){throw 'HTTPS required'}
+ Write-Host ('HW24 History API: '+$endpoint.GetLeftPart([System.UriPartial]::Path))
  $login=(Import-Clixml -LiteralPath $config.http_credential_file).GetNetworkCredential()
  $secure=ConvertTo-SecureString -String (Get-Content -LiteralPath $config.api_token_file -Raw -Encoding UTF8).Trim()
  $token=([System.Net.NetworkCredential]::new('token',$secure)).Password
@@ -41,6 +43,8 @@ if($Publish){
  }
  $ready=Send-History @{action='probe'}
  if($ready.status -ne 'receiver_ready'){throw 'History receiver not ready'}
+ Write-Host ('OK: History receiver ready; movement_id type '+$ready.movement_id_type) -ForegroundColor Green
+ if($ReceiverProbe){$conn.Dispose();return}
 }
 try{
  $conn.Open()
