@@ -31,6 +31,23 @@ function field($v,int $max):?string{
  if(!is_scalar($v)||strlen((string)$v)>$max)throw new InvalidArgumentException('bad_field');
  return (string)$v;
 }
+// Prune only old mirror copies, never JTL records. Called after a verified publish.
+function pruneHistory(PDO $pdo):int{
+ $pdo->beginTransaction();
+ try{
+  $ready=$pdo->query("SELECT run_id FROM hw24_wms_history_runs WHERE status='ready' ORDER BY completed_utc DESC,run_id DESC FOR UPDATE")->fetchAll(PDO::FETCH_COLUMN);
+  $old=array_slice($ready,3);
+  $stale=$pdo->query("SELECT run_id FROM hw24_wms_history_runs WHERE status='staging' AND created_utc < UTC_TIMESTAMP(6)-INTERVAL 2 DAY FOR UPDATE")->fetchAll(PDO::FETCH_COLUMN);
+  $deleteRows=$pdo->prepare('DELETE FROM hw24_wms_history WHERE run_id=?');
+  $deleteRun=$pdo->prepare('DELETE FROM hw24_wms_history_runs WHERE run_id=?');
+  foreach(array_merge($old,$stale) as $id){$deleteRows->execute([$id]);$deleteRun->execute([$id]);}
+  $pdo->commit();
+  return count($old)+count($stale);
+ }catch(Throwable $e){
+  if($pdo->inTransaction())$pdo->rollBack();
+  throw $e;
+ }
+}
 function connection(array $cfg):PDO{
  return new PDO('mysql:host=127.0.0.1;port=3306;dbname=hw24_artikelmanager;charset=utf8mb4',
   (string)$cfg['user'],(string)$cfg['password'],[
@@ -53,6 +70,8 @@ try{
  $pdo=connection($cfg);
  if($method==='GET'){
   $aid=posInt($_GET['article_id']??null);
+  $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+  $pdo->beginTransaction();
   $offset=posInt($_GET['offset']??0,true);
   $limit=50;
   // Browser pins the same completed run when advancing pages.
@@ -64,7 +83,7 @@ try{
    $q=$pdo->query("SELECT run_id,completed_utc FROM hw24_wms_history_runs WHERE status='ready' ORDER BY completed_utc DESC,run_id DESC LIMIT 1");
   }
   $meta=$q->fetch();
-  if(!$meta)result(200,['ok'=>true,'status'=>'not_synchronized','rows'=>[]]);
+  if(!$meta){$pdo->commit();result(200,['ok'=>true,'status'=>'not_synchronized','rows'=>[]]);}
   $q=$pdo->prepare('SELECT COUNT(*) FROM hw24_wms_history WHERE run_id=? AND article_id=?');
   $q->execute([$meta['run_id'],$aid]);$total=(int)$q->fetchColumn();
   $q=$pdo->prepare('SELECT movement_id,moved_at AS zeitstempel,type_id AS buchungsart_id,type_name AS buchungsart,qty AS menge,
@@ -82,6 +101,7 @@ try{
    $q->execute([$meta['run_id'],$aid,$meta['run_id'],$aid]);
    foreach($q->fetchAll() as $bin) $latest[(string)$bin['bin_id']]=$bin['latest_at'];
   }
+  $pdo->commit();
   result(200,['ok'=>true,'status'=>'ready','run_id'=>$meta['run_id'],'snapshot_at'=>$meta['completed_utc'],
                'total'=>$total,'offset'=>$offset,'rows'=>$rows,'latest_by_bin'=>(object)$latest,'has_more'=>($offset+count($rows)<$total),
                'note'=>'Vollstaendige verknuepfbare JTL-Quellhistorie zum Synchronisationsstand; kein Datumsfilter.']);
@@ -96,7 +116,8 @@ try{
   $q=$pdo->query("SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='hw24_wms_history' AND COLUMN_NAME='movement_id'");
   $type=$q->fetchColumn();
   if(!is_string($type)||stripos($type,'unsigned')!==false||!preg_match('/^(int|bigint)\b/i',$type))result(409,['ok'=>false,'error'=>'movement_id_must_be_signed']);
-  result(200,['ok'=>true,'status'=>'receiver_ready','movement_id_type'=>$type]);
+  $latest=$pdo->query("SELECT run_id FROM hw24_wms_history_runs WHERE status='ready' ORDER BY completed_utc DESC,run_id DESC LIMIT 1")->fetchColumn();
+  result(200,['ok'=>true,'status'=>'receiver_ready','movement_id_type'=>$type,'latest_run_id'=>$latest?:null,'bounded_retention'=>true]);
  }
  $run=runId($in['run_id']??null);
  if($action==='begin'){
@@ -133,7 +154,10 @@ try{
   $q=$pdo->prepare("UPDATE hw24_wms_history_runs SET status='ready',row_count=?,completed_utc=UTC_TIMESTAMP(6) WHERE run_id=?");
   $q->execute([$actual,$run]);
   $pdo->commit();
-  result(200,['ok'=>true,'status'=>'ready','rows'=>$actual]);
+  $cleanupOk=true;$pruned=0;
+  try{$pruned=pruneHistory($pdo);}
+  catch(Throwable $e){$cleanupOk=false;error_log('HW24 WMS mirror cleanup failed: '.$e->getMessage());}
+  result(200,['ok'=>true,'status'=>'ready','rows'=>$actual,'cleanup_ok'=>$cleanupOk,'pruned_runs'=>$pruned]);
  }
  throw new InvalidArgumentException('unknown_action');
 }catch(InvalidArgumentException $e){
