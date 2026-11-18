@@ -278,35 +278,46 @@ function show(){
   el('small',label,cell);
   el('strong',v(value)||'Nicht belegt',cell);
  }
+ const stockSource=match?.related_sources?.bestand;
+ const stockRows=Array.isArray(stockSource?.rows)&&stockSource.rows.length===1&&!stockSource.truncated?stockSource.rows:null;
+ const stock=stockRows?stockRows[0]:null;
+ // Exact JTL aggregates. Do NOT calculate available = stock - in-orders:
+ // JTL may account for further reservations, blocks and other stock rules.
+ const stockValue=(field,fallback)=>{
+  const raw=stock?.[field];
+  const chosen=raw!==null&&raw!==undefined&&String(raw).trim()!==''?raw:fallback;
+  return chosen===null||chosen===undefined||String(chosen).trim()===''?'Nicht synchronisiert':formatQty(chosen);
+ };
+ const totalText=stockValue('fLagerbestand',match?.bestand);
+ const availableText=stockValue('fVerfuegbar',match?.bestand_verfuegbar);
+ const inOrdersText=stockValue('fInAuftraegen',null);
+ const incomingText=stockValue('fZulauf',null);
  warehouseSummary.textContent=match?
-  'Gesamtbestand '+(v(match.bestand)?formatQty(match.bestand):'unbekannt')+
-  ' Stück · Verfügbar '+(v(match.bestand_verfuegbar)?formatQty(match.bestand_verfuegbar):'unbekannt')+
-  ' Stück · JTL-Snapshot '+v(s.jtl.snapshot_at)+' UTC':
+  'JTL-Gesamtbestände über alle Warenlager · Snapshot '+v(s.jtl.snapshot_at)+' UTC · Verfügbar ist der originale JTL-Quellwert':
   'Noch kein eindeutiger JTL-Treffer. Suche nach Artikelnummer, EAN oder HAN.';
  slotRows.replaceChildren();
  const wms=match?.related_sources?.wms_lagerplaetze,slots=Array.isArray(wms?.rows)?wms.rows:[];
- const stockAvailable=match?.bestand_verfuegbar;
- const stockText=stockAvailable===null||stockAvailable===undefined||v(stockAvailable)===''?'Nicht synchronisiert':formatQty(stockAvailable);
  warehouseHighlights.replaceChildren();warehouseMobile.replaceChildren();
- if(slots.length){
-  const kinds=slots.filter(x=>['1','true','ja'].includes(v(x.gesperrt).toLowerCase())||['1','true','ja'].includes(v(x.auslieferung_gesperrt).toLowerCase()));
-  const positive=slots.filter(x=>Number(v(x.menge).replace(',','.'))>0);
-  const summary=[
-    ['Verfügbarer Bestand',stockText],
-    ['Erfasste Fächer',String(slots.length)],
-    ['Fächer mit Bestand',String(positive.length)],
-    ['Gesperrte Fächer',String(kinds.length)]
-  ];
-  for(const [label,value] of summary){
-   const stat=el('div',undefined,warehouseHighlights,'hw24-wms-stat');
-   el('small',label,stat);el('strong',value,stat);
-  }
-  if(wms?.truncated)el('p','Hinweis: Der WMS-Spiegel enthält nicht alle Fachpositionen.',warehouseHighlights,'hw24-desk-warning');
- }else {
-  const stat=el('div',undefined,warehouseHighlights,'hw24-wms-stat');
-  el('small','Verfügbarer Bestand',stat);el('strong',stockText,stat);
-  if(wms?.confirmed===true)
-   el('p','Für diesen Artikel sind keine WMS-Fachzuordnungen im letzten Spiegel vorhanden.',warehouseHighlights,'hw24-desk-muted');
+ const blocked=slots.filter(x=>['1','true','ja','y'].includes(v(x.gesperrt).toLowerCase())||['1','true','ja','y'].includes(v(x.auslieferung_gesperrt).toLowerCase()));
+ const positive=slots.filter(x=>Number(v(x.menge).replace(',','.'))>0);
+ const stats=[
+  ['Gesamtbestand',totalText,'JTL fLagerbestand: Gesamtmenge aller Warenlager.'],
+  ['Verfügbar',availableText,'JTL fVerfuegbar: maßgeblicher verfügbarer Bestand.'],
+  ['In Aufträgen',inOrdersText,'JTL fInAuftraegen: in Kundenaufträgen gebundene Stückzahl. Nicht mit sämtlichen Reservierungen gleichsetzen.'],
+  ['Im Zulauf',incomingText,'JTL fZulauf: erwarteter Warenzugang.']
+ ];
+ for(const [label,value,hint] of stats){
+  const stat=el('div',undefined,warehouseHighlights,'hw24-wms-stat'+(label==='Verfügbar'?' hw24-wms-available':''));
+  stat.title=hint;
+  el('small',label,stat);el('strong',value,stat);
+ }
+ if(wms?.confirmed===true){
+  const metrics=el('div',undefined,warehouseHighlights,'hw24-wms-bin-metrics');
+  el('span','Erfasste Fächer: '+slots.length,metrics);
+  el('span','Fächer mit Bestand: '+positive.length,metrics);
+  el('span','Gesperrte Fächer: '+blocked.length,metrics);
+  if(wms.truncated)el('p','Hinweis: Der WMS-Spiegel enthält nicht alle Fachpositionen.',metrics,'hw24-desk-warning');
+  if(!slots.length)el('p','Für diesen Artikel sind keine WMS-Fachzuordnungen im letzten Spiegel vorhanden.',metrics,'hw24-desk-muted');
  }
  if(!slots.length){
   const row=el('tr',undefined,slotRows);
