@@ -1,5 +1,5 @@
 # HW24: separate, read-only JTL WMS history mirror.
-# Default: one-article SELECT probe. -Publish explicitly transfers ALL joined rows
+# Default: one-article SELECT probe. -Publish transfers a complete snapshot on change
 # to the private MariaDB mirror. Does not change JTL data or article snapshot.
 param([string]$ConfigFile='C:\HW24\jtl-sync.json',[int]$TestArticle=2594,[switch]$Publish,[switch]$ReceiverProbe)
 $ErrorActionPreference='Stop'
@@ -44,7 +44,12 @@ if($Publish -or $ReceiverProbe){
  $ready=Send-History @{action='probe'}
  if($ready.status -ne 'receiver_ready'){throw 'History receiver not ready'}
  Write-Host ('OK: History receiver ready; movement_id type '+$ready.movement_id_type) -ForegroundColor Green
- if($ReceiverProbe){$conn.Dispose();return}
+ if($ReceiverProbe){
+  if($ready.bounded_retention -ne $true){Write-Warning 'Receiver is still an older version without bounded retention.'}
+  else{Write-Host 'OK: Bounded history retention supported.' -ForegroundColor Green}
+  $conn.Dispose();return
+ }
+ if($ready.bounded_retention -ne $true){throw 'Update the WMS history receiver before publishing automatically.'}
 }
 try{
  $conn.Open()
@@ -69,23 +74,19 @@ LEFT JOIN dbo.tWarenLagerPlatz p2 ON p2.kWarenLagerPlatz=h.kWarenLagerPlatzZiel
  $rd=$cmd.ExecuteReader()
  $seen=0;$expected=0
  $run=[Guid]::NewGuid().ToString('N')
- $batch=New-Object System.Collections.ArrayList
- if($Publish){[void](Send-History @{action='begin';run_id=$run})}
+ $allRows=New-Object System.Collections.ArrayList
+ $digest=[System.Security.Cryptography.SHA256]::Create()
  try{
   while($rd.Read()){
    $expected=[long]$rd.GetValue(10)
-   $row=@{bewegung_id=(Read-Value $rd 0);artikel_id=(Read-Value $rd 1);zeitstempel=(Read-Value $rd 2);
+   $row=[ordered]@{bewegung_id=(Read-Value $rd 0);artikel_id=(Read-Value $rd 1);zeitstempel=(Read-Value $rd 2);
     buchungsart_id=(Read-Value $rd 3);buchungsart=(Read-Value $rd 4);menge=(Read-Value $rd 5);
     start_id=(Read-Value $rd 6);lagerplatz_von=(Read-Value $rd 7);ziel_id=(Read-Value $rd 8);lagerplatz_nach=(Read-Value $rd 9)}
    $seen++
    if($Publish){
-    [void]$batch.Add($row)
-    if($batch.Count -ge 250){
-     $response=Send-History @{action='batch';run_id=$run;rows=$batch.ToArray()}
-     if($response.accepted -ne $batch.Count){throw 'Incomplete batch'}
-     $batch.Clear()
-     Write-Progress -Activity 'WMS history' -Status "$seen / $expected"
-    }
+    [void]$allRows.Add($row)
+    $line=[Text.Encoding]::UTF8.GetBytes(($row|ConvertTo-Json -Compress)+"`n")
+    [void]$digest.TransformBlock($line,0,$line.Length,$line,0)
    }else{
     $row|ConvertTo-Json -Compress|Write-Host
    }
@@ -93,14 +94,33 @@ LEFT JOIN dbo.tWarenLagerPlatz p2 ON p2.kWarenLagerPlatz=h.kWarenLagerPlatzZiel
  }finally{$rd.Close()}
  if($seen -ne $expected){throw "Incomplete history read: $seen of $expected"}
  if($Publish){
-  if($batch.Count){
-   $response=Send-History @{action='batch';run_id=$run;rows=$batch.ToArray()}
-   if($response.accepted -ne $batch.Count){throw 'Incomplete final batch'}
+  [void]$digest.TransformFinalBlock([byte[]]@(),0,0)
+  $hash=([BitConverter]::ToString($digest.Hash)).Replace('-','').ToLowerInvariant()
+  $statePath=Join-Path (Split-Path -Parent $ConfigFile) 'wms-history-state.json'
+  $previous=$null
+  if(Test-Path -LiteralPath $statePath -PathType Leaf){
+    try{$previous=Get-Content -LiteralPath $statePath -Raw -Encoding UTF8 | ConvertFrom-Json}catch{}
+  }
+  if($previous -and $previous.hash -eq $hash -and $previous.run_id -eq $ready.latest_run_id){
+   Write-Host "OK: History unchanged: $seen movements; no upload needed." -ForegroundColor Green
+   return
+  }
+  if($seen -eq 0 -and $ready.latest_run_id){throw 'Unexpected empty source; previous published history preserved.'}
+  [void](Send-History @{action='begin';run_id=$run})
+  for($offset=0;$offset -lt $allRows.Count;$offset+=250){
+   $n=[Math]::Min(250,$allRows.Count-$offset)
+   $batch=$allRows.GetRange($offset,$n).ToArray()
+   $response=Send-History @{action='batch';run_id=$run;rows=$batch}
+   if($response.accepted -ne $n){throw 'Incomplete batch'}
+   Write-Progress -Activity 'WMS history' -Status "$($offset+$n) / $expected"
   }
   $done=Send-History @{action='finish';run_id=$run;total=$seen}
   if($done.status -ne 'ready' -or $done.rows -ne $seen){throw 'History not ready'}
   Write-Host "OK: History snapshot ready: $seen joined movements, no date filter." -ForegroundColor Green
+  if($done.cleanup_ok -ne $true){throw 'Snapshot published, but mirror cleanup failed. Check DELETE grants on the two history tables before repeating.'}
+  @{hash=$hash;run_id=$run;rows=$seen}|ConvertTo-Json -Compress|Set-Content -LiteralPath $statePath -Encoding UTF8
+  Write-Host "OK: Mirror retention checked; $($done.pruned_runs) old/abandoned runs removed." -ForegroundColor Green
  }else{
   Write-Host "OK: Article $TestArticle / $seen joined movements, no date filter. No data sent." -ForegroundColor Green
  }
-}finally{$conn.Dispose()}
+}finally{if($digest){$digest.Dispose()};$conn.Dispose()}
