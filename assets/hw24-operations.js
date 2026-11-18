@@ -152,20 +152,34 @@ function formatQty(value){
  const number=Number(raw.replace(',','.'));
  return Number.isFinite(number)?new Intl.NumberFormat('de-DE',{maximumFractionDigits:3}).format(number):raw;
 }
+// JTL datetime is a wall-clock SQL value, not an ISO UTC timestamp.
+function formatHistoryDate(value){
+ const raw=v(value);
+ const m=raw.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?$/);
+ return m?{date:m[3]+'.'+m[2]+'.'+m[1],time:m[4]+':'+m[5]+':'+m[6],raw}:null;
+}
+function historyDateText(value){
+ const d=formatHistoryDate(value);
+ return d?d.date+', '+d.time+' Uhr':v(value)||'Zeitpunkt nicht belegt';
+}
+function historyBinName(name,id){
+ return v(name)||(v(id)&&v(id)!=='0'?'Fach-ID '+v(id):'Nicht dokumentiert');
+}
+
 let historyState=null,historySequence=0;
 function syncBinMovementDates(){
  if(!historyState||historyState.status!=='ready')return;
  for(const node of warehousePanel.querySelectorAll('[data-history-bin]')){
   const stamp=v(historyState.latest?.[node.dataset.historyBin]);
   const prefix=node.dataset.historyPrefix||'';
-  node.textContent=prefix+(stamp?stamp+' · JTL-Historienstand':'Keine Bewegung in gespeicherter Historie');
+  node.textContent=prefix+(stamp?historyDateText(stamp):'Keine Bewegung in gespeicherter Historie');if(stamp)node.title=stamp+' (JTL-Quellzeit)';else node.removeAttribute('title');
  }
 }
 function drawHistory(){
  if(!historyState)return;
  const h=historyState;
  historyRows.replaceChildren();
- const date=h.snapshot?' · Historienstand '+h.snapshot+' UTC':'';
+ const date=h.snapshot?' · Historienstand '+historyDateText(h.snapshot)+' UTC':'';
  if(h.loading&&!h.rows.length)historyNote.textContent='Bewegungshistorie wird geladen …';
  else if(h.status==='ready'){
   historyNote.textContent=h.total===0?'Keine verknüpften Bewegungen gespeichert'+date:
@@ -173,14 +187,29 @@ function drawHistory(){
  }else if(h.status==='error')historyNote.textContent='Historie nicht abrufbar. Bitte erneut versuchen. Aktuelle Lagerfachdaten bleiben davon unabhängig.';
  else historyNote.textContent='Bewegungshistorie noch nicht synchronisiert. Die Lagerfachdaten stammen separat aus JTL.';
  for(const entry of h.rows){
-  const card=el('div',undefined,historyRows,'hw24-history-entry');
-  const time=v(entry.zeitstempel)||'Zeitstempel nicht belegt';
+  const card=el('article',undefined,historyRows,'hw24-history-entry hw24-history-movement');
+  const head=el('div',undefined,card,'hw24-history-header');
+  const when=el('div',undefined,head,'hw24-history-when');
+  const dateParts=formatHistoryDate(entry.zeitstempel);
+  el('strong',dateParts?dateParts.date:'Zeitpunkt nicht belegt',when);
+  if(dateParts){el('span',dateParts.time+' Uhr',when);when.title=dateParts.raw;}
+  else if(v(entry.zeitstempel))el('span',v(entry.zeitstempel),when);
   const kind=v(entry.buchungsart)||(v(entry.buchungsart_id)?'Buchungsart '+v(entry.buchungsart_id):'Buchungsart nicht belegt');
-  el('strong',time+' · '+kind,card);
-  el('p','Menge '+(entry.menge===null?'Nicht belegt':formatQty(entry.menge))+
-   ' · Von '+(v(entry.lagerplatz_von)||(v(entry.start_id)&&v(entry.start_id)!=='0'?'Fach-ID '+v(entry.start_id):'nicht dokumentiert'))+
-   ' · Nach '+(v(entry.lagerplatz_nach)||(v(entry.ziel_id)&&v(entry.ziel_id)!=='0'?'Fach-ID '+v(entry.ziel_id):'nicht dokumentiert')),card);
-  el('small','Bewegungs-ID '+v(entry.movement_id),card);
+  el('span',kind,head,'hw24-history-kind');
+  const count=el('div',undefined,card,'hw24-history-quantity');
+  const quantity=entry.menge===null||entry.menge===undefined||v(entry.menge)===''?'—':formatQty(entry.menge);
+  el('strong',quantity,count);el('small','Stück',count);
+  count.title=quantity==='—'?'Menge nicht dokumentiert':v(entry.menge)+' Stück (JTL-Quellwert)';
+  const route=el('div',undefined,card,'hw24-history-route');
+  const from=el('div',undefined,route,'hw24-history-place');
+  el('small','Von Lagerfach',from);el('strong',historyBinName(entry.lagerplatz_von,entry.start_id),from);
+  const arrow=el('span','→',route,'hw24-history-arrow');arrow.setAttribute('aria-hidden','true');
+  const to=el('div',undefined,route,'hw24-history-place hw24-history-destination');
+  el('small','Nach Lagerfach',to);el('strong',historyBinName(entry.lagerplatz_nach,entry.ziel_id),to);
+  const detail=el('details',undefined,card,'hw24-history-source');
+  el('summary','Buchungsdetails',detail);
+  el('p','Bewegungs-ID: '+v(entry.movement_id)+' · Buchungsart-ID: '+v(entry.buchungsart_id),detail);
+  if(dateParts)el('p','Originalzeit: '+dateParts.raw+' (JTL-Quellzeit)',detail);
  }
  historyMore.disabled=h.loading;
  historyMore.textContent=h.loading?'Lädt …':h.status==='error'?'Erneut versuchen':'Weitere 50 Bewegungen anzeigen';
@@ -456,7 +485,7 @@ function build(){
  warehouseMobile=el('div',undefined,warehousePanel,'hw24-wms-mobilelist');
  historySection=el('section',undefined,warehousePanel,'hw24-wms-history');
  el('h3','Vollständige Bewegungshistorie des Artikels',historySection);
- el('p','Ohne Datumsfilter. Alle verfügbaren Bewegungen werden nach der Quellenanbindung vollständig und bei Bedarf seitenweise angezeigt.',historySection,'hw24-desk-muted');
+ el('p','Alle gespeicherten, zuordenbaren Bewegungen · Neueste zuerst · Ohne Datumsfilter.',historySection,'hw24-desk-muted');
  historyNote=el('p','Bewegungsquelle noch nicht angebunden.',historySection,'hw24-history-note');
  historyRows=el('div',undefined,historySection,'hw24-history-rows');
  historyMore=el('button','Weitere 50 Bewegungen anzeigen',historySection);historyMore.type='button';historyMore.hidden=true;
