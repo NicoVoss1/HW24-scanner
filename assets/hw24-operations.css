@@ -138,3 +138,32 @@ body.hw24-warehouse-mode #hw24Desk>.hw24-operations-asins{display:none!important
  #hw24Desk .hw24-wms-identity,#hw24Desk .hw24-wms-highlights{grid-template-columns:repeat(2,minmax(0,1fr))}
  #hw24Desk .hw24-wms-product-title{grid-column:1/-1}
 }
+
+/* v4.19: Movement cards – quantity and bin route are the primary information. */
+#hw24Desk .hw24-history-movement{display:grid;grid-template-columns:minmax(100px,142px) minmax(0,1fr);gap:12px 18px;padding:16px 20px;align-items:center}
+#hw24Desk .hw24-history-header{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 14px}
+#hw24Desk .hw24-history-when{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+#hw24Desk .hw24-history-when strong{font-size:16px;color:#183858}
+#hw24Desk .hw24-history-when span{font-size:14px;color:#536980}
+#hw24Desk .hw24-history-kind{font-size:12px;font-weight:650;color:#355572;background:#eef4fa;padding:5px 9px;border-radius:6px}
+#hw24Desk .hw24-history-quantity{text-align:center;border-right:1px solid #dce6ef;padding:8px 12px 8px 0}
+#hw24Desk .hw24-history-quantity strong{display:block;font-size:32px;line-height:1.1;color:#173e69;font-variant-numeric:tabular-nums}
+#hw24Desk .hw24-history-quantity small{display:block;margin:4px 0 0;font-size:12px;color:#52677d}
+#hw24Desk .hw24-history-route{display:grid;grid-template-columns:minmax(0,1fr) 30px minmax(0,1fr);align-items:center;gap:10px}
+#hw24Desk .hw24-history-place{min-width:0;border:1px solid #e0e8f0;border-radius:8px;padding:10px 12px;background:#f8fafc}
+#hw24Desk .hw24-history-place small{display:block;font-size:11px;color:#52677d;margin:0 0 4px}
+#hw24Desk .hw24-history-place strong{display:block;font-size:16px;line-height:1.35;overflow-wrap:anywhere}
+#hw24Desk .hw24-history-destination{background:#eef6f5;border-color:#cde2df}
+#hw24Desk .hw24-history-arrow{font-size:24px;text-align:center;font-weight:700;color:#466f89}
+#hw24Desk .hw24-history-source{grid-column:1/-1;margin:0;padding:0;border:0}
+#hw24Desk .hw24-history-source summary{font-size:11px;font-weight:600;color:#66798a}
+#hw24Desk .hw24-history-source p{font-size:12px;color:#52677d}
+@media(max-width:640px){
+ #hw24Desk .hw24-history-movement{grid-template-columns:76px minmax(0,1fr);padding:12px;gap:10px}
+ #hw24Desk .hw24-history-quantity{padding-right:7px}
+ #hw24Desk .hw24-history-quantity strong{font-size:26px}
+ #hw24Desk .hw24-history-route{grid-template-columns:minmax(0,1fr);gap:4px}
+ #hw24Desk .hw24-history-arrow{transform:rotate(90deg);font-size:19px;line-height:1}
+ #hw24Desk .hw24-history-place{padding:8px 10px}
+ #hw24Desk .hw24-history-place strong{font-size:14px}
+}
