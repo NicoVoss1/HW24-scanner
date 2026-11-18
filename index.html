@@ -42,10 +42,10 @@
 .scan-autofill{border:1px solid #e2bb4b;background:#fff7e0}
 button:disabled{opacity:.55;cursor:not-allowed}
 </style>
-<link rel="stylesheet" href="assets/hw24-ui.css?v=4.3"><link rel="stylesheet" href="assets/hw24-workdesk.css?v=4.18"><link rel="stylesheet" href="assets/hw24-operations.css?v=4.19"><link rel="stylesheet" href="assets/hw24-batch.css?v=4.15">
+<link rel="stylesheet" href="assets/hw24-ui.css?v=4.3"><link rel="stylesheet" href="assets/hw24-workdesk.css?v=4.18"><link rel="stylesheet" href="assets/hw24-operations.css?v=4.20"><link rel="stylesheet" href="assets/hw24-batch.css?v=4.15">
 <header class="hw24-hero">
   <div class="hw24-eyebrow">HAIRWORLD24 · E-COMMERCE</div>
-  <h1>HW24 Artikelmanager <small>v4.19 TEST</small></h1>
+  <h1>HW24 Artikelmanager <small>v4.20 TEST</small></h1>
   <p>EAN scannen, vorhandene JTL-Artikel erkennen und fehlende Stammdaten gezielt bearbeiten. Datenquelle: automatisch synchronisierter JTL-Spiegel. Keine direkten Schreibzugriffe auf JTL.</p>
   <div class="hw24-status-strip">
     <span id="jtlApiState" role="status" class="note" data-state="loading">JTL-Synchronisation wird geprüft …</span>
@@ -53,7 +53,7 @@ button:disabled{opacity:.55;cursor:not-allowed}
   </div>
 </header>
 <section id="hw24Project"><details>
-<summary><strong>📋 Projektfortschritt · Artikelmanager v4.19 TEST</strong></summary>
+<summary><strong>📋 Projektfortschritt · Artikelmanager v4.20 TEST</strong></summary>
 <p class="note">Technischer Ausbaustand und verfügbare Datenquellen. Aktuelle JTL-Artikel werden über den SQL-MariaDB-Spiegel abgefragt.</p>
 <ol id="hw24Milestones"></ol>
 </details></section>
@@ -445,7 +445,7 @@ $('auditCancel').onclick=()=>{$('auditEditor').hidden=true;auditEditing=-1};
 $('auditAuto').onclick=()=>{let count=0;for(let i=0;i<data.length;i++){if(!auditSelected.has(auditId(data[i],i)))continue;let p=auditSuggest(data[i],i);if(Object.keys(p).length){auditApply(i,p);count++}}auditRender();alert(count+' ausgewählte Artikel mit sicheren Vorschlägen ergänzt. Bitte alle Vorschläge prüfen.')};
 $('auditFilter').onchange=auditRender;$('auditSearch').oninput=auditRender;
 $('auditExport').onclick=()=>{if(!auditDrafts.size){alert('Noch keine Änderungen vorhanden');return}let keys=['Artikelnummer',...new Set([...auditDrafts.values()].flatMap(Object.keys))].filter(k=>!isExcludedEditorField(k)&&k!=='Interner Schlüssel'&&k!=='GTIN'&&k!=='HAN'&&k!=='ASIN');let quote=v=>'"'+val(v).replace(/"/g,'""')+'"';let lines=[keys.map(quote).join(';')];for(let i=0;i<data.length;i++){let r=data[i],d=auditDrafts.get(auditId(r,i));if(!d)continue;lines.push(keys.map(k=>quote(k==='Artikelnummer'?r.Artikelnummer:Object.hasOwn(d,k)?d[k]:r[k])).join(';'))}let blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='HW24_JTL_Ameise_AENDERUNGEN_ZUERST_PRUEFEN.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};
-</script><script src="assets/kanalcheck.js?v=4.1"></script><script src="assets/ameise.js?v=4.15"></script><script src="assets/hw24-vorlagen.js?v=4.15"></script><script src="assets/scanflow.js?v=4.8"></script><script src="assets/jtl-profil.js?v=4.15"></script><script src="assets/qualitaet.js?v=4.15"></script><script src="assets/reiter.js?v=4.1"></script><script src="assets/api-status.js?v=4.3"></script><script src="assets/hw24-smartscan.js?v=4.15"></script><script src="assets/hw24-workdesk.js?v=4.18"></script><script src="assets/hw24-operations.js?v=4.19"></script><script src="assets/hw24-batch.js?v=4.18"></script>
+</script><script src="assets/kanalcheck.js?v=4.1"></script><script src="assets/ameise.js?v=4.15"></script><script src="assets/hw24-vorlagen.js?v=4.15"></script><script src="assets/scanflow.js?v=4.8"></script><script src="assets/jtl-profil.js?v=4.15"></script><script src="assets/qualitaet.js?v=4.15"></script><script src="assets/reiter.js?v=4.1"></script><script src="assets/api-status.js?v=4.3"></script><script src="assets/hw24-smartscan.js?v=4.15"></script><script src="assets/hw24-workdesk.js?v=4.18"></script><script src="assets/hw24-operations.js?v=4.20"></script><script src="assets/hw24-batch.js?v=4.18"></script>
 <script>
 (function(){
   // Keep EAN scanning first; CSV uploads and project status remain available below.
