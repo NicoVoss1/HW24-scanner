@@ -167,3 +167,13 @@ body.hw24-warehouse-mode #hw24Desk>.hw24-operations-asins{display:none!important
  #hw24Desk .hw24-history-place{padding:8px 10px}
  #hw24Desk .hw24-history-place strong{font-size:14px}
 }
+
+/* v4.20: Four real JTL aggregate quantities, subordinate bin metrics */
+#hw24Desk .hw24-wms-highlights{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+#hw24Desk .hw24-wms-available{background:#eaf6f4;border-color:#9bcfc2}
+#hw24Desk .hw24-wms-available strong{color:#116c53}
+#hw24Desk .hw24-wms-bin-metrics{grid-column:1/-1;display:flex;gap:8px 15px;align-items:center;flex-wrap:wrap;padding:5px 2px;color:#52677d;font-size:12px}
+#hw24Desk .hw24-wms-bin-metrics span{white-space:normal}
+#hw24Desk .hw24-wms-bin-metrics p{flex-basis:100%;margin:2px 0}
+@media(max-width:760px){#hw24Desk .hw24-wms-highlights{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:460px){#hw24Desk .hw24-wms-highlights{gap:7px}#hw24Desk .hw24-wms-stat{padding:9px 7px}}
