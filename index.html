@@ -61,7 +61,7 @@ button:disabled{opacity:.55;cursor:not-allowed}
 <p class="note">Die Datei aus JTL-Ameise (CSV mit Kopfzeilen) ergänzt die Artikelstammdaten. Die historische Excel-Arbeitsmappe ist unabhängig davon bereits in der MariaDB archiviert und wird nach dem EAN-Scan abgefragt. Hier bitte CSV und keine XLSX-Datei wählen.</p>
 <div class="scanrow"><div><label for="file">JTL-Exportdatei (.csv) auswählen</label><input id="file" type="file" accept=".csv,text/csv"></div><div><label for="csvEncoding">Zeichencodierung der CSV</label><select id="csvEncoding"><option value="auto">Automatisch erkennen</option><option value="utf-8">UTF-8</option><option value="windows-1252">Windows-1252 (ANSI)</option></select><small>Bei fehlerhaften Umlauten die Kodierung wählen und die Datei erneut laden.</small></div></div>
 <p id="info" role="status">Keine CSV geladen. EAN-Scan, JTL-Spiegel und historische Recherche funktionieren ohne CSV.</p>
-</section><section id="hw24ScanWorkspace"><div id="deploymentNotice" hidden style="border:1px solid #c4d4e8;background:#eef5ff;color:#173b7a;padding:12px;border-radius:9px;margin-bottom:12px"><strong>GitHub Pages ist nur die öffentliche Testansicht.</strong> Auf github.io funktioniert PHP/MariaDB technisch nicht. Für die historische Datenbank und den JTL-Synchronisationsstatus nutze bitte <a href="https://artikelmanager.hairworld24.de/">artikelmanager.hairworld24.de</a>. Hinweis: Der JTL-Spiegel wird auf dem Windows-Server automatisch synchronisiert.</div><h3>Artikel finden und prüfen</h3><input id="ean" autofocus placeholder="EAN scannen"><button type="button" id="scanStart">🔎 Artikel prüfen</button><button type="button" class="scan-secondary" id="historyRetry">📚 Historische Daten abfragen</button><p id="status" role="status"></p>
+</section><section id="hw24ScanWorkspace"><div id="deploymentNotice" hidden style="border:1px solid #c4d4e8;background:#eef5ff;color:#173b7a;padding:12px;border-radius:9px;margin-bottom:12px"><strong>GitHub Pages ist nur die öffentliche Testansicht.</strong> Auf github.io funktioniert PHP/MariaDB technisch nicht. Für die historische Datenbank und den JTL-Synchronisationsstatus nutze bitte <a href="https://artikelmanager.hairworld24.de/">artikelmanager.hairworld24.de</a>. Hinweis: Der JTL-Spiegel wird auf dem Windows-Server automatisch synchronisiert.</div><h3>Artikel finden und prüfen</h3><span class="hw24-scan-input" style="display:inline-flex;position:relative;align-items:center;max-width:100%;vertical-align:middle"><input id="ean" autofocus type="search" autocomplete="off" placeholder="EAN / Artikelnummer / HAN scannen" style="padding-right:45px"><button id="eanClear" type="button" aria-label="Suchfeld leeren und nächsten Artikel scannen" title="Suche leeren" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;background:#e8edf5;color:#183b6b;padding:0;border-radius:8px;font-size:24px;line-height:1;cursor:pointer">×</button></span><button type="button" id="scanStart">🔎 Artikel prüfen</button><button type="button" class="scan-secondary" id="historyRetry">📚 Historische Daten abfragen</button><p id="status" role="status"></p>
 <section id="hw24AmazonDiagnostic" aria-label="Amazon SP-API Diagnose" style="border:2px solid #a8c5e9;border-radius:12px;padding:14px;margin:12px 0;background:#f4f9ff;box-shadow:0 1px 6px #102b5312">
   <h3 style="margin:0 0 8px">🛒 Amazon SP-API · Verbindung prüfen</h3>
   <p style="margin:4px 0;font-size:13px">Diagnosemodul v1 · Sichtbarer Funktionstest unabhängig von den eingeklappten Quelldetails.</p>
@@ -742,6 +742,19 @@ const watcher=new MutationObserver(()=>{if(window.__hw24FocusUpdateScheduled)ret
 for(const id of ['jtlResult','scanDecision','historicalResults','historicalPanel','fields','scanExplanation']){const node=byId(id);if(node)watcher.observe(node,{childList:true,subtree:true,characterData:true,attributes:id==='historicalPanel',attributeFilter:id==='historicalPanel'?['hidden']:undefined});}
 searchButton.addEventListener('click',()=>{set('focusProductName','Artikel wird geprüft …');set('focusEan',scan.value.trim());});
 scan.addEventListener('keydown',e=>{if(e.key==='Enter'){set('focusProductName','Artikel wird geprüft …');set('focusEan',scan.value.trim());}});
+// Dedicated clear-and-rescan action: retains keyboard and barcode-scanner focus.
+const clearScan=document.getElementById('eanClear');
+if(clearScan){
+ clearScan.onclick=()=>{
+  scan.value='';
+  scan.dispatchEvent(new Event('input',{bubbles:true}));
+  if(typeof search==='function')search();
+  document.dispatchEvent(new Event('hw24:amazon-reset'));
+  set('focusProductName','EAN scannen');
+  set('focusEan','');
+  scan.focus({preventScroll:true});
+ };
+}
 // Avoid uncaught errors if an older optional module is unavailable.
 updateIdentity();
 })();
