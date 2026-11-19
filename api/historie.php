@@ -97,6 +97,36 @@ try {
         PDO::ATTR_EMULATE_PREPARES=>false,
         PDO::ATTR_TIMEOUT=>5
     ]);
+    // Prefer explicitly approved current article values. Old Excel rows are
+    // immutable and available only on a deliberate expanded-history request.
+    $showLegacy = (($_GET['include_legacy'] ?? '') === '1');
+    $approved = null;
+    try {
+        $canonical = $pdo->prepare('SELECT approved_fields_json,revision,approved_at_utc
+            FROM hw24_curated_articles WHERE ean=? LIMIT 1');
+        $canonical->execute([$ean]);
+        $c = $canonical->fetch();
+        if ($c) {
+            $v = json_decode((string)$c['approved_fields_json'],true);
+            $approved = [
+                'revision'=>(int)$c['revision'],
+                'approved_at_utc'=>(string)$c['approved_at_utc'],
+                'fields'=>is_array($v)?$v:[]
+            ];
+        }
+    } catch (PDOException $e) {
+        // During staged installation, the curated table may not yet exist.
+        // Keep legacy history available rather than failing the scanner.
+        error_log('HW24 curated history optional lookup: '.$e->getCode());
+    }
+    if ($approved !== null && !$showLegacy) {
+        respond(200, [
+            'ok'=>true,'ean'=>$ean,'gtin_valid'=>validGtIn($ean),
+            'historical'=>false,'approved'=>$approved,'matches'=>[],
+            'total_returned'=>0,'limited'=>false,'archived_matches_hidden'=>true,
+            'note'=>'Freigegebener Artikelstand hat Vorrang; Originalhistorie bleibt separat abrufbar.'
+        ]);
+    }
     $q = $pdo->prepare("SELECT i.file_sha256, i.sheet_no, i.excel_row, i.excel_cell,
                                i.source_status, sh.sheet_name, r.cells_json
                         FROM hw24_excel_identifiers i
@@ -151,7 +181,7 @@ try {
     }
     respond(200, [
         'ok'=>true, 'ean'=>$ean, 'gtin_valid'=>validGtIn($ean),
-        'historical'=>true, 'matches'=>$items, 'total_returned'=>count($items),
+        'historical'=>true, 'approved'=>$approved, 'matches'=>$items, 'total_returned'=>count($items),
         'limited'=>count($rows) >= 60,
         'note'=>'Historische Excel-Daten, nicht als aktuelle JTL-Daten oder bestätigte Produkte behandeln'
     ]);
