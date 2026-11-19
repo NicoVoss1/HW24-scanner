@@ -123,6 +123,9 @@ try {
         VALUES (?,?,UTC_TIMESTAMP(),?,?,?)');
     $q->execute([$marketplace,$ean,$httpStatus,count($items),$raw]);
     $snapshot=(int)$pdo->lastInsertId();
+    $fetchedStamp=$pdo->prepare('SELECT fetched_at_utc FROM hw24_amazon_catalog_snapshots WHERE id=?');
+    $fetchedStamp->execute([$snapshot]);
+    $fetchedAt=(string)$fetchedStamp->fetchColumn();
     $stage='archive_items';
     $insert=$pdo->prepare('INSERT INTO hw24_amazon_catalog_items
        (snapshot_id,marketplace_id,searched_ean,asin,item_name,brand,manufacturer,item_json) VALUES (?,?,?,?,?,?,?,?)');
@@ -140,7 +143,7 @@ try {
     $log->execute([$marketplace,$ean,count($items)?'live':'not_found',200,$snapshot]);
     $stage='archive_commit';
     $pdo->commit();
-    reply(200,['ok'=>true,'source'=>'live','snapshot_id'=>$snapshot,'count'=>count($items),'items'=>summaries($items),
+    reply(200,['ok'=>true,'source'=>'live','snapshot_id'=>$snapshot,'fetched_at_utc'=>$fetchedAt,'count'=>count($items),'items'=>summaries($items),
        'has_next_page'=>!empty($response['pagination']['nextToken'])]);
 } catch (Throwable $e) {
     if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
