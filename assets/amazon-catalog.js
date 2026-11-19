@@ -53,10 +53,24 @@ function suggest(item) {
   };
   return button;
 }
+function assessment(item){
+  const localTitle=currentField('Artikelname')?.value.trim()||'';
+  const localBrand=currentField('Hersteller')?.value.trim()||'';
+  const normalize=s=>String(s||'').toLocaleLowerCase('de').normalize('NFKD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+  const a=normalize(localTitle),b=normalize(item.title);
+  const flags=[];
+  if(localBrand && item.brand && normalize(localBrand)!==normalize(item.brand)) flags.push('Hersteller weicht von JTL/CSV ab');
+  const isDry=s=>/trockenshampoo|dry shampoo/.test(s);
+  if(a && b && isDry(a)!==isDry(b)) flags.push('Produktart Trockenshampoo/Shampoo weicht ab');
+  if(flags.length)return {level:'warning',text:'⚠ Abgleich prüfen: '+flags.join('; ')};
+  if(localBrand||localTitle)return {level:'neutral',text:'Katalogtreffer vorhanden. Produktidentität und EAN vor Übernahme prüfen.'};
+  return {level:'neutral',text:'Amazon-Katalogtreffer, noch keine lokalen Vergleichsfelder vorhanden.'};
+}
 function renderItem(item,index,total) {
   const box=document.createElement('div');
   box.style.cssText='background:white;border:1px solid #ccd9e7;border-radius:9px;margin:9px 0;padding:12px';
   box.append(make('strong',(item.title||'Ohne Titel')+' · '+(item.asin||'ASIN unbekannt')));
+  const rating=assessment(item);const info=make('p',rating.text,'note');if(rating.level==='warning')info.style.color='#9b371e';box.append(info);
   box.append(make('p','Marke: '+(item.brand||'nicht verfügbar')+' · Hersteller: '+(item.manufacturer||'nicht verfügbar'),'note'));
   if(total>1)box.append(make('p','Mehrere Amazon-Treffer: keine automatische Zuordnung. Artikelidentität prüfen.','note'));
   const identifiers=item.identifiers||[];
