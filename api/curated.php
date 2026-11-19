@@ -78,7 +78,13 @@ try{
  }
  $allow=['Artikelname'=>450,'Hersteller'=>180,'Kurzbeschreibung'=>3500,
   'Beschreibung'=>12000,'Warengruppe'=>250,'Artikelgewicht'=>100,
-  'Versandgewicht'=>100,'Brutto-VK'=>60,'HAN'=>100];
+  'Versandgewicht'=>100,'Brutto-VK'=>60,'HAN'=>100,
+  'Netto-VK'=>60,'Kosten'=>60,'Netto-EK'=>60,
+  'Inhalt/Menge'=>120,'Inhalt'=>120,'Inhaltseinheit'=>120,
+  'Steuerklasse'=>120,'Steuersatz in %'=>40,'Steuerschlüssel'=>120,
+  'Lieferant'=>240,'Artikelnummer (Lieferant)'=>150,
+  'Kategorie Ebene 1'=>250,'Kategorie Ebene 2'=>250,'Kategorie Ebene 3'=>250,
+  'Versandklasse'=>120,'Währung'=>20,'Artikeltyp'=>120];
  $requested=$body['fields']??null;$expected=$body['expected_revision']??null;
  if(!is_array($requested)||!count($requested)||count($requested)>count($allow))
   answer(400,['ok'=>false,'error'=>'fields_required']);
