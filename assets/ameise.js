@@ -209,5 +209,100 @@ $('ameiseRefresh')?.addEventListener('click',()=>{
 $('ameisePrepare')?.addEventListener('click',()=>{paint();stage()});
 $('ameiseExport')?.addEventListener('click',()=>{paint();exportCSV()});
 $('ameiseJSON')?.addEventListener('click',()=>{paint();exportJSON()});
+
+/* First import: one EXISTING JTL article, ONLY fields already approved in
+ * hw24_curated_articles. No new article, no inferred prices, no stock.
+ * Explicit second selection and JTL-Ameise dry run required.
+ */
+const verifiedContainer=document.createElement('details');
+verifiedContainer.id='hw24AmeiseVerified';
+verifiedContainer.style.cssText='margin:14px 0;padding:12px;border:1px solid #9abdcf;border-radius:10px;background:#f5faff';
+const verifiedTitle=document.createElement('summary');
+verifiedTitle.textContent='🔐 1 vorhandenen JTL-Artikel mit geprüften HW24-Feldern aktualisieren · sicherer Testexport';
+verifiedTitle.style.cssText='cursor:pointer;font-weight:750';
+verifiedContainer.append(verifiedTitle);
+const verifiedNote=document.createElement('p');
+verifiedNote.className='note';
+verifiedNote.textContent='Nur ein eindeutig im frischen JTL-Spiegel gefundener Artikel. Aus dem HW24-Freigabearchiv werden ausschließlich ausdrücklich bestätigte Felder geladen. Keine Live-Marktpreise, Bestände, WMS-Plätze oder Leerspalten.';
+verifiedContainer.append(verifiedNote);
+const loadVerified=document.createElement('button');
+loadVerified.type='button';loadVerified.className='scan-secondary';
+loadVerified.textContent='Geprüfte Werte aus Datenbank laden';
+verifiedContainer.append(loadVerified);
+const verifiedList=document.createElement('div');
+verifiedList.style.cssText='display:grid;gap:7px;margin:12px 0';
+verifiedContainer.append(verifiedList);
+const verifiedExport=document.createElement('button');
+verifiedExport.type='button';verifiedExport.textContent='📥 Ausgewählte Felder als 1-Zeilen-Test-CSV exportieren';
+verifiedExport.disabled=true;
+verifiedContainer.append(verifiedExport);
+const verifiedState=document.createElement('p');verifiedState.className='note';verifiedContainer.append(verifiedState);
+const verifiedFields=['Warengruppe','Hersteller','Kosten','Inhalt/Menge','Maßeinheit','Artikelname','Artikelgewicht','Versandgewicht',
+ 'Kurzbeschreibung','Beschreibung','Steuerklasse','HAN','Netto-VK','Brutto-VK'];
+const reviewChecks=[];
+let verifiedEan='',verifiedArtikelnummer='',verifiedRevision=0;
+const normalizeAmount=s=>{
+ const val=v(s).replace(/\s/g,'');
+ if(!val)return null;
+ const re=/^\d{1,10}(?:[,.]\d{1,4})?$/;
+ if(!re.test(val))return null;
+ const n=Number(val.replace(',','.'));
+ return Number.isFinite(n)&&n>0?n.toFixed(2).replace('.',','):null;
+};
+async function verifyForAmeise(){
+ verifiedExport.disabled=true;reviewChecks.length=0;verifiedList.replaceChildren();
+ verifiedEan=v(ean);verifiedArtikelnummer='';verifiedRevision=0;
+ const result=snapshot();
+ if(result.type!=='update'||!Array.isArray(jtl?.matches)||jtl.matches.length!==1){
+  verifiedState.textContent='STOPP: Für den ersten Aktualisierungsimport benötigen wir einen vollständigen, aktuellen JTL-Spiegel und genau EINEN vorhandenen Artikel. Bitte zunächst die JTL-Synchronisation prüfen.';
+  return;
+ }
+ const j=jtl.matches[0];
+ if(!v(j.artikelnummer)||!v(verifiedEan)||!(v(j.ean)===verifiedEan||v(j.han)===verifiedEan)){
+  verifiedState.textContent='STOPP: Keine verifizierbare eindeutige Zuordnung zwischen EAN und JTL-Artikelnummer.';
+  return;
+ }
+ try{
+  const res=await fetch('api/curated.php?ean='+encodeURIComponent(verifiedEan),{credentials:'same-origin',cache:'no-store'});
+  const approval=await res.json();
+  if(!res.ok||!approval.ok||!approval.exists){
+   verifiedState.textContent='Noch keine dauerhaft freigegebenen HW24-Artikelwerte vorhanden. Zuerst Felder prüfen und speichern.';
+   return;
+  }
+  verifiedArtikelnummer=v(j.artikelnummer);verifiedRevision=approval.revision;
+  for(const name of verifiedFields){
+   const value=v(approval.fields?.[name]);if(!value)continue;
+   const wrap=document.createElement('label');wrap.style.cssText='display:flex;align-items:center;gap:9px;font-size:13px;padding:6px;background:white;border:1px solid #d6e4ed;border-radius:7px';
+   const check=document.createElement('input');check.type='checkbox';check.checked=false;
+   const label=document.createElement('span');label.textContent=name+' → '+(value.length>125?value.slice(0,122)+'…':value);
+   wrap.append(check,label);verifiedList.append(wrap);reviewChecks.push({name,value,check});
+  }
+  if(!reviewChecks.length){
+   verifiedState.textContent='Noch keine für diesen vorsichtigen Import geeigneten, freigegebenen Stammdaten.';
+   return;
+  }
+  verifiedExport.disabled=false;
+  verifiedState.textContent='JTL-Artikelnummer '+verifiedArtikelnummer+' · HW24-Freigabeversion '+verifiedRevision+'. Bitte nur die tatsächlich gewünschten Felder auswählen.';
+ }catch(e){verifiedState.textContent='Freigabedaten aktuell nicht abrufbar.';}
+}
+loadVerified.addEventListener('click',verifyForAmeise);
+verifiedExport.addEventListener('click',()=>{
+ if(!verifiedArtikelnummer||!verifiedEan||v(ean)!==verifiedEan||snapshot().type!=='update'){
+  verifiedState.textContent='STOPP: Artikel oder Datenstand wurde geändert. Erneut laden.';return;
+ }
+ const selected=reviewChecks.filter(x=>x.check.checked);
+ if(!selected.length){verifiedState.textContent='Bitte mindestens ein geprüftes Feld auswählen.';return;}
+ const invalid=selected.find(x=>['Kosten','Netto-VK','Brutto-VK'].includes(x.name)&&!normalizeAmount(x.value));
+ if(invalid){verifiedState.textContent='STOPP: '+invalid.name+' hat kein gültiges positives Preisformat.';return;}
+ const columns=['Artikelnummer',...selected.map(x=>x.name)];
+ const values=[verifiedArtikelnummer,...selected.map(x=>['Kosten','Netto-VK','Brutto-VK'].includes(x.name)?normalizeAmount(x.value):x.value)];
+ if(!window.confirm('Nur 1 vorhandenen JTL-Artikel vorbereiten: '+verifiedArtikelnummer+' · '+selected.length+' geprüfte Felder.\nJTL-Ameise TROCKENLAUF, Importart „Nur vorhandene aktualisieren“, leere Werte und andere Felder NICHT überschreiben. Prüfdatei jetzt erzeugen?'))return;
+ const csv='\ufeff'+columns.map(csvCell).join(';')+'\r\n'+values.map(csvCell).join(';')+'\r\n';
+ download(csv,'HW24_Ameise_NUR_BESTAETIGTE_FELDER_'+safeName(verifiedArtikelnummer)+'_PRUEFEXPORT.csv','text/csv;charset=utf-8');
+ verifiedState.textContent='✓ Prüf-CSV erzeugt. JTL-Wawi NICHT geändert. In JTL-Ameise importieren: Artikel > Artikeldaten; „Nur vorhandene aktualisieren“; eindeutiger Schlüssel Artikelnummer; Feldzuordnung ansehen; Testen/Trockenlauf vor echter Übernahme.';
+});
+const exportButton=$('ameiseExport');
+if(exportButton?.parentNode)exportButton.parentNode.insertBefore(verifiedContainer,exportButton.nextSibling);
+else $('ameisePanel')?.append(verifiedContainer);
 paint();
 })();
