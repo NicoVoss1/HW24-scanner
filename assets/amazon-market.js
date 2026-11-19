@@ -84,7 +84,8 @@ async function showOffers(data,place){
   const badges=el('div');badges.style.cssText='display:flex;flex-wrap:wrap;gap:5px;margin:6px 0';
   const badge=label=>{const n=el('span',label);n.style.cssText='display:inline-block;padding:3px 7px;border-radius:999px;border:1px solid #ccd7e5;background:#f2f6fc;color:#2d4a6b;font-size:11px';badges.append(n);};
   badge(o.is_fba?'FBA · Versand durch Amazon':'FBM · Händler-Versand');
-  if(o.prime===true)badge('Prime');
+  if(o.prime===true)badge('✓ Prime laut Amazon');
+  else if(o.prime===false)badge('Kein Prime gemeldet');
   if(o.is_buybox_winner===true)badge('🏆 Aktuell Buy-Box-Gewinner');
   else if(o.is_featured_merchant===true)badge('Buy-Box-berechtigt');
   else if(o.is_featured_merchant===false)badge('Nicht als berechtigt gemeldet');
@@ -101,6 +102,7 @@ async function showOffers(data,place){
   fact('Verkäuferfeedback',f&&Number.isFinite(f.positive_percent)?f.positive_percent.toLocaleString('de-DE')+' % positiv'+(f.feedback_count!==null?' ('+f.feedback_count+' Bewertungen)':''):'Von Amazon nicht übermittelt');
   fact('Versandabwicklung',dispatchText(o));
   fact('Versandort',o.ships_from?.country?o.ships_from.country+(o.ships_from.state?' · '+o.ships_from.state:''):'Nicht übermittelt');
+  fact('Lieferung nach Deutschland','Nicht einzeln geprüft','Amazon.de-Listung ist keine verbindliche Versandzusage für eine deutsche Lieferadresse');
   card.append(facts);
   if(/^[A-Z0-9]{5,40}$/.test(o.seller_id||'')){
    const link=document.createElement('a');
