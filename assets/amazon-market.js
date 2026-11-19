@@ -71,6 +71,36 @@ async function showOffers(data,place){
    profile.textContent='Händlerprofil bei Amazon ansehen';
    profile.style.cssText='display:inline-block;font-size:12px;margin:2px 0 7px';
    d.append(profile);
+   if(!names[o.seller_id]){
+    const verify=document.createElement('details');
+    verify.style.cssText='padding:8px 0';
+    const title=el('summary','Verkäufername aus Amazon-Profil übernehmen');
+    title.style.cssText='cursor:pointer;font-size:12px';
+    const input=document.createElement('input');
+    input.placeholder='Offizieller Amazon-Verkäufername';
+    input.maxLength=240;
+    input.style.cssText='box-sizing:border-box;width:100%;padding:8px;margin:8px 0';
+    const save=el('button','Verifizierten Namen speichern','scan-secondary');save.type='button';
+    const msg=el('p','','note');
+    save.onclick=async()=>{
+     const display=input.value.trim();
+     if(!display){msg.textContent='Bitte zuerst den Verkäufername im verlinkten Amazon-Händlerprofil prüfen.';return;}
+     if(!confirm('Hast Du „'+display+'“ im geöffneten Amazon-Verkäuferprofil wirklich überprüft?'))return;
+     save.disabled=true;
+     try{
+      const r=await fetch('api/amazon-sellers.php',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json','X-HW24-Approval':'confirmed'},
+       body:JSON.stringify({seller_id:o.seller_id,display_name:display,source_url:profile.href,confirmed:true})});
+      const j=await r.json();
+      if(r.ok&&j.ok){
+       names[o.seller_id]=display;
+       d.querySelector('p').textContent='Verifizierter Verkäufer: '+display+' · '+(o.is_fba?'Amazon-Versand (FBA)':'Versandart nicht als FBA bestätigt');
+       verify.remove();
+      }else msg.textContent='Speichern nicht möglich: '+(j.error||'HTTP '+r.status);
+     }catch(err){msg.textContent='Verkäuferverzeichnis derzeit nicht erreichbar.';}
+     finally{save.disabled=false;}
+    };
+    verify.append(title,input,save,msg);d.append(verify);
+   }
   }
   d.append(el('small','Artikelpreis '+money(o.item_price)+' · Versand '+money(o.shipping)));
   wrap.append(d);
