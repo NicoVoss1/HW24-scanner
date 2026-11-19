@@ -661,9 +661,10 @@ let lastAmazon=null,lastStatus='idle',latestJtlMeta=null,reviewedFacts={};
  function stamp(value){
   if(!value)return 'Zeitpunkt nicht übermittelt';
   const raw=String(value).trim();
-  const normalized=raw.includes('T')?raw:raw.replace(' ','T')+'Z';
+  const iso=raw.replace(' ','T');
+   const normalized=/(?:Z|[+-]\\d{2}:?\\d{2})$/i.test(iso)?iso:iso+'Z';
   const date=new Date(normalized);
-  return Number.isFinite(date.valueOf())?date.toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short'})+' Uhr':'UTC '+raw;
+  return Number.isFinite(date.valueOf())?date.toLocaleString('de-DE',{timeZone:'Europe/Berlin',dateStyle:'short',timeStyle:'short',timeZoneName:'short'}):'Unbekannter Zeitwert '+raw;
  }
  document.addEventListener('hw24:jtl-result',event=>{latestJtlMeta=event.detail?.data||null;updateJtl();});
  document.addEventListener('hw24:scan-start',()=>{latestJtlMeta=null;reviewedFacts={};});
@@ -746,6 +747,19 @@ function renderAmazon(data){
  const box=byId('focusAmazonCard');box.replaceChildren();
  if(!data.count||!Array.isArray(data.items)||!data.items.length){box.append(el('div','f-amazon-empty','Für diese EAN wurde kein Amazon-Katalogartikel gefunden.'));byId('focusWarnings').replaceChildren();warn('Kein Amazon-Treffer beweist nicht, dass der Artikel nicht existiert.');return;}
  const item=data.items[0];box.append(el('div','f-amazon-title',item.title||'Ohne Katalogtitel'));
+ // External Amazon links only after an unambiguous, valid ASIN match.
+ if(data.count===1&&/^[A-Z0-9]{10}$/.test(String(item.asin||''))){
+  const asin=String(item.asin),links=el('div','f-amazon-links');
+  links.style.cssText='display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 13px';
+  for(const [label,url] of [
+   ['Produkt auf Amazon.de öffnen','https://www.amazon.de/dp/'+encodeURIComponent(asin)],
+   ['Alle Angebote bei Amazon.de prüfen','https://www.amazon.de/gp/offer-listing/'+encodeURIComponent(asin)]
+  ]){
+   const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener noreferrer';
+   link.textContent=label;link.style.cssText='font-size:13px;font-weight:600;color:#185a91;text-decoration:underline';links.append(link);
+  }
+  box.append(links);
+ }
  const meta=el('div','f-amazon-meta');
  metaField(meta,'ASIN',item.asin);metaField(meta,'Marke',item.brand);metaField(meta,'Hersteller',item.manufacturer);metaField(meta,'Inhaltsmenge',textAttr(item,'size')|| (textAttr(item,'unit_count')+' ml'));
  const pkg=fAttr(item,'item_package_weight')[0];metaField(meta,'Paketgewicht',pkg?.value&&pkg?.unit?pkg.value+' '+pkg.unit:'');
