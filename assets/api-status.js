@@ -29,8 +29,17 @@
    const d=await response.json();
    if(!d||d.service!=='hw24-jtl'){out.textContent='Ungültige API-Antwort. Ist das neue GitHub-Deployment aktiv?';return}
    let message=next[d.next]||'Unbekannter API-Status';
+   const wms=d.pipeline_sources||{};
+   const missing=[
+    wms.wms_lagerplaetze==='not_integrated'?'WMS-Lagerplätze nicht im HW24-Sync':'',
+    wms.wms_bewegungen==='not_integrated'?'WMS-Bewegungen nicht im HW24-Sync':'',
+    wms.amazon_eigene_angebote==='not_integrated'?'JTL-Amazon-Angebote nicht übertragen':'',
+    wms.ebay_angebotsvorlagen==='not_integrated'?'eBay-Vorlagen nicht übertragen':''
+   ].filter(Boolean);
+   const stamp=d.latest_snapshot_utc?' · JTL-Snapshot '+d.latest_snapshot_utc+' UTC':'';
    out.textContent=(d.mirror_ready?'✓ ':'⚠ ')+message+
-    (Number.isFinite(Number(d.latest_rows))&&d.latest_rows!=null?' · '+Number(d.latest_rows).toLocaleString('de-DE')+' Artikel':'');
+    (Number.isFinite(Number(d.latest_rows))&&d.latest_rows!=null?' · '+Number(d.latest_rows).toLocaleString('de-DE')+' Artikel':'')+
+    stamp+(missing.length?' · Datenumfang: '+missing.join('; '):'');
    out.dataset.state=d.mirror_ready?'ready':'pending';
   }catch(e){
    out.textContent='API aktuell nicht erreichbar. HTTPS, Plesk-Schutz und jtl-status.php prüfen.';
