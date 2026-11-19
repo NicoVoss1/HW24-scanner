@@ -253,11 +253,11 @@ async function lookupProductSources(ean){
   }
   // Historical MariaDB query starts independently at scan time.
 }
-async function lookupHistorical(ean){
+async function lookupHistorical(ean, showLegacy=false){
   const seq=++historicalLookupSeq,panel=$('historicalPanel'),out=$('historicalResults');
   panel.hidden=false;out.replaceChildren();out.textContent='Historische Datenbank wird abgefragt …';
   try{
-    const resp=await fetch('api/historie.php?ean='+encodeURIComponent(ean),{credentials:'same-origin',cache:'no-store'});
+    const resp=await fetch('api/historie.php?ean='+encodeURIComponent(ean)+(showLegacy?'&include_legacy=1':''),{credentials:'same-origin',cache:'no-store'});
     const result=await resp.json();
     if(seq!==historicalLookupSeq)return;
     window.hw24SmartScanHistory?.(ean,result);
@@ -270,6 +270,21 @@ async function lookupHistorical(ean){
     if(!resp.ok||!result.ok){
       out.textContent=result.error==='database_not_configured'?'Private Datenbankkonfiguration fehlt.':result.error==='invalid_identifier_format'?'Kennung ist für die historische Suche nicht geeignet.':'Historische Datenbank derzeit nicht erreichbar. Keine Aussage über Artikelbestand möglich.';
       return;
+    }
+    if(result.approved && result.archived_matches_hidden){
+      const status=document.createElement('p');
+      status.textContent='✓ Aktueller, freigegebener Artikelstand (Version '+result.approved.revision+') liegt vor. Historische Excel-Zeilen werden nicht mehr automatisch vorgeschlagen.';
+      out.append(status);
+      const archives=document.createElement('button');archives.type='button';archives.className='scan-secondary';
+      archives.textContent='📚 Ursprüngliche Excel-Werte bei Bedarf anzeigen';
+      archives.onclick=()=>lookupHistorical(ean,true);
+      out.append(archives);
+      return;
+    }
+    if(showLegacy && result.approved) {
+      const alert=document.createElement('p');alert.className='note';
+      alert.textContent='Dies sind unveränderte Originalquellen zur Nachvollziehbarkeit. Der freigegebene Datenstand hat Vorrang.';
+      out.append(alert);
     }
     const warning=document.createElement('p');
     warning.textContent=result.gtin_valid?'GTIN-Prüfziffer gültig. Historische Angaben bleiben ungeprüfte Vorschläge.':'⚠ Keine gültige GTIN-Prüfziffer. Historische Treffer sind nur Recherchehinweise.';
@@ -750,6 +765,7 @@ if(clearScan){
   scan.dispatchEvent(new Event('input',{bubbles:true}));
   if(typeof search==='function')search();
   document.dispatchEvent(new Event('hw24:amazon-reset'));
+  window.hw24CuratedLookup?.('');window.hw24AmazonLookup?.('');
   set('focusProductName','EAN scannen');
   set('focusEan','');
   scan.focus({preventScroll:true});
