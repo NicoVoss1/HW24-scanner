@@ -40,7 +40,7 @@ function suggest(key,value,why){
 function gather(){
  proposals.clear();if(!row)return;
  const peers=similar(row.Artikelname);
- if(peers.length>=3)for(const key of ['Hersteller','Warengruppe','Kategorie Ebene 1','Kategorie Ebene 2']){
+ if(peers.length>=3)for(const key of ['Hersteller']){ // Never infer JTL Warengruppe from similar product names.
    const value=most(peers,key);
    if(value&&value!==v(row[key]))suggest(key,value,peers.length+' gepflegte Artikel derselben Produktfamilie');
  }
@@ -61,7 +61,7 @@ function gather(){
  if(history?.ok)for(const match of history.matches||[])for(const cell of match.cells||[]){
   if(!cell.header_verified)continue;
   const key=v(cell.label),value=v(cell.value);
-  if(!['GTIN','HAN','ASIN','Hersteller','Warengruppe','Artikelname','Kurzbeschreibung','Beschreibung','Kosten'].includes(key))continue;
+  if(!['GTIN','HAN','ASIN','Hersteller','Artikelname','Kurzbeschreibung','Beschreibung','Kosten'].includes(key))continue; // Group only from verified JTL master.
   if(key==='GTIN'&&!gtin(value)||key==='ASIN'&&!/^[A-Z0-9]{10}$/i.test(value)||key==='Kosten'&&!money(value))continue;
   suggest(key,value,'Historischer Excel-Treffer, manuell bestätigen');
  }
@@ -77,18 +77,16 @@ function flag(key){
    {state:'good',desc:'Übereinstimmung mit JTL-Spiegel',value}:
    {state:'error',desc:'Abweichung vom aktuellen JTL-Spiegel',value};
  }
- return row?.['Kategorie Ebene 1']==='Friseurbedarf'?
-  {state:'good',desc:'Plausibler gepflegter CSV-Wert, kein Live-Nachweis',value}:
-  {state:'suggest',desc:'Quellwert vorhanden; JTL-Vergleich fehlt',value};
+ return {state:'suggest',desc:'Wert vorhanden, aber nicht aus eindeutigem aktuellem JTL-Treffer verifiziert',value};
 }
 function renderProgress(){
  const root=get('hw24Milestones');if(!root)return;root.replaceChildren();
  const items=[
-  ['Quellprüfung','Export 14.11.2026: 2.691 Artikel / 872 Felder ausgewertet'],
-  ['App-Code','v4.1 in GitHub · Bereitstellung in Plesk separat'],
-  ['Datenübernahme',csv.length?csv.length+' CSV-Zeilen im Browser geladen':'CSV lokal noch nicht geladen'],
-  ['Live-JTL',jtl?.jtl_status==='current_snapshot'?'JTL-Spiegel aktuell':'Synchronisierung nicht live bestätigt'],
-  ['MariaDB','Schema und Audit vorbereitet, produktive Einrichtung noch offen'],
+  ['Quellprüfung','Historischer JTL-Export vom 14.11.2026: 2.691 Artikelzeilen / 872 Spalten analysiert'],
+  ['App-Code','v4.3 · produktive Bereitstellung über Plesk separat'],
+  ['Optionale CSV',csv.length?csv.length+' CSV-Zeilen im Browser geladen':'Nicht erforderlich für die JTL-Spiegelabfrage'],
+  ['JTL-Spiegel',jtl?.jtl_status==='current_snapshot'?'Letzter abgeschlossener Snapshot: '+(jtl.snapshot_at||'Zeit unbekannt')+' UTC':'Aktueller Snapshot noch nicht bestätigt'],
+  ['MariaDB',jtl?.jtl_status==='current_snapshot'?'Gespiegelte JTL-Stammdaten für die geprüfte EAN erreichbar':'Spiegelstatus über Synchronisationsanzeige prüfen'],
   ['Ameise','Hauptimport als Test-CSV, Importprofil und Testlauf noch erforderlich']
  ];
  for(const [name,desc] of items){
