@@ -99,7 +99,8 @@ try{
   'Steuerklasse'=>120,'Steuersatz in %'=>40,'Steuerschlüssel'=>120,
   'Lieferant'=>240,'Artikelnummer (Lieferant)'=>150,
   'Kategorie Ebene 1'=>250,'Kategorie Ebene 2'=>250,'Kategorie Ebene 3'=>250,
-  'Versandklasse'=>120,'Währung'=>20,'Artikeltyp'=>120];
+  'Versandklasse'=>120,'Währung'=>20,'Artikeltyp'=>120,
+  'Maßeinheit'=>40,'ASIN'=>20];
  $requested=$body['fields']??null;$expected=$body['expected_revision']??null;
  if(!is_array($requested)||!count($requested)||count($requested)>count($allow))
   answer(400,['ok'=>false,'error'=>'fields_required']);
@@ -109,6 +110,8 @@ try{
   if(!array_key_exists($key,$allow)||!is_string($value))
    answer(400,['ok'=>false,'error'=>'invalid_field','field'=>(string)$key]);
   $v=trim($value);
+  if($key==='ASIN'&&!preg_match('/^[A-Z0-9]{10}$/D',strtoupper($v)))
+   answer(400,['ok'=>false,'error'=>'invalid_asin']);
   if($v===''||strlen($v)>$allow[$key]*4)
    answer(400,['ok'=>false,'error'=>'invalid_field_length','field'=>$key]);
   if(function_exists('mb_strlen')&&mb_strlen($v,'UTF-8')>$allow[$key])
