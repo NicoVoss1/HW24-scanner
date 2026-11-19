@@ -43,3 +43,33 @@ jobs:
           if errors:sys.exit(1)
           print('OK: inline JS valid and referenced assets present.')
           PY
+
+  package:
+    name: Create deployable website artifact
+    needs: syntax
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build safe site-only package
+        run: |
+          set -euo pipefail
+          mkdir -p build/site build
+          cp index.html build/site/index.html
+          cp -R assets api build/site/
+          printf 'GitHub SHA: %s\nBranch or ref: %s\n' "$GITHUB_SHA" "$GITHUB_REF" > build/site/RELEASE.txt
+          # Deliberately exclude: .git, .github, sql, docs, sync, hw24_private.
+          test ! -e build/site/hw24_private
+          test ! -e build/site/sql
+          test ! -e build/site/sync
+          cd build/site
+          find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
+          zip -q -r ../hw24-website.zip .
+      - name: Upload safe website package
+        uses: actions/upload-artifact@v4
+        with:
+          name: hw24-website-${{ github.sha }}
+          path: build/hw24-website.zip
+          if-no-files-found: error
+          retention-days: 30
