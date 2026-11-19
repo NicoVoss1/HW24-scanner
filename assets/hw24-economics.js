@@ -10,7 +10,7 @@ const number=v=>{
  const n=Number(s.includes(',')?s.replace(/\./g,'').replace(',','.'):s);
  return Number.isFinite(n)?n:null;
 };
-let ean='',asin='',jtl=null,market=null,fees=null,feeRequest=0;
+let ean='',asin='',jtl=null,market=null,fees=null,approved={},feeRequest=0;
 let panel=null,rate=null,ownPrice=null,ownShipping=null,fulfillment=null,status=null,feeDetails=null;
 function field(name){
  const box=[...document.querySelectorAll('#fields .field')].find(b=>b.querySelector('label')?.textContent.trim()===name);
@@ -42,7 +42,7 @@ function mount(){
  source.id='hw24SupplierStatus';source.style.cssText='font-size:12px;padding:9px;background:#fff9eb;border:1px solid #f1dcad;border-radius:8px';
  const details=node('details');details.style.cssText='margin-top:12px;border-top:1px solid #e5ebf1;padding-top:12px';
  details.append(add('summary','Amazon-Verkaufsgebühren und Preisannahmen berechnen',details));details.firstChild.style.cssText='cursor:pointer;font-weight:650';
- const label=add('p','Standard-USt-Satz 19 % ist ausschließlich eine Rechenannahme, kein geprüfter JTL-Steuerschlüssel. Für Gebühren zählt Dein angebotener Brutto-Verkaufspreis.',details);
+ const label=add('p','19 % ist hier nur eine USt-Modellannahme und muss zur Steuerklasse, zum Zielland und zur Transaktion passen. Der Gebührenabruf benötigt Deinen eigenen Amazon-Angebotspreis (oder eine bewusst gewählte Modellannahme).',details);
  label.style.cssText='font-size:12px;color:#53697f';
  const controls=node('div');controls.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:9px';
  function input(title,type,val){
@@ -52,8 +52,8 @@ function mount(){
   if(type==='input'){element.type='number';element.step='0.01';element.min='0';element.value=val;}
   wrap.append(element);controls.append(wrap);return element;
  }
- ownPrice=input('Verkaufspreis brutto €','input','');
- ownPrice.placeholder='Aus JTL, wenn vorhanden';
+ ownPrice=input('Eigener Amazon-Angebots-VK brutto €','input','');
+ ownPrice.placeholder='Nur aus eigenem Amazon-Angebot oder bewusstes Modell';
  ownShipping=input('Versandentgelt Käufer €','input','0');
  rate=input('USt-Satz für Modell','select');
  [['19','19 % (Annahme)'],['7','7 % (Annahme)'],['0','0 % (nur wenn zutreffend)']].forEach(([v,l])=>{const o=node('option',l);o.value=v;rate.append(o);});
@@ -122,26 +122,37 @@ function render(){
  const vat=Number(rate.value||19)/100;
  const jtlNet=number(one?.netto_vk);
  const formNet=number(field('Netto-VK'));
- const gross=number(field('Brutto-VK'));
- const preferredNet=jtlNet??formNet;
+ const gross=number(approved['Brutto-VK'])??number(field('Brutto-VK'));
+ const preferredNet=number(approved['Netto-VK'])??jtlNet??formNet;
  const estimatedGross=gross??(preferredNet!==null?preferredNet*(1+vat):null);
  const estimatedNet=preferredNet??(gross!==null?gross/(1+vat):null);
  const grossSource=gross!==null?'Bestehendes Artikelfeld':'Nur Modell aus Netto-VK und '+rate.value+' % USt';
  const netSource=preferredNet!==null?(jtlNet!==null?'Aktueller JTL-Spiegel':'Artikelfeld / CSV'):'Nur Modell aus Brutto-VK und '+rate.value+' % USt';
- fact(grid,'VK brutto',currency(estimatedGross),estimatedGross!==null?grossSource:'Keine geprüfte Quelle');
- fact(grid,'VK netto',currency(estimatedNet),estimatedNet!==null?netSource:'Keine geprüfte Quelle');
+ fact(grid,'Standard-VK brutto',currency(estimatedGross),estimatedGross!==null?grossSource:'Keine geprüfte Quelle');
+ fact(grid,'Standard-VK netto',currency(estimatedNet),estimatedNet!==null?netSource:'Keine geprüfte Quelle');
  const ek=number(one?.netto_ek)??number(field('Ø EK netto (GLD)'));
  const last=number(one?.letzter_ek)??number(field('Letzter EK (JTL)'));
  fact(grid,'Ø EK netto',currency(ek),one?'JTL-Stand: '+jtl.snapshot_at:'JTL/CSV, falls vorhanden');
- fact(grid,'Letzter EK netto',currency(last),one?.letzter_ek_datum?'Datum: '+one.letzter_ek_datum:'Kein geprüfter Lieferantenbeleg verknüpft');
+ fact(grid,'Letzter EK netto',currency(last),one?.letzter_ek_datum?'JTL-Buchung: '+one.letzter_ek_datum:'Kein geprüfter JTL-Buchungsbeleg verknüpft');
+ const cost=number(approved.Kosten)??number(field('Kosten'));
+ fact(grid,'Kosten · eigener Artikelstand',currency(cost),approved.Kosten?'Dauerhaft geprüft und gespeichert':'Noch nicht dauerhaft bestätigt');
+ const amazonOwn=number(one?.amazon_vk);
+ const ebayOwn=number(one?.ebay_preis);
+ fact(grid,'Amazon-VK · eigener JTL-Spiegel',currency(amazonOwn),amazonOwn!==null?'Spiegelwert, Repricer-/Live-Angebot kann abweichen':'Amazon-Angebote aus JTL noch nicht synchronisiert');
+ fact(grid,'eBay-VK · eigener JTL-Spiegel',currency(ebayOwn),ebayOwn!==null?'Spiegelwert, eBay-Vorlagen noch nicht bestätigt':'eBay-Vorlagenpreise noch nicht synchronisiert');
  const win=market?.buybox_prices?.find(p=>p.landed_price||p.listing_price);
  const buy=win?.landed_price?.amount??win?.listing_price?.amount;
  fact(grid,'Amazon Buy Box Vergleich',currency(buy),'Marktpreis, kein eigener VK');
  const supplier=$('hw24SupplierStatus');
- supplier.textContent='🏭 Lieferant / Bezugsquelle: im aktuellen JTL-Spiegel nicht als namentlich zugeordneter Lieferant verfügbar. Einkaufs- und Bezugsquellen dürfen nicht aus Amazon-Verkäuferprofilen abgeleitet werden.';
- if(estimatedGross!==null&&!ownPrice.value)ownPrice.value=String(Math.round(estimatedGross*100)/100);
+ supplier.textContent=approved.Lieferant?
+ '🏭 Bestätigter Lieferanten-Eintrag im HW24-Artikelstand: '+approved.Lieferant+(approved['Artikelnummer (Lieferant)']?' · Art.-Nr. '+approved['Artikelnummer (Lieferant)']:'')+' · Nicht automatisch mit Amazon-Händlern gleichzusetzen.':
+ '🏭 Lieferant / Bezugsquelle: Der JTL-Lieferantenstamm ist noch nicht übermittelt. Amazon-Verkäufer sind keine bestätigten Einkaufslieferanten.';
+ if(amazonOwn!==null&&!ownPrice.value)ownPrice.value=String(amazonOwn);
  if(panel._refresh)panel._refresh();
 }
+document.addEventListener('hw24:curated-applied',e=>{
+ if(e.detail?.ean!==ean)return;approved=e.detail.fields||{};render();
+});
 document.addEventListener('hw24:jtl-result',e=>{if(e.detail?.ean!==ean)return;jtl=e.detail.data;render();});
 document.addEventListener('hw24:amazon-catalog',e=>{
  if(e.detail?.ean!==ean)return;
@@ -154,7 +165,7 @@ document.addEventListener('hw24:pricing-result',e=>{
  market=e.detail.data;render();
 });
 document.addEventListener('hw24:scan-start',e=>{
- ean=String(e.detail?.ean||'');asin='';jtl=null;market=null;fees=null;++feeRequest;
+ ean=String(e.detail?.ean||'');asin='';jtl=null;market=null;fees=null;approved={};++feeRequest;
  if(mount()){
   ownPrice.value='';ownShipping.value='0';fulfillment.value='FBM';
   if(status)status.textContent='Gebühren noch nicht abgefragt.';
