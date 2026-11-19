@@ -73,3 +73,39 @@ jobs:
           path: build/hw24-website.zip
           if-no-files-found: error
           retention-days: 30
+
+  publish_staging:
+    name: Publish reviewed website files to Plesk staging branch
+    if: github.event_name == 'push' && github.ref == 'refs/heads/feature/hw24-v422-amazon-market-20261119'
+    needs: [syntax, package]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish ONLY index.html, assets and api to deploy/staging
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPO="$GITHUB_REPOSITORY"
+          CURRENT="$(gh api "repos/$REPO/git/ref/heads/deploy/staging" --jq '.object.sha')"
+          INDEX="$(git rev-parse HEAD:index.html)"
+          ASSETS="$(git rev-parse HEAD:assets)"
+          API="$(git rev-parse HEAD:api)"
+          TREE="$(jq -n --arg index "$INDEX" --arg assets "$ASSETS" --arg api "$API" \
+            '{tree:[{path:"index.html",mode:"100644",type:"blob",sha:$index},{path:"assets",mode:"040000",type:"tree",sha:$assets},{path:"api",mode:"040000",type:"tree",sha:$api}]}' \
+            | gh api -X POST "repos/$REPO/git/trees" --input - --jq '.sha')"
+          PREVIOUS_TREE="$(gh api "repos/$REPO/git/commits/$CURRENT" --jq '.tree.sha')"
+          if [[ "$TREE" = "$PREVIOUS_TREE" ]]; then
+            echo 'Website files unchanged; deployment branch already current.'
+            exit 0
+          fi
+          NEXT="$(jq -n --arg parent "$CURRENT" --arg tree "$TREE" --arg source "$GITHUB_SHA" \
+            '{message:("Staging website from verified source "+$source),tree:$tree,parents:[$parent]}' \
+            | gh api -X POST "repos/$REPO/git/commits" --input - --jq '.sha')"
+          jq -n --arg sha "$NEXT" '{sha:$sha,force:false}' \
+            | gh api -X PATCH "repos/$REPO/git/refs/heads/deploy/staging" --input - >/dev/null
+          echo "Published safe website tree $TREE as deploy/staging commit $NEXT"
+          echo 'Plesk must track deploy/staging. No SQL, docs, .github or sync directories are published.'
