@@ -662,7 +662,7 @@ let lastAmazon=null,lastStatus='idle',latestJtlMeta=null,reviewedFacts={};
   if(!value)return 'Zeitpunkt nicht übermittelt';
   const raw=String(value).trim();
   const iso=raw.replace(' ','T');
-   const normalized=/(?:Z|[+-]\\d{2}:?\\d{2})$/i.test(iso)?iso:iso+'Z';
+   const normalized=/(?:Z|[+-]\d{2}:?\d{2})$/i.test(iso)?iso:iso+'Z';
   const date=new Date(normalized);
   return Number.isFinite(date.valueOf())?date.toLocaleString('de-DE',{timeZone:'Europe/Berlin',dateStyle:'short',timeStyle:'short',timeZoneName:'short'}):'Unbekannter Zeitwert '+raw;
  }
