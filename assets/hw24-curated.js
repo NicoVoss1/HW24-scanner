@@ -1,8 +1,11 @@
 /* HW24 approved article data overlay, v1.0. No automatic writes. */
 (()=>{'use strict';
 const $=id=>document.getElementById(id), text=(tag,t)=>{const x=document.createElement(tag);x.textContent=String(t);return x;};
-const labels=['Artikelname','Hersteller','Kurzbeschreibung','Beschreibung','Warengruppe','Artikelgewicht','Versandgewicht','Brutto-VK','HAN'];
-let seq=0,activeEan='',revision=0,record=null,jtlSuggestions={},amazonSuggestions={};
+const labels=['Artikelname','Hersteller','Warengruppe','Steuerklasse','Inhalt/Menge','Inhalt','Inhaltseinheit',
+ 'Kosten','Lieferant','Artikelnummer (Lieferant)','Brutto-VK','Netto-VK','Artikelgewicht','Versandgewicht',
+ 'Kurzbeschreibung','Beschreibung','Kategorie Ebene 1','Kategorie Ebene 2','Kategorie Ebene 3',
+ 'Versandklasse','Währung','Artikeltyp','HAN'];
+let seq=0,activeEan='',revision=0,record=null,jtlSuggestions={},amazonSuggestions={},saveChain=Promise.resolve();
 const root=document.createElement('section');
 root.id='hw24CuratedPanel';root.className='f-section';root.style.cssText='margin:14px 0;padding:15px;border:1px solid #c5d5e8;border-radius:12px;background:#fff';
 const parent=$('focusAmazonCard')?.closest('.f-section');
@@ -18,10 +21,10 @@ function suggestion(name){
  const jtl=jtlSuggestions[name];
  const local=fieldValue(name);
  const amazon=amazonSuggestions[name];
+ if(saved!==undefined && saved!==null && String(saved).trim())return {value:String(saved),source:'Dauerhaft freigegeben · Version '+revision,trusted:true};
  if(jtl)return {value:jtl,source:'Aktueller JTL-Spiegel',trusted:true};
  if(local)return {value:local,source:'JTL-/CSV-Artikelformular',trusted:false};
  if(amazon)return {value:amazon,source:'Amazon-Katalog, Identität prüfen',trusted:false};
- if(saved)return {value:saved,source:'Bereits freigegebene Version '+revision,trusted:true};
  return {value:'',source:'Keine verfügbare Quelle',trusted:false};
 }
 function updateAfterSource(){
@@ -40,10 +43,13 @@ document.addEventListener('hw24:jtl-result',event=>{
   const r=data.matches[0];
   const mapping={'Artikelname':r.artikelname,'Hersteller':r.hersteller,
    'Kurzbeschreibung':r.kurzbeschreibung,'Beschreibung':r.beschreibung,
-   'Brutto-VK':r.brutto_vk,'HAN':r.han};
+   'Brutto-VK':r.brutto_vk,'Netto-VK':r.netto_vk,'HAN':r.han,
+   'Kosten':r.kosten,'Warengruppe':r.warengruppe_name,'Steuerklasse':r.steuerklasse_name,
+   'Artikelgewicht':r.artikelgewicht,'Versandgewicht':r.versandgewicht};
   for(const [k,v] of Object.entries(mapping))if(v!==undefined&&v!==null&&String(v).trim())jtlSuggestions[k]=String(v).trim();
  }
  updateAfterSource();
+ if(record?.fields)window.hw24ApplyApprovedArticle?.(activeEan,record.fields);
 });
 document.addEventListener('hw24:amazon-catalog',event=>{
  const detail=event.detail||{};
@@ -87,7 +93,7 @@ function render(){
  const list=document.createElement('div');list.style.cssText='display:grid;gap:7px';
  const inputs=[];
  for(const name of labels){
-  const wrapper=document.createElement('label');wrapper.style.cssText='display:grid;grid-template-columns:24px minmax(110px,1fr);gap:8px;align-items:center;padding:9px;border:1px solid #dde6ee;border-radius:9px;background:#fafcfe';
+  const wrapper=document.createElement('label');wrapper.dataset.reviewedKey=name;wrapper.style.cssText='display:grid;grid-template-columns:24px minmax(110px,1fr);gap:8px;align-items:center;padding:9px;border:1px solid #dde6ee;border-radius:9px;background:#fafcfe';
   const check=document.createElement('input');check.type='checkbox';check.checked=false;
   const slot=document.createElement('span');
   const heading=text('strong',name);heading.style.display='block';
@@ -95,6 +101,7 @@ function render(){
   if(input.tagName==='INPUT')input.type='text';
   const suggested=suggestion(name);
   input.value=suggested.value;
+  if(suggested.source.startsWith('Dauerhaft freigegeben'))wrapper.style.borderColor='#8abf9b';
   input.style.cssText='box-sizing:border-box;width:100%;max-width:100%;min-height:36px;padding:8px;border:1px solid #d3dce8;border-radius:6px;font:inherit';
   if(input.tagName==='TEXTAREA')input.rows=2;
   const provenance=text('small','Quelle: '+suggested.source);provenance.style.cssText='display:block;margin-top:4px;color:#59718c;font-size:11px';
@@ -131,7 +138,7 @@ function render(){
    if(!res.ok||!data.ok){
     state.textContent=data.error==='revision_conflict'?'⚠ Dieser Artikel wurde zwischenzeitlich bearbeitet. Bitte erneut scannen.':'⚠ Speichern nicht möglich: '+(data.error||'HTTP '+res.status);return;
    }
-   revision=data.revision;record=data;render();
+   revision=data.revision;record=data;render();window.hw24ApplyApprovedArticle?.(ean,data.fields);
   }catch(err){if(request===seq)state.textContent='⚠ Speicherschnittstelle nicht erreichbar.';}
   finally{if(request===seq)save.disabled=false;}
  };
@@ -149,7 +156,66 @@ window.hw24CuratedLookup=async ean=>{
   const data=await res.json();if(request!==seq)return;
   if(!res.ok||!data.ok){state.textContent='Noch nicht eingerichtet: Freigabe-Archiv · '+(data.error||'HTTP '+res.status);return;}
   revision=data.revision||0;record=data.exists?data:null;render();
+  if(record?.fields)window.hw24ApplyApprovedArticle?.(activeEan,record.fields);
  }catch(err){if(request===seq)state.textContent='Freigabe-Archiv momentan nicht erreichbar. Alte Daten werden nicht verändert.';}
 };
+
+/* Explicit edits in the existing master-data editor are stored on select/change
+ * or Enter. No writes occur for untouched proposals or on an EAN scan.
+ * A save only updates the HW24 curated database and its audit trail, NEVER JTL.
+ */
+const canSave=new Set(labels);
+function editedField(target){
+ if(!target||!['INPUT','TEXTAREA','SELECT'].includes(target.tagName))return null;
+ let key='',box=target.closest('.field');
+ if(!box)return null;
+ if(box.closest('#fields'))key=box.querySelector('label')?.textContent?.trim()||'';
+ else if(box.closest('#jtlProfile'))key=box.previousElementSibling?.textContent?.trim()||'';
+ if(!canSave.has(key)||target.disabled||target.readOnly)return null;
+ return {key,value:String(target.value??'').trim(),box};
+}
+function feedback(box,message,error=false){
+ if(!box)return;
+ let status=box.querySelector('[data-hw24-reviewed-feedback]');
+ if(!status){status=text('small','');status.dataset.hw24ReviewedFeedback='1';status.style.cssText='display:block;font-size:11px;margin-top:3px';box.append(status);}
+ status.textContent=message;status.style.color=error?'#b23c39':'#17653b';
+}
+function saveReviewed(change){
+ const ean=activeEan,requested=seq,value=change.value,key=change.key,box=change.box;
+ if(!valid(ean)||!value)return;
+ if(String(record?.fields?.[key]??'').trim()===value){feedback(box,'✓ Bereits dauerhaft gespeichert');return;}
+ saveChain=saveChain.catch(()=>{}).then(async()=>{
+  if(seq!==requested||activeEan!==ean)return;
+  if(String(record?.fields?.[key]??'').trim()===value){feedback(box,'✓ Bereits gespeichert');return;}
+  feedback(box,'Wird revisionssicher gespeichert …');
+  try{
+   const response=await fetch('api/curated.php',{method:'POST',credentials:'same-origin',cache:'no-store',
+    headers:{'Content-Type':'application/json','X-HW24-Approval':'confirmed','Accept':'application/json'},
+    body:JSON.stringify({ean,fields:{[key]:value},confirmed:true,expected_revision:revision})});
+   const data=await response.json();
+   if(seq!==requested||activeEan!==ean)return;
+   if(!response.ok||!data.ok){
+    feedback(box,data.error==='revision_conflict'?'⚠ Neue Version vorhanden. Bitte erneut scannen.':'⚠ Speicherung fehlgeschlagen: '+(data.error||response.status),true);
+    return;
+   }
+   revision=data.revision;record=data;
+   feedback(box,'✓ Dauerhaft gespeichert · Version '+revision);
+   window.hw24ApplyApprovedArticle?.(ean,data.fields);
+   // Update the compact verified article card, while retaining scan context.
+   const reviewed=root.querySelector('details[open].hw24-curated-edit');
+   if(!reviewed)render();
+  }catch(err){if(seq===requested)feedback(box,'⚠ Netzwerkfehler, nicht gespeichert',true);}
+ });
+}
+document.addEventListener('change',event=>{
+ const change=editedField(event.target);
+ if(change&&change.value)saveReviewed(change);
+},true);
+document.addEventListener('keydown',event=>{
+ if(event.key!=='Enter'||event.target.tagName!=='INPUT'||event.isComposing)return;
+ const change=editedField(event.target);
+ if(change&&change.value){event.preventDefault();saveReviewed(change);}
+},true);
+
 head('Freigegebener Artikelstand','Nach einer EAN-Prüfung siehst Du hier Deine bestätigten Stammdaten.');
 })();
