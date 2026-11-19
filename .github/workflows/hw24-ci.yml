@@ -13,10 +13,15 @@ jobs:
         run: |
           php -l api/amazon.php
           php -l api/amazon-pricing.php
+          php -l api/curated.php
+          php -l api/amazon-sellers.php
+          php -l api/historie.php
       - name: JavaScript syntax
         run: |
           node --check assets/amazon-catalog.js
           node --check assets/amazon-market.js
+          node --check assets/hw24-curated.js
+          for file in assets/*.js; do node --check "$file"; done
       - name: Embedded JavaScript and asset manifest
         run: |
           python3 - <<'PY'
