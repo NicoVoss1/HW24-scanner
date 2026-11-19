@@ -41,16 +41,37 @@
 .scan-advanced>summary{cursor:pointer;font-weight:700;color:#173b7a;padding:6px}
 .scan-autofill{border:1px solid #e2bb4b;background:#fff7e0}
 button:disabled{opacity:.55;cursor:not-allowed}
-</style><h1>HW24 EAN-Artikelmanager <small>v4.2 GitHub</small></h1><p>EAN-Recherche mit historischen MariaDB-Daten. JTL-Wawi-Abgleich wird separat angebunden; noch keine direkte JTL-Buchung.</p><section id="hw24Project"><details open>
-<summary><strong>📋 Projektfortschritt · Artikelmanager v4.2</strong></summary>
-<p class="note">Hier siehst Du jederzeit, was bereits programmiert ist und welche Verbindung noch eingerichtet werden muss.</p>
-<ol id="hw24Milestones"></ol><div class="local-actions"><button type="button" id="jtlApiCheck">🔌 Live-JTL-API prüfen</button><span id="jtlApiState" role="status" class="note">Verbindung noch nicht getestet</span></div>
+</style>
+<link rel="stylesheet" href="assets/hw24-ui.css?v=4.3"><link rel="stylesheet" href="assets/hw24-workdesk.css?v=4.18"><link rel="stylesheet" href="assets/hw24-operations.css?v=4.20"><link rel="stylesheet" href="assets/hw24-batch.css?v=4.15">
+<header class="hw24-hero">
+  <div class="hw24-eyebrow">HAIRWORLD24 · E-COMMERCE</div>
+  <h1>HW24 Artikelmanager <small>v4.22 TEST</small></h1>
+  <p>EAN scannen, Artikel erkennen, Daten aus JTL und Amazon vergleichen und fehlende Angaben gezielt ergänzen. Änderungen bleiben prüfbare Entwürfe.</p>
+  <div class="hw24-status-strip">
+    <span id="jtlApiState" role="status" class="note" data-state="loading">JTL-Synchronisation wird geprüft …</span>
+    <button type="button" class="scan-secondary" id="jtlApiCheck">↻ Status aktualisieren</button>
+  </div>
+</header>
+<section id="hw24Project"><details>
+<summary><strong>📋 Projektfortschritt · Artikelmanager v4.22 TEST</strong></summary>
+<p class="note">Technischer Ausbaustand und verfügbare Datenquellen. Aktuelle JTL-Artikel werden über den SQL-MariaDB-Spiegel abgefragt.</p>
+<ol id="hw24Milestones"></ol>
 </details></section>
-<section id="importArea"><h3>📂 JTL-Export als CSV laden</h3>
+<section id="importArea"><h3>📂 Optional: JTL-CSV für Massenprüfung laden</h3>
 <p class="note">Die Datei aus JTL-Ameise (CSV mit Kopfzeilen) ergänzt die Artikelstammdaten. Die historische Excel-Arbeitsmappe ist unabhängig davon bereits in der MariaDB archiviert und wird nach dem EAN-Scan abgefragt. Hier bitte CSV und keine XLSX-Datei wählen.</p>
-<div class="scanrow"><label for="file">JTL-Exportdatei (.csv) auswählen</label><input id="file" type="file" accept=".csv,text/csv"></div>
-<p id="info" role="status">Noch keine CSV geladen. EAN-Scan und historische Recherche sind auch ohne CSV möglich.</p>
-</section><section><div id="deploymentNotice" hidden style="border:1px solid #c4d4e8;background:#eef5ff;color:#173b7a;padding:12px;border-radius:9px;margin-bottom:12px"><strong>GitHub Pages ist nur die öffentliche Testansicht.</strong> Auf github.io funktioniert PHP/MariaDB technisch nicht. Für die historische Datenbank und den JTL-Synchronisationsstatus nutze bitte <a href="https://artikelmanager.hairworld24.de/">artikelmanager.hairworld24.de</a>. Hinweis: Auch dort ist der JTL-Liveabgleich erst nach der Windows-Synchronisation verfügbar.</div><h3>1. EAN scannen und Produkt prüfen</h3><input id="ean" autofocus placeholder="EAN scannen"><button type="button" id="scanStart">🔎 Artikel prüfen</button><button type="button" class="scan-secondary" id="historyRetry">📚 Historische Daten abfragen</button><p id="status" role="status"></p>
+<div class="scanrow"><div><label for="file">JTL-Exportdatei (.csv) auswählen</label><input id="file" type="file" accept=".csv,text/csv"></div><div><label for="csvEncoding">Zeichencodierung der CSV</label><select id="csvEncoding"><option value="auto">Automatisch erkennen</option><option value="utf-8">UTF-8</option><option value="windows-1252">Windows-1252 (ANSI)</option></select><small>Bei fehlerhaften Umlauten die Kodierung wählen und die Datei erneut laden.</small></div></div>
+<p id="info" role="status">Keine CSV geladen. EAN-Scan, JTL-Spiegel und historische Recherche funktionieren ohne CSV.</p>
+</section><section id="hw24ScanWorkspace"><div id="deploymentNotice" hidden style="border:1px solid #c4d4e8;background:#eef5ff;color:#173b7a;padding:12px;border-radius:9px;margin-bottom:12px"><strong>GitHub Pages ist nur die öffentliche Testansicht.</strong> Auf github.io funktioniert PHP/MariaDB technisch nicht. Für die historische Datenbank und den JTL-Synchronisationsstatus nutze bitte <a href="https://artikelmanager.hairworld24.de/">artikelmanager.hairworld24.de</a>. Hinweis: Der JTL-Spiegel wird auf dem Windows-Server automatisch synchronisiert.</div><h3>Artikel finden und prüfen</h3><input id="ean" autofocus placeholder="EAN scannen"><button type="button" id="scanStart">🔎 Artikel prüfen</button><button type="button" class="scan-secondary" id="historyRetry">📚 Historische Daten abfragen</button><p id="status" role="status"></p>
+<section id="hw24AmazonDiagnostic" aria-label="Amazon SP-API Diagnose" style="border:2px solid #a8c5e9;border-radius:12px;padding:14px;margin:12px 0;background:#f4f9ff;box-shadow:0 1px 6px #102b5312">
+  <h3 style="margin:0 0 8px">🛒 Amazon SP-API · Verbindung prüfen</h3>
+  <p style="margin:4px 0;font-size:13px">Diagnosemodul v1 · Sichtbarer Funktionstest unabhängig von den eingeklappten Quelldetails.</p>
+  <p id="hw24AmazonDiagnosticModule" role="status">Amazon-JavaScript wird geprüft …</p>
+  <p id="hw24AmazonDiagnosticApi" role="status">API-Datenbankverbindung noch nicht auf dieser Seite getestet.</p>
+  <button type="button" id="hw24AmazonDiagnosticCheck" class="scan-secondary">🔎 Amazon-Verbindung testen</button>
+  <button type="button" id="hw24AmazonDiagnosticDetails" class="scan-secondary">📚 Amazon-Details öffnen</button>
+  <small style="display:block;margin-top:8px;color:#53627a">Keine Änderungen an Amazon-Angeboten, JTL-Stammdaten oder Preisen. Der Test verwendet die eingetragene EAN oder beispielhaft 4021609029274.</small>
+</section>
+
 <div id="scanCockpit" data-status="idle" class="scan-cockpit">
   <div class="scan-summary"><span class="scan-kicker">ARTIKELSTATUS NACH EAN-PRÜFUNG</span>
   <h3 id="scanDecision">EAN scannen</h3><p id="scanExplanation">Der Artikel wird anhand der aktuellen JTL-Daten geprüft.</p></div>
@@ -59,6 +80,7 @@ button:disabled{opacity:.55;cursor:not-allowed}
     <div>📚 <span id="scanArchiveStatus">Historie noch nicht geprüft</span></div>
     <div>📍 <span id="scanLocation">Lagerplatz noch nicht geprüft</span></div>
   </div>
+  <div id="scanQuickFacts" class="hw24-quick-facts" hidden aria-label="JTL-Stammdaten zum gefundenen Artikel"></div>
   <div id="scanMissing" class="scan-checklist"></div>
   <div id="scanSuggestions" class="scan-suggestions"></div>
   <div class="scan-actions">
@@ -68,19 +90,19 @@ button:disabled{opacity:.55;cursor:not-allowed}
   </div>
   <p class="note" id="scanActionMsg" role="status"></p>
   <p class="note">Die erzeugte Ameise-Datei ist zunächst ein Importentwurf. Ohne aktuelle JTL-Synchronisation bleibt die Bestandsentscheidung ungeprüft; kein direkter Schreibzugriff auf JTL.</p>
-</div><div id="unknownActions" style="display:none;background:#ffe1e1;border:2px solid #c52b36;padding:14px;border-radius:10px;margin:12px 0"><strong>EAN nicht im geladenen JTL-Export gefunden.</strong><p>Historische Daten werden separat abgefragt. Treffer sind ungeprüfte Recherchehinweise.</p><button id="aiResearch" type="button">✨ Mit KI recherchieren</button><small id="aiInfo"></small></div><details id="scanSourceDetails" class="scan-advanced"><summary>Nachweise und detaillierte Recherche aus JTL und Excel einsehen</summary><div id="jtlPanel" class="group" style="margin:14px 0;border:1px solid #cbd6e8;padding:14px;border-radius:10px"><h3>🏷️ Aktueller JTL-Wawi-Status</h3><p id="jtlResult" role="status">Noch keine EAN geprüft. Der direkte JTL-Abgleich ist noch nicht angeschlossen.</p></div><div id="historicalPanel" class="group" hidden style="margin:14px 0;border:1px solid #b9c8dd;padding:14px;border-radius:10px"><h3>🔎 Historische EAN-Recherche (MariaDB)</h3><p class="note">Ungeprüfte Originaldaten aus früheren Excel-Tabellenblättern. Kein automatischer Nachweis eines aktuellen JTL-Artikels.</p><div id="historicalResults" role="status"></div></div></details><details id="masterDataDetails" class="scan-advanced"><summary>Stammdaten bearbeiten und fehlende Angaben ergänzen</summary><details id="hw24Tabs" class="hw24quality">
-<summary><strong>📚 JTL-Artikelkarte · Abdeckung aller 13 Reiter</strong></summary>
-<p class="note">Die aktuelle Stammdaten-CSV enthält 872 Spalten, aber keine Bilddateien, Attribute/Merkmale, Variationen oder Upload-Dateien. Dort sind für vollständige Daten zusätzliche JTL-Quellen nötig. Der Hauptimport bleibt eine Ameise-Datei.</p>
+</div><div id="unknownActions" style="display:none;background:#ffe1e1;border:2px solid #c52b36;padding:14px;border-radius:10px;margin:12px 0"><strong>EAN nicht im geladenen JTL-Export gefunden.</strong><p>Historische Daten werden separat abgefragt. Treffer sind ungeprüfte Recherchehinweise.</p><button id="aiResearch" type="button">✨ Mit KI recherchieren</button><small id="aiInfo"></small></div><details id="scanSourceDetails" class="scan-advanced"><summary>📚 Quellen anzeigen · JTL-Spiegel und historische Recherche</summary><div id="jtlPanel" class="group" style="margin:14px 0;border:1px solid #cbd6e8;padding:14px;border-radius:10px"><h3>🏷️ Aktueller JTL-Wawi-Status</h3><p id="jtlResult" role="status">Noch keine EAN geprüft. Der aktuelle JTL-Spiegel wird nach dem EAN-Scan abgefragt.</p></div><div id="historicalPanel" class="group" hidden style="margin:14px 0;border:1px solid #b9c8dd;padding:14px;border-radius:10px"><h3>🔎 Historische EAN-Recherche (MariaDB)</h3><p class="note">Ungeprüfte Originaldaten aus früheren Excel-Tabellenblättern. Kein automatischer Nachweis eines aktuellen JTL-Artikels.</p><div id="historicalResults" role="status"></div></div></details><details id="masterDataDetails" class="scan-advanced"><summary>✏️ Stammdaten bearbeiten · nur benötigte Bereiche öffnen</summary><details id="hw24Tabs" class="hw24quality">
+<summary><strong>📚 JTL-Datenübersicht · Was ist tatsächlich verfügbar?</strong></summary>
+<p class="note">Diese Übersicht zeigt verfügbare Informationen aus dem JTL-Spiegel beziehungsweise einer optional geladenen CSV. Nicht übertragene Felder bedeuten nicht, dass sie in JTL-Wawi oder JTL-WMS fehlen. Stammdaten werden hier nur gelesen; Änderungen bleiben prüfbare Entwürfe.</p>
 <div id="hw24TabsItems"></div>
 </details>
-<details id="hw24Quality" class="hw24quality" open>
+<details id="hw24Quality" class="hw24quality">
 <summary><strong>🔎 Stammdatenprüfung und Priorisierung</strong> <span id="hw24QualitySummary">Noch keine Artikelprüfung</span></summary>
 <p class="note">Grün bedeutet plausibel belegt bzw. mit JTL bestätigt. Orange bedeutet Vorschlag oder ungeprüfte Quelle. Rot bedeutet fehlend, ungültig oder Abweichung. Grüne CSV-Werte sind noch kein Live-Nachweis.</p>
 <button type="button" id="hw24QualityApply">Vorschläge übernehmen</button>
 <div id="hw24QualityRows"></div>
 </details>
 <div class="fields" id="fields"></div>
-<details id="jtlProfile" class="scan-advanced" open>
+<details id="jtlProfile" class="scan-advanced">
 <summary>⚙️ JTL-Felder · Kosten, Lager, Standards, Preise und Kategorien</summary>
 <p id="profileState" class="note">Noch keine EAN ausgewählt.</p>
 <p class="note">Feldbezeichnungen entsprechen dem Originalexport. JTL-Bestand, Durchschnitts-EK und Bearbeitungshistorie werden nur angezeigt. Bestehende Werte werden nicht durch Neuanlage-Standards überschrieben.</p>
@@ -114,6 +136,7 @@ button:disabled{opacity:.55;cursor:not-allowed}
 const $=id=>document.getElementById(id),val=v=>String(v??'').trim();let data=[],map=new Map(),current=null,scans=[],editingIndex=-1;
 function parseCSV(t){let rows=[],row=[],field='',quoted=false;for(let i=0;i<t.length;i++){let c=t[i];if(c==='"'){if(quoted&&t[i+1]==='"'){field+='"';i++}else quoted=!quoted}else if(c===';'&&!quoted){row.push(field);field=''}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&t[i+1]==='\n')i++;row.push(field);if(row.some(x=>x!==''))rows.push(row);row=[];field=''}else field+=c}row.push(field);if(row.some(x=>x!==''))rows.push(row);let heads=rows.shift()||[];return rows.map(r=>Object.fromEntries(heads.map((h,i)=>[h.replace(/^\ufeff/,''),r[i]||''])));}
 function digits(v){let s=val(v).replace(/\.0$/,'');return /^\d{8,14}$/.test(s)?s:''}
+function identifier(v){const s=val(v).replace(/\.0$/,'');return /^[\p{L}\p{N}][\p{L}\p{N}._\/-]{1,63}$/u.test(s)?s:''}
 const hw24StaticPreview=location.hostname.toLowerCase().endsWith('.github.io');
 if(hw24StaticPreview)$('deploymentNotice').hidden=false;
 function dateISO(v){let s=val(v);let iso=s.match(/^(\d{4}-\d{2}-\d{2})/);if(iso)return iso[1];let de=s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);return de?de[3]+'-'+de[2]+'-'+de[1]:''}
@@ -121,6 +144,7 @@ function dateField(k){return /(?:^|\s)(?:datum|date|termin)(?:\b|$)/i.test(k)||/
 
 let historicalLookupSeq=0;
 let sourceLookupSeq=0;
+let lastResolvedGtin='';
 function goodGtin(value){
   if(!/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(value)||/^0+$/.test(value))return false;
   let sum=0,weight=3;
@@ -144,6 +168,7 @@ function adoptHistorical(row,button){
   for(const item of row.cells||[]){
     if(!item.header_verified)continue;
     const key=sourceFieldName(item.label),value=String(item.value??'').trim();
+    if(key==='Warengruppe'&&window.hw24HasUnresolvedJtlWarengruppe?.())continue;
     if(!key||!value||val(current[key]))continue;
     if(key==='ASIN'&&!/^[A-Z0-9]{10}$/.test(value.toUpperCase()))continue;
     if(['Artikelname','Kurzbeschreibung','Beschreibung'].includes(key)&&value.length>10000)continue;
@@ -164,6 +189,7 @@ async function lookupProductSources(ean){
     const response=await fetch('api/jtl.php?ean='+encodeURIComponent(ean),{credentials:'same-origin',cache:'no-store'});
     const jtl=await response.json();
     if(seq!==sourceLookupSeq)return;
+    window.hw24SmartScanJtl?.(ean,jtl);
     window.hw24ChannelJtl?.(jtl);window.hw24AmeiseJtl?.(jtl);window.hw24FlowJtl?.(jtl);window.hw24ProfileJtl?.(jtl);window.hw24QualityJtl?.(jtl);
     const m=jtl.matches||[];
     if(!response.ok||!jtl.ok){
@@ -175,7 +201,7 @@ async function lookupProductSources(ean){
         $('status').textContent='Produktpflege: Artikel im aktuellen JTL-Spiegel gefunden.';
         const r=m[0];
         if(current)current.Status='JTL_GEFUNDEN';
-        for(const [k,v] of Object.entries({'Artikelnummer':r.artikelnummer,'GTIN':r.ean,'HAN':r.han,'ASIN':r.asin,'Artikelname':r.artikelname,'Kurzbeschreibung':r.kurzbeschreibung,'Beschreibung':r.beschreibung,'Hersteller':r.hersteller,'Netto-VK':r.netto_vk,'Ø EK netto (GLD)':r.netto_ek,'Letzter EK (JTL)':r.letzter_ek,'Datum letzter EK':r.letzter_ek_datum})){
+        for(const [k,v] of Object.entries({'Artikelnummer':r.artikelnummer,'GTIN':r.ean,'HAN':r.han,'ASIN':r.asin,'Artikelname':r.artikelname,'Kurzbeschreibung':r.kurzbeschreibung,'Beschreibung':r.beschreibung,'Hersteller':r.hersteller,'Kosten':r.kosten,'Warengruppe':r.warengruppe_name,'Steuerklasse':r.steuerklasse_name,'Netto-VK':r.netto_vk,'Ø EK netto (GLD)':r.netto_ek,'Letzter EK (JTL)':r.letzter_ek,'Datum letzter EK':r.letzter_ek_datum})){
           if(!val(v)||!current)continue;
           const box=[...$('fields').querySelectorAll('.field')].find(x=>x.querySelector('label')?.textContent===k);
           const input=box?.querySelector('input,textarea');
@@ -192,8 +218,8 @@ async function lookupProductSources(ean){
         state.textContent='⚠ Mehrere JTL-Artikel mit dieser Kennung gefunden · Stand '+at+' UTC. Bitte Zuordnung prüfen.';
         $('status').textContent='Mehrfachtreffer in JTL: keine automatische Neuanlage.';
       }else{
-        state.textContent='Kein Artikel im aktuellen JTL-Spiegel · Stand '+at+' UTC. Historische Recherche für eine mögliche Neuanlage läuft.';
-        $('status').textContent='Neuanlage als Entwurf möglich, sofern die Kennung und Quellen geprüft sind.';
+        state.textContent='Kein Artikel im aktuellen JTL-Spiegel · Stand '+at+' UTC. '+(digits(ean)?'Historische Recherche für eine mögliche Neuanlage läuft.':'Über eine Artikelnummer/HAN ohne eindeutigen JTL-Treffer ist keine historische EAN-Abfrage möglich.');
+        $('status').textContent=digits(ean)?'Neuanlage als Entwurf möglich, sofern die EAN und Quellen geprüft sind.':'Kein JTL-Treffer. Für eine Neuanlage ist eine echte, geprüfte EAN erforderlich.';
       }
     }else{
       const reasons={
@@ -203,6 +229,21 @@ async function lookupProductSources(ean){
         unavailable:'JTL-Wawi-Spiegel momentan nicht verfügbar.'
       };
       state.textContent=(reasons[jtl.jtl_status]||'JTL-Verbindung ungeprüft.')+' Kein verbindliches Urteil „Artikel neu“. Historische Daten werden dennoch durchsucht.';
+    }
+    // Alphanumeric SKU/HAN: resolve and verify the article's GTIN through JTL,
+    // then search historical data automatically without a second user click.
+    if(!digits(ean)){
+      if(response.ok&&jtl.ok&&jtl.jtl_status==='current_snapshot'&&m.length===1){
+        const resolved=val(m[0].ean);
+        if(goodGtin(resolved)){lastResolvedGtin=resolved;window.hw24AmazonLookup?.(resolved);await lookupHistorical(resolved);}
+        else{
+          window.hw24SmartScanHistory?.(ean,{ok:false,error:'no_valid_gtin'});
+          window.hw24FlowHistorySkipped?.();
+        }
+      }else{
+        window.hw24SmartScanHistory?.(ean,{ok:false,error:'no_unique_jtl_match'});
+        window.hw24FlowHistorySkipped?.();
+      }
     }
     window.hw24FlowRefresh?.();
   }catch(err){
@@ -219,6 +260,7 @@ async function lookupHistorical(ean){
     const resp=await fetch('api/historie.php?ean='+encodeURIComponent(ean),{credentials:'same-origin',cache:'no-store'});
     const result=await resp.json();
     if(seq!==historicalLookupSeq)return;
+    window.hw24SmartScanHistory?.(ean,result);
     if(resp.ok&&result.ok){
   try{window.hw24ChannelHistorical?.(result)}catch(err){console.error('HW24 Kanalvorschlag:',err)}
   try{window.hw24FlowHistorical?.(result)}catch(err){console.error('HW24 Historienvorschlag:',err)}
@@ -282,10 +324,10 @@ async function lookupHistorical(ean){
     }
   }
 }
-function search(){editingIndex=-1;$('unknownActions').style.display='none';let e=digits($('ean').value);$('fields').replaceChildren();current=null;$('historicalPanel').hidden=true;historicalLookupSeq++;sourceLookupSeq++;if(!e){$('status').textContent='Bitte mindestens 8 Ziffern eingeben';$('jtlResult').textContent='EAN eingeben';window.hw24AmeiseScan?.('',null);window.hw24FlowScan?.('',null);return}let found=map.get(e)||[];let status=found.length===1?'IM_CSV':found.length>1?'MEHRFACH_CSV':'UNGEPRÜFT';current={...(found[0]||{}),EAN:e,Status:status};if(!val(current['Ø EK netto (GLD)']))current['Ø EK netto (GLD)']=val(current['Durchschnittlicher Einkaufspreis (netto)']||current.fEKNetto);if(!val(current['Letzter EK (JTL)']))current['Letzter EK (JTL)']=val(current.fLetzterEK||current['Letzter Einkaufspreis']);if(!val(current['Datum letzter EK']))current['Datum letzter EK']=val(current.dLetzterEK);if(status==='UNGEPRÜFT'&&goodGtin(e)&&!val(current.GTIN))current.GTIN=e;$('status').textContent=found.length?'Vorläufiger Treffer im optionalen CSV. Aktueller JTL-Status wird geprüft.':'EAN erfasst · JTL-Status wird geprüft. Kein CSV erforderlich.';for(const fn of [window.hw24ChannelScan,window.hw24AmeiseScan,window.hw24FlowScan,window.hw24ProfileScan,window.hw24QualityScan,window.hw24TabsScan]){
+function search(){editingIndex=-1;$('unknownActions').style.display='none';let e=identifier($('ean').value);lastResolvedGtin='';$('fields').replaceChildren();current=null;$('historicalPanel').hidden=true;historicalLookupSeq++;sourceLookupSeq++;if(!e){window.hw24SmartScanBegin?.('',null);$('status').textContent='Bitte EAN, Artikelnummer oder HAN eingeben';$('jtlResult').textContent='Suchkennung eingeben';window.hw24AmeiseScan?.('',null);window.hw24FlowScan?.('',null);return}let found=map.get(e)||[];let status=found.length===1?'IM_CSV':found.length>1?'MEHRFACH_CSV':'UNGEPRÜFT';current={...(found[0]||{}),...(digits(e)?{EAN:e}:{}),Suchbegriff:e,Status:status};if(!val(current['Ø EK netto (GLD)']))current['Ø EK netto (GLD)']=val(current['Durchschnittlicher Einkaufspreis (netto)']||current.fEKNetto);if(!val(current['Letzter EK (JTL)']))current['Letzter EK (JTL)']=val(current.fLetzterEK||current['Letzter Einkaufspreis']);if(!val(current['Datum letzter EK']))current['Datum letzter EK']=val(current.dLetzterEK);if(status==='UNGEPRÜFT'&&goodGtin(e)&&!val(current.GTIN))current.GTIN=e;$('status').textContent=found.length?'Vorläufiger Treffer im optionalen CSV. Aktueller JTL-Status wird geprüft.':'EAN erfasst · JTL-Status wird geprüft. Kein CSV erforderlich.';window.hw24SmartScanBegin?.(e,current);for(const fn of [window.hw24ChannelScan,window.hw24AmeiseScan,window.hw24FlowScan,window.hw24ProfileScan,window.hw24QualityScan,window.hw24TabsScan]){
  try{fn?.(e,current)}catch(err){console.error('HW24 Zusatzmodul beim Scan:',err)}
 }
-lookupProductSources(e);lookupHistorical(e);window.hw24AmazonLookup?.(e);let groups=[['Identifikation',['Artikelnummer','GTIN','HAN','ASIN','Hersteller']],['Artikelbezeichnung und Beschreibung',['Artikelname','Kurzbeschreibung','Beschreibung']],['Preise und Kalkulation (Ø EK netto = fEKNetto, letzter EK = fLetzterEK)',['Ø EK netto (GLD)','Letzter EK (JTL)','Datum letzter EK','Netto-VK','Brutto-VK']],['Kategorien und Gewicht',['Warengruppe','Kategorie Ebene 1','Kategorie Ebene 2','Artikelgewicht','Versandgewicht']]];for(let [title,keys] of groups){let g=document.createElement('div');g.className='group';let h=document.createElement('h4');h.textContent=title;let grid=document.createElement('div');grid.className='groupgrid';g.append(h,grid);if(title.startsWith('Preise und Kalkulation')){let hint=document.createElement('p');hint.className='note';hint.textContent='EK-Werte und Buchungsdatum stammen aus JTL eazybusiness. Ohne aktive JTL-Synchronisation bleiben diese Felder leer. Der letzte EK ist ein historischer Quellwert; ein manuell gewähltes Datum würde die Buchung nicht verändern.';g.insertBefore(hint,grid)}$('fields').append(g);for(let k of keys){let box=document.createElement('div');let long=['Artikelname','Kurzbeschreibung','Beschreibung'].includes(k);box.className='field '+(long?'wide ':'')+(val(current[k])?'good':'bad');let lab=document.createElement('label');lab.textContent=k==='EK-Preis'?'Einkaufspreis (EK)':k;let inp=document.createElement(long?'textarea':'input');if(dateField(k)){inp.type='date';inp.value=dateISO(current[k]);if(k==='Datum letzter EK'){inp.readOnly=true;inp.title='JTL-Buchungsdatum: wird automatisch aus der Wawi übernommen und nicht manuell gepflegt';}}else{inp.value=val(current[k]);}if(k==='Ø EK netto (GLD)'||k==='Letzter EK (JTL)'||k==='Datum letzter EK'){inp.readOnly=true;inp.title='Schreibgeschützter JTL-Quellwert; wird nach der geschützten Synchronisation aus eazybusiness übernommen';}if(['Artikelnummer','GTIN','HAN','ASIN'].includes(k)&&['IM_CSV','MEHRFACH_CSV'].includes(status)&&val(current[k]))inp.readOnly=true;if(long){inp.rows=k==='Beschreibung'?5:3;inp.style.height='auto';inp.style.height=Math.max(inp.scrollHeight,70)+'px'}inp.oninput=()=>{inp.dataset.userEdited='1';current[k]=inp.value;window.hw24ChannelCurrent?.(current);window.hw24AmeiseCurrent?.(current);window.hw24ProfileCurrent?.(current);window.hw24QualityEdited?.(k,current);window.hw24TabsUpdate?.(current);window.hw24FlowRefresh?.();box.className='field '+(long?'wide ':'')+(val(inp.value)?'good':'bad');if(long){inp.style.height='auto';inp.style.height=Math.max(inp.scrollHeight,70)+'px'}};box.append(lab,inp);grid.append(box)}}}
+window.hw24AmazonLookup?.(goodGtin(e)?e:"");Promise.allSettled([lookupProductSources(e),...(digits(e)?[lookupHistorical(e)]:[])]).then(()=>window.hw24SmartScanFinish?.(e,current));let groups=[['Identifikation',['Artikelnummer','GTIN','HAN','ASIN','Hersteller']],['Artikelbezeichnung und Beschreibung',['Artikelname','Kurzbeschreibung','Beschreibung']],['Preise und Kalkulation (Ø EK netto = fEKNetto, letzter EK = fLetzterEK)',['Ø EK netto (GLD)','Letzter EK (JTL)','Datum letzter EK','Netto-VK','Brutto-VK']],['Kategorien und Gewicht',['Warengruppe','Kategorie Ebene 1','Kategorie Ebene 2','Artikelgewicht','Versandgewicht']]];for(let [title,keys] of groups){let g=document.createElement('details');g.className='group hw24-field-group';g.open=title==='Identifikation';let h=document.createElement('summary');h.textContent=title;let grid=document.createElement('div');grid.className='groupgrid';g.append(h,grid);if(title.startsWith('Preise und Kalkulation')){let hint=document.createElement('p');hint.className='note';hint.textContent='EK-Werte und Buchungsdatum stammen aus JTL eazybusiness. Ohne aktive JTL-Synchronisation bleiben diese Felder leer. Der letzte EK ist ein historischer Quellwert; ein manuell gewähltes Datum würde die Buchung nicht verändern.';g.insertBefore(hint,grid)}$('fields').append(g);for(let k of keys){let box=document.createElement('div');let long=['Artikelname','Kurzbeschreibung','Beschreibung'].includes(k);box.className='field '+(long?'wide ':'')+(val(current[k])?'good':'bad');let lab=document.createElement('label');lab.textContent=k==='EK-Preis'?'Einkaufspreis (EK)':k;let inp=document.createElement(long?'textarea':'input');if(dateField(k)){inp.type='date';inp.value=dateISO(current[k]);if(k==='Datum letzter EK'){inp.readOnly=true;inp.title='JTL-Buchungsdatum: wird automatisch aus der Wawi übernommen und nicht manuell gepflegt';}}else{inp.value=val(current[k]);}if(k==='Ø EK netto (GLD)'||k==='Letzter EK (JTL)'||k==='Datum letzter EK'){inp.readOnly=true;inp.title='Schreibgeschützter JTL-Quellwert; wird nach der geschützten Synchronisation aus eazybusiness übernommen';}if(['Artikelnummer','GTIN','HAN','ASIN'].includes(k)&&['IM_CSV','MEHRFACH_CSV'].includes(status)&&val(current[k]))inp.readOnly=true;if(long){inp.rows=k==='Beschreibung'?5:3;inp.style.height='auto';inp.style.height=Math.max(inp.scrollHeight,70)+'px'}inp.oninput=()=>{inp.dataset.userEdited='1';current[k]=inp.value;window.hw24ChannelCurrent?.(current);window.hw24AmeiseCurrent?.(current);window.hw24ProfileCurrent?.(current);window.hw24QualityEdited?.(k,current);window.hw24TabsUpdate?.(current);window.hw24FlowRefresh?.();box.className='field '+(long?'wide ':'')+(val(inp.value)?'good':'bad');if(long){inp.style.height='auto';inp.style.height=Math.max(inp.scrollHeight,70)+'px'}};box.append(lab,inp);grid.append(box)}}}
 $('file').onchange=async e=>{
  const file=e.target.files?.[0];
  if(!file)return;
@@ -295,9 +337,20 @@ $('file').onchange=async e=>{
   if(!/\.csv$/i.test(file.name))throw new Error('Bitte eine CSV-Datei aus JTL-Ameise wählen. XLSX ist hier nicht unterstützt.');
   if(file.size>100*1024*1024)throw new Error('CSV-Datei über 100 MB: bitte einen kleineren JTL-Export wählen.');
   const buffer=await file.arrayBuffer();
-  let utf=new TextDecoder('utf-8',{fatal:false}).decode(buffer);
-  let broken=(utf.match(/\uFFFD/g)||[]).length;
-  let decoded=broken?new TextDecoder('windows-1252').decode(buffer):utf;
+  const preference=$('csvEncoding').value;
+  let decoded='',encoding='';
+  if(preference==='auto'){
+    try{
+      decoded=new TextDecoder('utf-8',{fatal:true}).decode(buffer);
+      encoding='UTF-8';
+    }catch(err){
+      decoded=new TextDecoder('windows-1252',{fatal:true}).decode(buffer);
+      encoding='Windows-1252';
+    }
+  }else{
+    decoded=new TextDecoder(preference,{fatal:true}).decode(buffer);
+    encoding=preference==='utf-8'?'UTF-8':'Windows-1252';
+  }
   const parsed=parseCSV(decoded);
   if(!parsed.length)throw new Error('Keine Datenzeilen gefunden. Prüfe Trennzeichen und Kopfzeilen.');
   const headers=Object.keys(parsed[0]);
@@ -306,6 +359,7 @@ $('file').onchange=async e=>{
   window.hw24ProfileOptions?.(data);
   window.hw24QualityCsv?.(data);
   window.hw24TabsCsv?.(data);
+  window.hw24TemplatesCatalog?.(headers);
   auditInit();
   map=new Map();
   for(const row of data){
@@ -318,9 +372,9 @@ $('file').onchange=async e=>{
     if(!map.get(code).includes(row))map.get(code).push(row);
    }
   }
-  info.textContent='✓ '+data.length.toLocaleString('de-DE')+' JTL-Zeilen geladen · '+map.size.toLocaleString('de-DE')+' gültige Kennungen (GTIN/HAN/Art.-Nr.) · '+(broken?'Windows-1252':'UTF-8')+'. Aktuelle Daten bleiben lokale Arbeitskopie.';
+  info.textContent='✓ '+data.length.toLocaleString('de-DE')+' JTL-Zeilen geladen · '+map.size.toLocaleString('de-DE')+' gültige Kennungen (GTIN/HAN/Art.-Nr.) · '+encoding+'. Aktuelle Daten bleiben lokale Arbeitskopie.';
   $('ean').focus();
-  if(digits($('ean').value))search();
+  if(identifier($('ean').value))search();
  }catch(error){
   info.textContent='⚠ CSV konnte nicht geladen werden: '+error.message;
   console.error('HW24 CSV Importfehler:',error);
@@ -328,7 +382,7 @@ $('file').onchange=async e=>{
 };
 $('ean').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();search()}};$('ean').onchange=search;
 $('scanStart').onclick=()=>search();
-$('historyRetry').onclick=()=>{const e=digits($('ean').value);if(!e){$('status').textContent='Bitte zuerst eine gültige EAN eingeben.';$('ean').focus();return;}lookupHistorical(e)};
+$('historyRetry').onclick=()=>{const e=digits($('ean').value)||lastResolvedGtin;if(!e){$('status').textContent='Für die historische Suche ist eine gültige EAN erforderlich.';$('ean').focus();return;}lookupHistorical(e)};
 function place(v){if(!val(v))return '';let m=val(v).match(/^(\d{1,2})-(\d{1,3})$/);if(!m||+m[1]<1||+m[1]>9||+m[2]<1||+m[2]>75)return null;return m[1].padStart(2,'0')+'-'+m[2].padStart(3,'0')}
 $('place').onblur=()=>{let p=place($('place').value);if(p!==null)$('place').value=p};
 $('save').onclick=()=>{if(!current){alert('Zuerst EAN scannen');return}let p=place($('place').value),q=+$('qty').value;if(p===null){alert('Lagerplatz muss zwischen 01-001 und 09-075 liegen');return}if(!Number.isInteger(q)||q<1){alert('Menge prüfen');return}if(editingIndex>=0){scans[editingIndex]={...current,Menge:q,Lagerplatz:p};editingIndex=-1}else {let duplicate=scans.findIndex(r=>val(r.EAN)===val(current.EAN)&&val(r.Lagerplatz)===p);if(duplicate>=0){scans[duplicate].Menge=Number(scans[duplicate].Menge||0)+q;alert('EAN bereits erfasst. Menge am gleichen Lagerplatz wurde um '+q+' erhöht.')}else{let elsewhere=scans.find(r=>val(r.EAN)===val(current.EAN));if(elsewhere)alert('EAN wurde bereits an einem anderen Lagerplatz erfasst. Neue Lagerplatzposition wird separat gespeichert.');scans.push({...current,Menge:q,Lagerplatz:p})}}render();$('ean').value='';$('ean').focus();$('fields').replaceChildren();$('status').textContent='Gespeichert in Scanliste';current=null};
@@ -382,7 +436,7 @@ function auditMissing(row,index){return auditCheck.filter(k=>!val(auditValue(row
 const auditFiscalAliases={'Letzter EK (JTL)':['Letzter EK (JTL)','Letzter EK','fLetzterEK','Letzter Einkaufspreis'],'Datum letzter EK':['Datum letzter EK','dLetzterEK'],'Netto-EK':['Netto-EK','EK netto','Einkaufspreis (netto)','EK (netto)','Ø EK netto','Durchschnittlicher Einkaufspreis (netto)','fEKNetto'],'Steuerklasse':['Steuerklasse','USt-Klasse','Umsatzsteuerklasse'],'Steuerschlüssel':['Steuerschlüssel','Mehrwertsteuerschlüssel','USt-Schlüssel','Steuer-Schlüssel'],'Mehrwertsteuersatz':['Mehrwertsteuersatz','USt-Satz','MwSt.','MwSt','Mehrwertsteuer','Steuersatz']};function fiscalSource(r,key){for(let alias of auditFiscalAliases[key]||[key]){if(Object.hasOwn(r,alias)&&val(r[alias]))return {key:alias,value:val(r[alias])}}return null}
 function auditInit(){auditSelected.clear();auditDrafts.clear();auditManufacturers=[...new Set(data.map(r=>val(r.Hersteller)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'de'));auditOptions=new Map();for(let k of ['Hersteller','Warengruppe','Kategorie Ebene 1','Kategorie Ebene 2'])auditOptions.set(k,[...new Set(data.map(r=>val(r[k])).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'de')));auditRender()}
 function auditRender(){let filter=$('auditFilter').value,term=val($('auditSearch').value).toLocaleLowerCase('de');let total=0,issues=0,visible=0;$('auditRows').replaceChildren();data.forEach((r,i)=>{let missing=auditMissing(r,i);if(missing.length)issues++;if(filter==='any'&&!missing.length)return;if(filter!=='all'&&filter!=='any'&&!missing.includes(filter))return;if(term&&![r.Artikelnummer,r.GTIN,r.Artikelname,r.HAN,r.Hersteller].some(x=>val(x).toLocaleLowerCase('de').includes(term)))return;total++;if(visible++>=100)return;let tr=document.createElement('tr'),id=auditId(r,i),status=auditStatus(r,i);tr.className='status-'+status;let sel=document.createElement('td'),cb=document.createElement('input');cb.type='checkbox';cb.checked=auditSelected.has(id);cb.onchange=()=>cb.checked?auditSelected.add(id):auditSelected.delete(id);sel.append(cb);tr.append(sel);for(let k of ['Artikelnummer','GTIN','Artikelname']){let td=document.createElement('td');td.textContent=val(auditValue(r,i,k))||'—';tr.append(td)}let td=document.createElement('td'),pill=document.createElement('span');pill.className='statuspill '+status;pill.textContent=(status==='green'?'Grün · vollständig':status==='orange'?'Orange · teilweise':'Rot · Lücken')+(auditDrafts.has(id)?' ✓ bearbeitet':'');pill.title=missing.length?'Fehlt: '+missing.join(', '):'Prüffelder befüllt';td.append(pill);tr.append(td);for(let keys of [['Brutto-VK'],['Netto-EK','Durchschnittlicher Einkaufspreis (netto)']]){let p=document.createElement('td');p.textContent=auditPrice(r,i,keys);tr.append(p)}let act=document.createElement('td'),btn=document.createElement('button');btn.className='actbtn';btn.textContent='Bearbeiten';btn.onclick=()=>auditEdit(i);act.append(btn);tr.append(act);$('auditRows').append(tr)});$('auditStats').textContent=data.length+' Artikel geladen · '+issues+' mit fehlenden Prüffeldern · '+total+' Filtertreffer · '+auditDrafts.size+' bearbeitete Artikel · '+auditSelected.size+' ausgewählt';}
-function auditSuggest(r,i){let updates={};let name=val(auditValue(r,i,'Artikelname')).replace(/\\s+/g,' ').trim();if(!name)return updates;let found=auditManufacturers.filter(m=>name.toLocaleLowerCase('de').startsWith(m.toLocaleLowerCase('de')+' ')||name.toLocaleLowerCase('de').startsWith(m.toLocaleLowerCase('de')+'-')||name.toLocaleLowerCase('de')===m.toLocaleLowerCase('de')).sort((a,b)=>b.length-a.length);let brand=val(auditValue(r,i,'Hersteller'))||found[0]||'';if(!val(auditValue(r,i,'Hersteller'))&&found.length)updates.Hersteller=found[0];let peers=data.filter(x=>x!==r&&val(x.Hersteller).toLocaleLowerCase('de')===brand.toLocaleLowerCase('de')&&brand&&val(x.Warengruppe));let keyword=/(shampoo|conditioner|maske|pflege|serum|haarkur|spray|color|farbe|creme|oxidant|entwickler|blondier)/i;let words=name.match(keyword),similar=words?peers.filter(x=>val(x.Artikelname).toLowerCase().includes(words[0].toLowerCase())):[];let groups=new Map();for(let x of similar){let g=val(x.Warengruppe);groups.set(g,(groups.get(g)||0)+1)}let ranked=[...groups].sort((a,b)=>b[1]-a[1]);if(!val(auditValue(r,i,'Warengruppe'))&&ranked.length&&ranked[0][1]>=2&&(ranked.length===1||ranked[0][1]>ranked[1][1]))updates.Warengruppe=ranked[0][0];let clean=name.replace(/\\s*[-–]\\s*$/,'').trim();let title=clean.length<=58?clean:clean.slice(0,58).replace(/\\s+\\S*$/,'').trim();if(!val(auditValue(r,i,'Titel-Tag (SEO)')))updates['Titel-Tag (SEO)']=title;let purpose=/(shampoo|conditioner|haarkur|maske|serum|haarspray|haarfarbe|color|entwickler|creme)/i.exec(name);let benefit=purpose?('Entdecke '+clean+'. Produktinformationen, Eigenschaften und Anwendung bei HAIRWORLD24 ansehen.') :('Informationen zu '+clean+' bei HAIRWORLD24 entdecken. Produktdetails und Eigenschaften ansehen.');let shopName=channelBrand(r,i)||'HAIRWORLD24.de';benefit=benefit.replace(/HAIRWORLD24/g,shopName);if(!val(auditValue(r,i,'Meta-Description (SEO)')))updates['Meta-Description (SEO)']=benefit.length<=155?benefit:benefit.slice(0,152).replace(/\\s+\\S*$/,'')+'…';if(!val(auditValue(r,i,'Kurzbeschreibung')))updates.Kurzbeschreibung=clean;if(!val(auditValue(r,i,'Beschreibung')))updates.Beschreibung=clean;return updates}
+function auditSuggest(r,i){let updates={};let name=val(auditValue(r,i,'Artikelname')).replace(/\\s+/g,' ').trim();if(!name)return updates;let found=auditManufacturers.filter(m=>name.toLocaleLowerCase('de').startsWith(m.toLocaleLowerCase('de')+' ')||name.toLocaleLowerCase('de').startsWith(m.toLocaleLowerCase('de')+'-')||name.toLocaleLowerCase('de')===m.toLocaleLowerCase('de')).sort((a,b)=>b.length-a.length);let brand=val(auditValue(r,i,'Hersteller'))||found[0]||'';if(!val(auditValue(r,i,'Hersteller'))&&found.length)updates.Hersteller=found[0];/* No automatic Warengruppe inference from similarly named products. A term such as 'spray' occurs in both styling and hair color products; use a verified kWarengruppe lookup only. */let clean=name.replace(/\\s*[-–]\\s*$/,'').trim();let title=clean.length<=58?clean:clean.slice(0,58).replace(/\\s+\\S*$/,'').trim();if(!val(auditValue(r,i,'Titel-Tag (SEO)')))updates['Titel-Tag (SEO)']=title;let purpose=/(shampoo|conditioner|haarkur|maske|serum|haarspray|haarfarbe|color|entwickler|creme)/i.exec(name);let benefit=purpose?('Entdecke '+clean+'. Produktinformationen, Eigenschaften und Anwendung bei HAIRWORLD24 ansehen.') :('Informationen zu '+clean+' bei HAIRWORLD24 entdecken. Produktdetails und Eigenschaften ansehen.');let shopName=channelBrand(r,i)||'HAIRWORLD24.de';benefit=benefit.replace(/HAIRWORLD24/g,shopName);if(!val(auditValue(r,i,'Meta-Description (SEO)')))updates['Meta-Description (SEO)']=benefit.length<=155?benefit:benefit.slice(0,152).replace(/\\s+\\S*$/,'')+'…';if(!val(auditValue(r,i,'Kurzbeschreibung')))updates.Kurzbeschreibung=clean;if(!val(auditValue(r,i,'Beschreibung')))updates.Beschreibung=clean;return updates}
 function auditApply(i,patch){let r=data[i],id=auditId(r,i),prev=auditDrafts.get(id)||{},safe={...prev};for(let [k,v] of Object.entries(patch)){if(k==='Artikelnummer'||k==='GTIN'||k==='HAN'||k==='ASIN'||k==='Interner Schlüssel')continue;if(val(v)!==val(r[k]))safe[k]=v;else delete safe[k]}if(Object.keys(safe).length)auditDrafts.set(id,safe);else auditDrafts.delete(id)}
 const prefAliases={'Inhalt':['Füllmenge','Inhaltsmenge','Inhalt (ml)','Inhalt (g)'],'Menge':['Menge','Füllmenge','Inhaltsmenge'],'Inhaltseinheit':['Inhaltseinheit','Inhalt Einheit','Einheit','Füllmengeneinheit'],'Verkaufseinheit':['Verkaufseinheit','VKE','Verkaufseinheit (VE)'],'Brutto-VK':['Brutto-VK','VK Brutto','Verkaufspreis brutto'],'Netto-VK':['Netto-VK','VK Netto','Verkaufspreis netto'],'Steuerschlüssel':['Steuerschlüssel','Mehrwertsteuerschlüssel','USt-Schlüssel'],'USt-Satz':['USt-Satz','Mehrwertsteuersatz','MwSt','Steuersatz'],'Titel-Tag (SEO)':['Titel-Tag (SEO)','SEO-Titel','Meta Title','Title Tag'],'Meta-Description (SEO)':['Meta-Description (SEO)','SEO-Beschreibung','Meta Description']};
 function sourceValue(r,k){let keys=[k,...(prefAliases[k]||[]),...(extendedAliases[k]||[]),...(auditFiscalAliases[k]||[])];for(let name of new Set(keys)){let v=val(r[name]);if(v)return v}return ''}
@@ -401,4 +455,296 @@ $('auditCancel').onclick=()=>{$('auditEditor').hidden=true;auditEditing=-1};
 $('auditAuto').onclick=()=>{let count=0;for(let i=0;i<data.length;i++){if(!auditSelected.has(auditId(data[i],i)))continue;let p=auditSuggest(data[i],i);if(Object.keys(p).length){auditApply(i,p);count++}}auditRender();alert(count+' ausgewählte Artikel mit sicheren Vorschlägen ergänzt. Bitte alle Vorschläge prüfen.')};
 $('auditFilter').onchange=auditRender;$('auditSearch').oninput=auditRender;
 $('auditExport').onclick=()=>{if(!auditDrafts.size){alert('Noch keine Änderungen vorhanden');return}let keys=['Artikelnummer',...new Set([...auditDrafts.values()].flatMap(Object.keys))].filter(k=>!isExcludedEditorField(k)&&k!=='Interner Schlüssel'&&k!=='GTIN'&&k!=='HAN'&&k!=='ASIN');let quote=v=>'"'+val(v).replace(/"/g,'""')+'"';let lines=[keys.map(quote).join(';')];for(let i=0;i<data.length;i++){let r=data[i],d=auditDrafts.get(auditId(r,i));if(!d)continue;lines.push(keys.map(k=>quote(k==='Artikelnummer'?r.Artikelnummer:Object.hasOwn(d,k)?d[k]:r[k])).join(';'))}let blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='HW24_JTL_Ameise_AENDERUNGEN_ZUERST_PRUEFEN.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};
-</script><script src="assets/kanalcheck.js?v=4.1"></script><script src="assets/ameise.js?v=4.1"></script><script src="assets/scanflow.js?v=4.1"></script><script src="assets/jtl-profil.js?v=4.1"></script><script src="assets/qualitaet.js?v=4.1"></script><script src="assets/reiter.js?v=4.1"></script><script src="assets/api-status.js?v=4.2"></script><script src="assets/amazon-catalog.js?v=1.0"></script></html>
+</script><script src="assets/kanalcheck.js?v=4.1"></script><script src="assets/ameise.js?v=4.15"></script><script src="assets/hw24-vorlagen.js?v=4.15"></script><script src="assets/scanflow.js?v=4.8"></script><script src="assets/jtl-profil.js?v=4.15"></script><script src="assets/qualitaet.js?v=4.15"></script><script src="assets/reiter.js?v=4.21"></script><script src="assets/api-status.js?v=4.3"></script><script src="assets/hw24-smartscan.js?v=4.15"></script><script src="assets/hw24-workdesk.js?v=4.18"></script><script src="assets/hw24-operations.js?v=4.20"></script><script src="assets/hw24-batch.js?v=4.18"></script>
+<script>
+(function(){
+  // Keep EAN scanning first; CSV uploads and project status remain available below.
+  const scan=document.getElementById('hw24ScanWorkspace');
+  const project=document.getElementById('hw24Project');
+  if(scan&&project)project.before(scan);
+})();
+</script><script src="assets/amazon-catalog.js?v=1.1"></script>
+<script>
+(function(){
+  'use strict';
+  const moduleState=document.getElementById('hw24AmazonDiagnosticModule');
+  const apiState=document.getElementById('hw24AmazonDiagnosticApi');
+  const btn=document.getElementById('hw24AmazonDiagnosticCheck');
+  const detailsBtn=document.getElementById('hw24AmazonDiagnosticDetails');
+  if(!moduleState || !apiState || !btn || !detailsBtn) return;
+  function moduleCheck(){
+    const loaded=typeof window.hw24AmazonLookup==='function';
+    moduleState.textContent=loaded
+      ? '✓ Amazon-JavaScript geladen. EAN-Abfrage im Artikelmanager aktiviert.'
+      : '⚠ Amazon-JavaScript nicht geladen: Prüfe assets/amazon-catalog.js sowie den tatsächlichen Dokumentenstamm der Testdomain.';
+    moduleState.style.color=loaded?'#176b43':'#a02a32';
+    return loaded;
+  }
+  function showDetails(){
+    const panel=document.getElementById('hw24AmazonPanel');
+    const sourceDetails=document.getElementById('scanSourceDetails');
+    if(sourceDetails)sourceDetails.open=true;
+    if(panel){ panel.scrollIntoView({behavior:'smooth',block:'center'});return true; }
+    apiState.textContent='Amazon-Detailbereich nicht vorhanden. Die Datei assets/amazon-catalog.js wurde möglicherweise nicht geladen.';
+    return false;
+  }
+  detailsBtn.addEventListener('click',showDetails);
+  btn.addEventListener('click',async function(){
+    const input=document.getElementById('ean');
+    const candidate=String(input?.value||'').trim();
+    const ean=/^\d{8,14}$/.test(candidate)?candidate:'4021609029274';
+    apiState.textContent='Prüfe Amazon-API und MariaDB für EAN '+ean+' …';
+    btn.disabled=true;
+    try {
+      const response=await fetch('api/amazon.php?ean='+encodeURIComponent(ean),{
+        credentials:'same-origin',cache:'no-store',headers:{'Accept':'application/json'}
+      });
+      const raw=await response.text();
+      let data=null;
+      try{data=JSON.parse(raw);}catch(e){
+        apiState.textContent='⚠ HTTP '+response.status+': Keine JSON-Antwort. Möglicherweise Login-Weiterleitung, 404 oder PHP-Fehler.';
+        return;
+      }
+      if(response.ok&&data.ok){
+        apiState.textContent='✓ API und Datenbank erfolgreich · '+data.count+' Treffer · Quelle: '+(data.source||'?')+' · Snapshot-ID: '+(data.snapshot_id||'?');
+        apiState.style.color='#176b43';
+        if(moduleCheck()){
+          window.hw24AmazonLookup?.(ean);
+          showDetails();
+        }
+      }else{
+        const detail=[data.error,data.stage,data.upstream_status].filter(Boolean).join(' / ');
+        apiState.textContent='⚠ HTTP '+response.status+' · '+(detail||'Unbekannter API-Fehler')+'. Prüfe reguläre api/amazon.php auf der Testdomain.';
+        apiState.style.color='#a02a32';
+      }
+    }catch(error){
+      apiState.textContent='⚠ API-Netzwerkfehler. Prüfe, ob api/amazon.php über HTTPS aus der geschützten Testdomain erreichbar ist.';
+      apiState.style.color='#a02a32';
+    }finally {btn.disabled=false;}
+  });
+  moduleCheck();
+})();
+</script>
+<style id="hw24FocusCSS">
+/* HW24 Artikelfokus v4.22 | additive UI layer, no existing feature removed */
+:root{--fink:#14243d;--fnavy:#163a6b;--fmuted:#65758c;--fedge:#e1e8f0;--fsoft:#f5f8fc;--fgreen:#087f5b;--famber:#a26307;--fblue:#2864ab;--fshadow:0 10px 34px rgba(24,48,84,.055)}
+html{scroll-behavior:smooth}body{max-width:1260px!important;margin:0 auto!important;padding:20px 20px 70px!important;background:#f3f6fa!important;color:var(--fink)!important;font-family:system-ui,-apple-system,'Segoe UI',sans-serif!important;line-height:1.5}
+body > .hw24-hero{background:linear-gradient(120deg,#102b50,#224c7b)!important;color:#fff!important;box-shadow:0 14px 35px rgba(20,47,79,.14);padding:27px 34px!important;border-radius:22px!important;margin:4px 0 22px!important;position:relative;overflow:hidden}
+body > .hw24-hero:after{content:"";position:absolute;right:-95px;top:-120px;width:360px;height:360px;border:1px solid rgba(255,255,255,.10);border-radius:50%;pointer-events:none;box-shadow:0 0 0 65px rgba(255,255,255,.025),0 0 0 135px rgba(255,255,255,.025)}
+.hw24-hero .hw24-eyebrow{color:#a5d4f5!important;font-size:11px!important;font-weight:800!important;letter-spacing:.15em}.hw24-hero h1{color:#fff!important;font-size:clamp(24px,3vw,38px)!important;letter-spacing:-.04em!important;margin:5px 0 2px!important}.hw24-hero h1 small{display:inline-block;font-size:10px!important;letter-spacing:.08em;vertical-align:middle;border-radius:20px;background:#c4ebff;color:#14355b;padding:6px 10px;margin-left:10px}.hw24-hero p{color:#d8e6f6!important;max-width:680px!important;font-size:14px!important;margin:5px 0 16px!important}.hw24-hero .hw24-status-strip{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.hw24-hero #jtlApiState{color:#e3eefb!important;font-size:12px!important}.hw24-hero #jtlApiCheck{background:rgba(255,255,255,.12)!important;color:#fff!important;border:1px solid rgba(255,255,255,.3)!important;font-size:12px!important;padding:7px 12px!important}
+.hw24-focus-nav{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:0 0 16px}.hw24-focus-nav button{margin:0;background:#fff;color:#34506c;border:1px solid #dbe5ef;border-radius:100px;padding:10px 16px;font-size:13px;font-weight:750;box-shadow:0 3px 13px #183d6010}.hw24-focus-nav button[aria-current="page"]{background:#153e70;color:#fff;border-color:#153e70}.hw24-focus-nav button:hover{filter:brightness(.94)}
+body #hw24ScanWorkspace{background:transparent!important;box-shadow:none!important;padding:0!important;border-radius:0!important;margin:0!important;overflow:visible!important}#hw24ScanWorkspace>h3{font-size:19px;font-weight:800;letter-spacing:-.02em;margin:12px 0 10px}#hw24ScanWorkspace #ean{background:#fff!important;border:2px solid #d4e0ed!important;min-height:57px!important;font-size:21px!important;letter-spacing:.025em;padding:13px 17px!important;border-radius:12px!important;max-width:530px;box-shadow:0 3px 12px #102a4a0c}#hw24ScanWorkspace #ean:focus{outline:4px solid #bfdbf6;border-color:#1d6aaf!important}#hw24ScanWorkspace #scanStart{background:#145b9f!important;border:1px solid #145b9f!important;min-height:56px!important;font-weight:750!important;border-radius:12px!important;margin:6px 0 6px 9px!important;padding:11px 22px!important}#hw24ScanWorkspace #historyRetry,#hw24ScanWorkspace #historyRetry + button{display:none!important}#hw24ScanWorkspace> #status{font-size:12px;color:#587088;margin:5px 0 15px;min-height:18px}
+#hw24FocusMain{background:#fff;border:1px solid #e0e8f0;box-shadow:var(--fshadow);padding:0;border-radius:21px;overflow:hidden;margin:14px 0 19px}#hw24FocusMain *{box-sizing:border-box}#hw24FocusMain .f-header{padding:20px 25px 12px;border-bottom:1px solid #eff2f7;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}#hw24FocusMain .f-label{display:block;color:#6a7d95;text-transform:uppercase;letter-spacing:.12em;font-size:10px;font-weight:850}#hw24FocusMain .f-title{font-size:19px;font-weight:850;margin:2px 0;letter-spacing:-.025em}#hw24FocusMain .f-state{font-size:12px;border:1px solid #dae5ef;background:#f6f9fc;color:#475d75;padding:6px 11px;border-radius:100px;font-weight:700;display:inline-flex;align-items:center;gap:6px}
+#hw24FocusMain .f-product{display:grid;grid-template-columns:100px minmax(0,1fr);gap:23px;padding:24px 25px 18px;align-items:start}#hw24FocusMain .f-product-avatar{width:100px;height:112px;border:1px solid #d9e4ed;background:linear-gradient(145deg,#eaf5ff,#fff);border-radius:16px;display:grid;place-items:center;color:#2d679f;position:relative}#hw24FocusMain .f-product-avatar svg{height:51px;width:51px;opacity:.85}#hw24FocusMain .f-product-avatar:after{content:"EAN";position:absolute;bottom:11px;color:#6b8aad;font-size:9px;letter-spacing:.16em;font-weight:800}#hw24FocusMain .f-product h2{font-size:clamp(21px,2.8vw,30px);letter-spacing:-.04em;line-height:1.2;margin:4px 0 10px;max-width:900px}#hw24FocusMain .f-badges{display:flex;flex-wrap:wrap;gap:7px}#hw24FocusMain .f-chip{display:inline-block;background:#f3f7fb;color:#46617c;border:1px solid #e0e9f2;border-radius:8px;font-size:11px;font-weight:750;padding:5px 9px;overflow-wrap:anywhere}#hw24FocusMain .f-chip.good{background:#eaf8f0;color:#087249;border-color:#bce6cb}#hw24FocusMain .f-chip.caution{background:#fff5e6;color:#945409;border-color:#f4ddab}#hw24FocusMain .f-chip.bad{background:#fff0f0;color:#9a2635;border-color:#f0c1c7}
+#hw24FocusMain .f-identity{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid #e8eef5;border-bottom:1px solid #e8eef5;background:#fcfdff;margin:0 25px}#hw24FocusMain .f-identity>div{padding:15px 10px 15px 0;min-width:0}#hw24FocusMain .f-identity>div+div{padding-left:15px;border-left:1px solid #e8eef5}#hw24FocusMain .f-identity label{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#8290a2;margin:0 0 4px!important}#hw24FocusMain .f-identity strong{display:block;font-size:14px;overflow-wrap:anywhere}
+#hw24FocusMain .f-section{padding:19px 25px;border-bottom:1px solid #edf1f5}#hw24FocusMain .f-section:last-child{border-bottom:0}#hw24FocusMain .f-section-title{font-size:16px;font-weight:850;margin:0 0 10px;letter-spacing:-.02em}#hw24FocusMain .f-section-desc{font-size:12px;color:var(--fmuted);margin:-6px 0 14px}#hw24FocusMain .f-source-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}#hw24FocusMain .f-source{border:1px solid #dde5ef;border-radius:13px;padding:13px 15px;background:#fafcff;min-width:0}#hw24FocusMain .f-source-top{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}#hw24FocusMain .f-source-name{font-size:13px;font-weight:800}#hw24FocusMain .f-source p{color:#596d82;font-size:12px;margin:9px 0 0;overflow-wrap:anywhere}#hw24FocusMain .f-dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:#a8b6c6;box-shadow:0 0 0 3px #eaf0f4;margin-right:4px}#hw24FocusMain .f-source[data-state="ok"] .f-dot{background:#13a174;box-shadow:0 0 0 3px #dff4e9}#hw24FocusMain .f-source[data-state="warn"] .f-dot{background:#e2a430;box-shadow:0 0 0 3px #fff1d5}#hw24FocusMain .f-source[data-state="error"] .f-dot{background:#d74f56;box-shadow:0 0 0 3px #ffe8e9}
+#hw24FocusMain .f-two-col{display:grid;grid-template-columns:1.35fr .95fr;gap:20px}#hw24FocusMain .f-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 14px}#hw24FocusMain .f-fact{padding:11px 13px;border:1px solid #e5ebf3;border-radius:11px;background:#fbfcfe;min-width:0}#hw24FocusMain .f-fact span{display:block;color:#708196;font-size:10px;font-weight:750;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}#hw24FocusMain .f-fact strong{font-size:13px;overflow-wrap:anywhere}#hw24FocusMain .f-footnote{font-size:11px;color:#718095;line-height:1.5;margin:10px 0 0}#hw24FocusMain .f-amazon-empty{min-height:155px;border:1px dashed #cfdae6;background:#f9fbfe;padding:18px;border-radius:13px;display:flex;gap:12px;align-items:center;color:#546a83;font-size:13px}#hw24FocusMain .f-amazon-empty svg{width:26px;min-width:26px;color:#658cae}#hw24FocusMain .f-amazon-title{font-weight:850;font-size:15px;line-height:1.35;margin-bottom:10px}#hw24FocusMain .f-amazon-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}#hw24FocusMain .f-amazon-meta div{border:1px solid #e5ecf4;border-radius:9px;padding:9px 10px;min-width:0}#hw24FocusMain .f-amazon-meta label{font-size:10px;color:#728095;font-weight:700;margin:0!important}#hw24FocusMain .f-amazon-meta strong{font-size:12px;display:block;overflow-wrap:anywhere}#hw24FocusMain .f-extra{margin-top:11px;border-top:1px solid #e8eef6;padding-top:10px}#hw24FocusMain .f-extra summary{font-size:12px;font-weight:800;color:#2b5a92;cursor:pointer}#hw24FocusMain .f-extra ul{margin:9px 0 0;padding-left:20px;font-size:12px;color:#4d6074}#hw24FocusMain .f-warning{display:flex;align-items:flex-start;gap:9px;border:1px solid #fae1bb;background:#fff9ef;border-radius:9px;padding:10px 11px;margin:7px 0;font-size:12px;color:#855514}#hw24FocusMain .f-warning .f-warn-ic{font-size:15px;line-height:1}#hw24FocusMain .f-clear{background:#ecf9f2;color:#16774f;border-color:#ccebd8}#hw24FocusMain .f-actions{padding:17px 25px 22px;display:flex;gap:9px;flex-wrap:wrap;align-items:center;background:#f8fafc}#hw24FocusMain .f-actions button{border-radius:10px;padding:11px 16px;font-size:13px;font-weight:800;min-height:44px;margin:0;background:#fff;color:#27496a;border:1px solid #cad7e7}#hw24FocusMain .f-actions button.f-primary{background:#16538d;color:#fff;border-color:#16538d}#hw24FocusMain .f-actions .f-helper{color:#738197;font-size:11px;margin-left:auto;max-width:235px;text-align:right}
+#hw24ScanWorkspace #scanCockpit{border:1px solid #e2e9f2!important;background:#fff!important;padding:17px 22px!important;box-shadow:var(--fshadow)!important;border-radius:15px!important;margin:0 0 13px!important}#hw24ScanWorkspace #scanCockpit .scan-summary,#hw24ScanWorkspace #scanCockpit .scan-indicators,#hw24ScanWorkspace #scanCockpit .hw24-quick-facts,#hw24ScanWorkspace #scanCockpit>.note{display:none!important}#hw24ScanWorkspace #scanCockpit .scan-checklist{padding:7px 0!important;background:none!important;border:0!important}#hw24ScanWorkspace #scanCockpit .scan-suggestions{font-size:12px!important}#hw24ScanWorkspace #scanCockpit .scan-actions{margin:7px 0!important}#hw24ScanWorkspace #scanCockpit .scan-actions button{font-size:12px!important;padding:9px 12px!important;border-radius:9px!important}#hw24ScanWorkspace #scanCockpit:before{content:'Weitere Aktionen · Bestandsprüfung und automatische Entwürfe';display:block;font-weight:800;font-size:13px;color:#49627b;margin-bottom:4px}
+#hw24ScanWorkspace>.scan-advanced,#hw24ScanWorkspace>details.group,#hw24Tools{border:1px solid #e1e8ef!important;background:#fff!important;border-radius:14px!important;padding:0!important;box-shadow:0 4px 20px rgba(20,48,80,.025)!important;margin:10px 0!important}#hw24ScanWorkspace>.scan-advanced>summary,#hw24ScanWorkspace>details.group>summary,#hw24Tools>summary{padding:16px 19px!important;cursor:pointer!important;color:#294b6e!important;font-size:14px!important;font-weight:750!important}#hw24ScanWorkspace>.scan-advanced[open],#hw24ScanWorkspace>details.group[open]{padding:0 16px 16px!important}#hw24ScanWorkspace>.scan-advanced[open]>summary,#hw24ScanWorkspace>details.group[open]>summary{padding:16px 3px!important;border-bottom:1px solid #e7edf2;margin-bottom:13px}#hw24Tools[open]{padding:0 17px 17px!important}#hw24Tools[open]>summary{padding:16px 0!important;border-bottom:1px solid #e7edf2}#hw24Tools section,#hw24Tools details{max-width:100%;box-sizing:border-box}#hw24Tools #hw24AmazonDiagnostic{box-shadow:none!important;border:1px solid #d7e4ef!important}#hw24Tools .f-diagnostic details>summary{cursor:pointer;color:#35608a;font-size:13px;font-weight:700;padding:7px 0}#hw24Tools .f-diagnostic{background:#f7faff;border:1px solid #e4eaf1;border-radius:10px;padding:12px;margin-top:12px}
+#hw24ScanWorkspace #unknownActions{border:1px solid #f1d4d8!important;background:#fff6f6!important;color:#7f3e44;font-size:12px}#hw24ScanWorkspace #unknownActions button{font-size:12px}#hw24ScanWorkspace #ameisePanel{overflow:visible}#hw24ScanWorkspace #channelMore{border:1px solid #e0e8f0;border-radius:12px;padding:13px;background:#fff}#hw24ScanWorkspace #scanSourceDetails .group,#hw24ScanWorkspace #masterDataDetails .group{box-shadow:none}#hw24AmazonPanel{display:none!important}
+@media(max-width:940px){#hw24FocusMain .f-two-col{grid-template-columns:1fr}#hw24FocusMain .f-identity{grid-template-columns:repeat(2,minmax(0,1fr))}#hw24FocusMain .f-identity>div{border-left:0!important;padding:10px 12px!important}#hw24FocusMain .f-identity>div:nth-child(2n){border-left:1px solid #e8eef5!important}#hw24FocusMain .f-source-grid{grid-template-columns:1fr}}
+@media(max-width:620px){body{padding:9px 10px 45px!important}body>.hw24-hero{padding:19px!important;border-radius:16px!important;margin:0 0 14px!important}.hw24-hero h1{font-size:25px!important}.hw24-focus-nav{gap:5px}.hw24-focus-nav button{padding:8px 11px;font-size:11px}#hw24ScanWorkspace #ean{width:100%!important;max-width:none!important;font-size:18px!important}#hw24ScanWorkspace #scanStart{width:100%!important;margin:8px 0!important}#hw24FocusMain{border-radius:15px}#hw24FocusMain .f-header{padding:15px}#hw24FocusMain .f-product{grid-template-columns:67px 1fr;gap:11px;padding:17px 15px 14px}#hw24FocusMain .f-product-avatar{width:67px;height:75px}#hw24FocusMain .f-product-avatar svg{width:35px;height:35px}#hw24FocusMain .f-product-avatar:after{font-size:7px;bottom:5px}#hw24FocusMain .f-product h2{font-size:20px}#hw24FocusMain .f-identity{margin:0 15px}#hw24FocusMain .f-section{padding:15px}#hw24FocusMain .f-facts,#hw24FocusMain .f-amazon-meta{grid-template-columns:1fr}#hw24FocusMain .f-actions{padding:15px}#hw24FocusMain .f-actions button{width:100%}#hw24FocusMain .f-actions .f-helper{width:100%;max-width:none;text-align:left;margin:0}}
+
+</style>
+<script id="hw24FocusController">
+/* HW24 Artikelfokus v4.22. Presentation-only enhancement with a human-readable Amazon result.
+ * Preserves original IDs/functions used by JTL, historical search, scanner and JTL-Ameise.
+ * No write APIs; Amazon is read-only, JTL remains CSV draft / protected mirror.
+ */
+(function(){
+'use strict';
+const byId=id=>document.getElementById(id);
+const safe=v=>String(v??'').trim();
+const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=String(text);return n;};
+const host=byId('hw24ScanWorkspace'), scan=byId('ean'), searchButton=byId('scanStart');
+if(!host||!scan||!searchButton||byId('hw24FocusMain'))return;
+const nav=el('nav','hw24-focus-nav');nav.setAttribute('aria-label','Arbeitsbereiche');
+nav.innerHTML='<button type="button" aria-current="page" data-focus-go="scan">① Artikelprüfung</button><button type="button" data-focus-go="edit">② Stammdaten</button><button type="button" data-focus-go="export">③ JTL-Export</button><button type="button" data-focus-go="tools">⚙ Weitere Werkzeuge</button>';
+const header=document.querySelector('.hw24-hero');if(header)header.insertAdjacentElement('afterend',nav);
+const focus=el('section');focus.id='hw24FocusMain';focus.setAttribute('aria-label','Zentrale Artikelübersicht');
+focus.innerHTML=`
+  <div class="f-header"><div><span class="f-label">Arbeitsplatz · Artikelprüfung</span><h2 class="f-title">Ein Artikel. Alle wichtigen Informationen.</h2></div><span id="focusStatusPill" class="f-state" role="status">● Bereit zum Scannen</span></div>
+  <div class="f-product">
+    <div class="f-product-avatar" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2"><rect x="17" y="10" width="30" height="45" rx="5"/><path d="M24 10V5h16v5M24 27h16M24 34h16M24 41h10"/><path d="M12 20v24m40-24v24" stroke-width="1.4"/></svg></div>
+    <div><span class="f-label">Artikelidentität</span><h2 id="focusProductName">Noch keinen Artikel ausgewählt</h2><div class="f-badges"><span id="focusTagJtl" class="f-chip">JTL nicht geprüft</span><span id="focusTagAmazon" class="f-chip">Amazon nicht geprüft</span><span id="focusTagQuality" class="f-chip">EAN eingeben und prüfen</span></div></div>
+  </div>
+  <div class="f-identity"><div><label>EAN / GTIN</label><strong id="focusEan">–</strong></div><div><label>Artikelnummer</label><strong id="focusSku">–</strong></div><div><label>Marke / Hersteller</label><strong id="focusBrand">–</strong></div><div><label>ASIN</label><strong id="focusAsin">–</strong></div></div>
+  <div class="f-section"><h3 class="f-section-title">Datenquellen im Überblick</h3><p class="f-section-desc">Wir zeigen nur tatsächlich überprüfte Informationen. Ein fehlender Exportwert ist keine Aussage über die WMS-Anbindung.</p>
+    <div class="f-source-grid">
+      <div class="f-source" id="focusSourceJtl" data-state="idle"><div class="f-source-top"><strong class="f-source-name"><span class="f-dot"></span> JTL-Wawi</strong><span class="f-chip" id="focusJtlBadge">Offen</span></div><p id="focusJtlText">Der aktuelle JTL-Spiegel wird nach dem Scan abgefragt.</p></div>
+      <div class="f-source" id="focusSourceAmazon" data-state="idle"><div class="f-source-top"><strong class="f-source-name"><span class="f-dot"></span> Amazon SP-API</strong><span class="f-chip" id="focusAmazonBadge">Offen</span></div><p id="focusAmazonText">Produktdaten erscheinen nach der EAN-Abfrage als Felder.</p></div>
+      <div class="f-source" id="focusSourceHistory" data-state="idle"><div class="f-source-top"><strong class="f-source-name"><span class="f-dot"></span> Artikelhistorie</strong><span class="f-chip" id="focusHistoryBadge">Offen</span></div><p id="focusHistoryText">Frühere Excel-Daten werden separat als Recherchehinweis ausgewertet.</p></div>
+    </div>
+  </div>
+  <div class="f-section f-two-col"><div><h3 class="f-section-title">Die wichtigsten Artikeldaten</h3><p class="f-section-desc">Vorrang haben vorhandene JTL-Werte. Amazon dient als zusätzliche Recherchequelle.</p><div class="f-facts" id="focusFacts"><div class="f-fact"><span>Artikelstatus</span><strong>Bitte EAN scannen</strong></div></div><p class="f-footnote">EK, VK und Lagerbestand werden nicht aus Amazon geschätzt. Fehlende Werte bleiben offen.</p></div>
+    <div><h3 class="f-section-title">Amazon-Produktkarte</h3><p class="f-section-desc">Lesbar statt JSON. Verdächtige Angaben werden zur Prüfung markiert.</p><div id="focusAmazonCard"><div class="f-amazon-empty">Amazon-Katalogdaten erscheinen nach dem ersten Scan.</div></div></div>
+  </div>
+  <div class="f-section"><h3 class="f-section-title">Hinweise und nächste Prüfung</h3><div id="focusWarnings" aria-live="polite"><p class="f-footnote">Nach einer Artikelprüfung werden hier mögliche Datenkonflikte angezeigt.</p></div></div>
+  <div class="f-actions"><button type="button" class="f-primary" id="focusEdit">✏️ Fehlende Stammdaten bearbeiten</button><button type="button" id="focusExport">📄 JTL-Ameise-Entwurf</button><button type="button" id="focusSources">🔎 Quellen & Nachweise</button><span class="f-helper">Keine automatische Änderung an JTL oder Amazon.</span></div>`;
+const diag=byId('hw24AmazonDiagnostic');
+const oldCockpit=byId('scanCockpit');if(oldCockpit)oldCockpit.insertAdjacentElement('beforebegin',focus);else scan.parentElement.append(focus);
+// Move technical and optional modules behind one deliberately closed tools disclosure.
+const tools=el('details');tools.id='hw24Tools';tools.append(el('summary','', '⚙ Erweiterte Werkzeuge, Importe und Systemdiagnose'));
+host.insertAdjacentElement('afterend',tools);
+const tech=el('div','f-diagnostic');const techOpen=el('details');techOpen.append(el('summary','','Amazon-Verbindung und technische Diagnose'));
+if(diag)techOpen.append(diag);tech.append(techOpen);
+const project=byId('hw24Project'),importArea=byId('importArea');
+if(importArea)tools.append(importArea);
+const audit=byId('auditPanel');
+if(audit){const parent=audit.closest('details.scan-advanced');if(parent&&parent.parentElement===document.body)tools.append(parent);}
+// Move optional root details (scan list) without impacting IDs or previously assigned listeners.
+for(const detail of Array.from(document.querySelectorAll('body > details.scan-advanced'))){if(detail.parentElement===document.body)tools.append(detail);}
+if(project)tools.append(project);
+tools.append(tech);
+const diagDetails=byId('hw24AmazonDiagnosticDetails');if(diagDetails)diagDetails.textContent='Originale Quelldetails öffnen';
+const buttons=Array.from(nav.querySelectorAll('[data-focus-go]'));
+function go(where){
+ let node;
+ if(where==='scan'){node=host;scan.focus({preventScroll:true});}
+ if(where==='edit'){node=byId('masterDataDetails');if(node)node.open=true;}
+ if(where==='export'){node=byId('ameisePanel');if(node)node.open=true;}
+ if(where==='tools'){node=tools;tools.open=true;}
+ if(where==='sources'){node=byId('scanSourceDetails');if(node)node.open=true;}
+ if(node)node.scrollIntoView({behavior:'smooth',block:'start'});
+ for(const b of buttons)b.setAttribute('aria-current',b.dataset.focusGo===where?'page':'false');
+}
+nav.addEventListener('click',e=>{const button=e.target.closest('[data-focus-go]');if(button)go(button.dataset.focusGo);});
+byId('focusEdit').addEventListener('click',()=>go('edit'));
+byId('focusExport').addEventListener('click',()=>go('export'));
+byId('focusSources').addEventListener('click',()=>go('sources'));
+const set=(id,value)=>{const item=byId(id);if(item)item.textContent=safe(value)||'–';};
+function chip(id,text,state){const node=byId(id);if(!node)return;node.textContent=text;node.className='f-chip'+(state?' '+state:'');}
+function source(id,badge,textId,state,badgeText,message){const node=byId(id);if(node)node.dataset.state=state;chip(badge,badgeText,state==='ok'?'good':state==='warn'?'caution':state==='error'?'bad':'');set(textId,message);}
+function extractField(name){const box=Array.from(document.querySelectorAll('#fields .field')).find(item=>item.querySelector('label')?.textContent.trim()===name);return safe(box?.querySelector('input,textarea')?.value);}
+const factNames=[['Artikelname','Artikelname'],['Brutto-VK','Verkaufspreis brutto'],['Ø EK netto (GLD)','Durchschnittlicher EK netto'],['Letzter EK (JTL)','Letzter Einkaufspreis'],['Warengruppe','Warengruppe'],['Artikelgewicht','Artikelgewicht'],['Versandgewicht','Versandgewicht']];
+let lastAmazon=null, lastStatus='idle';
+function fmtEUR(raw){const v=safe(raw);return v?v+(v.endsWith('€')?'':' €'):'Nicht verfügbar';}
+function updateFacts(){
+  const area=byId('focusFacts');if(!area)return;
+  const values=[['Brutto-VK','Verkaufspreis brutto'],['Ø EK netto (GLD)','Ø EK netto'],['Letzter EK (JTL)','Letzter EK netto'],['Warengruppe','Warengruppe'],['Artikelgewicht','Artikelgewicht'],['Versandgewicht','Versandgewicht']];
+  area.replaceChildren();
+  for(const [key,label] of values){const d=el('div','f-fact');d.append(el('span','',label));const v=extractField(key);d.append(el('strong','',v?(['Brutto-VK','Ø EK netto (GLD)','Letzter EK (JTL)'].includes(key)?fmtEUR(v):v):'Nicht im geprüften Datensatz'));area.append(d);}
+}
+function updateJtl(){
+  const text=safe(byId('jtlResult')?.textContent);const decision=safe(byId('scanDecision')?.textContent);
+  if(!scan.value.trim()){source('focusSourceJtl','focusJtlBadge','focusJtlText','idle','Offen','Noch keine EAN geprüft.');return;}
+  if(/JTL-Wawi-Abgleich wird geprüft/.test(text)){source('focusSourceJtl','focusJtlBadge','focusJtlText','idle','Prüfung','JTL-Spiegel wird abgefragt …');return;}
+  if(/im aktuellen JTL-Spiegel vorhanden/i.test(text)){source('focusSourceJtl','focusJtlBadge','focusJtlText','ok','Treffer','Im aktuellen JTL-Spiegel gefunden.');chip('focusTagJtl','JTL gefunden','good');}
+  else if(/Kein Artikel im aktuellen JTL-Spiegel/i.test(text)){source('focusSourceJtl','focusJtlBadge','focusJtlText','warn','Nicht gefunden','Im aktuellen Spiegel nicht gefunden. Eine Neuanlage erfordert weitere Prüfung.');chip('focusTagJtl','JTL: kein Treffer','caution');}
+  else if(/Mehrere JTL-Artikel/i.test(text)){source('focusSourceJtl','focusJtlBadge','focusJtlText','warn','Mehrfachtreffer','Mehrere Artikel mit dieser Kennung. Bitte Zuordnung prüfen.');chip('focusTagJtl','JTL: mehrfach','caution');}
+  else if(/nicht erreichbar|nicht abrufbar|veraltet|noch nicht/i.test(text)){source('focusSourceJtl','focusJtlBadge','focusJtlText','error','Ungeprüft','JTL-Status aktuell nicht verlässlich abrufbar. Keine automatische Neuanlage.');chip('focusTagJtl','JTL ungeprüft','caution');}
+  else {source('focusSourceJtl','focusJtlBadge','focusJtlText','idle','Prüfung',text.slice(0,170)||'Abfrage ausstehend');}
+  if(decision&&!/EAN scannen/i.test(decision))set('focusStatusPill',decision.slice(0,90));
+}
+function updateHistory(){
+ const panel=byId('historicalPanel');const text=safe(byId('historicalResults')?.textContent);
+ if(!scan.value.trim()||panel?.hidden){source('focusSourceHistory','focusHistoryBadge','focusHistoryText','idle','Offen','Historische Recherche noch nicht abgeschlossen.');return;}
+ if(/wird abgefragt/i.test(text)){source('focusSourceHistory','focusHistoryBadge','focusHistoryText','idle','Prüfung','Archivabfrage läuft …');return;}
+ if(/nicht erreichbar|Abfrage fehlgeschlagen|Ungültige/i.test(text)){source('focusSourceHistory','focusHistoryBadge','focusHistoryText','error','Ungeprüft','Historische Quelle nicht verfügbar.');return;}
+ if(/Keine historischen|Kein historischer Treffer/i.test(text)){source('focusSourceHistory','focusHistoryBadge','focusHistoryText','warn','Kein Treffer','Kein Eintrag im geprüften Historienarchiv.');return;}
+ const count=text.match(/(\d+) unterschiedliche historische Excel-Zeilen gefunden/);
+ if(count){source('focusSourceHistory','focusHistoryBadge','focusHistoryText','ok',count[1]+' Treffer',count[1]+' mögliche historische Quellzeilen. Noch nicht durch JTL bestätigt.');return;}
+ source('focusSourceHistory','focusHistoryBadge','focusHistoryText','idle','Recherche','Historische Informationen werden ausgewertet.');
+}
+function updateIdentity(){
+ const query=safe(scan.value);const resolved=lastAmazon?.items?.[0]?.identifiers?.flatMap(r=>r.identifiers||[]).find(r=>r.identifierType==='EAN')?.identifier;set('focusEan',/^\d{8,14}$/.test(query)?query:(resolved||query||'–'));
+ const name=extractField('Artikelname')||safe(lastAmazon?.items?.[0]?.title);
+ set('focusProductName',name||'Noch keinen Artikel ausgewählt');
+ set('focusBrand',extractField('Hersteller')||safe(lastAmazon?.items?.[0]?.brand)||safe(lastAmazon?.items?.[0]?.manufacturer)||'–');
+ set('focusSku',extractField('Artikelnummer')||'–');set('focusAsin',extractField('ASIN')||safe(lastAmazon?.items?.[0]?.asin)||'–');
+ updateFacts();updateJtl();updateHistory();
+}
+function textAttr(item,key){const arr=item?.attributes?.[key];if(!Array.isArray(arr))return '';return safe(arr[0]?.value);}
+function fAttr(item,key){const list=item?.attributes?.[key];return Array.isArray(list)?list:[];}
+function metaField(parent,label,value){if(!safe(value))return;const d=el('div');d.append(el('label','',label),el('strong','',value));parent.append(d);}
+function warn(message){const d=el('div','f-warning');d.append(el('span','f-warn-ic','⚠'),el('span','',message));byId('focusWarnings').append(d);}
+function detectIssues(item,data){
+ const issues=[];const localTitle=extractField('Artikelname');const localBrand=extractField('Hersteller');
+ const normalize=s=>safe(s).toLocaleLowerCase('de').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+ if(localBrand&&item.brand&&normalize(localBrand)!==normalize(item.brand))issues.push('Marke in JTL/CSV und im Amazon-Katalog weicht ab. Nicht automatisch übernehmen.');
+ const dry=s=>/trockenshampoo|dry shampoo/i.test(s);
+ if(localTitle&&item.title&&dry(localTitle)!==dry(item.title))issues.push('Möglicher Produktfehler: Shampoo und Trockenshampoo unterscheiden sich. Produkt vor Übernahme prüfen.');
+ const eans=(item.identifiers||[]).flatMap(entry=>entry.identifiers||[]).filter(entry=>/^(?:EAN|GTIN)$/i.test(entry.identifierType||'')).map(entry=>entry.identifier);
+ if(new Set(eans).size>1)issues.push('Amazon ordnet diesem Artikel mehrere EAN/GTIN zu. Identität anhand Verpackung verifizieren.');
+ const amount=textAttr(item,'unit_count');const liquid=fAttr(item,'liquid_volume')?.[0]?.value;
+ if(amount&&liquid&&Number(amount)!==Number(liquid))issues.push('Widersprüchliche Füllmengenfelder bei Amazon. Primär die geprüfte Verpackungsangabe verwenden.');
+ if(fAttr(item,'lithium_battery').length&&/shampoo|haar|hair|spray/i.test(item.title||''))issues.push('Unplausible Batterie-Metadaten im Amazon-Katalog. Nicht in JTL übernehmen.');
+ const hazmat=fAttr(item,'hazmat');if(hazmat.some(r=>safe(r?.value).includes('UN1950')||safe(r?.value).includes('FLAMMABLE')))issues.push('Amazon kennzeichnet den Artikel als entzündbares Aerosol (UN1950). Versandregeln anhand des tatsächlichen Produkts prüfen.');
+ if(data.count>1)issues.push('Mehrere Amazon-Treffer für eine EAN. Automatische Zuordnung und Übernahme gesperrt.');
+ const contact=fAttr(item,'gpsr_manufacturer_reference')?.[0]?.gpsr_manufacturer_email_address;
+ if(contact && /@wella\./i.test(contact) && /goldwell/i.test(item.brand||''))issues.push('Amazon-Kontaktangabe zur Produktsicherheit passt möglicherweise nicht zur Marke. Herstellerangaben vor Veröffentlichung prüfen.');
+ return issues;
+}
+function renderAmazon(data){
+ const box=byId('focusAmazonCard');box.replaceChildren();
+ if(!data.count||!Array.isArray(data.items)||!data.items.length){box.append(el('div','f-amazon-empty','Für diese EAN wurde kein Amazon-Katalogartikel gefunden.'));byId('focusWarnings').replaceChildren();warn('Kein Amazon-Treffer beweist nicht, dass der Artikel nicht existiert.');return;}
+ const item=data.items[0];box.append(el('div','f-amazon-title',item.title||'Ohne Katalogtitel'));
+ const meta=el('div','f-amazon-meta');
+ metaField(meta,'ASIN',item.asin);metaField(meta,'Marke',item.brand);metaField(meta,'Hersteller',item.manufacturer);metaField(meta,'Inhaltsmenge',textAttr(item,'size')|| (textAttr(item,'unit_count')+' ml'));
+ const pkg=fAttr(item,'item_package_weight')[0];metaField(meta,'Paketgewicht',pkg?.value&&pkg?.unit?pkg.value+' '+pkg.unit:'');
+ const price=fAttr(item,'list_price')[0];metaField(meta,'Amazon-Listenpreis',price?.value_with_tax?price.value_with_tax+' '+(price.currency||'EUR'):'');
+ box.append(meta);box.append(el('p','f-footnote','Amazon-Listenpreis ist kein bestätigter aktueller Verkaufspreis. JTL-Preise bleiben führend.'));
+ const bullets=fAttr(item,'bullet_point').map(v=>safe(v.value)).filter(Boolean);const ingredient=fAttr(item,'ingredients').map(v=>safe(v.value)).filter(Boolean);
+ if(bullets.length||ingredient.length){const details=el('details','f-extra');details.append(el('summary','','Produktmerkmale und Inhaltsstoffe ansehen'));const ul=el('ul');for(const b of [...new Set(bullets)].slice(0,5))ul.append(el('li','',b));if(ingredient.length)ul.append(el('li','','Inhaltsstoffe: '+ingredient.join(' / ')));details.append(ul);box.append(details);}
+ const issues=detectIssues(item,data);
+ const warningBox=byId('focusWarnings');warningBox.replaceChildren();
+ if(issues.length){issues.forEach(warn);chip('focusTagQuality',issues.length+' Prüfhilfe'+(issues.length===1?'':'n'),'caution');}
+ else {warningBox.append(el('div','f-warning f-clear','Kein offensichtlicher Widerspruch in den geprüften Feldern. Angaben vor JTL-Übernahme trotzdem verifizieren.'));chip('focusTagQuality','Katalogtreffer prüfen','good');}
+ // Import only clearly mapped missing text values, never overwrite JTL or touch protected IDs.
+ const proposals=[['Artikelname',item.title],['Hersteller',item.brand||item.manufacturer],['ASIN',item.asin]];
+ const eligible=proposals.filter(([key,value])=>{const field=Array.from(document.querySelectorAll('#fields .field')).find(b=>b.querySelector('label')?.textContent.trim()===key)?.querySelector('input,textarea');return value&&field&&!field.readOnly&&!safe(field.value);});
+ if(data.count===1&&eligible.length){
+  const proposal=el('button','', '✓ Fehlende Katalogwerte als Entwurf vorschlagen');proposal.type='button';proposal.style.cssText='margin:12px 0 0;background:#eaf1fb;color:#184a7d;border:1px solid #c4d7e9;padding:9px 12px;border-radius:9px;font-size:12px;';
+  proposal.addEventListener('click',()=>{
+    let added=0;
+    for(const [key,value] of eligible){const field=Array.from(document.querySelectorAll('#fields .field')).find(b=>b.querySelector('label')?.textContent.trim()===key)?.querySelector('input,textarea');if(field&&!field.readOnly&&!safe(field.value)){field.value=value;field.dispatchEvent(new Event('input',{bubbles:true}));added++;}}
+    proposal.textContent=added+' Vorschläge übernommen. Bitte im Bereich „Stammdaten“ überprüfen.';proposal.disabled=true;updateIdentity();
+  });box.append(proposal);
+ }
+}
+function showAmazonIdle(){byId('focusAmazonCard').replaceChildren(el('div','f-amazon-empty','Amazon-Katalogdaten erscheinen hier als klar lesbare Produktfelder.'));}
+let lookupCounter=0;
+// Replace the original technical display only at its public lookup boundary.
+window.hw24AmazonLookup=async function(ean){
+ const seq=++lookupCounter;
+ const id=safe(ean);lastAmazon=null;
+ byId('focusWarnings').replaceChildren(el('p','f-footnote','Die Katalogangaben werden auf Plausibilität geprüft.'));
+ if(!/^(?:\d{8}|\d{12,14})$/.test(id)){
+  source('focusSourceAmazon','focusAmazonBadge','focusAmazonText','idle','Offen','Amazon kann nach einer gültigen GTIN abgefragt werden.');chip('focusTagAmazon','Amazon nicht geprüft');showAmazonIdle();return;
+ }
+ if(location.hostname.toLowerCase().endsWith('.github.io')){
+  source('focusSourceAmazon','focusAmazonBadge','focusAmazonText','warn','Vorschau','Die statische GitHub-Seite hat keine SP-API-Anbindung.');return;
+ }
+ source('focusSourceAmazon','focusAmazonBadge','focusAmazonText','idle','Prüfung','Amazon-Katalog wird abgefragt …');chip('focusTagAmazon','Amazon lädt');
+ showAmazonIdle();
+ const legacy=byId('hw24AmazonStatus');if(legacy)legacy.textContent='Katalogdaten erscheinen in der neuen Artikelübersicht.';
+ try{
+  const response=await fetch('api/amazon.php?ean='+encodeURIComponent(id),{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
+  const data=await response.json();if(seq!==lookupCounter)return;
+  if(!response.ok||!data.ok){
+   source('focusSourceAmazon','focusAmazonBadge','focusAmazonText','error','Fehler','Katalog derzeit nicht verfügbar · HTTP '+response.status+(data.stage?' · '+data.stage:''));
+   chip('focusTagAmazon','Amazon ungeprüft','caution');byId('focusAmazonCard').replaceChildren(el('div','f-amazon-empty','Katalogdaten konnten nicht geladen werden. Die EAN bleibt im JTL-Spiegel prüfbar.'));
+   const legacy=byId('hw24AmazonStatus');if(legacy)legacy.textContent='Amazon-Fehler: '+(data.error||response.status);return;
+  }
+  lastAmazon=data;
+  if(data.count){source('focusSourceAmazon','focusAmazonBadge','focusAmazonText','ok',data.count+' Treffer',data.count+' Katalogtreffer · '+(data.source==='cache'?'MariaDB-Cache':'Amazon live')+' · Snapshot '+data.snapshot_id);chip('focusTagAmazon','Amazon gefunden','good');}
+  else{source('focusSourceAmazon','focusAmazonBadge','focusAmazonText','warn','0 Treffer','Kein Katalogeintrag für diese EAN.');chip('focusTagAmazon','Amazon: kein Treffer','caution');}
+  renderAmazon(data);updateIdentity();
+  const legacy=byId('hw24AmazonStatus');if(legacy)legacy.textContent=data.count+' Katalogtreffer · Quelle '+data.source+' · Snapshot '+data.snapshot_id;
+ }catch(error){
+  if(seq!==lookupCounter)return;
+  source('focusSourceAmazon','focusAmazonBadge','focusAmazonText','error','Fehler','API-Verbindung oder Antwort nicht verfügbar.');chip('focusTagAmazon','Amazon ungeprüft','caution');
+  byId('focusAmazonCard').replaceChildren(el('div','f-amazon-empty','Amazon ist derzeit nicht erreichbar. JTL und Historie können unabhängig weiter geprüft werden.'));
+ }
+};
+// Existing scanner mutates IDs. Observe those IDs rather than requesting JTL/History twice.
+const watcher=new MutationObserver(()=>{if(window.__hw24FocusUpdateScheduled)return;window.__hw24FocusUpdateScheduled=true;requestAnimationFrame(()=>{window.__hw24FocusUpdateScheduled=false;updateIdentity();});});
+for(const id of ['jtlResult','scanDecision','historicalResults','historicalPanel','fields','scanExplanation']){const node=byId(id);if(node)watcher.observe(node,{childList:true,subtree:true,characterData:true,attributes:id==='historicalPanel',attributeFilter:id==='historicalPanel'?['hidden']:undefined});}
+searchButton.addEventListener('click',()=>{set('focusProductName','Artikel wird geprüft …');set('focusEan',scan.value.trim());});
+scan.addEventListener('keydown',e=>{if(e.key==='Enter'){set('focusProductName','Artikel wird geprüft …');set('focusEan',scan.value.trim());}});
+// Avoid uncaught errors if an older optional module is unavailable.
+updateIdentity();
+})();
+
+</script>
+</html>
