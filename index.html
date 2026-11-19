@@ -274,7 +274,7 @@ async function lookupHistorical(ean, showLegacy=false){
     }
     if(result.approved && result.archived_matches_hidden){
       const status=document.createElement('p');
-      status.textContent='✓ Aktueller, freigegebener Artikelstand (Version '+result.approved.revision+') liegt vor. Historische Excel-Zeilen werden nicht mehr automatisch vorgeschlagen.';
+      status.textContent='✓ Freigegebener Artikelstand (Version '+result.approved.revision+') · '+(result.archived_reference_count??'Unbekannte Anzahl')+' ursprüngliche Excel-Quellzeilen bleiben im Archiv. Die Originalwerte werden nicht automatisch überschrieben.';
       out.append(status);
       const archives=document.createElement('button');archives.type='button';archives.className='scan-secondary';
       archives.textContent='📚 Ursprüngliche Excel-Werte bei Bedarf anzeigen';
@@ -504,7 +504,7 @@ $('auditExport').onclick=()=>{if(!auditDrafts.size){alert('Noch keine Änderunge
   const project=document.getElementById('hw24Project');
   if(scan&&project)project.before(scan);
 })();
-</script><script src="assets/amazon-catalog.js?v=1.1"></script><script src="assets/amazon-market.js?v=1.1"></script><script src="assets/hw24-curated.js?v=1.2"></script><script src="assets/hw24-economics.js?v=1.0"></script>
+</script><script src="assets/amazon-catalog.js?v=1.1"></script><script src="assets/amazon-market.js?v=1.1"></script><script src="assets/hw24-curated.js?v=1.2"></script><script src="assets/hw24-economics.js?v=1.1"></script>
 <script>
 (function(){
   'use strict';
@@ -658,7 +658,16 @@ function chip(id,text,state){const node=byId(id);if(!node)return;node.textConten
 function source(id,badge,textId,state,badgeText,message){const node=byId(id);if(node)node.dataset.state=state;chip(badge,badgeText,state==='ok'?'good':state==='warn'?'caution':state==='error'?'bad':'');set(textId,message);}
 function extractField(name){const box=Array.from(document.querySelectorAll('#fields .field')).find(item=>item.querySelector('label')?.textContent.trim()===name);return safe(box?.querySelector('input,textarea')?.value);}
 const factNames=[['Artikelname','Artikelname'],['Brutto-VK','Verkaufspreis brutto'],['Ø EK netto (GLD)','Durchschnittlicher EK netto'],['Letzter EK (JTL)','Letzter Einkaufspreis'],['Warengruppe','Warengruppe'],['Artikelgewicht','Artikelgewicht'],['Versandgewicht','Versandgewicht']];
-let lastAmazon=null, lastStatus='idle';
+let lastAmazon=null, lastStatus='idle',latestJtlMeta=null;
+ function stamp(value){
+  if(!value)return 'Zeitpunkt nicht übermittelt';
+  const raw=String(value).trim();
+  const normalized=raw.includes('T')?raw:raw.replace(' ','T')+'Z';
+  const date=new Date(normalized);
+  return Number.isFinite(date.valueOf())?date.toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short'})+' Uhr':'UTC '+raw;
+ }
+ document.addEventListener('hw24:jtl-result',event=>{latestJtlMeta=event.detail?.data||null;updateJtl();});
+ document.addEventListener('hw24:scan-start',()=>{latestJtlMeta=null;});
 function fmtEUR(raw){const v=safe(raw);return v?v+(v.endsWith('€')?'':' €'):'Nicht verfügbar';}
 function updateFacts(){
   const area=byId('focusFacts');if(!area)return;
@@ -670,10 +679,10 @@ function updateJtl(){
   const text=safe(byId('jtlResult')?.textContent);const decision=safe(byId('scanDecision')?.textContent);
   if(!scan.value.trim()){source('focusSourceJtl','focusJtlBadge','focusJtlText','idle','Offen','Noch keine EAN geprüft.');return;}
   if(/JTL-Wawi-Abgleich wird geprüft/.test(text)){source('focusSourceJtl','focusJtlBadge','focusJtlText','idle','Prüfung','JTL-Spiegel wird abgefragt …');return;}
-  if(/im aktuellen JTL-Spiegel vorhanden/i.test(text)){source('focusSourceJtl','focusJtlBadge','focusJtlText','ok','Treffer','Im aktuellen JTL-Spiegel gefunden.');chip('focusTagJtl','JTL gefunden','good');}
+  if(/im aktuellen JTL-Spiegel vorhanden/i.test(text)){source('focusSourceJtl','focusJtlBadge','focusJtlText','ok','Treffer','Im JTL-Spiegel gefunden · Stand '+stamp(latestJtlMeta?.snapshot_at)+(latestJtlMeta?.age_minutes!==undefined?' · Alter '+latestJtlMeta.age_minutes+' Minuten':''));chip('focusTagJtl','JTL gefunden','good');}
   else if(/Kein Artikel im aktuellen JTL-Spiegel/i.test(text)){source('focusSourceJtl','focusJtlBadge','focusJtlText','warn','Nicht gefunden','Im aktuellen Spiegel nicht gefunden. Eine Neuanlage erfordert weitere Prüfung.');chip('focusTagJtl','JTL: kein Treffer','caution');}
   else if(/Mehrere JTL-Artikel/i.test(text)){source('focusSourceJtl','focusJtlBadge','focusJtlText','warn','Mehrfachtreffer','Mehrere Artikel mit dieser Kennung. Bitte Zuordnung prüfen.');chip('focusTagJtl','JTL: mehrfach','caution');}
-  else if(/nicht erreichbar|nicht abrufbar|veraltet|noch nicht/i.test(text)){source('focusSourceJtl','focusJtlBadge','focusJtlText','error','Ungeprüft','JTL-Status aktuell nicht verlässlich abrufbar. Keine automatische Neuanlage.');chip('focusTagJtl','JTL ungeprüft','caution');}
+  else if(/nicht erreichbar|nicht abrufbar|veraltet|noch nicht/i.test(text)){source('focusSourceJtl','focusJtlBadge','focusJtlText','error','Ungeprüft','JTL nicht aktuell oder nicht erreichbar · letzter Stand '+stamp(latestJtlMeta?.snapshot_at)+'. Keine automatische Neuanlage.');chip('focusTagJtl','JTL ungeprüft','caution');}
   else {source('focusSourceJtl','focusJtlBadge','focusJtlText','idle','Prüfung',text.slice(0,170)||'Abfrage ausstehend');}
   if(decision&&!/EAN scannen/i.test(decision))set('focusStatusPill',decision.slice(0,90));
 }
@@ -683,6 +692,8 @@ function updateHistory(){
  if(/wird abgefragt/i.test(text)){source('focusSourceHistory','focusHistoryBadge','focusHistoryText','idle','Prüfung','Archivabfrage läuft …');return;}
  if(/nicht erreichbar|Abfrage fehlgeschlagen|Ungültige/i.test(text)){source('focusSourceHistory','focusHistoryBadge','focusHistoryText','error','Ungeprüft','Historische Quelle nicht verfügbar.');return;}
  if(/Keine historischen|Kein historischer Treffer/i.test(text)){source('focusSourceHistory','focusHistoryBadge','focusHistoryText','warn','Kein Treffer','Kein Eintrag im geprüften Historienarchiv.');return;}
+  const archived=text.match(/(\d+) ursprüngliche Excel-Quellzeilen bleiben im Archiv/);
+  if(archived){source('focusSourceHistory','focusHistoryBadge','focusHistoryText','ok',archived[1]+' archiviert',archived[1]+' ursprüngliche Excel-Zeilen sind weiterhin gesichert. Aktueller Artikelstand hat Vorrang.');return;}
  const count=text.match(/(\d+) unterschiedliche historische Excel-Zeilen gefunden/);
  if(count){source('focusSourceHistory','focusHistoryBadge','focusHistoryText','ok',count[1]+' Treffer',count[1]+' mögliche historische Quellzeilen. Noch nicht durch JTL bestätigt.');return;}
  source('focusSourceHistory','focusHistoryBadge','focusHistoryText','idle','Recherche','Historische Informationen werden ausgewertet.');
@@ -768,10 +779,10 @@ window.hw24AmazonLookup=async function(ean){
    const legacy=byId('hw24AmazonStatus');if(legacy)legacy.textContent='Amazon-Fehler: '+(data.error||response.status);return;
   }
   lastAmazon=data;
-  if(data.count){source('focusSourceAmazon','focusAmazonBadge','focusAmazonText','ok',data.count+' Treffer',data.count+' Katalogtreffer · '+(data.source==='cache'?'MariaDB-Cache':'Amazon live')+' · Snapshot '+data.snapshot_id);chip('focusTagAmazon','Amazon gefunden','good');}
+  if(data.count){source('focusSourceAmazon','focusAmazonBadge','focusAmazonText','ok',data.count+' Treffer',data.count+' Katalogtreffer · '+(data.source==='cache'?'MariaDB-Cache':'Amazon live')+' · Snapshot '+data.snapshot_id+' vom '+stamp(data.fetched_at_utc));chip('focusTagAmazon','Amazon gefunden','good');}
   else{source('focusSourceAmazon','focusAmazonBadge','focusAmazonText','warn','0 Treffer','Kein Katalogeintrag für diese EAN.');chip('focusTagAmazon','Amazon: kein Treffer','caution');}
   renderAmazon(data);updateIdentity();document.dispatchEvent(new CustomEvent("hw24:amazon-catalog",{detail:{ean:id,data}}));
-  const legacy=byId('hw24AmazonStatus');if(legacy)legacy.textContent=data.count+' Katalogtreffer · Quelle '+data.source+' · Snapshot '+data.snapshot_id;
+  const legacy=byId('hw24AmazonStatus');if(legacy)legacy.textContent=data.count+' Katalogtreffer · Quelle '+data.source+' · Snapshot '+data.snapshot_id+' vom '+stamp(data.fetched_at_utc);
  }catch(error){
   if(seq!==lookupCounter)return;
   source('focusSourceAmazon','focusAmazonBadge','focusAmazonText','error','Fehler','API-Verbindung oder Antwort nicht verfügbar.');chip('focusTagAmazon','Amazon ungeprüft','caution');
