@@ -1,10 +1,10 @@
 /* HW24 approved article data overlay, v1.0. No automatic writes. */
 (()=>{'use strict';
 const $=id=>document.getElementById(id), text=(tag,t)=>{const x=document.createElement(tag);x.textContent=String(t);return x;};
-const labels=['Artikelname','Hersteller','Warengruppe','Steuerklasse','Inhalt/Menge','Inhalt','Inhaltseinheit',
+const labels=['Artikelname','Hersteller','Warengruppe','Steuerklasse','Inhalt/Menge','Maßeinheit','Inhalt','Inhaltseinheit',
  'Kosten','Lieferant','Artikelnummer (Lieferant)','Brutto-VK','Netto-VK','Artikelgewicht','Versandgewicht',
  'Kurzbeschreibung','Beschreibung','Kategorie Ebene 1','Kategorie Ebene 2','Kategorie Ebene 3',
- 'Versandklasse','Währung','Artikeltyp','HAN'];
+ 'Versandklasse','Währung','Artikeltyp','ASIN','HAN'];
 let seq=0,activeEan='',revision=0,record=null,jtlSuggestions={},amazonSuggestions={},saveChain=Promise.resolve();
 const root=document.createElement('section');
 root.id='hw24CuratedPanel';root.className='f-section';root.style.cssText='margin:14px 0;padding:15px;border:1px solid #c5d5e8;border-radius:12px;background:#fff';
@@ -231,6 +231,14 @@ function saveReviewed(change){
   }catch(err){if(seq===requested)feedback(box,'⚠ Netzwerkfehler, nicht gespeichert',true);}
  });
 }
+// The primary HW24 workdesk has its own controls outside #fields.
+window.hw24CuratedSaveField=(key,value)=>{
+ if(!canSave.has(key))return false;
+ const chosen=String(value??'').trim();
+ if(!chosen||!valid(activeEan))return false;
+ saveReviewed({key,value:chosen,box:null});
+ return true;
+};
 document.addEventListener('change',event=>{
  const change=editedField(event.target);
  if(change&&change.value)saveReviewed(change);
