@@ -119,11 +119,18 @@ try {
         // Keep legacy history available rather than failing the scanner.
         error_log('HW24 curated history optional lookup: '.$e->getCode());
     }
+    // Count original Excel references even when their potentially stale values
+    // are hidden behind the reviewed article overlay.
+    $references=$pdo->prepare("SELECT COUNT(DISTINCT CONCAT(i.file_sha256,':',i.sheet_no,':',i.excel_row))
+          FROM hw24_excel_identifiers i
+          WHERE i.identifier_type='EAN' AND i.identifier_value=?");
+    $references->execute([$ean]);
+    $archivedReferenceCount=(int)$references->fetchColumn();
     if ($approved !== null && !$showLegacy) {
         respond(200, [
             'ok'=>true,'ean'=>$ean,'gtin_valid'=>validGtIn($ean),
             'historical'=>false,'approved'=>$approved,'matches'=>[],
-            'total_returned'=>0,'limited'=>false,'archived_matches_hidden'=>true,
+            'total_returned'=>0,'archived_reference_count'=>$archivedReferenceCount,'limited'=>false,'archived_matches_hidden'=>true,
             'note'=>'Freigegebener Artikelstand hat Vorrang; Originalhistorie bleibt separat abrufbar.'
         ]);
     }
@@ -181,7 +188,7 @@ try {
     }
     respond(200, [
         'ok'=>true, 'ean'=>$ean, 'gtin_valid'=>validGtIn($ean),
-        'historical'=>true, 'approved'=>$approved, 'matches'=>$items, 'total_returned'=>count($items),
+        'historical'=>true, 'approved'=>$approved, 'matches'=>$items, 'total_returned'=>count($items), 'archived_reference_count'=>$archivedReferenceCount,
         'limited'=>count($rows) >= 60,
         'note'=>'Historische Excel-Daten, nicht als aktuelle JTL-Daten oder bestätigte Produkte behandeln'
     ]);
