@@ -1,5 +1,5 @@
 /* HW24 v4.6 TEST: focused one-scan workdesk.
- * Visual presentation only, no JTL writes or new source assumptions.
+ * Reviewed field edits persist to HW24 curated revisions; NO automatic JTL writes.
  */
 (function(){
 'use strict';
@@ -7,14 +7,15 @@ const $=id=>document.getElementById(id),v=x=>String(x??'').trim();
 const keyFields=['Artikelname','Hersteller','Warengruppe','Inhalt/Menge','Maßeinheit','Kosten','Netto-VK','Steuerklasse','ASIN'];
 const prices=new Set(['Kosten','Netto-VK','Brutto-VK']);
 const locked=new Set(['Ø EK netto (GLD)','Letzter EK (JTL)','Datum letzter EK']);
-let main,fields,additional,extraNumber,meta,stateLine,warning,approveBtn,exportBtn,exportMsg,queue,queueMsg,queueBtn,profileSelect,catalogNote,catalogTable,manualChanges=new Set();
+let main,fields,additional,extraNumber,meta,stateLine,warning,approveBtn,exportBtn,exportMsg,queue,queueMsg,queueBtn,profileSelect,catalogNote,catalogTable,manualChanges=new Set(),confirmed={},saveState={};
 function node(tag,label,parent,cls){
  const e=document.createElement(tag);if(label!==undefined)e.textContent=label;
  if(cls)e.className=cls;if(parent)parent.append(e);return e;
 }
 const source=()=>window.hw24SourceState?.()||{};
 const empty=(k,x)=>!v(x)||(prices.has(k)&&!(Number(v(x).replace(',','.'))>0));
-const provenance=k=>manualChanges.has(k)?{kind:'manual',name:'Manuell bearbeitet · Entwurf'}:
+const provenance=k=>Object.prototype.hasOwnProperty.call(confirmed,k)&&v(confirmed[k])===v(source().record?.[k])?{kind:'reviewed',name:'✓ Dauerhaft geprüft · HW24-Datenbank'}:
+  manualChanges.has(k)?{kind:'manual',name:'Manuell bearbeitet · Speicherung läuft'}:
  window.hw24SourceFor?.(k)||{kind:'draft',name:'Quelle noch nicht bestätigt'};
 function legacyControl(k){
  return [...($('fields')?.querySelectorAll('.field')||[])].find(x=>v(x.querySelector('label')?.textContent)===k)?.querySelector('input,textarea');
@@ -31,13 +32,14 @@ function changed(k,newValue){
  window.hw24ProfileCurrent?.(s.record);
  window.hw24NamingRefresh?.();
  render();
+ if(v(newValue))window.hw24CuratedSaveField?.(k,v(newValue));
 }
 function field(k,target){
  const s=source(),value=v(s.record?.[k]),missing=empty(k,value),src=provenance(k);
  const item=node('div',undefined,target,'hw24-desk-field'+(missing?' missing':''));item.dataset.field=k;
  const label=node('label',undefined,item);
  node('strong',k,label);
- node('small',missing?'Fehlt':src.kind==='live'?'JTL':src.kind==='history'?'Historie':src.kind==='manual'?'Bearbeitet':'Prüfen',label,'hw24-desk-badge '+(missing?'missing':src.kind));
+ node('small',missing?'Fehlt':src.kind==='live'?'JTL':src.kind==='history'?'Historie':src.kind==='manual'?'Speichert':src.kind==='reviewed'?'Gespeichert':'Prüfen',label,'hw24-desk-badge '+(missing?'missing':src.kind));
  const selectOptions={
   'Warengruppe':['Haarfarben','Haarpflege','Haarstyling','Beauty','Haarschmuck','Sammelkarten'],
   'Steuerklasse':['Normaler Steuersatz','Ermäßigter Steuersatz','Steuerfrei'],
@@ -61,7 +63,9 @@ function field(k,target){
  if(!isSelect)input.placeholder=missing?'Fehlenden Wert eintragen':'';
  input.disabled=!s.finished||locked.has(k)||(['Artikelnummer','GTIN'].includes(k)&&s.jtl?.matches?.length===1);
  input.addEventListener('change',()=>changed(k,input.value));
- node('small',missing?'Nicht belegt':src.name,item,'hw24-desk-origin');
+ const origin=node('small',missing?'Nicht belegt':src.name,item,'hw24-desk-origin');
+ if(src.kind==='reviewed'){item.style.background='#f1fbf5';item.style.borderColor='#81ba96';origin.style.color='#1e784a';}
+ if(saveState[k]?.status==='error'){origin.textContent='⚠ '+saveState[k].message;origin.style.color='#b23c39';}
  if(k==='Inhalt/Menge'||k==='Maßeinheit'){
   const article=s.jtl?.jtl_status==='current_snapshot'&&s.jtl.matches?.length===1?s.jtl.matches[0]:null;
   if(article){
@@ -139,7 +143,7 @@ function render(){
  }
  const ready=s.jtl?.jtl_status==='current_snapshot';
  const matches=ready?(s.jtl.matches||[]):[];
- const hist=s.history?.ok?s.history.matches?.length:undefined;
+ const hist=s.history?.ok?(s.history.archived_reference_count??s.history.matches?.length):undefined;
  stateLine.textContent=s.finished?
   (ready?(matches.length===1?'✓ In JTL vorhanden':matches.length===0?'◌ Mögliche Neuanlage':'⚠ EAN mehrfach vorhanden'):'⚠ JTL-Daten nicht bestätigt')+
   ' · Historie: '+(hist===undefined?'nicht verfügbar':hist+' Fundstellen')+
@@ -267,13 +271,27 @@ function make(){
  }
  const originalStart=window.hw24SmartScanBegin,originalFinish=window.hw24SmartScanFinish;
  if(typeof originalStart==='function')window.hw24SmartScanBegin=(...args)=>{
-  manualChanges.clear();const x=originalStart(...args);render();return x;
+  manualChanges.clear();confirmed={};saveState={};const x=originalStart(...args);render();return x;
  };
  if(typeof originalFinish==='function')window.hw24SmartScanFinish=(...args)=>{
   const x=originalFinish(...args);render();return x;
  };
  render();ean.focus();
 }
+document.addEventListener('hw24:curated-applied',event=>{
+ const data=event.detail||{};
+ const record=source().record;
+ if(!record||![v(record.GTIN),v(record.EAN),v(record.Suchbegriff)].includes(v(data.ean)))return;
+ confirmed=data.fields||{};
+ for(const key of Object.keys(confirmed))manualChanges.delete(key);
+ render();
+});
+document.addEventListener('hw24:curated-save-status',event=>{
+ const detail=event.detail||{},record=source().record;
+ if(!record||![v(record.GTIN),v(record.EAN),v(record.Suchbegriff)].includes(v(detail.ean)))return;
+ saveState[detail.key]={status:detail.status,message:detail.message||''};
+ render();
+});
 window.hw24WorkdeskRender=render;
 make();
 })();
