@@ -29,8 +29,17 @@ function pair(label,value){
  n.append(l,el('strong',value));return n;
 }
 function grid(...items){const d=el('div');d.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:12px 0';items.forEach(x=>d.append(x));return d;}
-function showOffers(data,place){
+async function showOffers(data,place){
  place.replaceChildren();
+ const sellerIds=[...new Set((data.offers||[]).map(o=>o.seller_id).filter(s=>/^[A-Z0-9]{5,40}$/.test(s)))].slice(0,20);
+ let names={};
+ if(sellerIds.length){
+  try{
+   const r=await fetch('api/amazon-sellers.php?ids='+encodeURIComponent(sellerIds.join(',')),{credentials:'same-origin',cache:'no-store'});
+   const j=await r.json();
+   if(r.ok&&j.ok&&j.names&&typeof j.names==='object')names=j.names;
+  }catch(err){/* Name directory can be deployed independently; never invent names. */}
+ }
  const offers=Array.isArray(data.offers)?data.offers:[];
  const winner=offers.find(o=>o.is_buybox_winner);
  const featured=data.buybox_prices?.find(o=>o.landed_price||o.listing_price);
@@ -54,12 +63,20 @@ function showOffers(data,place){
   const d=el('div');d.style.cssText='padding:12px;border:1px solid #e0e6ef;background:white;border-radius:9px';
   const label=o.is_buybox_winner?'🏆 Buy-Box-Angebot':o.is_featured_merchant?'Buy-Box-berechtigt':'Weiteres Angebot';
   d.append(el('strong',label+' · '+money(o.total||o.item_price)));
-  d.append(el('p','Händler-ID: '+(o.seller_id||'Nicht angegeben')+' · '+(o.is_fba?'Amazon-Versand (FBA)':'Versandart nicht als FBA bestätigt'),'note'));
+  d.append(el('p',(names[o.seller_id]?'Verifizierter Verkäufer: '+names[o.seller_id]:'Verkäufername noch nicht bestätigt')+' · '+(o.is_fba?'Amazon-Versand (FBA)':'Versandart nicht als FBA bestätigt'),'note'));
+  if(/^[A-Z0-9]{5,40}$/.test(o.seller_id||'')){
+   const profile=document.createElement('a');
+   profile.href='https://www.amazon.de/sp?seller='+encodeURIComponent(o.seller_id);
+   profile.target='_blank';profile.rel='noopener noreferrer';
+   profile.textContent='Händlerprofil bei Amazon ansehen';
+   profile.style.cssText='display:inline-block;font-size:12px;margin:2px 0 7px';
+   d.append(profile);
+  }
   d.append(el('small','Artikelpreis '+money(o.item_price)+' · Versand '+money(o.shipping)));
   wrap.append(d);
  }
  details.append(wrap);place.append(details);
- place.append(el('p','Händler-IDs sind keine verifizierten Lieferanten. Bei mehreren Verkäufern können sich Buy Box und Preise jederzeit ändern.','note'));
+ place.append(el('p','Verkäufer sind keine verifizierten Großhandelslieferanten. Fehlt ein bestätigter Profilname, wird keiner erfunden. Buy Box und Preise können jederzeit wechseln.','note'));
 }
 document.addEventListener('hw24:amazon-reset',()=>reset());
 document.addEventListener('hw24:amazon-catalog',e=>{
@@ -92,7 +109,7 @@ document.addEventListener('hw24:amazon-catalog',e=>{
     state.textContent='⚠ '+(reasons[result.error]||'Preisabfrage derzeit nicht verfügbar')+' · HTTP '+res.status;
    }else{
     state.textContent='✓ Preise von Amazon abgerufen. Kein automatischer Eingriff in Verkaufspreise.';
-    showOffers(result,content);
+    await showOffers(result,content);
    }
   }catch(err){if(seq===request)state.textContent='⚠ Preisservice nicht erreichbar oder keine gültige JSON-Antwort.';}
   finally{if(seq===request)btn.disabled=false;}
