@@ -38,3 +38,23 @@ Erst nach bestandenen Staging-Tests PR #3 prüfen, veröffentlichen und Main-Bra
 - Webroot-Exklusionen/Deploy-Aktionen geprüft
 
 **Nächste Aktion:** Screenshot der Plesk-Git-Repository-Einstellungen (Einstellungs-/Schieberegler-Symbol), ohne Zugangsdaten. Danach werden Branchwechsel und erster Plesk-Test-Deploy gezielt ausgeführt.
+
+## Korrektur zur Plesk-Git-Bereitstellung (19.11.2026)
+
+Die bestehende Plesk-Git-Einrichtung wurde per root-Konsole **bestätigt**:
+
+- Testdomain: `test-artikelmanager.hairworld24.de`
+- Repository: `HW24-scanner.git`, Typ `pull`
+- Remote: `https://github.com/NicoVoss1/HW24-scanner.git`
+- Bereitstellungspfad relativ zur Domain: `/test-artikelmanager.HAIRWORLD24.de`
+- Bereitstellung: `auto`, Post-Deployment-Aktionen: `disabled`
+- Bisher ausgewählter Plesk-Branch: `feature/hw24-v422-amazon-market-20261119`
+- Backups: Plesk-Vollbackup und lokale DB-Sicherung nach Angabe des Betreibers vorhanden.
+
+**Ab jetzt für Plesk Test unbedingt `deploy/staging` auswählen**, NICHT den vollständigen Entwicklungsbranch. Dieser neue Branch ist bereits erstellt und enthält ausschließlich `index.html`, `assets/`, `api/`. Keine SQL- oder Sync-Skripte, Dokumentation oder Workflow-Dateien gehören zu diesem Webroot-Branch.
+
+Die neue `.github/workflows/hw24-ci.yml` erzeugt nach erfolgreichen Checks eines Pushs auf den Entwicklungsbranch automatisch eine aktualisierte, bereinigte Version für `deploy/staging`. GitHub-Prüfungen und Plesk-Git-Autobereitstellung bleiben die einzigen Verfahren; kein zusätzlicher SSH-Deployment-Workflow.
+
+**Achtung Altlasten:** Die Bereitstellung des bereinigten Branches garantiert nicht, dass früher ausgerollte `sql/`, `docs/`, `sync/` oder `.github/` aus dem Plesk-Webroot verschwinden. Den tatsächlichen Webroot nach der Umstellung im Plesk-Dateimanager oder über ein lesendes `ls` kontrollieren und vorhandene sensible Restdateien nach Sicherung gezielt außerhalb des Webroots entfernen/sperren.
+
+**Nächste Abnahme:** `plesk ext git --info -domain test-artikelmanager.hairworld24.de -name HW24-scanner.git` muss dann `Active branch: deploy/staging` zeigen. Danach sichtbare Testoberfläche, EAN, Amazon und JSON/Auth prüfen. MariaDB-Tabellen für die neuen Funktionen sind weiterhin nicht als installiert bestätigt.
