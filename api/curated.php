@@ -72,9 +72,24 @@ try{
   $q->execute([$ean]);$r=$q->fetch();
   if(!$r)answer(200,['ok'=>true,'ean'=>$ean,'exists'=>false,'revision'=>0,'fields'=>new stdClass()]);
   $fields=json_decode((string)$r['approved_fields_json'],true);
+  $auditRows=[];
+  $aq=$pdo->prepare('SELECT revision,changed_at_utc,approved_by,previous_json,approved_json FROM hw24_curated_audit WHERE ean=? ORDER BY id DESC LIMIT 15');
+  $aq->execute([$ean]);
+  foreach($aq->fetchAll() as $item){
+   $before=json_decode((string)$item['previous_json'],true);
+   $after=json_decode((string)$item['approved_json'],true);
+   if(!is_array($before))$before=[];
+   if(!is_array($after))$after=[];
+   $changes=[];
+   foreach($after as $field=>$v){
+    if(!array_key_exists($field,$before)||$before[$field]!==$v)$changes[]=(string)$field;
+   }
+   $auditRows[]=['revision'=>(int)$item['revision'],'at_utc'=>(string)$item['changed_at_utc'],
+    'approved_by'=>(string)$item['approved_by'],'changed_fields'=>$changes];
+  }
   answer(200,['ok'=>true,'ean'=>$ean,'exists'=>true,'revision'=>(int)$r['revision'],
    'fields'=>is_array($fields)?$fields:new stdClass(),
-   'approved_at_utc'=>(string)$r['approved_at_utc']]);
+   'approved_at_utc'=>(string)$r['approved_at_utc'],'audit'=>$auditRows]);
  }
  $allow=['Artikelname'=>450,'Hersteller'=>180,'Kurzbeschreibung'=>3500,
   'Beschreibung'=>12000,'Warengruppe'=>250,'Artikelgewicht'=>100,
