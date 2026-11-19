@@ -463,7 +463,7 @@ $('auditExport').onclick=()=>{if(!auditDrafts.size){alert('Noch keine Änderunge
   const project=document.getElementById('hw24Project');
   if(scan&&project)project.before(scan);
 })();
-</script><script src="assets/amazon-catalog.js?v=1.1"></script>
+</script><script src="assets/amazon-catalog.js?v=1.1"></script><script src="assets/amazon-market.js?v=1.0"></script>
 <script>
 (function(){
   'use strict';
@@ -707,7 +707,7 @@ let lookupCounter=0;
 // Replace the original technical display only at its public lookup boundary.
 window.hw24AmazonLookup=async function(ean){
  const seq=++lookupCounter;
- const id=safe(ean);lastAmazon=null;
+ const id=safe(ean);lastAmazon=null;document.dispatchEvent(new Event("hw24:amazon-reset"));
  byId('focusWarnings').replaceChildren(el('p','f-footnote','Die Katalogangaben werden auf Plausibilität geprüft.'));
  if(!/^(?:\d{8}|\d{12,14})$/.test(id)){
   source('focusSourceAmazon','focusAmazonBadge','focusAmazonText','idle','Offen','Amazon kann nach einer gültigen GTIN abgefragt werden.');chip('focusTagAmazon','Amazon nicht geprüft');showAmazonIdle();return;
@@ -729,7 +729,7 @@ window.hw24AmazonLookup=async function(ean){
   lastAmazon=data;
   if(data.count){source('focusSourceAmazon','focusAmazonBadge','focusAmazonText','ok',data.count+' Treffer',data.count+' Katalogtreffer · '+(data.source==='cache'?'MariaDB-Cache':'Amazon live')+' · Snapshot '+data.snapshot_id);chip('focusTagAmazon','Amazon gefunden','good');}
   else{source('focusSourceAmazon','focusAmazonBadge','focusAmazonText','warn','0 Treffer','Kein Katalogeintrag für diese EAN.');chip('focusTagAmazon','Amazon: kein Treffer','caution');}
-  renderAmazon(data);updateIdentity();
+  renderAmazon(data);updateIdentity();document.dispatchEvent(new CustomEvent("hw24:amazon-catalog",{detail:{ean:id,data}}));
   const legacy=byId('hw24AmazonStatus');if(legacy)legacy.textContent=data.count+' Katalogtreffer · Quelle '+data.source+' · Snapshot '+data.snapshot_id;
  }catch(error){
   if(seq!==lookupCounter)return;
