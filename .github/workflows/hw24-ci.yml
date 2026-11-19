@@ -9,13 +9,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: PHP syntax
+      - name: PHP syntax for every API endpoint
         run: |
-          php -l api/amazon.php
-          php -l api/amazon-pricing.php
-          php -l api/curated.php
-          php -l api/amazon-sellers.php
-          php -l api/historie.php
+          set -euo pipefail
+          for file in api/*.php; do php -l "$file"; done
+      - name: Regression guard for JTL extra fields and WMS pagination
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          contracts = {
+              'api/jtl.php': ('HW24_RelatedSources', "'related_sources'", "'bestand_verfuegbar'", "'warengruppe_name'"),
+              'api/jtl-wms-history.php': ('hw24_wms_history_runs', 'hw24_wms_history', "'offset'", "'run_id'"),
+              'assets/hw24-operations.js': ('fVerfuegbar', 'fInAuftraegen', 'fZulauf', 'wms_lagerplaetze'),
+          }
+          for path, tokens in contracts.items():
+              source = Path(path).read_text(encoding='utf-8')
+              missing = [token for token in tokens if token not in source]
+              if missing:
+                  raise SystemExit(f'Regression: {path} missing required interface: {missing}')
+              print(f'OK: {path} interface markers present')
+          PY
       - name: JavaScript syntax
         run: |
           node --check assets/amazon-catalog.js
