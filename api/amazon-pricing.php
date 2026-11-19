@@ -90,7 +90,26 @@ try{
    'is_featured_merchant'=>($offer['IsFeaturedMerchant']??false)===true,
    'is_fba'=>($offer['IsFulfilledByAmazon']??false)===true,
    'condition'=>(string)($offer['SubCondition']??''),
-   'item_price'=>$item,'shipping'=>$ship,'total'=>$total
+   'item_price'=>$item,'shipping'=>$ship,'total'=>$total,
+   'seller_feedback'=>is_array($offer['SellerFeedbackRating']??null)?[
+    'positive_percent'=>isset($offer['SellerFeedbackRating']['SellerPositiveFeedbackRating'])?
+     (float)$offer['SellerFeedbackRating']['SellerPositiveFeedbackRating']:null,
+    'feedback_count'=>isset($offer['SellerFeedbackRating']['FeedbackCount'])?
+     (int)$offer['SellerFeedbackRating']['FeedbackCount']:null
+   ]:null,
+   // Amazon ShippingTime describes dispatch/handling, NOT guaranteed arrival.
+   'shipping_time'=>is_array($offer['ShippingTime']??null)?[
+    'min_hours'=>isset($offer['ShippingTime']['MinimumHours'])?(int)$offer['ShippingTime']['MinimumHours']:null,
+    'max_hours'=>isset($offer['ShippingTime']['MaximumHours'])?(int)$offer['ShippingTime']['MaximumHours']:null,
+    'availability'=>(string)($offer['ShippingTime']['AvailabilityType']??''),
+    'available_date'=>(string)($offer['ShippingTime']['AvailableDate']??'')
+   ]:null,
+   'ships_from'=>is_array($offer['ShipsFrom']??null)?[
+    'country'=>(string)($offer['ShipsFrom']['Country']??''),
+    'state'=>(string)($offer['ShipsFrom']['State']??'')
+   ]:null,
+   'prime'=>isset($offer['PrimeInformation']['IsPrime'])?
+    ($offer['PrimeInformation']['IsPrime']===true):null
   ];
  }
  $s=is_array($payload['Summary']??null)?$payload['Summary']:[];
