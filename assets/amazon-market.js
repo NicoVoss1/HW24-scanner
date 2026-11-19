@@ -14,7 +14,10 @@ function mount(){
  if(!panel){
   panel=el('div');panel.id='hw24AmazonMarket';
   panel.style.cssText='margin:16px 0;padding:16px;border:1px solid #a9c3e3;background:#f7faff;border-radius:14px;color:#14233c';
-  catalog.insertAdjacentElement('afterend',panel);
+  // Show the offer comparison across the entire content width, not in the
+  // narrow right-hand column of the two-column product overview.
+  const section=catalog.closest('.f-section');
+  (section||catalog).insertAdjacentElement('afterend',panel);
  }
  return panel;
 }
@@ -51,7 +54,7 @@ async function showOffers(data,place){
   pair('Günstigster Gesamtpreis',lowest!==null?money({amount:lowest,currency:'EUR'}):'Nicht verfügbar'),
   pair('Angebote bei Amazon',String(data.total_offer_count??'–'))
  ));
- const featured=el('p','🏆 Amazon kann mehrere hervorgehobene Angebote ausweisen, z. B. Prime und Nicht-Prime oder je nach Käufer. Die Summary ist kein für alle Käufer garantierter Einzelpreis.','note');
+ const featured=el('p','🏆 Amazon.de-Angebote · mehrere Buy-Box-Gewinner sind möglich. Lieferbarkeit nach Deutschland, konkreter Zustelltermin und Eignung als Bezugsquelle sind aus dieser Abfrage nicht garantiert.','note');
  place.append(featured);
  if(!offers.length){place.append(el('p','Amazon hat keine einzelnen Verkäuferangebote übermittelt.','note'));return;}
  const control=el('div');control.style.cssText='display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:15px 0 9px';
@@ -80,7 +83,7 @@ async function showOffers(data,place){
   who.append(el('strong',names[o.seller_id]||'Amazon-Verkäufer '+(o.seller_id||'unbekannt')));
   const badges=el('div');badges.style.cssText='display:flex;flex-wrap:wrap;gap:5px;margin:6px 0';
   const badge=label=>{const n=el('span',label);n.style.cssText='display:inline-block;padding:3px 7px;border-radius:999px;border:1px solid #ccd7e5;background:#f2f6fc;color:#2d4a6b;font-size:11px';badges.append(n);};
-  badge(o.is_fba?'FBA · Versand durch Amazon':'FBM · Versand durch Händler');
+  badge(o.is_fba?'FBA · Versand durch Amazon':'FBM · Händler-Versand');
   if(o.prime===true)badge('Prime');
   if(o.is_buybox_winner===true)badge('🏆 Aktuell Buy-Box-Gewinner');
   else if(o.is_featured_merchant===true)badge('Buy-Box-berechtigt');
