@@ -59,6 +59,19 @@ document.addEventListener('hw24:amazon-catalog',event=>{
   const item=detail.data.items[0];
   if(item.title)amazonSuggestions.Artikelname=String(item.title);
   if(item.brand||item.manufacturer)amazonSuggestions.Hersteller=String(item.brand||item.manufacturer);
+  const attributes=item.attributes||{};
+  const unit=Array.isArray(attributes.unit_count)?attributes.unit_count[0]:null;
+  const size=Array.isArray(attributes.size)?attributes.size[0]:null;
+  const sizeText=String(size?.value??'').trim();
+  // Factual package quantity is only a candidate. Do not reuse Amazon prose.
+  if(unit?.value!==undefined&&Number.isFinite(Number(unit.value))&&Number(unit.value)>0)
+   amazonSuggestions['Inhalt/Menge']=String(unit.value);
+  else if(/^\d+(?:[.,]\d+)?\s*(?:ml|g|l|kg|Stück)?$/i.test(sizeText))
+   amazonSuggestions['Inhalt/Menge']=sizeText;
+  const unitText=String(unit?.unit??'').trim().toLowerCase();
+  const units={milliliter:'ml',milliliters:'ml',ml:'ml',liter:'l',liters:'l',l:'l',gram:'g',grams:'g',g:'g',kilogram:'kg',kilograms:'kg',kg:'kg'};
+  if(units[unitText])amazonSuggestions.Inhaltseinheit=units[unitText];
+
  }
  updateAfterSource();
 });
@@ -70,7 +83,7 @@ function head(title,subtitle){
  return info;
 }
 function render(){
- const info=head(record?'Freigegebener Artikelstand':'Artikelvorschläge automatisch prüfen',record?
+ const info=head(record?'✓ Bereits geprüfter Artikel · dauerhaft gespeichert':'Artikelvorschläge automatisch prüfen',record?
   'Version '+revision+' · geprüft am '+(record.approved_at_utc||'unbekannt')+' UTC · aktuelle Freigabe hat Vorrang vor alten Excel-Recherchehinweisen.':
   'Vorhandene JTL-/CSV-Felder und eindeutige Amazon-Katalogtreffer sind als Vorschläge vorausgefüllt. Du bestätigst nur geprüfte Angaben. Keine direkte Änderung in JTL.');
  if(!activeEan)return;
@@ -83,12 +96,23 @@ function render(){
    const small=text('small',k);small.style.display='block';cell.append(small,text('strong',v));grid.append(cell);
   }
   current.append(grid);root.append(current);
+  if(Array.isArray(record.audit)&&record.audit.length){
+   const history=document.createElement('details');history.style.cssText='margin-top:9px;padding:7px 0';
+   const heading=text('summary','🕓 Änderungsverlauf ('+record.audit.length+' zuletzt gespeicherte Versionen)');
+   heading.style.cssText='cursor:pointer;font-size:12px;font-weight:650';history.append(heading);
+   const items=document.createElement('ul');items.style.cssText='font-size:12px;color:#435a70;padding-left:22px';
+   for(const change of record.audit){
+    const li=text('li','Version '+change.revision+' · '+change.at_utc+' UTC · '+(change.changed_fields||[]).join(', '));
+    items.append(li);
+   }
+   history.append(items);root.append(history);
+  }
  }
  const edit=document.createElement('details');
  edit.className='hw24-curated-edit';edit.style.marginTop='10px';
  const title=text('summary','✅ Vorbelegte Werte prüfen und übernehmen');title.style.cssText='cursor:pointer;font-weight:700';
  edit.append(title);
- const explain=text('p','Vorschläge erscheinen automatisch aus den verfügbaren Quellen. Bei JTL/CSV-Konflikten prüfst Du die Identität. Nur angehakte Felder und die anschließende ausdrückliche Bestätigung werden gespeichert. JTL, Excel und Amazon bleiben unverändert.');
+ const explain=text('p','JTL-/CSV-Daten, bereits geprüfte HW24-Werte und eindeutige Amazon-Fakten erscheinen als Vorschläge. Per Auswahl oder Enter im Artikelstamm werden Änderungen revisionssicher im HW24-Datenbestand gespeichert. Hier kannst Du mehrere ausgewählte Felder gemeinsam freigeben. Kein direkter JTL- oder Amazon-Schreibzugriff.');
  explain.className='note';edit.append(explain);
  const list=document.createElement('div');list.style.cssText='display:grid;gap:7px';
  const inputs=[];
