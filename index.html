@@ -344,6 +344,31 @@ function search(){editingIndex=-1;$('unknownActions').style.display='none';let e
  try{fn?.(e,current)}catch(err){console.error('HW24 Zusatzmodul beim Scan:',err)}
 }
 window.hw24AmazonLookup?.(goodGtin(e)?e:"");window.hw24CuratedLookup?.(goodGtin(e)?e:"");Promise.allSettled([lookupProductSources(e),...(digits(e)?[lookupHistorical(e)]:[])]).then(()=>window.hw24SmartScanFinish?.(e,current));let groups=[['Identifikation',['Artikelnummer','GTIN','HAN','ASIN','Hersteller']],['Artikelbezeichnung und Beschreibung',['Artikelname','Kurzbeschreibung','Beschreibung']],['Preise und Kalkulation (Ø EK netto = fEKNetto, letzter EK = fLetzterEK)',['Ø EK netto (GLD)','Letzter EK (JTL)','Datum letzter EK','Netto-VK','Brutto-VK']],['Kategorien und Gewicht',['Warengruppe','Kategorie Ebene 1','Kategorie Ebene 2','Artikelgewicht','Versandgewicht']]];for(let [title,keys] of groups){let g=document.createElement('details');g.className='group hw24-field-group';g.open=title==='Identifikation';let h=document.createElement('summary');h.textContent=title;let grid=document.createElement('div');grid.className='groupgrid';g.append(h,grid);if(title.startsWith('Preise und Kalkulation')){let hint=document.createElement('p');hint.className='note';hint.textContent='EK-Werte und Buchungsdatum stammen aus JTL eazybusiness. Ohne aktive JTL-Synchronisation bleiben diese Felder leer. Der letzte EK ist ein historischer Quellwert; ein manuell gewähltes Datum würde die Buchung nicht verändern.';g.insertBefore(hint,grid)}$('fields').append(g);for(let k of keys){let box=document.createElement('div');let long=['Artikelname','Kurzbeschreibung','Beschreibung'].includes(k);box.className='field '+(long?'wide ':'')+(val(current[k])?'good':'bad');let lab=document.createElement('label');lab.textContent=k==='EK-Preis'?'Einkaufspreis (EK)':k;let inp=document.createElement(long?'textarea':'input');if(dateField(k)){inp.type='date';inp.value=dateISO(current[k]);if(k==='Datum letzter EK'){inp.readOnly=true;inp.title='JTL-Buchungsdatum: wird automatisch aus der Wawi übernommen und nicht manuell gepflegt';}}else{inp.value=val(current[k]);}if(k==='Ø EK netto (GLD)'||k==='Letzter EK (JTL)'||k==='Datum letzter EK'){inp.readOnly=true;inp.title='Schreibgeschützter JTL-Quellwert; wird nach der geschützten Synchronisation aus eazybusiness übernommen';}if(['Artikelnummer','GTIN','HAN','ASIN'].includes(k)&&['IM_CSV','MEHRFACH_CSV'].includes(status)&&val(current[k]))inp.readOnly=true;if(long){inp.rows=k==='Beschreibung'?5:3;inp.style.height='auto';inp.style.height=Math.max(inp.scrollHeight,70)+'px'}inp.oninput=()=>{inp.dataset.userEdited='1';current[k]=inp.value;window.hw24ChannelCurrent?.(current);window.hw24AmeiseCurrent?.(current);window.hw24ProfileCurrent?.(current);window.hw24QualityEdited?.(k,current);window.hw24TabsUpdate?.(current);window.hw24FlowRefresh?.();box.className='field '+(long?'wide ':'')+(val(inp.value)?'good':'bad');if(long){inp.style.height='auto';inp.style.height=Math.max(inp.scrollHeight,70)+'px'}};box.append(lab,inp);grid.append(box)}}}
+ // Reviewed values in the HW24 curated DB take precedence over subsequent CSV/JTL proposals.
+ window.hw24ApplyApprovedArticle=(ean,fields)=>{
+   if(!current||!fields||typeof fields!=='object')return;
+   const id=val(ean);
+   if(!id||![val(current.Suchbegriff),val(current.GTIN),val(current.EAN),val(lastResolvedGtin)].includes(id))return;
+   let changes=0;
+   for(const [key,raw] of Object.entries(fields)){
+     if(raw===null||raw===undefined)continue;
+     const value=String(raw);
+     if(!value.trim())continue;
+     if(val(current[key])!==value){current[key]=value;changes++;}
+     const box=[...$('fields').querySelectorAll('.field')].find(el=>el.querySelector('label')?.textContent.trim()===key);
+     const inp=box?.querySelector('input,textarea');
+     if(inp&&inp.value!==value){inp.value=value;inp.dataset.userEdited='1';box.className='field '+(box.classList.contains('wide')?'wide ':'')+'good';}
+   }
+   if(changes){
+     window.hw24ProfileCurrent?.(current);
+     window.hw24AmeiseCurrent?.(current);
+     window.hw24ChannelCurrent?.(current);
+     window.hw24QualityEdit?.(current);
+     window.hw24TabsUpdate?.(current);
+     window.hw24FlowRefresh?.();
+   }
+   document.dispatchEvent(new CustomEvent('hw24:curated-applied',{detail:{ean:id,fields}}));
+ };
 $('file').onchange=async e=>{
  const file=e.target.files?.[0];
  if(!file)return;
@@ -479,7 +504,7 @@ $('auditExport').onclick=()=>{if(!auditDrafts.size){alert('Noch keine Änderunge
   const project=document.getElementById('hw24Project');
   if(scan&&project)project.before(scan);
 })();
-</script><script src="assets/amazon-catalog.js?v=1.1"></script><script src="assets/amazon-market.js?v=1.1"></script><script src="assets/hw24-curated.js?v=1.1"></script><script src="assets/hw24-economics.js?v=1.0"></script>
+</script><script src="assets/amazon-catalog.js?v=1.1"></script><script src="assets/amazon-market.js?v=1.1"></script><script src="assets/hw24-curated.js?v=1.2"></script><script src="assets/hw24-economics.js?v=1.0"></script>
 <script>
 (function(){
   'use strict';
