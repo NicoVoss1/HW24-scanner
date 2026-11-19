@@ -10,7 +10,7 @@ $tasks=@(Get-ScheduledTask | Where-Object {
   (($_.Actions | ForEach-Object { $_.Execute+' '+$_.Arguments }) -join ' ' -match 'HW24_JTL_Synchronisieren|jtl-sync\.json')
 })
 if(-not $tasks.Count){Write-Host 'WARNUNG: Kein Task mit HW24/JTL/WMS/Sync erkennbar. Name oder anderer Scheduler moeglich.'}
-foreach($task in $tasks){
+$taskReport = foreach($task in $tasks){
   $info=$null
   try{$info=Get-ScheduledTaskInfo -TaskName $task.TaskName -TaskPath $task.TaskPath -ErrorAction Stop}catch{}
   [PSCustomObject]@{
@@ -20,7 +20,8 @@ foreach($task in $tasks){
     LetzterCode=if($info){[string]$info.LastTaskResult}else{'nicht abrufbar'}
     NaechsterLauf=if($info -and $info.NextRunTime -gt [DateTime]'2001-01-01'){$info.NextRunTime.ToString('yyyy-MM-dd HH:mm:ss')}else{'nicht geplant'}
   }
-} | Format-Table -AutoSize
+}
+$taskReport | Format-Table -AutoSize
 Write-Host '--- HW24 Synchronisationskonfiguration (nur Dateiexistenz) ---'
 if(-not (Test-Path -LiteralPath $ConfigFile)){
  Write-Host ('KEINE Konfiguration unter '+$ConfigFile+' gefunden. Dies sagt nichts ueber alternative Task-Pfade aus.')
