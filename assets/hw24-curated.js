@@ -204,14 +204,17 @@ function feedback(box,message,error=false){
  if(!status){status=text('small','');status.dataset.hw24ReviewedFeedback='1';status.style.cssText='display:block;font-size:11px;margin-top:3px';box.append(status);}
  status.textContent=message;status.style.color=error?'#b23c39':'#17653b';
 }
+function notifyReviewed(ean,key,status,message){
+ document.dispatchEvent(new CustomEvent('hw24:curated-save-status',{detail:{ean,key,status,message}}));
+}
 function saveReviewed(change){
  const ean=activeEan,requested=seq,value=change.value,key=change.key,box=change.box;
  if(!valid(ean)||!value)return;
- if(String(record?.fields?.[key]??'').trim()===value){feedback(box,'✓ Bereits dauerhaft gespeichert');return;}
+ if(String(record?.fields?.[key]??'').trim()===value){feedback(box,'✓ Bereits dauerhaft gespeichert');notifyReviewed(ean,key,'saved','Bereits gespeichert');return;}
  saveChain=saveChain.catch(()=>{}).then(async()=>{
   if(seq!==requested||activeEan!==ean)return;
   if(String(record?.fields?.[key]??'').trim()===value){feedback(box,'✓ Bereits gespeichert');return;}
-  feedback(box,'Wird revisionssicher gespeichert …');
+  feedback(box,'Wird revisionssicher gespeichert …');notifyReviewed(ean,key,'saving','Wird gespeichert');
   try{
    const response=await fetch('api/curated.php',{method:'POST',credentials:'same-origin',cache:'no-store',
     headers:{'Content-Type':'application/json','X-HW24-Approval':'confirmed','Accept':'application/json'},
@@ -219,16 +222,17 @@ function saveReviewed(change){
    const data=await response.json();
    if(seq!==requested||activeEan!==ean)return;
    if(!response.ok||!data.ok){
-    feedback(box,data.error==='revision_conflict'?'⚠ Neue Version vorhanden. Bitte erneut scannen.':'⚠ Speicherung fehlgeschlagen: '+(data.error||response.status),true);
+    const message=data.error==='revision_conflict'?'Neue Version vorhanden. Bitte erneut scannen.':'Speicherung fehlgeschlagen: '+(data.error||response.status);
+    feedback(box,'⚠ '+message,true);notifyReviewed(ean,key,'error',message);
     return;
    }
    revision=data.revision;record=data;
-   feedback(box,'✓ Dauerhaft gespeichert · Version '+revision);
+   feedback(box,'✓ Dauerhaft gespeichert · Version '+revision);notifyReviewed(ean,key,'saved','Version '+revision);
    window.hw24ApplyApprovedArticle?.(ean,data.fields);
    // Update the compact verified article card, while retaining scan context.
    const reviewed=root.querySelector('details[open].hw24-curated-edit');
    if(!reviewed)render();
-  }catch(err){if(seq===requested)feedback(box,'⚠ Netzwerkfehler, nicht gespeichert',true);}
+  }catch(err){if(seq===requested){feedback(box,'⚠ Netzwerkfehler, nicht gespeichert',true);notifyReviewed(ean,key,'error','Netzwerkfehler, nicht gespeichert');}}
  });
 }
 // The primary HW24 workdesk has its own controls outside #fields.
