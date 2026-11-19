@@ -11,19 +11,13 @@
 - Keine automatischen Änderungen an JTL, Seller Central oder Preisen.
 - Händler-IDs auf Amazon sind keine verifizierten Lieferanten, Bezugsquellen oder Einkaufskonditionen.
 
-## KRITISCH: GitHub ist noch kein vollständiges Abbild des Plesk-Webroots
-Die v4.22-Seite referenziert folgende **nicht im GitHub-Branch enthaltene** statische Dateien:
-- `assets/hw24-ui.css`
-- `assets/hw24-workdesk.css`
-- `assets/hw24-operations.css`
-- `assets/hw24-batch.css`
-- `assets/hw24-vorlagen.js`
-- `assets/hw24-smartscan.js`
-- `assets/hw24-workdesk.js`
-- `assets/hw24-operations.js`
-- `assets/hw24-batch.js`
+## Code-Synchronisierung zu GitHub erledigt (19.11.2026)
 
-Diese Dateien können auf der Plesk-Testdomain vorhanden sein, wurden aber nicht über den GitHub-Zugriff eingelesen. **Vor einem vollständigen Git-Deployment zuerst die Plesk-Dateien verlustfrei in das Repository aufnehmen** und Versionsstände vergleichen. Keinesfalls fehlende Dateien durch leere Platzhalter ersetzen.
+Die neun vorher fehlenden UI-Dateien wurden aus `improve/encoding-dashboard-sync-20261115` in den aktuellen Entwicklungszweig übernommen. GitHub Actions hat die Syntax, Dateiverweise und ein ausschließlich aus `index.html`, `api` und `assets` bestehendes Website-Paket erfolgreich geprüft.
+
+**Noch offen:** Wir haben den aktuell tatsächlich ausgelieferten Plesk-Dateistand nicht vollständig gegen GitHub verglichen. Vor dem ersten produktiven Deployment die derzeitigen Dateien beider Websites sichern. Die Plesk-Installation des neuen Codes ist nicht erfolgt.
+
+Die neuen Schnittstellen `api/curated.php` und `api/amazon-sellers.php` benötigen die getrennten SQL-Migrationen `sql/curated_article_stand.sql` und `sql/amazon_verified_sellers.sql` und eng begrenzte Benutzerrechte. Änderungen erfolgen nur nach ausdrücklicher Benutzerfreigabe.
 
 ## Gewünschter Release-Ablauf
 1. **Code zentral in GitHub:** Feature-Branches, Review, Tests, Pull Request.
