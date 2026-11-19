@@ -14,8 +14,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
   header('Allow: GET');
   out(405,['ok'=>false,'error'=>'method_not_allowed']);
 }
-$ean=trim((string)($_GET['ean'] ?? ''));
-if (!preg_match('/^[0-9]{8,14}$/D',$ean)) {
+// Search by EAN/GTIN, JTL article number or HAN. Parameterized query below.
+$identifier=trim((string)($_GET['q'] ?? $_GET['ean'] ?? ''));
+if (!preg_match('/^[\p{L}\p{N}][\p{L}\p{N}._\/\-]{1,63}$/uD',$identifier)) {
   out(400,['ok'=>false,'error'=>'invalid_identifier_format']);
 }
 $path=dirname(__DIR__,2).'/hw24_private/db.php';
@@ -49,7 +50,9 @@ try {
     out(200,['ok'=>true,'jtl_status'=>'not_connected','matches'=>[]]);
   }
   $age=(int)$meta['age_minutes'];
-  $fresh=$age>=0 && $age<=30;
+  // 15-minute Windows Task Scheduler sync plus a 30-minute buffer for occasional delayed runs.
+  // Fail closed after 45 minutes: no definitive new-article decision from stale JTL data.
+  $fresh=$age>=0 && $age<=45;
   if (!$fresh) {
     out(200,['ok'=>true,'jtl_status'=>'stale','snapshot_at'=>$meta['last_completed_utc'],
       'age_minutes'=>$age,'matches'=>[]]);
@@ -59,7 +62,7 @@ try {
                     FROM hw24_jtl_articles
                     WHERE source_id=? AND (ean=? OR han=? OR artikelnummer=?)
                     ORDER BY jtl_article_id LIMIT 16');
-  $q->execute([$meta['source_id'],$ean,$ean,$ean]);
+  $q->execute([$meta['source_id'],$identifier,$identifier,$identifier]);
   $matches=$q->fetchAll();
   $limited=count($matches)>15;
   if ($limited) $matches=array_slice($matches,0,15);
@@ -73,7 +76,9 @@ try {
       'cAktiv','cTopArtikel','cTeilbar','cLagerAktiv','cLagerKleinerNull','cNeu',
       'cAnmerkung','nBearbeitungszeit','nLiefertageWennAusverkauft',
       'nAutomatischeLiefertageberechnung','kBenutzerLetzteAenderung',
-      'dMod','nLagerbestand','kSteuerklasse','fEKNetto','fLetzterEK'];
+      'dMod','nLagerbestand','kSteuerklasse','fEKNetto','fLetzterEK',
+      'kMassEinheit','fMassMenge','kGrundPreisEinheit','fGrundpreisMenge','nVPE','fVPEWert','kVPEEinheit','kVerkaufsEinheit','fPackeinheit',
+      'fAmazonVK','fEbayPreis','fVKNetto','cASIN'];
     $fields=[];
     if(is_array($raw)){
       foreach($safe as $key){
@@ -81,9 +86,81 @@ try {
       }
     }
     $article['jtl_source_fields']=$fields;
+    // These optional related records come only from an explicitly verified,
+    // admin-controlled, read-only Windows SQL source mapping. A missing
+    // mapping is not evidence that a JTL field/table does not exist.
+    $related=is_array($raw)?($raw['HW24_RelatedSources']??null):null;
+    $article['related_sources']=is_array($related)?$related:[];
+    // Only resolve one-to-one verified source values, never arbitrary rows
+    // from supplier or marketplace collections. Zero stays a source value
+    // and must not be mistaken for an actual purchase transaction.
+    $singleValue=static function(string $source,string $column) use ($related): ?string {
+      if (!is_array($related) || !isset($related[$source]) ||
+          !is_array($related[$source]) || !empty($related[$source]['truncated'])) return null;
+      $rows=$related[$source]['rows']??null;
+      if (!is_array($rows) || count($rows)!==1 || !is_array($rows[0])) return null;
+      $v=$rows[0][$column]??null;
+      return ($v===null||!is_scalar($v))?null:(string)$v;
+    };
+    $article['kosten']=$singleValue('kosten','fArtikelkosten');
+    $article['kosten_source']=$article['kosten']!==null?'Artikel.tArtikelkosten.fArtikelkosten':null;
+    $article['warengruppe_name']=$singleValue('warengruppe','cName');
+    // Prefer the authoritative kWarengruppe -> tWarengruppe resolution made
+    // during the Windows snapshot, independent of optional related-source maps.
+    $fromCore=is_array($raw)?($raw['HW24_WarengruppeName']??null):null;
+    if (is_scalar($fromCore) && trim((string)$fromCore)!=='') {
+      $article['warengruppe_name']=trim((string)$fromCore);
+    }
+    $article['warengruppe_id']=is_array($raw)?($raw['kWarengruppe']??null):null;
+    $article['warengruppe_source']=$article['warengruppe_name']!==null
+      ?(is_scalar($fromCore)&&trim((string)$fromCore)!==''
+         ?'dbo.tArtikel.kWarengruppe -> dbo.tWarengruppe.cName (Windows-Sync)'
+         :'dbo.tWarengruppe.cName (geprüfte Zusatzquelle)')
+      :null;
+    $article['warengruppe_unresolved']=!empty($article['warengruppe_id']) &&
+      ($article['warengruppe_name']===null || $article['warengruppe_name']==='');
+    $article['steuerklasse_name']=$singleValue('steuerklasse','cName');
+    $article['versandklasse_name']=$singleValue('versandklasse','cName');
+    $article['bestand_verfuegbar']=$singleValue('bestand','fVerfuegbar');
+    // ASIN candidates: linked to THIS JTL article only. Do not assume EAN:ASIN
+    // is one-to-one. Multiple valid candidates stay separate and require review.
+    $candidateValues=[];
+    $addCandidate=static function($input,string $origin,array $context=[]) use (&$candidateValues): void {
+      if(!is_scalar($input)) return;
+      $asin=strtoupper(trim((string)$input));
+      if(!preg_match('/^[A-Z0-9]{10}$/D',$asin)) return;
+      if(!isset($candidateValues[$asin])) $candidateValues[$asin]=[
+        'asin'=>$asin,'sources'=>[],'review_required'=>true
+      ];
+      $candidateValues[$asin]['sources'][]=array_merge(['name'=>$origin],$context);
+    };
+    $addCandidate($article['asin']??null,'JTL-Artikelstamm');
+    if(is_array($related)){
+      $asinRows=$related['artikel_asin']['rows']??[];
+      if(is_array($asinRows)){
+        foreach(array_slice($asinRows,0,8) as $row){
+          if(is_array($row)) $addCandidate($row['cAsin']??null,'JTL-Artikel-ASIN-Zuordnung');
+        }
+      }
+      $offerRows=$related['amazon_angebote']['rows']??[];
+      if(is_array($offerRows)){
+        foreach(array_slice($offerRows,0,8) as $row){
+          if(!is_array($row)) continue;
+          $addCandidate($row['asin']??null,'JTL-Amazon-Angebot',[
+            'seller_sku'=>isset($row['seller_sku'])?(string)$row['seller_sku']:null,
+            'plattform'=>isset($row['plattform'])?(string)$row['plattform']:null
+          ]);
+        }
+      }
+    }
+    $article['asin_candidates']=array_values($candidateValues);
+    // Absence of a configured source does NOT mean the Amazon catalog is complete.
+    $article['asin_sources_truncated']=is_array($related) &&
+      (!empty($related['artikel_asin']['truncated']) ||
+       !empty($related['amazon_angebote']['truncated']));
     $article['matched_on']=[];
-    foreach (['ean','han','artikelnummer'] as $identifier) {
-      if (trim((string)($article[$identifier]??''))===$ean) $article['matched_on'][]=$identifier;
+    foreach (['ean','han','artikelnummer'] as $matchKey) {
+      if (trim((string)($article[$matchKey]??''))===$identifier) $article['matched_on'][]=$matchKey;
     }
     unset($article['raw_json']); // internal raw DB fields are never exposed through the read API
   }
@@ -93,7 +170,7 @@ try {
     'snapshot_at'=>$meta['last_completed_utc'],'age_minutes'=>$age,
     'matches'=>$matches,
     'limited'=>$limited,
-    'note'=>'JTL-Spiegelstand aus der letzten abgeschlossenen Synchronisation. Treffer über GTIN, HAN oder bestehende Artikelnummer; kein direkter Schreibzugriff auf JTL.'
+    'note'=>'JTL-Spiegelstand aus der letzten abgeschlossenen Synchronisation. Suche über EAN/GTIN, HAN oder Artikelnummer; kein direkter Schreibzugriff auf JTL.'
   ]);
 } catch (Throwable $e) {
   error_log('HW24 JTL mirror lookup failed: '.$e->getMessage());
