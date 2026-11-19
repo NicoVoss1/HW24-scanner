@@ -1,0 +1,100 @@
+name: HW24 controlled Plesk deployment
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Destination website
+        type: choice
+        options: [staging, production]
+        default: staging
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: hw24-deploy-${{ inputs.target }}
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target }}
+    timeout-minutes: 15
+    env:
+      SSH_HOST: ${{ secrets.HW24_SSH_HOST }}
+      SSH_PORT: ${{ secrets.HW24_SSH_PORT }}
+      SSH_USER: ${{ secrets.HW24_SSH_USER }}
+      SSH_KEY: ${{ secrets.HW24_SSH_PRIVATE_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.HW24_SSH_KNOWN_HOSTS }}
+      DEPLOY_ROOT: ${{ secrets.HW24_DEPLOY_DOCROOT }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify release eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ inputs.target }}" = "production" && "$GITHUB_REF" != refs/tags/hw24-v* ]]; then
+            echo 'Production requires a hw24-v* signed-off release tag.' >&2
+            exit 1
+          fi
+      - name: Check PHP, JavaScript and all referenced files
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in api/*.php; do php -l "$file"; done
+          for file in assets/*.js; do node --check "$file"; done
+          python3 - <<'PY'
+          import re,pathlib,subprocess,sys
+          html=pathlib.Path('index.html').read_text(encoding='utf-8')
+          issues=[]
+          for i,s in enumerate(re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>',html,re.I),1):
+            if not s.strip():continue
+            p=subprocess.run(['node','--check'],input=s,text=True,capture_output=True)
+            if p.returncode:issues.append('Inline JS '+str(i)+': '+p.stderr)
+          refs=set(re.findall(r'(?:src|href)=["\x27](assets/[^"\x27?]+)',html))
+          issues += ['Missing: '+p for p in sorted(refs) if not pathlib.Path(p).is_file()]
+          if issues:sys.exit('\n'.join(issues))
+          PY
+      - name: Build limited webroot payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/site
+          cp index.html build/site/
+          cp -R assets api build/site/
+          printf 'Commit: %s\nRef: %s\n' "$GITHUB_SHA" "$GITHUB_REF" > build/site/RELEASE.txt
+          test ! -e build/site/hw24_private
+          test ! -e build/site/sql
+          test ! -e build/site/sync
+      - name: Verify SSH and nonpublic credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SSH_HOST" && test -n "$SSH_USER" && test -n "$SSH_KEY" && test -n "$SSH_KNOWN_HOSTS" && test -n "$DEPLOY_ROOT" ||
+            { echo 'One-time Plesk SSH configuration incomplete; nothing deployed.' >&2; exit 1; }
+          [[ "$DEPLOY_ROOT" == /* && "$DEPLOY_ROOT" != / && "$DEPLOY_ROOT" != *..* && "$DEPLOY_ROOT" =~ ^[A-Za-z0-9_./-]+$ ]] ||
+            { echo 'Invalid deployment directory; nothing deployed.' >&2; exit 1; }
+          if [ -z "$SSH_PORT" ]; then SSH_PORT=22; fi
+          [[ "$SSH_PORT" =~ ^[0-9]{1,5}$ ]] || exit 1
+          echo "SSH_PORT=$SSH_PORT" >> "$GITHUB_ENV"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh -i ~/.ssh/id_ed25519 -p "$SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$SSH_USER@$SSH_HOST" "test -d '$DEPLOY_ROOT' && test -w '$DEPLOY_ROOT'"
+      - name: Preview file changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          rsync -azc --itemize-changes --dry-run \
+            -e "ssh -i $HOME/.ssh/id_ed25519 -p $SSH_PORT -o BatchMode=yes -o StrictHostKeyChecking=yes" \
+            build/site/ "$SSH_USER@$SSH_HOST:$DEPLOY_ROOT/"
+      - name: Deploy website files without deleting server content
+        shell: bash
+        run: |
+          set -euo pipefail
+          rsync -azc --itemize-changes \
+            -e "ssh -i $HOME/.ssh/id_ed25519 -p $SSH_PORT -o BatchMode=yes -o StrictHostKeyChecking=yes" \
+            build/site/ "$SSH_USER@$SSH_HOST:$DEPLOY_ROOT/"
+          # No --delete: never erase unrelated server files.
