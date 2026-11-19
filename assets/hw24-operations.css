@@ -1,0 +1,179 @@
+/* HW24 v4.9 · two workspace views and mobile scanner */
+.hw24-operations-tabs{display:flex;gap:8px;margin:8px 0 14px}
+.hw24-operations-tabs button{margin:0;flex:1;background:#f0f4fa;color:#1c416b;border:1px solid #c2d3e4;border-radius:8px;padding:12px;font-weight:700}
+.hw24-operations-tabs button.selected{background:#183b70;color:#fff}
+.hw24-camera-button{background:#e7f4ff!important;color:#1b4778!important;border:1px solid #b5cce6!important;border-radius:8px!important;margin:0!important;padding:11px 14px!important;min-height:45px!important}
+.hw24-operations-camera{border-radius:11px;padding:12px;background:#203047;color:#fff;margin:12px 0}
+.hw24-operations-camera video{width:100%;max-height:340px;object-fit:contain;display:block;background:#071322;border-radius:8px}
+.hw24-operations-camera p{color:#f2f6fc;font-size:13px}
+.hw24-operations-warehouse{border:1px solid #d4dfeb;background:#f8fbff;border-radius:10px;padding:13px;margin:14px 0}
+.hw24-operations-warehouse h3{margin:4px 0}
+.hw24-operations-warehouse p{font-size:13px}
+.hw24-operations-warehouse table{width:100%;border-collapse:collapse;display:table}
+.hw24-operations-warehouse tr{display:table-row}
+.hw24-operations-warehouse th,.hw24-operations-warehouse td{display:table-cell;text-align:left;border-bottom:1px solid #dde6f0;padding:8px 6px;font-size:13px}
+.hw24-operations-tax{border-radius:9px;padding:10px;margin:9px 0;background:#f0f5fc;color:#29445d;font-size:13px}
+.hw24-operations-channel{padding:9px 0;margin:9px 0}
+.hw24-operations-channel summary{cursor:pointer;font-size:13px;font-weight:700}
+.hw24-operations-channelgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:9px;margin:10px 0}
+.hw24-channelcard{border:1px solid #dfe6ee;padding:10px;border-radius:9px;background:white}
+.hw24-channelcard strong{font-weight:700}
+.hw24-channelcard p{font-size:12px;color:#50647b;margin:5px 0}
+@media(max-width:650px){.hw24-operations-tabs button{font-size:13px}.hw24-camera-button{flex:1}}
+
+/* v4.11: concise identity card and reliable locked-bin visibility */
+.hw24-wms-identity{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:8px;margin:12px 0}
+.hw24-wms-identity-cell{padding:10px;border-radius:8px;background:#fff;border:1px solid #d5e2f0;min-width:0}
+.hw24-wms-identity-cell small{font-size:11px;color:#63748a;display:block;margin-bottom:4px}
+.hw24-wms-identity-cell strong{display:block;font-size:14px;color:#17345c;overflow-wrap:anywhere}
+.hw24-wms-table-scroll{max-width:100%;overflow-x:auto}
+.hw24-wms-table-scroll table{min-width:760px}
+.hw24-wms-blocked td{background:#fff1ea!important;color:#802d18!important;font-weight:650}
+
+/* v4.12: strict read-only warehouse mode and high-contrast compact cards */
+/* Keep the scanner workdesk visible, also when an older cached JS has no id. */
+body.hw24-warehouse-mode #hw24ScanWorkspace > :not(.hw24-desk){display:none!important}
+body.hw24-warehouse-mode #hw24Desk > [data-original-article="yes"],
+body.hw24-warehouse-mode #hw24Desk > .hw24-operations-tax,
+body.hw24-warehouse-mode #hw24Desk > .hw24-operations-channel,
+body.hw24-warehouse-mode #hw24Desk > .hw24-desk-muted{display:none!important}
+body.hw24-warehouse-mode #hw24Desk .hw24-operations-warehouse{display:block!important}
+body.hw24-warehouse-mode #hw24Desk .hw24-operations-tabs{display:flex!important}
+.hw24-operations-tabs button{min-height:56px;font-size:16px;line-height:1.3}
+.hw24-operations-tabs button:focus-visible{outline:3px solid #196cbd;outline-offset:2px}
+.hw24-warehouse-readonly{display:flex;align-items:center;gap:7px;background:#eaf2fc;border:1px solid #c7dbee;color:#204d78;font-weight:650;font-size:13px;padding:12px;border-radius:9px;margin:10px 0}
+.hw24-warehouse-readonly::before{content:"🔒";font-size:16px}
+.hw24-wms-highlights{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:14px 0}
+.hw24-wms-stat{background:#fff;border:1px solid #d3dfea;border-radius:10px;padding:14px;min-width:0}
+.hw24-wms-stat small{display:block;color:#536783;margin-bottom:5px;font-size:11px}
+.hw24-wms-stat strong{display:block;font-size:24px;color:#123b69}
+.hw24-operations-warehouse table{min-width:930px}
+.hw24-operations-warehouse thead{display:table-header-group!important}
+.hw24-operations-warehouse tbody{display:table-row-group!important}
+.hw24-operations-warehouse th{background:#edf4fd;color:#23466b;font-weight:700;white-space:normal}
+.hw24-operations-warehouse td:nth-child(2){font-weight:750;color:#193b67;min-width:120px}
+.hw24-operations-warehouse td:nth-child(3){font-weight:750;text-align:center;font-variant-numeric:tabular-nums}
+.hw24-operations-warehouse td:nth-child(5){min-width:165px}
+.hw24-operations-warehouse td:nth-child(6){min-width:220px;white-space:normal!important}
+@media(max-width:640px){
+ .hw24-operations-tabs button{font-size:14px;padding:12px 5px}
+ .hw24-wms-highlights{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .hw24-wms-stat{padding:9px 7px}
+ .hw24-wms-stat strong{font-size:22px}
+}
+
+/* Native mobile warehouse cards, no forced sideways navigation */
+.hw24-wms-mobilelist{display:none}
+@media(max-width:680px){
+  .hw24-wms-table-scroll{display:none}
+  .hw24-wms-mobilelist{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+  .hw24-wms-mobilecard{background:#fff;border:1px solid #d3dfed;border-radius:12px;padding:12px;box-shadow:0 2px 10px #1022380c}
+  .hw24-wms-mobilecard.locked{border:2px solid #d77d60;background:#fff4ef}
+  .hw24-wms-mobiletop{display:flex;justify-content:space-between;align-items:start;gap:10px}
+  .hw24-wms-mobiletop small{display:block;font-size:11px;color:#536980;margin-bottom:4px}
+  .hw24-wms-mobiletop strong{font-size:17px;color:#173961;overflow-wrap:anywhere}
+  .hw24-wms-mobileamount{text-align:center;min-width:65px}
+  .hw24-wms-mobileamount strong{font-size:28px;display:block;line-height:1.1}
+  .hw24-wms-mobilestatus{font-weight:700;color:#275c41;font-size:12px;margin:9px 0}
+  .hw24-wms-mobilecard.locked .hw24-wms-mobilestatus{color:#b04329}
+  .hw24-wms-mobilehistory,.hw24-wms-mobileflags{font-size:12px;color:#5c7088;margin:6px 0}
+}
+
+body.hw24-warehouse-mode #hw24Desk .hw24-desk-profile{display:none!important} /* No export template selector in warehouse lookup */
+
+/* ASIN source candidates, visible only in article maintenance */
+.hw24-operations-asins{border:1px solid #cfdbed;background:#fafcfe;border-radius:10px;padding:12px;margin:10px 0}
+.hw24-operations-asins>summary{cursor:pointer;font-weight:700;color:#174b7b;font-size:14px}
+.hw24-asin-results{display:grid;gap:8px;padding-top:10px}
+.hw24-asin-results>p{font-size:12px;margin:0;color:#52667d}
+.hw24-asin-results>a{font-size:13px;color:#1456a2;text-decoration:underline;width:fit-content}
+.hw24-asin-candidate{padding:11px;border:1px solid #d9e2ee;border-radius:9px;background:#fff;display:grid;gap:7px}
+.hw24-asin-candidate-main strong{font-size:17px;font-variant-numeric:tabular-nums}
+.hw24-asin-candidate>small{font-size:11px;color:#5a6b85}
+.hw24-asin-candidate button{width:fit-content;background:#183c71;color:white;margin:0;font-size:12px}
+body.hw24-warehouse-mode #hw24Desk>.hw24-operations-asins{display:none!important}
+
+/* v4.16 TEST: clear available stock and per-article movement timeline */
+.hw24-wms-highlights{grid-template-columns:repeat(4,minmax(0,1fr))}
+.hw24-wms-stat:first-child{background:#ecf7ff;border-color:#b4d8f2}
+.hw24-wms-history{margin:16px 0 12px;padding:16px;border:1px solid #d1deeb;border-radius:12px;background:#f7faff}
+.hw24-wms-history h3{margin:0 0 6px;color:#1a3f6b;font-size:17px}
+.hw24-history-note{font-size:13px;font-weight:600;color:#47617c}
+.hw24-history-rows{display:grid;gap:9px;margin:12px 0}
+.hw24-history-entry{padding:12px 13px;border:1px solid #dce5ee;border-radius:9px;background:#fff}
+.hw24-history-entry strong{font-size:13px;color:#173960}
+.hw24-history-entry p,.hw24-history-entry small{font-size:12px;color:#536980;margin:6px 0 0}
+.hw24-wms-history button{background:#e6f1fc;color:#1c4c78;border:1px solid #aecbe3;border-radius:9px;font-size:13px;font-weight:700;min-height:44px}
+@media(max-width:680px){
+ .hw24-wms-highlights{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .hw24-wms-history{padding:12px}
+}
+
+/* v4.18: full-width title, generous bin columns, zero quantity visible. */
+#hw24Desk .hw24-wms-identity{grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+#hw24Desk .hw24-wms-product-title{grid-column:1/-1;padding:15px}
+#hw24Desk .hw24-wms-product-title strong{font-size:clamp(17px,2vw,22px);line-height:1.32}
+#hw24Desk .hw24-operations-warehouse{padding:clamp(12px,1.5vw,20px);min-width:0}
+#hw24Desk .hw24-wms-table-scroll{overflow-x:auto;max-width:100%}
+#hw24Desk table.hw24-wms-bin-table{table-layout:fixed!important;width:100%!important;min-width:790px!important;max-width:none!important;border-collapse:collapse}
+#hw24Desk .hw24-wms-bin-table :is(th,td){display:table-cell!important;position:static!important;min-width:0!important;max-width:none!important;word-break:normal!important;overflow-wrap:normal!important;vertical-align:middle;text-align:left;padding:12px 9px!important;font-size:13px;line-height:1.45}
+#hw24Desk .hw24-wms-bin-table th{white-space:nowrap!important;font-weight:700}
+#hw24Desk .hw24-wms-bin-table th:nth-child(1){width:13%}
+#hw24Desk .hw24-wms-bin-table th:nth-child(2){width:23%}
+#hw24Desk .hw24-wms-bin-table th:nth-child(3){width:10%;text-align:center}
+#hw24Desk .hw24-wms-bin-table td:nth-child(3){text-align:center;font-size:17px;font-weight:800;white-space:nowrap!important}
+#hw24Desk .hw24-wms-bin-table th:nth-child(4){width:17%}
+#hw24Desk .hw24-wms-bin-table th:nth-child(5){width:27%}
+#hw24Desk .hw24-wms-bin-table th:nth-child(6){width:10%}
+#hw24Desk .hw24-wms-bin-table td:nth-child(6){overflow-wrap:anywhere!important}
+#hw24Desk .hw24-wms-bin-table details{padding:0;margin:0;border:none}
+#hw24Desk .hw24-wms-bin-table details p{font-size:11px;overflow-wrap:anywhere}
+#hw24Desk .hw24-wms-highlights{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:920px){
+ #hw24Desk .hw24-wms-identity{grid-template-columns:repeat(3,minmax(0,1fr))}
+ #hw24Desk .hw24-wms-table-scroll{display:none}
+ #hw24Desk .hw24-wms-mobilelist{display:grid;gap:10px}
+}
+@media(max-width:640px){
+ #hw24Desk .hw24-wms-identity,#hw24Desk .hw24-wms-highlights{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #hw24Desk .hw24-wms-product-title{grid-column:1/-1}
+}
+
+/* v4.19: Movement cards – quantity and bin route are the primary information. */
+#hw24Desk .hw24-history-movement{display:grid;grid-template-columns:minmax(100px,142px) minmax(0,1fr);gap:12px 18px;padding:16px 20px;align-items:center}
+#hw24Desk .hw24-history-header{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 14px}
+#hw24Desk .hw24-history-when{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+#hw24Desk .hw24-history-when strong{font-size:16px;color:#183858}
+#hw24Desk .hw24-history-when span{font-size:14px;color:#536980}
+#hw24Desk .hw24-history-kind{font-size:12px;font-weight:650;color:#355572;background:#eef4fa;padding:5px 9px;border-radius:6px}
+#hw24Desk .hw24-history-quantity{text-align:center;border-right:1px solid #dce6ef;padding:8px 12px 8px 0}
+#hw24Desk .hw24-history-quantity strong{display:block;font-size:32px;line-height:1.1;color:#173e69;font-variant-numeric:tabular-nums}
+#hw24Desk .hw24-history-quantity small{display:block;margin:4px 0 0;font-size:12px;color:#52677d}
+#hw24Desk .hw24-history-route{display:grid;grid-template-columns:minmax(0,1fr) 30px minmax(0,1fr);align-items:center;gap:10px}
+#hw24Desk .hw24-history-place{min-width:0;border:1px solid #e0e8f0;border-radius:8px;padding:10px 12px;background:#f8fafc}
+#hw24Desk .hw24-history-place small{display:block;font-size:11px;color:#52677d;margin:0 0 4px}
+#hw24Desk .hw24-history-place strong{display:block;font-size:16px;line-height:1.35;overflow-wrap:anywhere}
+#hw24Desk .hw24-history-destination{background:#eef6f5;border-color:#cde2df}
+#hw24Desk .hw24-history-arrow{font-size:24px;text-align:center;font-weight:700;color:#466f89}
+#hw24Desk .hw24-history-source{grid-column:1/-1;margin:0;padding:0;border:0}
+#hw24Desk .hw24-history-source summary{font-size:11px;font-weight:600;color:#66798a}
+#hw24Desk .hw24-history-source p{font-size:12px;color:#52677d}
+@media(max-width:640px){
+ #hw24Desk .hw24-history-movement{grid-template-columns:76px minmax(0,1fr);padding:12px;gap:10px}
+ #hw24Desk .hw24-history-quantity{padding-right:7px}
+ #hw24Desk .hw24-history-quantity strong{font-size:26px}
+ #hw24Desk .hw24-history-route{grid-template-columns:minmax(0,1fr);gap:4px}
+ #hw24Desk .hw24-history-arrow{transform:rotate(90deg);font-size:19px;line-height:1}
+ #hw24Desk .hw24-history-place{padding:8px 10px}
+ #hw24Desk .hw24-history-place strong{font-size:14px}
+}
+
+/* v4.20: Four real JTL aggregate quantities, subordinate bin metrics */
+#hw24Desk .hw24-wms-highlights{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+#hw24Desk .hw24-wms-available{background:#eaf6f4;border-color:#9bcfc2}
+#hw24Desk .hw24-wms-available strong{color:#116c53}
+#hw24Desk .hw24-wms-bin-metrics{grid-column:1/-1;display:flex;gap:8px 15px;align-items:center;flex-wrap:wrap;padding:5px 2px;color:#52677d;font-size:12px}
+#hw24Desk .hw24-wms-bin-metrics span{white-space:normal}
+#hw24Desk .hw24-wms-bin-metrics p{flex-basis:100%;margin:2px 0}
+@media(max-width:760px){#hw24Desk .hw24-wms-highlights{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:460px){#hw24Desk .hw24-wms-highlights{gap:7px}#hw24Desk .hw24-wms-stat{padding:9px 7px}}
