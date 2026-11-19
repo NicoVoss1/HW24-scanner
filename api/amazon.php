@@ -40,6 +40,7 @@ $configFile=$root.'amazon/amazon_spapi.php';
 $dbFile=$root.'db.php';
 if (!is_file($configFile)||!is_file($dbFile)) reply(503,['ok'=>false,'error'=>'private_config_missing']);
 
+$stage='config_load';
 try {
     $settings=require $configFile;
     $db=require $dbFile;
@@ -48,6 +49,7 @@ try {
         if (empty($settings[$name])) throw new RuntimeException('amazon_credentials_missing');
     }
     if (empty($db['user']) || !array_key_exists('password',$db)) throw new RuntimeException('db_credentials_missing');
+    $stage='database_connect';
     $pdo=new PDO('mysql:host=127.0.0.1;port=3306;dbname=hw24_artikelmanager;charset=utf8mb4',
         $db['user'],$db['password'],[
             PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,
@@ -55,10 +57,12 @@ try {
             PDO::ATTR_EMULATE_PREPARES=>false,
             PDO::ATTR_TIMEOUT=>5
         ]);
+    $stage='schema_check';
     $pdo->query('SELECT id FROM hw24_amazon_catalog_snapshots LIMIT 0');
     $marketplace='A1PA6795UKMFR9'; // Amazon.de only: prevent arbitrary endpoints/regions.
     $endpoint='https://sellingpartnerapi-eu.amazon.com';
     $freshMinutes=360; // Respect Amazon API traffic and keep an audit of EVERY user lookup.
+    $stage='cache_read';
     $find=$pdo->prepare('SELECT id, fetched_at_utc, response_json, item_count
          FROM hw24_amazon_catalog_snapshots
          WHERE marketplace_id=? AND searched_ean=? AND response_status=200
@@ -69,12 +73,14 @@ try {
     if ($cached) {
         $data=json_decode((string)$cached['response_json'],true);
         if (is_array($data)) {
+            $stage='cache_log';
             $log=$pdo->prepare('INSERT INTO hw24_amazon_lookup_log(marketplace_id,searched_ean,outcome,http_status,snapshot_id) VALUES (?,?,?,?,?)');
             $log->execute([$marketplace,$ean,'cache',200,$cached['id']]);
             reply(200, ['ok'=>true,'source'=>'cache','snapshot_id'=>(int)$cached['id'],'fetched_at_utc'=>$cached['fetched_at_utc'],
                 'count'=>(int)$cached['item_count'],'items'=>summaries($data['items']??[]),'has_next_page'=>!empty($data['pagination']['nextToken'])]);
         }
     }
+    $stage='lwa_token';
     if (!function_exists('curl_init')) throw new RuntimeException('curl_unavailable');
     $ch=curl_init('https://api.amazon.com/auth/o2/token');
     curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>http_build_query([
@@ -88,6 +94,7 @@ try {
     curl_close($ch);
     $token=is_string($tokenText)?json_decode($tokenText,true):null;
     if ($authCode!==200 || empty($token['access_token'])) throw new RuntimeException('lwa_token_exchange_failed');
+    $stage='catalog_request';
     $query=http_build_query([
         'marketplaceIds'=>$marketplace,'identifiers'=>$ean,'identifiersType'=>'EAN',
         'includedData'=>'attributes,classifications,dimensions,identifiers,images,productTypes,relationships,salesRanks,summaries'
@@ -105,14 +112,18 @@ try {
         reply(502,['ok'=>false,'error'=>'amazon_catalog_request_failed','upstream_status'=>$httpStatus]);
     }
     if (strlen($raw)>8*1024*1024) throw new RuntimeException('catalog_payload_too_large');
+    $stage='catalog_decode';
     $response=json_decode($raw,true,512,JSON_THROW_ON_ERROR);
     if (!is_array($response) || !isset($response['items']) || !is_array($response['items'])) throw new RuntimeException('amazon_catalog_response_invalid');
     $items=$response['items'];
+    $stage='database_transaction';
     $pdo->beginTransaction();
+    $stage='archive_snapshot';
     $q=$pdo->prepare('INSERT INTO hw24_amazon_catalog_snapshots(marketplace_id,searched_ean,fetched_at_utc,response_status,item_count,response_json)
         VALUES (?,?,UTC_TIMESTAMP(),?,?,?)');
     $q->execute([$marketplace,$ean,$httpStatus,count($items),$raw]);
     $snapshot=(int)$pdo->lastInsertId();
+    $stage='archive_items';
     $insert=$pdo->prepare('INSERT INTO hw24_amazon_catalog_items
        (snapshot_id,marketplace_id,searched_ean,asin,item_name,brand,manufacturer,item_json) VALUES (?,?,?,?,?,?,?,?)');
     foreach ($items as $item) {
@@ -124,15 +135,17 @@ try {
             substr((string)($summary['manufacturer']??''),0,255),
             json_encode($item,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE|JSON_THROW_ON_ERROR)]);
     }
+    $stage='archive_log';
     $log=$pdo->prepare('INSERT INTO hw24_amazon_lookup_log(marketplace_id,searched_ean,outcome,http_status,snapshot_id) VALUES (?,?,?,?,?)');
     $log->execute([$marketplace,$ean,count($items)?'live':'not_found',200,$snapshot]);
+    $stage='archive_commit';
     $pdo->commit();
     reply(200,['ok'=>true,'source'=>'live','snapshot_id'=>$snapshot,'count'=>count($items),'items'=>summaries($items),
        'has_next_page'=>!empty($response['pagination']['nextToken'])]);
 } catch (Throwable $e) {
     if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
-    error_log('HW24 Amazon catalog API failure ['.get_class($e).']: '.$e->getMessage());
-    reply(503,['ok'=>false,'error'=>'amazon_lookup_or_storage_unavailable']);
+    error_log('HW24 Amazon catalog API stage='.$stage.' ['.get_class($e).']: '.$e->getMessage());
+    reply(503,['ok'=>false,'error'=>'amazon_lookup_or_storage_unavailable','stage'=>$stage]);
 }
 function summaries(array $items): array {
     $out=[];
