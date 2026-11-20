@@ -201,15 +201,17 @@ const fieldHelp={
  'GTIN':'Gescannte Kennung, schreibgeschützt',
  'Artikelnummer':'Für den freigegebenen Ameise-Import erforderlich. Bestehende JTL-Artikelnummern niemals überschreiben.',
  'ASIN':'Nur übernehmen, wenn eindeutig zu diesem Produkt verifiziert',
- 'Kosten':'Tatsächlicher Einkaufspreis; nicht Ø EK netto / letzter EK',
- 'Netto-EK in Standardwährung':'Lieferanten-EK; nur bei belegter Quelle einsetzen',
+ 'Kosten':'Tatsächlicher Netto-Einkaufspreis. Nicht Ø EK netto oder letzter EK, falls nicht belegt.',
+ 'Netto-EK in Standardwährung':'Lieferantenpreis netto; nur mit konkretem Beleg übernehmen',
  'Überverkäufe möglich':'Standard N. Y nur nach ausdrücklicher Einzelentscheidung.',
  'Inhalt/Menge':'Packungsinhalt bzw. Grundpreisangabe, nicht Lagerbestand',
- 'Steuerklasse':'Steuerklasse abhängig von Produkt und Steuerrecht prüfen',
+ 'Steuerklasse':'Normaler Steuersatz ist ein HW24-Vorschlag. Steuerklasse in JTL prüfen.',
  'Bestandsführung aktiv':'Artikelregel, keine WMS-Einbuchung',
- 'Herkunftsland':'Nur belegt übernehmen',
- 'Artikelgewicht':'Maßeinheit des aktuellen JTL-Importprofils prüfen',
- 'Versandgewicht':'Maßeinheit des aktuellen JTL-Importprofils prüfen'
+ 'Lieferant':'Textvorschlag. JTL-Lieferanten-ID vor Ameise-Import eindeutig zuordnen.',
+ 'Beschaffungszeit manuell setzen':'Zahl von Tagen, kein Ja/Nein. Der Wert 2 ist vorläufig.',
+ 'Herkunftsland':'Nur belegtes Ursprungsland eintragen, nicht aus Marke ableiten',
+ 'Artikelgewicht':'Vorlage: 60 ml ≈ 0,06 kg. Nur Schätzung (Dichte und Verpackung prüfen).',
+ 'Versandgewicht':'Vorlage: Artikelgewicht + 0,02 kg. Vor JTL-Import tatsächliches Gewicht prüfen.'
 };
 const statuses={existing:'In JTL vorhanden',new_candidate:'Neuanlage prüfen',
  multiple:'Mehrdeutige JTL-Treffer',unverified:'JTL ungeprüft'};
