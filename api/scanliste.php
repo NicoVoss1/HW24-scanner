@@ -216,12 +216,23 @@ try {
       'Lieferstatus'=>180,'Kategorie Ebene 1'=>180,'Kategorie Ebene 2'=>180,
       'Kategorie Ebene 3'=>180,'Titel-Tag (SEO)'=>250,
       'Meta-Description (SEO)'=>600,'URL-Pfad'=>300];
+    $sources=$body['field_sources']??[];
+    if(!is_array($sources)||count($sources)>45)respond(400,['ok'=>false,'error'=>'invalid_sources']);
+    $sourceClean=[];
+    foreach($sources as $sourceKey=>$sourceName){
+      if(!array_key_exists($sourceKey,$allowed)||!is_string($sourceName)
+        ||strlen($sourceName)>200)respond(400,['ok'=>false,'error'=>'invalid_source']);
+      $sourceClean[$sourceKey]=trim($sourceName);
+    }
     $clean=[];
     foreach($data as $k=>$v){
       if(!array_key_exists($k,$allowed)||!is_string($v) ||
          strlen($v)>$allowed[$k]*4 || mb_strlen($v,'UTF-8')>$allowed[$k])
         respond(400,['ok'=>false,'error'=>'invalid_field','field'=>$k]);
       $v=trim($v);
+      if($k==='Artikelnummer' && $v!=='' &&
+         (!preg_match('/^[\\p{L}\\p{N}][\\p{L}\\p{N}._\\/ -]{0,139}$/uD',$v) || str_starts_with($v,'-')))
+         respond(400,['ok'=>false,'error'=>'invalid_artikelnummer']);
       if(($k==='GTIN' && $v!=='' && !gtinValid($v)) ||
          ($k==='ASIN' && $v!=='' && !preg_match('/^[A-Z0-9]{10}$/iD',$v)))
         respond(400,['ok'=>false,'error'=>'invalid_identifier','field'=>$k]);
@@ -265,11 +276,20 @@ try {
         respond(409,['ok'=>false,'error'=>'artikelnummer_already_in_jtl']);}
       $state='ready';
     }
-    $s=$pdo->prepare('UPDATE hw24_scan_items SET draft_json=?,review_state=?,
+    $previousSources=json_decode((string)($old['source_json']??''),true);
+    if(!is_array($previousSources))$previousSources=[];
+    $mergedSources=array_replace($previousSources,$sourceClean);
+    $nextJson=json_encode($combined,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+    $s=$pdo->prepare('UPDATE hw24_scan_items SET draft_json=?,source_json=?,review_state=?,
       revision=revision+1,reviewed_at_utc=UTC_TIMESTAMP(6),
       updated_at_utc=UTC_TIMESTAMP(6) WHERE id=?');
-    $s->execute([json_encode($combined,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
-      $state,$item]);$pdo->commit();
+    $s->execute([$nextJson,json_encode($mergedSources,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$state,$item]);
+    $audit=$pdo->prepare('INSERT INTO hw24_scan_draft_audit
+      (scan_item_id,revision,changed_by,change_kind,previous_json,next_json)
+      VALUES (?,?,?,?,?,?)');
+    $audit->execute([$item,$expected+1,$actor,$state,
+      json_encode($prev,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$nextJson]);
+    $pdo->commit();
     respond(200,['ok'=>true,'item_id'=>$item,'revision'=>$expected+1,
       'review_state'=>$state,'draft'=>$combined]);
   }
