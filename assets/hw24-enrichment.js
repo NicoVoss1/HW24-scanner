@@ -189,6 +189,28 @@ function build({ean,match=null,curated=null,history=null,catalog=null,isNew=fals
  }
  if(validGtin(ean))put('GTIN',ean,'EAN · gescannt');
  const title=fields.Artikelname||jtlName;
+ const hairColor=/(?:color|colour|koleston|igora|illumina|haarfarb|tönung|färb|pastel|shinfinity|brillant)/i.test(title);
+ if(title&&(isNew||accurate)){
+  // Manufacturer is often readable in the verified title even if the JTL mirror
+  // currently contains only its numeric kHersteller ID.
+  const knownBrands=['Inebrya','Wella','Schwarzkopf','Matrix','Goldwell','Keune','L’Oréal','L\'Oréal','Hair Haus'];
+  const brand=knownBrands.find(b=>title.toLocaleLowerCase('de').startsWith(b.toLocaleLowerCase('de')+' '));
+  if(brand)put('Hersteller',brand,'HW24 · bekannter Markenname aus JTL-/Produktname; prüfen','rule');
+  if(hairColor){
+   put('Warengruppe','Haarfarben','HW24 · Haarfarben-Vorschlag aus Artikelname','rule');
+   put('Kategorie Ebene 1','Haarfarben','HW24 · Kategorie-Vorschlag; JTL-Kategorie prüfen','rule');
+  }
+  const size=sizeFromName(title);
+  if(size&&size.quantity&&size.units===1){
+   put('Inhalt/Menge',amount(size.quantity),'Produktname · Inhalt prüfen','estimate');
+   put('Maßeinheit',size.unit.toUpperCase(),'Produktname · Einheit prüfen','estimate');
+   if(size.unit==='ml'){
+    const kg=size.quantity/1000;
+    put('Artikelgewicht',amount(kg,4),'HW24-Schätzung: 1 ml ≈ 1 g; tatsächliches Gewicht prüfen','estimate');
+    put('Versandgewicht',amount(kg+0.02,4),'HW24-Schätzung: Artikelgewicht + 20 g; Verpackung prüfen','estimate');
+   }
+  }
+ }
  if(isNew){
   put('Artikelnummer',ean,'HW24 · vorläufige EAN-Artikelnummer','rule');
   put('HAN',ean,'HW24-Regel · HAN = GTIN falls keine echte HAN vorliegt','rule');
@@ -212,17 +234,7 @@ function build({ean,match=null,curated=null,history=null,catalog=null,isNew=fals
   // This JTL field expects a *number of days*, not Ja/Nein.
   put('Neu im Sortiment','Y','HW24 · Vorlage','rule');
   put('Top-Artikel','N','HW24 · Vorlage','rule');
-  const size=sizeFromName(title);
-  if(size&&size.quantity&&size.units===1){
-   const q=size.quantity;
-   put('Inhalt/Menge',amount(q),'Produktname · Packungsinhalt prüfen','estimate');
-   put('Maßeinheit',size.unit.toUpperCase(),'Produktname · Einheit prüfen','estimate');
-   if(size.unit==='ml'){
-    const kg=q/1000;
-    put('Artikelgewicht',amount(kg,4),'HW24-Schätzung · 1 ml ≈ 1 g (Dichte prüfen)','estimate');
-    put('Versandgewicht',amount(kg+0.02,4),'HW24-Schätzung · + 20 g Verpackung','estimate');
-   }
-  }
+
   if(title){
    put('Kurzbeschreibung',title,'HW24 · aus Produktname','rule');
    put('Titel-Tag (SEO)',(title+' | HAIRWORLD24').slice(0,250),'HW24 · SEO-Titel aus Stammdaten','rule');
