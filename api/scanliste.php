@@ -277,7 +277,7 @@ try {
       $unique[$ean]=true;$validated[]=['ean'=>$ean,'meta'=>$meta];
     }
     $pdo->beginTransaction();getBatch($pdo,$batch,$actor,true);
-    $find=$pdo->prepare('SELECT id,revision,review_state,source_json
+    $find=$pdo->prepare('SELECT id,revision,review_state,source_json,draft_json,scan_count
       FROM hw24_scan_items WHERE batch_id=? AND ean=? FOR UPDATE');
     $insert=$pdo->prepare('INSERT INTO hw24_scan_items
       (batch_id,ean,resolution,jtl_article_id,artikelnummer,artikelname,snapshot_at_utc,source_json)
@@ -306,8 +306,20 @@ try {
         $current['csv_meta']=array_merge($meta,['origin'=>'CSV-Import']);
       $edit->execute([json_encode($current,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
         (int)$existing['id']]);
-      if($existing['review_state']==='removed')$restored++;
-      else $existed++;
+      if($existing['review_state']==='removed'){
+        $oldDraft=json_decode((string)($existing['draft_json']??''),true);
+        if(!is_array($oldDraft))$oldDraft=[];
+        $before=array_merge($oldDraft,['__review_state'=>'removed',
+          '__scan_count'=>(int)$existing['scan_count']]);
+        $after=array_merge($oldDraft,['__review_state'=>'scan_only','__scan_count'=>1]);
+        $audit=$pdo->prepare('INSERT INTO hw24_scan_draft_audit
+          (scan_item_id,revision,changed_by,change_kind,previous_json,next_json)
+          VALUES (?,?,?,?,?,?)');
+        $audit->execute([(int)$existing['id'],(int)$existing['revision']+1,$actor,
+          'restore_csv',json_encode($before,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
+          json_encode($after,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
+        $restored++;
+      }else $existed++;
     }
     $q=$pdo->prepare('UPDATE hw24_scan_batches SET updated_at_utc=UTC_TIMESTAMP(6) WHERE id=?');
     $q->execute([$batch]);$pdo->commit();
