@@ -128,8 +128,7 @@ function saveCatalogPending(){
 }
 function catalogStatus(note=''){
  const target=$('amazonQueueStatus');if(!target)return;
- target.textContent='Amazon SP-API: '+catalogQueue.length+' ausstehend · '+catalogDone.size+
- ' in dieser Sitzung geprüft'+(note?' · '+note:'');
+ target.textContent='Amazon SP-API: '+(catalogQueue.length||catalogDone.size?catalogQueue.length+' ausstehend · '+catalogDone.size+' geprüft':'Bereit · Cache wird bei Auswahl/Scan geprüft')+(note?' · '+note:'');
  $('catalogRetry').hidden=!catalogStopped;
 }
 function enqueueCatalog(ean){
@@ -144,24 +143,23 @@ async function runCatalog(){
   catalogStatus('Prüfe '+ean+' über MariaDB-Cache oder Amazon …');
   let stopReason='';
   try{
-   const response=await fetch('api/amazon.php?ean='+encodeURIComponent(ean),
-    {credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
-   const result=await response.json();
-   if(!response.ok||!result.ok){
+   const result=await window.HW24Enrich.catalog(ean);
+   if(!result?.ok){
     stopReason=response.status===429?'Amazon-Limit erreicht':
      result.error==='amazon_catalog_request_failed'?'Amazon-Abfrage abgelehnt':
      'SP-API/Server momentan nicht verfügbar';
     catalogStopped=true;
    }else{
-    catalogSummaries.set(ean,{count:result.count,source:result.source,items:result.items||[],at:result.fetched_at_utc});
+    catalogSummaries.set(ean,result);
     catalogDone.add(ean);catalogQueue.shift();saveCatalogPending();
     if(state.selected?.ean===ean){
+      document.dispatchEvent(new CustomEvent('hw24:scan-catalog',{detail:{ean,result}}));
       $('researchStatus').textContent='Amazon automatisch geprüft: '+result.count+' Katalogtreffer ('+
        (result.source==='cache'?'gespeicherter Cache':'aktuelle SP-API-Antwort')+
        '). Bei Bedarf „Detaillierte Quellen“ für Datenvorschläge öffnen.';
     }
    }
-  }catch(_){catalogStopped=true;stopReason='Netzwerkfehler oder ungültige Antwort'}
+  }catch(err){catalogStopped=true;stopReason='Amazon-Abfrage fehlgeschlagen: '+String(err?.message||'Netzwerkfehler').slice(0,90)}
   catalogStatus(stopReason);
   if(catalogStopped)break;
   // 1 request per 1.5 seconds or slower, even if the upstream response is immediate.
@@ -328,6 +326,13 @@ function refreshFieldGroups(){
  $('editorCompleteness').textContent=state.selected?.resolution==='new_candidate'
    ?(missing.length?'Noch fehlende Pflichtangaben: '+missing.join(', '):'✓ Alle fünf Pflichtfelder befüllt. Produktdaten trotzdem vor Freigabe prüfen.')
    :'Bestehende oder nicht eindeutig neue Artikel werden nicht für einen Neuanlagenimport freigegeben.';
+ const net=$('field_'+schema.indexOf('Kosten'))?.value||$('field_'+schema.indexOf('Netto-EK in Standardwährung'))?.value||'';
+ const number=Number(val(net).replace(',','.'));
+ const tax=val($('field_'+schema.indexOf('Steuerklasse'))?.value).toLowerCase();
+ $('grossEK').textContent=Number.isFinite(number)&&number>0&&tax==='normaler steuersatz'
+   ?'Brutto-EK (19 %, rechnerisch): '+(number*1.19).toFixed(2).replace('.',',')+
+    ' EUR. Nur zur Kalkulation, kein JTL-Importfeld.'
+   :'Brutto-EK: Nur bei bekanntem tatsächlichem Netto-EK und richtiger Steuerklasse berechenbar.';
  for(const details of $('editorFields').querySelectorAll('.formGroup')){
   const controls=[...details.querySelectorAll('input,textarea,select')];
   const count=controls.filter(c=>val(c.value)).length;
@@ -395,6 +400,10 @@ function selectItem(id){
  $('useEAN').disabled=disabled;$('hairTemplate').disabled=disabled;$('research').disabled=false;
  $('save').disabled=disabled;$('ready').disabled=disabled;
  renderList();
+ if(window.HW24Enrich?.goodGtin(item.ean)){
+   enqueueCatalog(item.ean);
+   document.dispatchEvent(new CustomEvent('hw24:scan-selected',{detail:{id:item.id,ean:item.ean}}));
+ }
 }
 function updateLocal(item){state.items=state.items.filter(x=>x.id!==item.id);state.items.unshift(item);if(state.selected?.id===item.id)state.selected=item;renderList()}
 function editorFields(){
@@ -517,7 +526,7 @@ async function consume(){
   status('Speichere EAN '+current.ean+' … · '+state.queue.length+' in Warteschlange');
   try{const data=await post('scan',{batch_id:current.batchId,ean:current.ean,event_key:current.key});
    state.queue.shift();keepPending();
-   if(current.batchId===state.batchId)updateLocal(data.item);
+   if(current.batchId===state.batchId){updateLocal(data.item);selectItem(data.item.id);}
    enqueueCatalog(current.ean);
    status('✓ '+current.ean+' gespeichert · '+(statuses[data.item.resolution]||'JTL-Status offen')+
    ' · '+state.queue.length+' ausstehend','success');
@@ -590,6 +599,47 @@ $('report').onclick=()=>{
 const resend=document.createElement('button');resend.id='resend';resend.type='button';resend.className='secondary';
 resend.textContent='↻ Ungespeicherte Scans erneut senden';resend.hidden=state.queue.length===0;resend.onclick=consume;
 $('scanForm').append(resend);
+window.HW24ScanBridge={
+ selected:()=>state.selected,
+ batchId:()=>state.batchId,
+ schema:()=>schema.slice(),
+ control:key=>{const n=schema.indexOf(key);return n>=0?$('field_'+n):null},
+ catalog:ean=>catalogSummaries.get(ean),
+ status:text=>{$('editorStatus').textContent=text},
+ refresh:refreshFieldGroups,
+ async apply(fields,fieldSources,{save=true}={}){
+   const item=state.selected;if(!item)return{ok:false,error:'no_item'};
+   const additions={},sources={};
+   for(const [field,value] of Object.entries(fields||{})){
+     const c=this.control(field);
+     if(!c||c.readOnly||c.disabled||c.dataset.userTouched==='1'||val(c.value)||!val(value))continue;
+     c.value=val(value);
+     c.dataset.hw24Source=val(fieldSources?.[field]||'HW24 · Quellen');
+     additions[field]=val(value);sources[field]=c.dataset.hw24Source;
+   }
+   refreshFieldGroups();
+   if(!save||item.resolution!=='new_candidate'||!Object.keys(additions).length)
+     return{ok:true,fields:additions,saved:false};
+   additions.GTIN=item.ean;sources.GTIN='EAN · Scan';
+   try{
+     const out=await post('edit',{batch_id:state.batchId,item_id:item.id,
+       expected_revision:Number(item.revision),fields:additions,field_sources:sources,mark_ready:false});
+     item.revision=out.revision;item.draft=out.draft;item.review_state=out.review_state;
+     renderList();return{ok:true,fields:additions,saved:true};
+   }catch(error){
+     $('editorStatus').textContent='Vorbelegung sichtbar, aber nicht gespeichert: '+String(error.message);
+     return{ok:false,error:String(error.message),fields:additions};
+   }
+ },
+ show(fields,sources){
+  for(const [key,value] of Object.entries(fields||{})){
+   const c=this.control(key);
+   if(!c||val(c.value)||!val(value))continue;
+   c.value=val(value);c.title='Quelle: '+val(sources?.[key]||'JTL');
+  }
+  refreshFieldGroups();
+ }
+};
 loadBatches();diagnoseScanDb();
 $('dbSetupRetry').onclick=diagnoseScanDb;
 if(state.queue.length)status(state.queue.length+' unbestätigte Scanvorgänge aus vorheriger Sitzung. Zum Senden oben „Erneut senden“ wählen.','warn');
