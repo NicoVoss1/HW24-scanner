@@ -18,7 +18,7 @@ async function get(type,ean){
  if(active.has(key))return active.get(key);
  const endpoints={
   jtl:'api/jtl.php?ean=',curated:'api/curated.php?ean=',
-  history:'api/historie.php?ean=',catalog:'api/amazon.php?ean='};
+  history:'api/historie.php?include_legacy=1&ean=',catalog:'api/amazon.php?ean='};
  if(!endpoints[type])throw Error('unsupported_source');
  const promise=(async()=>{
   const resp=await fetch(endpoints[type]+encodeURIComponent(ean),{credentials:'same-origin',cache:'no-store'});
@@ -90,7 +90,42 @@ function fieldMap(){
  }
  return{fields,sources,flags,put};
 }
-function build({ean,match=null,curated=null,catalog=null,isNew=false}){
+function verifiedHistory(history){
+ const fields={},sources={},candidates=new Map(),conflicts=new Set();
+ const approved=history?.approved?.fields;
+ if(approved&&typeof approved==='object'){
+  for(const [key,raw] of Object.entries(approved)){
+   if(!v(raw))continue;fields[key]=v(raw);sources[key]='HW24 · historisch geprüfter Artikelstand';
+  }
+ }
+ const allowed=new Map([
+  ['artikelname','Artikelname'],['name','Artikelname'],['citemname','Artikelname'],
+  ['hersteller','Hersteller'],['marke','Hersteller'],['warengruppe','Warengruppe'],
+  ['kurzbeschreibung','Kurzbeschreibung'],['beschreibung','Beschreibung'],
+  ['han','HAN'],['kategorieebene1','Kategorie Ebene 1'],
+  ['kategorieebene2','Kategorie Ebene 2'],['kategorieebene3','Kategorie Ebene 3'],
+  ['asin','ASIN']
+ ]);
+ const asins=[];
+ for(const row of history?.matches||[])for(const cell of row.cells||[]){
+  if(!cell.header_verified)continue;
+  const key=allowed.get(v(cell.label).toLocaleLowerCase('de').replace(/[\s_-]+/g,''));
+  const value=v(cell.value);
+  if(!key||!value)continue;
+  if(key==='ASIN'){
+   if(/^[A-Z0-9]{10}$/i.test(value)&&!asins.includes(value.toUpperCase()))asins.push(value.toUpperCase());
+   continue;
+  }
+  if(!candidates.has(key))candidates.set(key,{
+   value,source:'Historischer Excel-Beleg · '+v(row.sheet_name||'Quelle')+' / Zeile '+v(row.excel_row||'?')});
+  else if(candidates.get(key).value.toLocaleLowerCase('de')!==value.toLocaleLowerCase('de'))conflicts.add(key);
+ }
+ for(const [key,x] of candidates)if(!conflicts.has(key)&&!fields[key]){
+  fields[key]=x.value;sources[key]=x.source+' · vor Import prüfen';
+ }
+ return{fields,sources,asins};
+}
+function build({ean,match=null,curated=null,history=null,catalog=null,isNew=false}){
  ean=v(ean);const state=fieldMap();const {fields,sources,flags,put}=state;
  const snap=match?.jtl_source_fields||{};
  const accurate=match&&v(match.ean)===ean;
@@ -140,6 +175,8 @@ function build({ean,match=null,curated=null,catalog=null,isNew=false}){
   }
  }
  for(const [key,value] of Object.entries(approved))put(key,value,'HW24 · freigegebene Stammdaten');
+ const historic=verifiedHistory(history);
+ for(const [key,value] of Object.entries(historic.fields))put(key,value,historic.sources[key]);
  // JTL-derived / approved identity is stronger than Amazon catalog guesses.
  let chosen=null;
  const choices=amazonChoices(catalog,ean);
@@ -218,7 +255,7 @@ function renderCandidates(container,choices,selected,onSelect){
  }
 }
 root.HW24Enrich=Object.freeze({
- goodGtin:validGtin,sizeFromName,likelyMultipack,amazonChoices,build,renderCandidates,
+ goodGtin:validGtin,sizeFromName,likelyMultipack,amazonChoices,verifiedHistory,build,renderCandidates,
  jtl:ean=>get('jtl',ean),curated:ean=>get('curated',ean),
  history:ean=>get('history',ean),catalog:ean=>get('catalog',ean)
 });
