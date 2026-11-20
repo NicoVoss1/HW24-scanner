@@ -1,0 +1,37 @@
+name: HW24 scan correction and CSV intake tests
+on:
+  push:
+    branches:
+      - feature/hw24-v422-scan-delete-csv-20261120
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: CSV and source rules
+        run: |
+          node tests/hw24-csv-intake.test.cjs
+          node tests/hw24-scan-number-and-source.test.cjs
+      - name: Browser and PHP syntax checks
+        run: |
+          set -euo pipefail
+          for file in assets/*.js; do node --check "$file"; done
+          for file in api/*.php; do php -l "$file"; done
+          python3 - <<'PY'
+          import pathlib,re,subprocess
+          for file in ('scanliste.html','index.html'):
+             html=pathlib.Path(file).read_text(encoding='utf8')
+             for script in re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>',html,re.I):
+                if not script.strip():continue
+                r=subprocess.run(['node','--check'],input=script,text=True,capture_output=True)
+                if r.returncode:raise RuntimeError(file+' inline syntax: '+r.stderr)
+             for asset in re.findall(r'(?:src|href)=["\'](assets/[^"\']+)',html):
+                if not pathlib.Path(asset.split('?')[0]).is_file():raise RuntimeError('Missing: '+asset)
+          print('Inline scripts and asset references OK')
+          PY
+      - name: Fail if credentials or SQL migration leaked into staged website
+        run: |
+          test ! -d hw24_private
+          test ! -f db.php
+          test ! -f scanlist-db.php
