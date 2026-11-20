@@ -221,7 +221,13 @@ try {
       'Bestandsführung aktiv'=>1,'Überverkäufe möglich'=>1,'Artikeltyp'=>120,
       'Lieferstatus'=>180,'Kategorie Ebene 1'=>180,'Kategorie Ebene 2'=>180,
       'Kategorie Ebene 3'=>180,'Titel-Tag (SEO)'=>250,
-      'Meta-Description (SEO)'=>600,'URL-Pfad'=>300];
+      'Meta-Description (SEO)'=>600,'URL-Pfad'=>300,
+      'Währung'=>3,'Stückzahl teilbar'=>1,'Zusätzliche Bearbeitungszeit'=>3,
+      'Beschaffungszeit automatisch ermitteln'=>1,'Beschaffungszeit manuell setzen'=>3,
+      'Top-Artikel'=>1,'Neu im Sortiment'=>1,'Herkunftsland'=>80,
+      'Anmerkung'=>3000,'Lieferant'=>180,'Artikelnummer (Lieferant)'=>140,
+      'Netto-EK in Standardwährung'=>40
+    ];
     $sources=$body['field_sources']??[];
     if(!is_array($sources)||count($sources)>45)respond(400,['ok'=>false,'error'=>'invalid_sources']);
     $sourceClean=[];
@@ -242,12 +248,20 @@ try {
       if(($k==='GTIN' && $v!=='' && !gtinValid($v)) ||
          ($k==='ASIN' && $v!=='' && !preg_match('/^[A-Z0-9]{10}$/iD',$v)))
         respond(400,['ok'=>false,'error'=>'invalid_identifier','field'=>$k]);
-      if(in_array($k,['Artikel aktiv','Bestandsführung aktiv','Überverkäufe möglich'],true)
+      if(in_array($k,['Artikel aktiv','Bestandsführung aktiv','Überverkäufe möglich','Stückzahl teilbar','Top-Artikel','Neu im Sortiment'],true)
          && $v!=='' && !in_array($v,['Y','N'],true))
         respond(400,['ok'=>false,'error'=>'invalid_boolean','field'=>$k]);
-      if(in_array($k,['Kosten','Netto-VK','Brutto-VK'],true) && $v!=='' &&
+      if(in_array($k,['Kosten','Netto-VK','Brutto-VK','Netto-EK in Standardwährung'],true) && $v!=='' &&
         !preg_match('/^(?:0|[1-9][0-9]*)(?:[,.][0-9]{1,4})?$/D',$v))
         respond(400,['ok'=>false,'error'=>'invalid_price','field'=>$k]);
+      if($k==='Währung' && $v!=='' && !preg_match('/^[A-Z]{3}$/D',$v))
+        respond(400,['ok'=>false,'error'=>'invalid_currency','field'=>$k]);
+      if($k==='Beschaffungszeit automatisch ermitteln' && $v!=='' &&
+        !in_array($v,['0','1'],true))
+        respond(400,['ok'=>false,'error'=>'invalid_choice','field'=>$k]);
+      if(in_array($k,['Zusätzliche Bearbeitungszeit','Beschaffungszeit manuell setzen'],true)
+        && $v!=='' && !preg_match('/^\d{1,3}$/D',$v))
+        respond(400,['ok'=>false,'error'=>'invalid_days','field'=>$k]);
       $clean[$k]=$v;
     }
     $pdo->beginTransaction();getBatch($pdo,$batch,$actor,true);
