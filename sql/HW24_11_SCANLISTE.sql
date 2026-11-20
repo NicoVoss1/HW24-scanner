@@ -20,12 +20,19 @@ CREATE TABLE IF NOT EXISTS hw24_scan_items (
   jtl_article_id VARCHAR(80) NULL,
   artikelnummer VARCHAR(140) NULL,
   artikelname VARCHAR(600) NULL,
+  review_state VARCHAR(24) NOT NULL DEFAULT 'scan_only',
+  draft_json LONGTEXT NULL,
+  source_json LONGTEXT NULL,
+  revision INT UNSIGNED NOT NULL DEFAULT 0,
+  reviewed_at_utc DATETIME(6) NULL,
+  updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   snapshot_at_utc DATETIME(6) NULL,
   first_scanned_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   last_scanned_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   UNIQUE KEY uq_hw24_scan_batch_ean (batch_id,ean),
   INDEX idx_scan_batch_modified (batch_id,last_scanned_utc),
   INDEX idx_scan_resolution (batch_id,resolution),
+  INDEX idx_scan_review (batch_id,review_state),
   CONSTRAINT fk_scan_batch FOREIGN KEY(batch_id) REFERENCES hw24_scan_batches(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
