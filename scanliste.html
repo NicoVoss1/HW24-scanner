@@ -92,7 +92,7 @@ details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border
 <p class="note" id="researchStatus">Amazon-Katalog wird beim Scannen automatisch abgefragt. Hier kannst Du die Treffer und historische Daten einzeln zur Datenpflege übernehmen.</p>
 <div id="suggestions"></div><div id="amazonChoices" aria-live="polite"></div>
 
-<div class="toolbar"><button type="button" class="secondary" id="useEAN">EAN als eigene Artikelnummer einsetzen</button>
+<div class="toolbar"><button type="button" class="secondary" id="useEAN">EAN als eigene Artikelnummer einsetzen</button><button type="button" class="secondary" id="autoSKU">Artikelnummer von JTL vergeben lassen</button>
 <button type="button" class="secondary" id="hairTemplate" title="Füllt nur noch leere Standardfelder für einen Haarfarben-Artikel, ohne gespeicherte JTL-Daten zu überschreiben">Fehlende Haarfarben-Standards ergänzen</button></div>
 <p class="note">Diese Vorlage ergänzt ausschließlich noch leere Standardwerte. Sie wird für Haarfarben automatisch vorgeschlagen; der Button dient zur manuellen Nachkorrektur. Die JTL-Artikelnummer kann bei Neuanlage leer bleiben, damit die Ameise sie vergibt.</p>
 <p class="progressLine" id="editorCompleteness">Pflichtfelder werden geprüft.</p>
@@ -462,7 +462,7 @@ function selectItem(id){
   }
  }
  refreshFieldGroups();
- $('useEAN').disabled=disabled;$('hairTemplate').disabled=disabled;$('research').disabled=false;
+ $('useEAN').disabled=disabled;$('autoSKU').disabled=disabled;$('hairTemplate').disabled=disabled;$('research').disabled=false;
  $('save').disabled=disabled;$('ready').disabled=disabled;
  renderList();
  if(window.HW24Enrich?.goodGtin(item.ean)){
@@ -627,6 +627,15 @@ $('batch').onchange=async e=>{
 };
 $('reload').onclick=loadBatches;$('search').oninput=renderList;$('filter').onchange=renderList;
 $('save').onclick=()=>save(false);$('ready').onclick=()=>save(true);
+$('autoSKU').onclick=()=>{
+ const item=state.selected;if(!item||item.resolution!=='new_candidate')return;
+ const control=$('field_'+schema.indexOf('Artikelnummer'));
+ if(control){
+  control.value='';control.dataset.hw24Source='JTL-Ameise · globale Artikelnummernvergabe';
+  control.dataset.userTouched='1';refreshFieldGroups();
+  $('editorStatus').textContent='Artikelnummer leer: Bei JTL-Ameise automatische globale Nummernvergabe aktivieren. Bitte Entwurf speichern.';
+ }
+};
 $('useEAN').onclick=()=>{
  const item=state.selected;if(!item)return;
  const control=$('field_0');if(control){control.value=item.ean;control.dataset.hw24Source='EAN als Artikelnummer nach Benutzerentscheidung';refreshFieldGroups();}
