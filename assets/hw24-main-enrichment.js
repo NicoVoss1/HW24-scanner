@@ -62,6 +62,14 @@ function asinList(catalog,ean){
   if(!confirm('ASIN '+candidate.asin+' auswählen ('+description+')? Farbnuance und Packungsinhalt zuvor prüfen.'))return;
   current.ASIN=candidate.asin;
   window.hw24MarkEdited?.('ASIN');
+  if(!value(current.Artikelname)&&candidate.title){
+   current.Artikelname=candidate.title;
+   window.hw24MarkRuleDerived?.('Artikelname','Amazon · bewusst gewählter ASIN-Titel');
+  }
+  if(!value(current.Hersteller)&&candidate.brand){
+   current.Hersteller=candidate.brand;
+   window.hw24MarkRuleDerived?.('Hersteller','Amazon · bewusst gewählte ASIN-Marke');
+  }
   render();
   asinList(catalog,ean);
  });
