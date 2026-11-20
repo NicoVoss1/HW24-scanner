@@ -10,6 +10,8 @@
 
 **[Aktuelle UI- und JTL-Feldprüfung anhand der Screenshots](docs/HW24_UI_JTL_FELDMASKE_20261120.md)**
 
+**[Nächster Schritt: Einmaliges PuTTY-Setup der Scanlisten-Datenbank](docs/HW24_PUTTY_SCANLIST_SETUP_20261120.md)**
+
 Diese beiden Dateien beim Fortsetzen eines Chats, beim Öffnen eines PRs und vor einer Codeänderung zuerst lesen. Alle neuen Entscheidungen, Tests, GitHub-Commits, Fehler und abgeschlossenen Arbeiten dort fortschreiben. Keine bereits bestätigten Schritte ohne neuen konkreten Anlass nochmals verlangen.
 
 ## Aktuelle Versions- und Release-Verknüpfung (20.11.2026)
@@ -17,7 +19,7 @@ Diese beiden Dateien beim Fortsetzen eines Chats, beim Öffnen eines PRs und vor
 | Zweck | Referenz | Zustand |
 |---|---|---|
 | Testanwendung | [`deploy/staging`](https://github.com/NicoVoss1/HW24-scanner/tree/deploy/staging) | V4.22 TEST, Plesk zieht diesen Branch **manuell** |
-| Verifizierter Staging-SHA | `bcb8a9664f08aeb66de5aa7efd461f284affae99` | **PR #18** jetzt im GitHub-Staging, neues Plesk-Update noch offen |
+| Verifizierter Staging-SHA | `2175c375fdce4afe2b335dafb43167505f7123a0` | **PR #19** jetzt im GitHub-Staging, Plesk-Pull noch offen |
 | Feature-Entwicklung | [PR #16](https://github.com/NicoVoss1/HW24-scanner/pull/16) | V4.22 Scanner-/Amazon-Erweiterung, Draft |
 | Website-Testfreigabe | [PR #17](https://github.com/NicoVoss1/HW24-scanner/pull/17) | Nur Webdateien; **in GitHub-Staging gemerged**, Plesk noch nicht neu deployed |
 | UI & Scanlisten-Optimierung | [PR #18](https://github.com/NicoVoss1/HW24-scanner/pull/18) | **In GitHub gemerged**, wartet auf Test-Plesk-Pull |
@@ -25,7 +27,7 @@ Diese beiden Dateien beim Fortsetzen eines Chats, beim Öffnen eines PRs und vor
 
 ## Sofortiger nächster Schritt
 
-**Plesk Git:** Branch `deploy/staging` unverändert lassen → **Jetzt Pull ausführen** → **Jetzt bereitstellen** → `https://test-artikelmanager.hairworld24.de/scanliste.html` öffnen. **GitHub-Merge PR #18 ist fertig; Plesk-Deploy dieses Commits noch nicht bestätigt.** Die Screenshotmeldung „MariaDB noch nicht konfiguriert“ betrifft laut API-Code die **zusätzliche private Scanlisten-Verbindung**; die neue Lesediagnose zeigt V11/V12/Config separat an. Keine Wiederholung von bereits erledigtem Backup oder allgemeinem Verzeichnischeck. Live-Seite bleibt unverändert.
+**Jetzt:** Plesk `deploy/staging` **Pull → Bereitstellen** (PR #19), anschließend einmalig das [geprüfte PuTTY-Installationsskript](docs/HW24_PUTTY_SCANLIST_SETUP_20261120.md) auf dem Testserver ausführen, Scanliste laden, Stapel `04-001` anlegen und EAN testen. Der Screenshot zeigt fehlende neue V11-/V12-Tabellen und `scanlist-db.php`; **keine erneuten Backups oder Verzeichniskontrollen.** Live-Seite bleibt unverändert.
 
 ## Projektziel
 
