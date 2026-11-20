@@ -139,7 +139,18 @@ $('csvImport').onclick=async()=>{
  let newCount=0,previous=0,restored=0;
  while(offset<prepared.items.length&&!stopping){
   if(Number(bridge.batchId())!==batch){paint('Stapel gewechselt. Import gestoppt.',true);break;}
-  const rows=prepared.items.slice(offset,offset+25);
+  const rows=[];
+  for(let k=offset;k<prepared.items.length&&rows.length<25;k++){
+    const candidate=[...rows,prepared.items[k]];
+    const bytes=new TextEncoder().encode(JSON.stringify({op:'import_rows',
+      batch_id:batch,rows:candidate})).byteLength;
+    if(bytes>21000)break; // stay below server POST 24 KB including UTF-8 metadata
+    rows.push(prepared.items[k]);
+  }
+  if(!rows.length){
+    paint('Eine CSV-Zeile überschreitet die sichere Blockgröße. Bitte Information/Kommentar kürzen.',true);
+    stopping=true;break;
+  }
   try{
    const result=await bridge.importRows(rows);
    newCount+=Number(result.inserted||0);previous+=Number(result.existed||0);
