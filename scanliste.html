@@ -31,6 +31,9 @@ label{font-size:13px;font-weight:700;display:block;margin-bottom:5px}
 .pill.multiple,.pill.unverified{background:#fff0d6;color:#92520d}
 .editorFields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}.editorFields .full{grid-column:1 / -1}
 .editorFields textarea{min-height:68px}.editorActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.scanRow{display:flex;align-items:stretch;border-bottom:1px solid #e3ebf4}
+.scanRow>.item{flex:1;min-width:0;border-bottom:0}.scanRowActions{display:flex;gap:5px;align-items:center;padding:5px}
+.scanRowActions button{font-size:12px;padding:6px 9px;white-space:nowrap}
 #itemInfo{font-size:13px;line-height:1.5;color:#435d70}.export{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border:1px solid #e8c5a6;padding:10px;border-radius:9px}
 @media(max-width:820px){.layout{grid-template-columns:1fr}.editorFields{grid-template-columns:1fr}.items{max-height:380px}}
@@ -62,25 +65,36 @@ details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border
 <p id="enrichQueueStatus" class="note" role="status">Stammdaten werden beim Scan hinterlegt; keine Wawi-Buchung.</p>
 <p class="note">Jede gültige EAN wird zunächst gespeichert, auch wenn noch keine Produktdaten vorliegen. Wiederholte Scans desselben Artikels werden gezählt. <strong>Das ist noch keine Lagerbuchung.</strong> Bei Verbindungsproblemen bleiben Scans zum erneuten Senden in der Warteschlange.</p>
 </section>
+<section class="card" id="csvImportCard"><h2>3. Vorhandene EAN-Liste als CSV importieren</h2>
+<p class="note">Bis zu 5.000 Zeilen mit Spalte <strong>EAN</strong> oder <strong>GTIN</strong>, optional <strong>Lagerplatz</strong>, <strong>Information</strong> und <strong>Kommentar</strong>. Die Zusatzinformationen bleiben separate Importhinweise und überschreiben keine JTL-Anmerkung. Doppelte EANs werden nur einmal angelegt.</p>
+<div class="toolbar"><div class="wide"><label for="csvFile">CSV-Datei auswählen</label><input id="csvFile" type="file" accept=".csv,text/csv,text/plain"></div>
+<div class="medium"><label for="csvEncoding">Textkodierung</label><select id="csvEncoding"><option value="auto">Automatisch erkennen</option><option value="utf-8">UTF-8</option><option value="windows-1252">Windows-1252 (Excel)</option></select></div>
+<button id="csvPreview" class="secondary" type="button">CSV prüfen</button></div>
+<p class="note" id="csvPreviewStatus" role="status">Datei auswählen und Spalten prüfen. Es wird noch nichts gespeichert.</p>
+<div id="csvColumns" class="note"></div>
+<div class="toolbar"><button type="button" id="csvImport" disabled>Bestätigte EANs in Stapel übernehmen</button>
+<button type="button" class="secondary" id="csvPause" disabled>Import nach aktuellem Block stoppen</button></div>
+<p class="note" id="csvImportProgress" role="status"></p>
+</section>
 <div class="stats" id="stats"></div>
-<div class="layout"><section class="card"><div class="listhead"><h2>3. Scan-Übersicht</h2><span id="total" class="note"></span></div>
+<div class="layout"><section class="card"><div class="listhead"><h2>4. Scan-Übersicht</h2><span id="total" class="note"></span></div>
 <div class="toolbar"><div class="wide"><label for="search">EAN, Name, Artikelnummer suchen</label><input id="search" placeholder="Liste durchsuchen"></div>
 <div class="medium"><label for="filter">Status</label><select id="filter"><option value="all">Alle</option>
 <option value="new_candidate">Mögliche Neuanlagen</option><option value="existing">In JTL vorhanden</option>
 <option value="unverified">JTL-Abgleich offen</option><option value="multiple">Mehrfachtreffer</option>
-<option value="ready">Importbereit</option></select></div></div>
-<div class="items" id="items" aria-label="Gespeicherte Scans"></div><p class="note" id="listFoot"></p>
+<option value="ready">Importbereit</option><option value="removed">Entfernte Positionen</option></select></div></div>
+<div class="items" id="items" aria-label="Gespeicherte Scans"></div><p id="scanAdjustStatus" class="note" role="status"></p><p class="note" id="listFoot"></p>
 </section>
-<section class="card"><h2>4. Stammdaten und Freigabe</h2>
+<section class="card"><h2>5. Stammdaten und Freigabe</h2>
 <p id="itemInfo">Wähle einen Artikel aus der Scanliste. Bei bestätigten Neuanlagen können die Pflichtfelder ergänzt werden.</p>
-<div id="editor" hidden>
+<p id="csvMetaDetail" class="note" hidden></p><div id="editor" hidden>
 <div class="toolbar"><button type="button" class="secondary" id="research">📚 Detaillierte Quellen und Vorschläge prüfen</button></div>
 <p class="note" id="researchStatus">Amazon-Katalog wird beim Scannen automatisch abgefragt. Hier kannst Du die Treffer und historische Daten einzeln zur Datenpflege übernehmen.</p>
 <div id="suggestions"></div><div id="amazonChoices" aria-live="polite"></div>
 
-<div class="toolbar"><button type="button" class="secondary" id="useEAN">EAN als Artikelnummer vorschlagen</button>
-<button type="button" class="secondary" id="hairTemplate">Vorlage Haarfarben einsetzen</button></div>
-<p class="note">Vorlagen sind Vorschläge für Neuanlagen. Hersteller, Preis, Inhalt, Artikelnummer und Kategorie vor der Freigabe prüfen.</p>
+<div class="toolbar"><button type="button" class="secondary" id="useEAN">EAN als eigene Artikelnummer einsetzen</button><button type="button" class="secondary" id="autoSKU">Artikelnummer von JTL vergeben lassen</button>
+<button type="button" class="secondary" id="hairTemplate" title="Füllt nur noch leere Standardfelder für einen Haarfarben-Artikel, ohne gespeicherte JTL-Daten zu überschreiben">Fehlende Haarfarben-Standards ergänzen</button></div>
+<p class="note">Diese Vorlage ergänzt ausschließlich noch leere Standardwerte. Sie wird für Haarfarben automatisch vorgeschlagen; der Button dient zur manuellen Nachkorrektur. Die JTL-Artikelnummer kann bei Neuanlage leer bleiben, damit die Ameise sie vergibt.</p>
 <p class="progressLine" id="editorCompleteness">Pflichtfelder werden geprüft.</p>
 <div id="editorFields" class="editorFields"></div><p id="grossEK" class="note">Brutto-EK: Abhängig von tatsächlichem Netto-EK und Steuerklasse (nur Anzeige, kein Import).</p>
 <details style="margin-top:12px"><summary>Weitere JTL-Wawi-Reiter und Importarten</summary>
@@ -90,10 +104,10 @@ details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border
 <p id="editorStatus" role="status" class="note"></p>
 </div>
 </section></div>
-<section class="card"><h2>5. JTL-Ameise-Import vorbereiten</h2>
+<section class="card"><h2>6. JTL-Ameise-Import vorbereiten</h2>
 <div class="export"><button id="export" type="button">📄 Freigegebene Neuanlagen als CSV exportieren</button>
 <button id="report" type="button" class="secondary">Gesamte Scanliste als CSV</button></div>
-<p class="note">Die Ameise-Datei ist UTF-8 mit BOM und Semikolon getrennt. Originalspalten aus dem JTL-Export werden verwendet. Vor dem echten Import die Zuordnung der <strong>importierbaren</strong> JTL-Ameise-Felder prüfen. Je Export maximal 200 freigegebene Positionen.</p>
+<p class="note">Die Ameise-Datei ist UTF-8 mit BOM und Semikolon getrennt. Bei leerer Artikelnummer muss in JTL-Ameise die globale automatische Artikelnummernvergabe eingestellt werden. Originalspalten aus dem JTL-Export werden verwendet. Vor dem echten Import die Zuordnung der <strong>importierbaren</strong> JTL-Ameise-Felder prüfen. Je Export maximal 200 freigegebene Positionen.</p>
 <div class="danger"><strong>Wichtig:</strong> Diese Scanliste erzeugt keinen JTL-Wareneingang und keinen Lagerbestand. Vor produktivem Artikelimport eine Wawi-Datenbanksicherung und den JTL-Ameise-Testlauf durchführen. Unbekannte Artikelnummern und Mehrfachtreffer dürfen nicht stillschweigend übernommen werden.</div>
 <p id="exportStatus" role="status" class="note"></p></section>
 </main>
@@ -185,7 +199,7 @@ const formGroups=[
   'Beschaffungszeit manuell setzen','Top-Artikel','Neu im Sortiment']}
 ];
 const schema=formGroups.flatMap(g=>g.fields);
-const required=new Set(['Artikelnummer','Artikelname','Hersteller','Warengruppe','Steuerklasse']);
+const required=new Set(['Artikelname','Hersteller','Warengruppe','Steuerklasse']);
 const full=new Set(['Artikelname','Kurzbeschreibung','Beschreibung','Meta-Description (SEO)','Anmerkung']);
 const multiline=new Set(['Kurzbeschreibung','Beschreibung','Meta-Description (SEO)','Anmerkung']);
 const options={
@@ -199,7 +213,7 @@ const options={
 };
 const fieldHelp={
  'GTIN':'Gescannte Kennung, schreibgeschützt',
- 'Artikelnummer':'Für den freigegebenen Ameise-Import erforderlich. Bestehende JTL-Artikelnummern niemals überschreiben.',
+ 'Artikelnummer':'Bei Neuanlagen leer lassen: JTL-Ameise kann den globalen Nummernkreis automatisch verwenden. Eine eigene Artikelnummer nur nach Prüfung eintragen.',
  'ASIN':'Nur übernehmen, wenn eindeutig zu diesem Produkt verifiziert',
  'Kosten':'Tatsächlicher Netto-Einkaufspreis. Nicht Ø EK netto oder letzter EK, falls nicht belegt.',
  'Netto-EK in Standardwährung':'Lieferantenpreis netto; nur mit konkretem Beleg übernehmen',
@@ -286,33 +300,74 @@ function goodEAN(s){
 function textNode(tag,text,parent,cls){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;parent.append(e);return e}
 function refreshStats(){
  const stats=$('stats');stats.replaceChildren();
- for(const [name,number] of [['Positionen',state.items.length],
- ['Mögliche Neuanlagen',state.items.filter(x=>x.resolution==='new_candidate').length],
+ for(const [name,number] of [['Positionen',state.items.filter(x=>x.review_state!=='removed').length],
+ ['Mögliche Neuanlagen',state.items.filter(x=>x.review_state!=='removed'&&x.resolution==='new_candidate').length],
  ['Bereit',state.items.filter(x=>x.review_state==='ready').length],
- ['Bereits in JTL',state.items.filter(x=>x.resolution==='existing').length],
- ['Ungeprüft / mehrdeutig',state.items.filter(x=>['unverified','multiple'].includes(x.resolution)).length]]){
+ ['Bereits in JTL',state.items.filter(x=>x.review_state!=='removed'&&x.resolution==='existing').length],
+ ['Ungeprüft / mehrdeutig',state.items.filter(x=>x.review_state!=='removed'&&['unverified','multiple'].includes(x.resolution)).length]]){
  const node=textNode('div',undefined,stats,'stat');textNode('b',number,node);textNode('span',name,node);
  }
 }
 function renderList(){
  const q=val($('search').value).toLocaleLowerCase('de'),filter=$('filter').value;
- const selected=state.selected;
- const matches=state.items.filter(x=>(filter==='all'||(filter==='ready'?x.review_state==='ready':x.resolution===filter)) &&
- (!q||[x.ean,x.artikelnummer,x.artikelname,x.draft?.Artikelname,x.draft?.Artikelnummer].some(t=>val(t).toLocaleLowerCase('de').includes(q))));
- $('total').textContent=state.items.length+' gespeichert';
+ const selected=state.selected,active=state.items.filter(x=>x.review_state!=='removed');
+ const matches=state.items.filter(x=>(
+   filter==='removed'?x.review_state==='removed':
+   x.review_state!=='removed'&&(filter==='all'||(filter==='ready'?x.review_state==='ready':x.resolution===filter)))&&
+   (!q||[x.ean,x.artikelnummer,x.artikelname,x.draft?.Artikelname,x.draft?.Artikelnummer,
+    x.csv_meta?.lagerplatz,x.csv_meta?.information,x.csv_meta?.kommentar]
+    .some(t=>val(t).toLocaleLowerCase('de').includes(q))));
+ $('total').textContent=active.length+' aktiv · '+(state.items.length-active.length)+' entfernt';
  const wrap=$('items');wrap.replaceChildren();
  for(const item of matches.slice(0,150)){
- const b=textNode('button',undefined,wrap,'item'+(selected?.id===item.id?' active':''));
- b.type='button';b.onclick=()=>selectItem(item.id);
- const left=textNode('span',undefined,b);
- textNode('b',item.ean,left);textNode('small',
- (val(item.draft?.Artikelname)||val(item.artikelname)||'Artikelname noch offen')+
- ' · '+item.scan_count+' Scan'+(item.scan_count===1?'':'s'),left);
- const pill=textNode('span',item.review_state==='ready'?'Importbereit':statuses[item.resolution]||item.resolution,b,'pill '+item.resolution);
- if(item.review_state==='ready')pill.className='pill new_candidate';
+   const row=textNode('div',undefined,wrap,'scanRow');
+   const b=textNode('button',undefined,row,'item'+(selected?.id===item.id?' active':''));
+   b.type='button';b.onclick=()=>selectItem(item.id);
+   const left=textNode('span',undefined,b);
+   textNode('b',item.ean,left);
+   textNode('small',(val(item.draft?.Artikelname)||val(item.artikelname)||'Artikelname noch offen')+
+      ' · '+item.scan_count+' Scan'+(item.scan_count===1?'':'s'),left);
+   if(item.csv_meta?.lagerplatz||item.csv_meta?.information||item.csv_meta?.kommentar)
+     textNode('small',[item.csv_meta.lagerplatz&&('Lagerplatz: '+item.csv_meta.lagerplatz),
+      item.csv_meta.information,item.csv_meta.kommentar].filter(Boolean).join(' · ').slice(0,250),left);
+   const pill=textNode('span',item.review_state==='removed'?'Entfernt':
+      item.review_state==='ready'?'Importbereit':statuses[item.resolution]||item.resolution,b,
+      'pill '+item.resolution);
+   if(item.review_state==='ready')pill.className='pill new_candidate';
+   if(item.review_state!=='removed'){
+     const actions=textNode('div',undefined,row,'scanRowActions');
+     if(Number(item.scan_count)>1){
+       const reduce=textNode('button','−1',actions,'secondary');
+       reduce.type='button';reduce.title='Einen versehentlichen Mehrfachscan korrigieren';
+       reduce.setAttribute('aria-label','Einen Scan der EAN '+item.ean+' zurücknehmen');
+       reduce.onclick=()=>adjustItem(item,'reduce');
+     }
+     const remove=textNode('button','Entfernen',actions,'secondary');
+     remove.type='button';remove.title='Position nachvollziehbar aus der aktiven Liste entfernen';
+     remove.setAttribute('aria-label','EAN '+item.ean+' aus aktiver Liste entfernen');
+     remove.onclick=()=>adjustItem(item,'remove');
+   }
  }
  $('listFoot').textContent=matches.length>150?'150 von '+matches.length+' Treffern angezeigt. Suche zum Eingrenzen nutzen.':matches.length+' Treffer angezeigt.';
  refreshStats();
+}
+async function adjustItem(item,action){
+ if(item.review_state==='removed')return;
+ const explain=action==='reduce'?'Einen Scan der EAN '+item.ean+' zurücknehmen? Position bleibt erhalten.':
+   'EAN '+item.ean+' aus diesem Stapel entfernen? Gespeicherte Prüfinformationen bleiben für das Änderungsprotokoll erhalten. Durch erneuten Scan ist die EAN wieder aufnehmbar.';
+ if(!window.confirm(explain))return;
+ const text=$('scanAdjustStatus');text.textContent='Änderung wird gespeichert …';
+ try{
+   const out=await post('adjust',{batch_id:state.batchId,item_id:item.id,
+     expected_revision:Number(item.revision),action});
+   item.revision=out.revision;item.scan_count=out.scan_count;item.review_state=out.review_state;
+   if(out.removed&&state.selected?.id===item.id){
+     state.selected=null;$('editor').hidden=true;$('csvMetaDetail').hidden=true;
+   }
+   renderList();
+   text.textContent=out.removed?'✓ Position aus aktiver Scanliste entfernt.':'✓ Ein Mehrfachscan wurde zurückgenommen.';
+   text.className='note success';
+ }catch(e){text.textContent='Änderung nicht gespeichert: '+e.message;text.className='note error'}
 }
 function refreshFieldGroups(){
  const ctrls=[...$('editorFields').querySelectorAll('input,textarea,select')];
@@ -326,7 +381,7 @@ function refreshFieldGroups(){
    if(required.has(control.name)&&!has)missing.push(control.name);
  }
  $('editorCompleteness').textContent=state.selected?.resolution==='new_candidate'
-   ?(missing.length?'Noch fehlende Pflichtangaben: '+missing.join(', '):'✓ Alle fünf Pflichtfelder befüllt. Produktdaten trotzdem vor Freigabe prüfen.')
+   ?(missing.length?'Noch fehlende Pflichtangaben: '+missing.join(', '):'✓ Pflichtfelder befüllt. Für neue Artikel kann JTL-Ameise die Artikelnummer automatisch vergeben.')
    :'Bestehende oder nicht eindeutig neue Artikel werden nicht für einen Neuanlagenimport freigegeben.';
  const net=$('field_'+schema.indexOf('Kosten'))?.value||$('field_'+schema.indexOf('Netto-EK in Standardwährung'))?.value||'';
  const number=Number(val(net).replace(',','.'));
@@ -349,6 +404,14 @@ function selectItem(id){
  $('editorStatus').textContent='';
  $('suggestions').replaceChildren();
  $('researchStatus').textContent=catalogSummaries.has(item.ean)?'Amazon bereits automatisch geprüft: '+catalogSummaries.get(item.ean).count+' Treffer. Detaillierte historische Angaben und Quellen sind unten abrufbar.':'Amazon-Recherche wird bei gespeicherten Scans automatisch durchgeführt.';
+ const csvNote=$('csvMetaDetail');
+ const meta=item.csv_meta||{};
+ csvNote.hidden=!(meta.lagerplatz||meta.information||meta.kommentar);
+ csvNote.textContent=[
+   meta.lagerplatz&&('CSV-Lagerplatz: '+meta.lagerplatz),
+   meta.information&&('Import-Information: '+meta.information),
+   meta.kommentar&&('CSV-Kommentar: '+meta.kommentar)
+ ].filter(Boolean).join(' | ');
  $('itemInfo').textContent='EAN '+item.ean+' · '+(statuses[item.resolution]||item.resolution)
  +' · Revision '+item.revision+' · '+item.scan_count+' Scans. '
  +(item.resolution==='existing'?'Vorhandener Artikel: kein Neuanlage-Export. Pflege bitte im Haupt-Artikelmanager.':
@@ -399,7 +462,7 @@ function selectItem(id){
   }
  }
  refreshFieldGroups();
- $('useEAN').disabled=disabled;$('hairTemplate').disabled=disabled;$('research').disabled=false;
+ $('useEAN').disabled=disabled;$('autoSKU').disabled=disabled;$('hairTemplate').disabled=disabled;$('research').disabled=false;
  $('save').disabled=disabled;$('ready').disabled=disabled;
  renderList();
  if(window.HW24Enrich?.goodGtin(item.ean)){
@@ -564,6 +627,15 @@ $('batch').onchange=async e=>{
 };
 $('reload').onclick=loadBatches;$('search').oninput=renderList;$('filter').onchange=renderList;
 $('save').onclick=()=>save(false);$('ready').onclick=()=>save(true);
+$('autoSKU').onclick=()=>{
+ const item=state.selected;if(!item||item.resolution!=='new_candidate')return;
+ const control=$('field_'+schema.indexOf('Artikelnummer'));
+ if(control){
+  control.value='';control.dataset.hw24Source='JTL-Ameise · globale Artikelnummernvergabe';
+  control.dataset.userTouched='1';refreshFieldGroups();
+  $('editorStatus').textContent='Artikelnummer leer: Bei JTL-Ameise automatische globale Nummernvergabe aktivieren. Bitte Entwurf speichern.';
+ }
+};
 $('useEAN').onclick=()=>{
  const item=state.selected;if(!item)return;
  const control=$('field_0');if(control){control.value=item.ean;control.dataset.hw24Source='EAN als Artikelnummer nach Benutzerentscheidung';refreshFieldGroups();}
@@ -577,7 +649,8 @@ $('hairTemplate').onclick=()=>patchFields({'GTIN':state.selected?.ean||'',
  'Top-Artikel':'N','Neu im Sortiment':'Y'});
 function cell(x){let s=val(x);if(/^[=+@-]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}
 function downloadCSV(rows,filename){
- const columns=['Artikelnummer',...schema.filter(k=>k!=='Artikelnummer'&&rows.some(r=>val(r[k])))];
+ const withSku=rows.some(r=>val(r.Artikelnummer));
+ const columns=[...(withSku?['Artikelnummer']:[]),...schema.filter(k=>k!=='Artikelnummer'&&rows.some(r=>val(r[k])))];
  const content='\ufeff'+columns.map(cell).join(';')+'\r\n'+rows.map(r=>columns.map(k=>cell(r[k])).join(';')).join('\r\n')+'\r\n';
  const blob=new Blob([content],{type:'text/csv;charset=utf-8'});
  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename;
@@ -587,7 +660,11 @@ $('export').onclick=async()=>{
  if(!state.batchId)return;
  try{
  const result=await get('export',{batch_id:String(state.batchId)});
- if(!confirm(result.count+' freigegebene Neuanlagen als Ameise-Prüfdatei exportieren? Der Import selbst erfolgt später in JTL-Ameise.'))return;
+ const autoCount=Number(result.auto_article_numbers||0);
+ const question=result.count+' freigegebene Neuanlagen exportieren?'+
+ (autoCount?' Für '+autoCount+' Artikel ohne Artikelnummer in JTL-Ameise „Artikelnummern automatisch vergeben, falls nicht vorhanden: Ja, globale fortlaufende Nummer und Präfix beachten“ auswählen.':'')+
+ ' Identifizierung anhand Artikelnummer/GTIN im JTL-Ameise-Testlauf prüfen. Das ist noch kein Import.';
+ if(!confirm(question))return;
  downloadCSV(result.fields,'HW24_Ameise_Neuanlagen_'+result.count+'_PRUEFEXPORT.csv');
  $('exportStatus').textContent='✓ '+result.count+' Positionen exportiert · JTL-Spiegel: '+result.jtl_snapshot_utc+
  '. Vor Import Feldzuordnung kontrollieren und Testlauf ausführen.';
@@ -596,9 +673,10 @@ $('export').onclick=async()=>{
 };
 $('report').onclick=()=>{
  if(!state.items.length)return;
- const headers=['EAN','JTL-Status','Prüfstatus','Scanvorgänge','JTL-Artikelnummer','Artikelname','Letzter Scan'];
+ const headers=['EAN','JTL-Status','Prüfstatus','Scanvorgänge','JTL-Artikelnummer','Artikelname','CSV-Lagerplatz','CSV-Information','CSV-Kommentar','Letzter Scan'];
  const rows=state.items.map(x=>[x.ean,statuses[x.resolution]||x.resolution,x.review_state,x.scan_count,
- x.artikelnummer||x.draft?.Artikelnummer||'',x.draft?.Artikelname||x.artikelname||'',x.last_scanned_utc]);
+ x.artikelnummer||x.draft?.Artikelnummer||'',x.draft?.Artikelname||x.artikelname||'',
+ x.csv_meta?.lagerplatz||'',x.csv_meta?.information||'',x.csv_meta?.kommentar||'',x.last_scanned_utc]);
  const csv='\ufeff'+headers.map(cell).join(';')+'\r\n'+rows.map(r=>r.map(cell).join(';')).join('\r\n')+'\r\n';
  const u=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
  const a=document.createElement('a');a.href=u;a.download='HW24_Scanuebersicht_'+state.batchId+'.csv';
@@ -611,6 +689,8 @@ window.HW24ScanBridge={
  selected:()=>state.selected,
  find:id=>state.items.find(x=>String(x.id)===String(id))||null,
  batchId:()=>state.batchId,
+ importRows:(rows)=>post('import_rows',{batch_id:state.batchId,rows}),
+ reloadItems:()=>loadItems(),
  schema:()=>schema.slice(),
  control:key=>{const n=schema.indexOf(key);return n>=0?$('field_'+n):null},
  catalog:ean=>catalogSummaries.get(ean),
@@ -677,4 +757,4 @@ catalogStatus();
 if(catalogQueue.length)runCatalog();
 })();
 </script>
-<script src="assets/hw24-scan-autofill.js?v=1"></script></body></html>
+<script src="assets/hw24-scan-autofill.js?v=1"></script><script src="assets/hw24-csv-intake.js?v=1"></script></body></html>
