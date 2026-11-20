@@ -377,6 +377,8 @@ try {
     $s=$pdo->prepare('SELECT * FROM hw24_scan_items WHERE id=? AND batch_id=? FOR UPDATE');
     $s->execute([$item,$batch]);$old=$s->fetch();
     if(!$old){$pdo->rollBack();respond(404,['ok'=>false,'error'=>'item_not_found']);}
+    if($old['review_state']==='removed'){$pdo->rollBack();
+      respond(409,['ok'=>false,'error'=>'item_removed']);}
     if((int)$old['revision']!==$expected){$pdo->rollBack();respond(409,['ok'=>false,
       'error'=>'revision_conflict','current_revision'=>(int)$old['revision']]);}
     $prev=json_decode((string)($old['draft_json']??''),true);
