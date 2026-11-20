@@ -159,8 +159,23 @@ try {
   if($op==='scan'&&$method==='POST'){
     $id=filter_var($body['batch_id']??null,FILTER_VALIDATE_INT);
     $ean=trim((string)($body['ean']??''));
-    if(!$id||$id<1||!gtinValid($ean))respond(400,['ok'=>false,'error'=>'invalid_batch_or_gtin']);
+    $eventKey=strtolower(trim((string)($body['event_key']??'')));
+    if(!$id||$id<1||!gtinValid($ean)||
+       !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/D',$eventKey))
+      respond(400,['ok'=>false,'error'=>'invalid_batch_gtin_or_event_key']);
     $pdo->beginTransaction();getBatch($pdo,$id,$actor,true);
+    $seen=$pdo->prepare('SELECT batch_id,ean FROM hw24_scan_events WHERE client_event_key=?');
+    $seen->execute([$eventKey]);$prior=$seen->fetch();
+    if($prior && ((int)$prior['batch_id']!==$id || $prior['ean']!==$ean)){
+      $pdo->rollBack();respond(409,['ok'=>false,'error'=>'event_key_conflict']);
+    }
+    $isNewEvent=!$prior;
+    if($isNewEvent){
+      $event=$pdo->prepare('INSERT INTO hw24_scan_events(batch_id,ean,client_event_key,scanned_by)
+                             VALUES (?,?,?,?)');
+      $event->execute([$id,$ean,$eventKey,$actor]);
+    }
+    if($isNewEvent){
     $match=resolve($pdo,$ean);
     $s=$pdo->prepare('INSERT INTO hw24_scan_items
       (batch_id,ean,resolution,jtl_article_id,artikelnummer,artikelname,snapshot_at_utc)
@@ -173,8 +188,8 @@ try {
       artikelname=IF(VALUES(resolution)="existing",VALUES(artikelname),artikelname)');
     $s->execute([$id,$ean,$match['resolution'],$match['jtl_article_id'],
       $match['artikelnummer'],$match['artikelname'],$match['snapshot_at_utc']]);
-    $s=$pdo->prepare('INSERT INTO hw24_scan_events(batch_id,ean,scanned_by) VALUES (?,?,?)');
-    $s->execute([$id,$ean,$actor]);
+    } // On transport retry, return the existing scan without incrementing.
+
     $s=$pdo->prepare('UPDATE hw24_scan_batches SET updated_at_utc=UTC_TIMESTAMP(6) WHERE id=?');
     $s->execute([$id]);
     $s=$pdo->prepare('SELECT id,batch_id,ean,scan_count,resolution,jtl_article_id,
