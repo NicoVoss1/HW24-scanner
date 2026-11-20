@@ -75,12 +75,12 @@ async function runQueue(){
     }
     paused=true;updateQueue('DB-Änderung nicht möglich: '+String(result.error).slice(0,100));break;
    }
-   pending.shift();saveQueue();
    if(sources[3].status!=='fulfilled'){
      paused=true;
      updateQueue('Amazon derzeit nicht erreichbar. Belegte Stammdaten gesichert; EAN für erneute Prüfung vorgemerkt.');
      break;
    }
+   pending.shift();saveQueue();
    updateQueue('EAN '+job.ean+' abgeglichen');
    await new Promise(resolve=>setTimeout(resolve,1500));
   }catch(e){
