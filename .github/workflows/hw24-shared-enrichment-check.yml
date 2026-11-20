@@ -1,0 +1,39 @@
+name: HW24 V4.22 shared enrichment checks
+on:
+  push:
+    branches:
+      - feature/hw24-v422-shared-enrichment-20261120
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pure-source prefill tests
+        run: node tests/hw24-enrichment.test.cjs
+      - name: Validate all browser JavaScript
+        run: |
+          set -euo pipefail
+          for js in assets/*.js; do node --check "$js"; done
+      - name: Validate inline scripts and HTML assets
+        run: |
+          python3 - <<'PY'
+          import pathlib,re,subprocess
+          for name in ('index.html','scanliste.html'):
+              html=pathlib.Path(name).read_text(encoding='utf8')
+              for i,script in enumerate(re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>',html,re.I),1):
+                  if not script.strip():continue
+                  checked=subprocess.run(['node','--check'],input=script,text=True,capture_output=True)
+                  if checked.returncode:raise RuntimeError(f'{name} inline JS {i}: {checked.stderr}')
+              for file in re.findall(r'(?:src|href)=["\'](assets/[^"\']+)',html):
+                  file=file.split('?')[0]
+                  if not pathlib.Path(file).is_file():raise RuntimeError('Missing asset: '+file)
+          assert 'HW24ScanBridge' in pathlib.Path('scanliste.html').read_text(encoding='utf8')
+          assert 'hw24-scan-autofill.js' in pathlib.Path('scanliste.html').read_text(encoding='utf8')
+          assert 'hw24-main-enrichment.js' in pathlib.Path('index.html').read_text(encoding='utf8')
+          print('HTML inline scripts and assets: PASS')
+          PY
+      - name: PHP safe endpoints syntax
+        run: |
+          set -euo pipefail
+          for f in api/*.php; do php -l "$f"; done
