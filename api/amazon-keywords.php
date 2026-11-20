@@ -20,9 +20,9 @@ if($actor==='')reply(403,['ok'=>false,'error'=>'site_authentication_required']);
 if(($_SERVER['HTTPS']??'')!=='on' && ($_SERVER['HTTP_X_FORWARDED_PROTO']??'')!=='https')
   reply(403,['ok'=>false,'error'=>'https_required']);
 $q=trim((string)($_GET['q']??''));
-$q=preg_replace('/\\s+/u',' ',$q)??'';
+$q=preg_replace('/\s+/u',' ',$q)??'';
 $len=function_exists('mb_strlen')?mb_strlen($q,'UTF-8'):strlen($q);
-if($len<3||$len>120||!preg_match('/^[\\p{L}\\p{N} .,_\\/()+\\-]+$/uD',$q))
+if($len<3||$len>120||!preg_match('/^[\p{L}\p{N} .,_\/()+\-]+$/uD',$q))
   reply(400,['ok'=>false,'error'=>'invalid_search_term']);
 $asinSearch=(bool)preg_match('/^[A-Z0-9]{10}$/D',strtoupper($q));
 $marketplace='A1PA6795UKMFR9';
@@ -45,7 +45,7 @@ function cleanItems(array $items): array {
         if(!is_array($v))continue;
         if(in_array(strtoupper((string)($v['identifierType']??'')),['EAN','UPC','GTIN'],true)){
           $id=trim((string)($v['identifier']??''));
-          if(preg_match('/^\\d{8,14}$/D',$id))$ids[$id]=true;
+          if(preg_match('/^\d{8,14}$/D',$id))$ids[$id]=true;
         }
       }
     }
