@@ -29,11 +29,13 @@ Diese beiden Dateien beim Fortsetzen eines Chats, beim Öffnen eines PRs und vor
 
 ## Sofortiger nächster Schritt
 
-**GitHub-Testcode:** Die gemeinsame JTL-/Amazon-/Historienvorbelegung ist über [PR #20](https://github.com/NicoVoss1/HW24-scanner/pull/20) und die ASIN-Titel-/Hersteller-Ergänzung über [PR #21](https://github.com/NicoVoss1/HW24-scanner/pull/21) in `deploy/staging` gemerged. **Aktueller SHA: `2f88d5a5dca6a8df80acbc38aba5287d960583c1`.**
+**GitHub-Testcode:** [PR #22](https://github.com/NicoVoss1/HW24-scanner/pull/22) mit Scan-Korrekturen (−1, Position aus Liste entfernen), CSV-Import bis 5.000 EANs inklusive Lagerplatz/Information/Kommentar sowie JTL-Nummernkreis-Modus ist nach `deploy/staging` gemerged. **Aktueller Staging-SHA: `7db542548f7ba4c31ddf12d65b1e1866ff0592ba`.** Plesk-Bereitstellung dieses neuen Commits steht noch aus.
 
-**Jetzt:** Plesk Git bleibt `deploy/staging` → **Jetzt Pull ausführen → Jetzt bereitstellen** → Testseite `/scanliste.html` aktualisieren → Stapel `04-001`, EAN `8033219164159` (bestehender Artikel, nur anzeigen) prüfen → eine echte unbekannte EAN scannen und Datenpersistenz/ASIN-Auswahl kontrollieren.
+**Jetzt genau:** Plesk `deploy/staging` → **Jetzt Pull ausführen → Jetzt bereitstellen**. Dann im Browser Doppelscan mit `−1`, archiviertes Element durch erneuten Scan zurückholen, 3-Zeilen-CSV (EAN, Lagerplatz, Information, Kommentar) importieren und nach Reload prüfen. Erst danach die ~1.500 EANs importieren. Vorherige Backups, PuTTY, Datenbankanlage und Verzeichniskontrollen **nicht wiederholen**.
 
-**Nicht wiederholen:** Backups, PuTTY, V11-/V12-SQL-Installation und bisherige Pfadprüfungen wurden erledigt. **Keine Live-Seitenänderung.** GitHub-CI beweist noch keinen echten Server-/Amazon-/Browser-Test.
+**Offene Grenzen:** Die JTL-Ameise-Nummernvergabe muss im echten Importprofil auf **„Ja, globale fortlaufende Nummer und Präfix beachten“** stehen; die tatsächliche Nummer ist aus dem vorhandenen Read-only-Spiegel nicht vorab zu reservieren. Dusicolor/Hair Styling wird als Konflikt markiert, ursprüngliche Quellzeile noch nicht live verifiziert. Keine JTL-/WMS-Schreibaktion oder Live-Seitenänderung.
+
+[Detailprotokoll: Scanliste, CSV und JTL-Artikelnummer](docs/HW24_SCAN_CSV_NUMMERNKREIS_V422_20261120.md)
 
 ## Projektziel
 
