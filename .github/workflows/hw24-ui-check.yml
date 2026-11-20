@@ -1,0 +1,44 @@
+name: HW24 v4.22 Scanliste UI and PHP checks
+on:
+  push:
+    branches:
+      - "feature/hw24-v422-ui-form-favicon-20261120"
+  pull_request:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP endpoints syntax
+        run: |
+          set -euo pipefail
+          for file in api/*.php; do php -l "$file"; done
+      - name: JavaScript standalone syntax
+        run: |
+          set -euo pipefail
+          for file in assets/*.js; do node --check "$file"; done
+      - name: Inline JS, stylesheet, icon and field interface
+        run: |
+          python3 - <<'PY'
+          import pathlib,re,subprocess,sys,xml.etree.ElementTree as ET
+          root=pathlib.Path('.')
+          for name in ['index.html','scanliste.html']:
+            html=(root/name).read_text(encoding='utf-8')
+            for i,js in enumerate(re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>',html,re.I),1):
+              if not js.strip():continue
+              p=subprocess.run(['node','--check'],input=js,text=True,capture_output=True)
+              if p.returncode:raise SystemExit(f'{name} inline JS {i}: '+p.stderr)
+            for src in re.findall(r'(?:src|href)=["\'](assets/[^"\'?]+)',html):
+              if not (root/src).is_file():raise SystemExit(f'Missing asset for {name}: {src}')
+          ET.parse('assets/hw24-favicon.svg')
+          form=(root/'scanliste.html').read_text(encoding='utf-8')
+          api=(root/'api/scanliste.php').read_text(encoding='utf-8')
+          for key in ['Artikelnummer','GTIN','Hersteller','Steuerklasse','Warengruppe',
+                      'Überverkäufe möglich','Zusätzliche Bearbeitungszeit','Währung',
+                      'Netto-EK in Standardwährung','Lieferant']:
+            if key not in form or key not in api:raise SystemExit('Unmatched field: '+key)
+          if 'scanliste-status.php' not in form:raise SystemExit('Missing diagnostic endpoint')
+          if 'v4.22 TEST' not in (root/'index.html').read_text(encoding='utf-8'):
+            raise SystemExit('Version drift: V4.22 TEST header missing')
+          print('HW24 UI/PHP/favicons/static field checks: PASS')
+          PY
