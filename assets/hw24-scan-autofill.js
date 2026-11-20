@@ -145,8 +145,11 @@ function candidates(item){
    status('ASIN-Feld enthält bereits '+existing+'. Zum Ersetzen bitte den bisherigen Wert manuell löschen und erneut wählen.');
    return;
   }
-  const result=await B.apply({ASIN:option.asin},
-    {ASIN:'Amazon SP-API · ASIN nach sichtbarer Produktauswahl'}, {save:true});
+  const chosen={ASIN:option.asin};
+  const origins={ASIN:'Amazon SP-API · ASIN manuell bestätigt'};
+  if(option.title){chosen.Artikelname=option.title;origins.Artikelname='Amazon · bestätigter ASIN-Titel';}
+  if(option.brand){chosen.Hersteller=option.brand;origins.Hersteller='Amazon · bestätigte ASIN-Marke';}
+  const result=await B.apply(chosen,origins,{save:true});
   if(result.ok){selectedAsins.set(item.id,option.asin);status('✓ ASIN gewählt. Farbnuance und Packungsgröße vor Ameise-Freigabe prüfen.')}
   candidates(item);
  });
