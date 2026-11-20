@@ -12,8 +12,8 @@ const workKey='hw24_scan_enrichment_queue_v1';
 const pending=(()=>{
  try{
   const raw=JSON.parse(localStorage.getItem(workKey)||'[]');
-  return Array.isArray(raw)?raw.filter(x=>Number.isInteger(x?.id)&&
-    Number.isInteger(x?.batchId)&&E.goodGtin(x?.ean)).slice(0,3000):[];
+  return Array.isArray(raw)?raw.filter(x=>Number.isSafeInteger(Number(x?.id))&&Number(x.id)>0&&
+    Number.isSafeInteger(Number(x?.batchId))&&E.goodGtin(x?.ean)).map(x=>({...x,id:Number(x.id),batchId:Number(x.batchId)})).slice(0,3000):[];
  }catch(_){return []}
 })();
 let working=false,paused=false;
@@ -31,7 +31,8 @@ function updateQueue(text){
  retry.hidden=!paused;
 }
 function enqueue(id,ean,batchId){
- if(!E.goodGtin(ean)||!Number.isInteger(id)||!Number.isInteger(batchId))return;
+ id=Number(id);batchId=Number(batchId);
+ if(!E.goodGtin(ean)||!Number.isSafeInteger(id)||id<1||!Number.isSafeInteger(batchId))return;
  if(!pending.some(x=>x.id===id&&x.batchId===batchId)){
   pending.push({id,ean,batchId});saveQueue();updateQueue();
  }
@@ -42,7 +43,7 @@ async function runQueue(){
  working=true;
  while(pending.length&&!paused){
   const job=pending[0];
-  if(job.batchId!==B.batchId()){
+  if(Number(job.batchId)!==Number(B.batchId())){
    updateQueue('Für andere Stapel später fortsetzen');break;
   }
   const item=B.find(job.id);
@@ -75,9 +76,12 @@ async function runQueue(){
     paused=true;updateQueue('DB-Änderung nicht möglich: '+String(result.error).slice(0,100));break;
    }
    pending.shift();saveQueue();
-   if(sources[3].status!=='fulfilled')
-     updateQueue('Amazon aktuell nicht erreichbar. Andere belegte Stammdaten wurden vorbereitet.');
-   else updateQueue('EAN '+job.ean+' abgeglichen');
+   if(sources[3].status!=='fulfilled'){
+     paused=true;
+     updateQueue('Amazon derzeit nicht erreichbar. Belegte Stammdaten gesichert; EAN für erneute Prüfung vorgemerkt.');
+     break;
+   }
+   updateQueue('EAN '+job.ean+' abgeglichen');
    await new Promise(resolve=>setTimeout(resolve,1500));
   }catch(e){
    paused=true;updateQueue('Unterbrochen: '+String(e?.message||e).slice(0,100));break;
@@ -89,7 +93,7 @@ retry.onclick=()=>{paused=false;updateQueue('Wiederaufnahme');runQueue()};
 updateQueue();
 
 const status=msg=>B.status(msg);
-function active(item){return B.selected()?.id===item?.id}
+function active(item){return String(B.selected()?.id)===String(item?.id)}
 function clearChoices(){const node=document.getElementById('amazonChoices');if(node)node.replaceChildren()}
 function candidates(item){
  const dest=document.getElementById('amazonChoices');
@@ -153,7 +157,7 @@ function candidates(item){
  }
 }
 async function enrich(id,ean){
- const item=B.selected();if(!item||item.id!==id||item.ean!==ean||busy.has(id))return;
+ const item=B.selected();if(!item||String(item.id)!==String(id)||item.ean!==ean||busy.has(id))return;
  busy.add(id);
  try{
   let data=memo.get(id);
