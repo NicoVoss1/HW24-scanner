@@ -5,6 +5,14 @@
 
 > **WICHTIG FÜR DIE FORTSETZUNG:** Beim nächsten Chat, Entwicklerauftrag oder GitHub-Arbeitsschritt **zuerst diese Seite lesen** und die letzten Commits/PRs vergleichen. Keine bereits abgeschlossenen Einrichtungs- und Backup-Schritte von vorn verlangen. Ein Sachstand darf nur aufgrund neuer Befunde geändert werden. Nicht stillschweigend auf `main`, eine andere Version oder einen alten PR zurückspringen.
 
+## LETZTER BESTÄTIGTER GITHUB-STAND · 20.11.2026 (PR #21)
+
+- **Aktueller Staging-SHA:** `2f88d5a5dca6a8df80acbc38aba5287d960583c1` auf `deploy/staging`. [PR #20](https://github.com/NicoVoss1/HW24-scanner/pull/20) und [PR #21](https://github.com/NicoVoss1/HW24-scanner/pull/21) erfolgreich gemerged, **noch kein bestätigtes Plesk-Deployment oder Server-End-to-End-Test dieser Version**.
+- **Zusätzlicher Fix #21:** Bei **manuell geprüfter** Amazon-ASIN-Auswahl werden neben ASIN auch fehlender Produktname und Hersteller direkt aus dem gewählten Treffer übernommen, ohne vorhandene JTL-/Manuallwerte zu überschreiben. Zwei JS-Assets geändert.
+- **CI #21:** [GitHub Actions #44827355974](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44827355974) grün. Freigegebener Staging-Root weiterhin ausschließlich `api/`, `assets/`, `index.html`, `scanliste.html`. Keine SQL-, Private- oder Dokumentationsdateien öffentlich.
+- **Genau nächster Schritt:** Plesk `deploy/staging` **Pull → Bereitstellen**, Seite `/scanliste.html` aktualisieren, Stapel `04-001`, bestehende EAN `8033219164159` für lesbare JTL-Vorbelegung auswählen; danach echte Neuanlage scannen und Dauerhaftigkeit, Quellnachweis und gegebenenfalls ASIN-Mehrfachauswahl testen. **PuTTY-/SQL-Installation, Backups und Verzeichnisprüfung nicht wiederholen.**
+- **Aktuelles Fachprotokoll:** [Automatische Vorbelegung V4.22](./HW24_AUTO_VORBELEGUNG_V422_20261120.md).
+
 ## AKTUELLER SOFTWARESTAND · V4.22 TEST MIT GEMEINSAMER VORBELEGUNG (20.11.2026)
 
 - **Nutzerbefund:** Die Scanliste `04-001` hat die EAN `8033219164159` dauerhaft gespeichert, JTL erkennt `Inebrya Color Pastel Roso Intense Pink 100 ml` als bestehend. Damit **funktioniert der Scanlisten-DB-Speicherweg bereits**, aber die bisherige Pflegeanzeige ließ zahlreiche Felder leer. Nochmaliges SQL-/PuTTY-Setup ist **nicht** nötig.
