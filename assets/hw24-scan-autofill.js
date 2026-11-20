@@ -22,6 +22,24 @@ function candidates(item){
   dest.append(p);return;
  }
  const choices=E.amazonChoices(catalog,item.ean);
+ const known=new Set(choices.map(c=>c.asin));
+ const refs=memo.get(item.id);
+ const knownJtl=refs?.jtl?.jtl_status==='current_snapshot'&&
+  refs?.jtl?.matches?.length===1?refs.jtl.matches[0]:null;
+ for(const candidate of knownJtl?.asin_candidates||[]){
+  const asin=v(candidate.asin).toUpperCase();
+  if(!/^[A-Z0-9]{10}$/.test(asin)||known.has(asin))continue;
+  choices.push({asin,title:v(knownJtl.artikelname),brand:v(knownJtl.hersteller),
+   pack:false,exact:false,source:'JTL-Amazon-Zuordnung'});
+  known.add(asin);
+ }
+ const hist=E.verifiedHistory(refs?.history||null);
+ for(const asin of hist.asins||[]){
+  if(known.has(asin))continue;
+  choices.push({asin,title:v(item.draft?.Artikelname||item.artikelname),
+   brand:v(item.draft?.Hersteller),pack:false,exact:false,source:'Historischer Excel-Beleg'});
+  known.add(asin);
+ }
  const selected=selectedAsins.get(item.id)||v(B.control('ASIN')?.value)||'';
  if(!choices.length){
   const p=document.createElement('p');p.className='note';
@@ -60,17 +78,18 @@ async function enrich(id,ean){
  try{
   let data=memo.get(id);
   if(!data){
-   const sources=await Promise.allSettled([E.jtl(ean),E.curated(ean)]);
+   const sources=await Promise.allSettled([E.jtl(ean),E.curated(ean),E.history(ean)]);
    const jtl=sources[0].status==='fulfilled'?sources[0].value:null;
    const curated=sources[1].status==='fulfilled'?sources[1].value:null;
-   data={jtl,curated};memo.set(id,data);
+   const history=sources[2].status==='fulfilled'?sources[2].value:null;
+   data={jtl,curated,history};memo.set(id,data);
   }
   if(!active(item))return;
   const jtl=data.jtl,correct=jtl?.jtl_status==='current_snapshot';
   const matches=Array.isArray(jtl?.matches)?jtl.matches:[];
   const match=correct&&matches.length===1?matches[0]:null;
   const isNew=item.resolution==='new_candidate'&&correct&&matches.length===0;
-  const model=E.build({ean,match,curated:data.curated,catalog:B.catalog(ean),isNew});
+  const model=E.build({ean,match,curated:data.curated,history:data.history,catalog:B.catalog(ean),isNew});
   if(item.resolution!=='new_candidate'){
    B.show(model.fields,model.sources);candidates(item);return;
   }
