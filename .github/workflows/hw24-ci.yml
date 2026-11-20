@@ -35,6 +35,26 @@ jobs:
           node --check assets/amazon-market.js
           node --check assets/hw24-curated.js
           for file in assets/*.js; do node --check "$file"; done
+      - name: Berlin datetime and Amazon display regression test
+        run: |
+          node - <<'NODE'
+          const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
+          const html=fs.readFileSync('index.html','utf8');
+          const begin=html.indexOf('function stamp(value){');
+          const end=html.indexOf("document.addEventListener('hw24:jtl-result'",begin);
+          assert(begin>=0 && end>begin,'Core timestamp formatter missing');
+          const stamp=vm.runInNewContext('('+html.slice(begin,end).trim()+')');
+          const winter=stamp('2026-11-19 23:02:09.874350');
+          const summer=stamp('2026-07-19 23:02:09.874350');
+          assert.match(winter,/20\.11\.2026/,'Winter UTC must convert to Berlin date');
+          assert.match(winter,/00:02/,'Winter UTC must convert to Berlin clock');
+          assert.match(winter,/MEZ/,'Winter timezone marker required');
+          assert.match(summer,/20\.07\.2026/,'Summer UTC must convert to Berlin date');
+          assert.match(summer,/01:02/,'Summer UTC must convert to Berlin clock');
+          assert.match(summer,/MESZ/,'Summer timezone marker required');
+          assert(html.includes('apiPayloadReceived'),'Amazon API success must be distinguished from UI errors');
+          console.log('OK: Berlin MEZ/MESZ formatter executes and Amazon display-error guard exists');
+          NODE
       - name: Embedded JavaScript and asset manifest
         run: |
           python3 - <<'PY'
