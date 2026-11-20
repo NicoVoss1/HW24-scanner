@@ -23,7 +23,7 @@ Stand 20.11.2026 · Entwurf · keine Produktivfreigabe
 
 ### Technische Folgeschritte
 1. Server-seitige **globale** Rate-Limit-Steuerung mit Antwort-Headern, `429`, Backoff, konkurrierenden Sessions, persistenten Jobs und gesperrten Fehlversuchen. Client-Drosselung allein reicht für mehrere Geräte nicht.
-2. Eindeutige Identitätsauflösung für SKU, HAN, EAN, ASIN und Produkttitel/Farbnummer; automatische Amazon-Suche beim abgeschlossenen Suchvorgang, nie bei jedem Tastendruck.
+2. Erweiterung der im MVP vorhandenen SKU-/HAN-/EAN-/ASIN-/Stichwortsuche um vollständig verifizierte Hersteller-Farbnummer- und Produktvariantenzuordnung, Paginierung, Nutzerfreigabe und gemeinsame Statusanzeige; nie bei jedem Tastendruck.
 3. Trennung von langlebigen Artikelidentitäten und kurzlebigen Marktplatzpreis-Snapshots; Rechte, Cachefristen, Aufbewahrung und Amazon-Vertragsbedingungen prüfen.
 4. Relevante Amazon-Katalogvorschläge mit JTL/Historie und verifizierten Kategorien zusammenführen; beim Übernehmen Quelle und Zeitpunkt speichern.
 
