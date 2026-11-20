@@ -29,11 +29,11 @@ Diese beiden Dateien beim Fortsetzen eines Chats, beim Öffnen eines PRs und vor
 
 ## Sofortiger nächster Schritt
 
-**Stand 20.11.2026:** Die neue gemeinsame JTL-/Amazon-/Historienvorbelegung ist über [PR #20](https://github.com/NicoVoss1/HW24-scanner/pull/20) in `deploy/staging` gemerged. **Staging-SHA `dc9646d4863772dab823283be5d8f4bbec8f3c99`.** Der neue Plesk-Pull/Deploy dieses Commits steht noch aus.
+**GitHub-Testcode:** Die gemeinsame JTL-/Amazon-/Historienvorbelegung ist über [PR #20](https://github.com/NicoVoss1/HW24-scanner/pull/20) und die ASIN-Titel-/Hersteller-Ergänzung über [PR #21](https://github.com/NicoVoss1/HW24-scanner/pull/21) in `deploy/staging` gemerged. **Aktueller SHA: `2f88d5a5dca6a8df80acbc38aba5287d960583c1`.**
 
-**Jetzt:** Plesk-Branch `deploy/staging` beibehalten → **Jetzt Pull ausführen → Jetzt bereitstellen** → Testseite `/scanliste.html` öffnen. Stapel `04-001` und bereits JTL-bekannte EAN `8033219164159` prüfen, danach eine nachweislich neue EAN erfassen und gespeicherte Felder nach Reload prüfen. Bereits erledigte Backups, private Verzeichnisprüfungen und erfolgreiche V11/V12-PuTTY-Installation **nicht wiederholen**.
+**Jetzt:** Plesk Git bleibt `deploy/staging` → **Jetzt Pull ausführen → Jetzt bereitstellen** → Testseite `/scanliste.html` aktualisieren → Stapel `04-001`, EAN `8033219164159` (bestehender Artikel, nur anzeigen) prüfen → eine echte unbekannte EAN scannen und Datenpersistenz/ASIN-Auswahl kontrollieren.
 
-**Nicht automatisch wahr:** GitHub-CI grüner Code ist noch kein Nachweis für echte SP-API-Calls oder erfolgreichen DB-Revisionstest. Lieferanten-ID-Zuordnung, Kategorien 2/3 und JTL-Ameise-Importprofil bleiben gesondert zu testen. Live-Seite unverändert.
+**Nicht wiederholen:** Backups, PuTTY, V11-/V12-SQL-Installation und bisherige Pfadprüfungen wurden erledigt. **Keine Live-Seitenänderung.** GitHub-CI beweist noch keinen echten Server-/Amazon-/Browser-Test.
 
 ## Projektziel
 
