@@ -65,8 +65,19 @@ details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border
 <p id="enrichQueueStatus" class="note" role="status">Stammdaten werden beim Scan hinterlegt; keine Wawi-Buchung.</p>
 <p class="note">Jede gültige EAN wird zunächst gespeichert, auch wenn noch keine Produktdaten vorliegen. Wiederholte Scans desselben Artikels werden gezählt. <strong>Das ist noch keine Lagerbuchung.</strong> Bei Verbindungsproblemen bleiben Scans zum erneuten Senden in der Warteschlange.</p>
 </section>
+<section class="card" id="csvImportCard"><h2>3. Vorhandene EAN-Liste als CSV importieren</h2>
+<p class="note">Bis zu 5.000 Zeilen mit Spalte <strong>EAN</strong> oder <strong>GTIN</strong>, optional <strong>Lagerplatz</strong>, <strong>Information</strong> und <strong>Kommentar</strong>. Die Zusatzinformationen bleiben separate Importhinweise und überschreiben keine JTL-Anmerkung. Doppelte EANs werden nur einmal angelegt.</p>
+<div class="toolbar"><div class="wide"><label for="csvFile">CSV-Datei auswählen</label><input id="csvFile" type="file" accept=".csv,text/csv,text/plain"></div>
+<div class="medium"><label for="csvEncoding">Textkodierung</label><select id="csvEncoding"><option value="auto">Automatisch erkennen</option><option value="utf-8">UTF-8</option><option value="windows-1252">Windows-1252 (Excel)</option></select></div>
+<button id="csvPreview" class="secondary" type="button">CSV prüfen</button></div>
+<p class="note" id="csvPreviewStatus" role="status">Datei auswählen und Spalten prüfen. Es wird noch nichts gespeichert.</p>
+<div id="csvColumns" class="note"></div>
+<div class="toolbar"><button type="button" id="csvImport" disabled>Bestätigte EANs in Stapel übernehmen</button>
+<button type="button" class="secondary" id="csvPause" disabled>Import nach aktuellem Block stoppen</button></div>
+<p class="note" id="csvImportProgress" role="status"></p>
+</section>
 <div class="stats" id="stats"></div>
-<div class="layout"><section class="card"><div class="listhead"><h2>3. Scan-Übersicht</h2><span id="total" class="note"></span></div>
+<div class="layout"><section class="card"><div class="listhead"><h2>4. Scan-Übersicht</h2><span id="total" class="note"></span></div>
 <div class="toolbar"><div class="wide"><label for="search">EAN, Name, Artikelnummer suchen</label><input id="search" placeholder="Liste durchsuchen"></div>
 <div class="medium"><label for="filter">Status</label><select id="filter"><option value="all">Alle</option>
 <option value="new_candidate">Mögliche Neuanlagen</option><option value="existing">In JTL vorhanden</option>
@@ -74,7 +85,7 @@ details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border
 <option value="ready">Importbereit</option><option value="removed">Entfernte Positionen</option></select></div></div>
 <div class="items" id="items" aria-label="Gespeicherte Scans"></div><p id="scanAdjustStatus" class="note" role="status"></p><p class="note" id="listFoot"></p>
 </section>
-<section class="card"><h2>4. Stammdaten und Freigabe</h2>
+<section class="card"><h2>5. Stammdaten und Freigabe</h2>
 <p id="itemInfo">Wähle einen Artikel aus der Scanliste. Bei bestätigten Neuanlagen können die Pflichtfelder ergänzt werden.</p>
 <p id="csvMetaDetail" class="note" hidden></p><div id="editor" hidden>
 <div class="toolbar"><button type="button" class="secondary" id="research">📚 Detaillierte Quellen und Vorschläge prüfen</button></div>
@@ -93,7 +104,7 @@ details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border
 <p id="editorStatus" role="status" class="note"></p>
 </div>
 </section></div>
-<section class="card"><h2>5. JTL-Ameise-Import vorbereiten</h2>
+<section class="card"><h2>6. JTL-Ameise-Import vorbereiten</h2>
 <div class="export"><button id="export" type="button">📄 Freigegebene Neuanlagen als CSV exportieren</button>
 <button id="report" type="button" class="secondary">Gesamte Scanliste als CSV</button></div>
 <p class="note">Die Ameise-Datei ist UTF-8 mit BOM und Semikolon getrennt. Bei leerer Artikelnummer muss in JTL-Ameise die globale automatische Artikelnummernvergabe eingestellt werden. Originalspalten aus dem JTL-Export werden verwendet. Vor dem echten Import die Zuordnung der <strong>importierbaren</strong> JTL-Ameise-Felder prüfen. Je Export maximal 200 freigegebene Positionen.</p>
@@ -663,6 +674,8 @@ window.HW24ScanBridge={
  selected:()=>state.selected,
  find:id=>state.items.find(x=>String(x.id)===String(id))||null,
  batchId:()=>state.batchId,
+ importRows:(rows)=>post('import_rows',{batch_id:state.batchId,rows}),
+ reloadItems:()=>loadItems(),
  schema:()=>schema.slice(),
  control:key=>{const n=schema.indexOf(key);return n>=0?$('field_'+n):null},
  catalog:ean=>catalogSummaries.get(ean),
@@ -729,4 +742,4 @@ catalogStatus();
 if(catalogQueue.length)runCatalog();
 })();
 </script>
-<script src="assets/hw24-scan-autofill.js?v=1"></script></body></html>
+<script src="assets/hw24-scan-autofill.js?v=1"></script><script src="assets/hw24-csv-intake.js?v=1"></script></body></html>
