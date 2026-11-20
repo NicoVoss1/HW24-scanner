@@ -1,0 +1,119 @@
+/* HW24 V4.22 design polish. No functional/DB changes. */
+/* Make the server status distinguishable against the hero at every viewport. */
+body > .hw24-hero .hw24-status-strip {
+ display:flex!important;align-items:center!important;justify-content:space-between!important;
+ flex-wrap:wrap!important;gap:10px!important;margin:14px 0 0!important;
+ padding:12px 14px!important;background:rgba(4,22,42,.64)!important;
+ border:1px solid rgba(197,225,250,.40)!important;border-radius:13px!important;
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.08)!important;
+}
+body > .hw24-hero #jtlApiState {
+ background:transparent!important;color:#fff!important;font-weight:650!important;
+ min-width:0!important;padding:2px 0!important;font-size:13px!important;
+ line-height:1.55!important;overflow-wrap:anywhere!important;box-shadow:none!important;
+ border:0!important;text-shadow:none!important;flex:1 1 320px!important;
+}
+body > .hw24-hero #jtlApiState[data-state="ready"]{color:#c5ffdf!important}
+body > .hw24-hero #jtlApiState[data-state="pending"]{color:#ffe8b1!important}
+body > .hw24-hero #jtlApiCheck {
+ background:#f1f7ff!important;color:#133863!important;font-weight:750!important;
+ border:1px solid #c5d9ef!important;border-radius:9px!important;
+ padding:10px 15px!important;min-height:40px!important;white-space:normal!important;
+}
+body > .hw24-hero #jtlApiCheck:hover{background:#dceeff!important}
+body > .hw24-hero>p{line-height:1.55!important}
+.hw24-focus-nav a[href="scanliste.html"]{
+ min-height:41px;box-sizing:border-box;line-height:1.3;font-size:13px;
+}
+@media(max-width:700px){
+ body > .hw24-hero{padding:18px 20px!important}
+ body > .hw24-hero #jtlApiCheck{width:100%!important}
+}
+
+/* New scanlist page: clearer hierarchy, readable forms and unambiguous feedback. */
+body.hw24-scan-page{font-size:15px;line-height:1.5;color:#193750}
+.hw24-scan-page header{
+ background:linear-gradient(115deg,#102a4b 0%,#1a4575 75%,#245886 100%);
+ padding:clamp(18px,4vw,34px) max(16px,calc((100vw - 1240px)/2));
+ color:#fff;
+}
+.hw24-scan-page header>a{
+ display:inline-flex;align-items:center;padding:7px 11px;margin:0 0 9px;
+ color:#ecf6ff;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.26);
+ border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;
+}
+.hw24-scan-page header h1{
+ font-size:clamp(25px,3.2vw,35px);margin:6px 0 9px;
+ letter-spacing:-.025em;line-height:1.14;
+}
+.hw24-scan-page header p{color:#e2effc;font-size:14px;max-width:840px;line-height:1.6;margin:0}
+.hw24-scan-page main{margin-top:18px}
+.hw24-scan-page .card{border-color:#cfdfeb;box-shadow:0 4px 15px #132f5411;border-radius:14px}
+.hw24-scan-page .card h2{font-size:19px;line-height:1.35;margin-bottom:12px}
+.hw24-scan-page .card .note{font-size:13px;line-height:1.55}
+.hw24-scan-page input,.hw24-scan-page select,.hw24-scan-page textarea{
+ color:#17314e;background:#fff;border-color:#b3c9dc;min-height:42px
+}
+.hw24-scan-page label{font-size:13px;letter-spacing:.01em;color:#314e69}
+.hw24-scan-page #status{
+ padding:9px 12px;border-radius:10px;background:#eef4fb;
+ border:1px solid #d7e5f2;color:#21415f;
+}
+.hw24-scan-page #status.error{background:#fff1f0;border-color:#f2c5c1;color:#9d1e27}
+.hw24-scan-page #status.success{background:#eef9f2;border-color:#c3e6d0;color:#176c3d}
+.hw24-scan-page .item:focus-visible,.hw24-scan-page button:focus-visible{
+ outline:3px solid #65b4ea;outline-offset:2px;
+}
+.hw24-scan-page .pill{font-weight:700;line-height:1.35}
+
+/* Grouped article details, mapped to the verified JTL export captions. */
+.hw24-scan-page #editorFields{display:block;max-width:100%;margin-top:14px}
+.hw24-scan-page #editorFields .formGroup{
+ display:block;border:1px solid #d4e0ed;border-radius:12px;
+ margin:0 0 11px;background:#fff;overflow:hidden;
+}
+.hw24-scan-page #editorFields .formGroup>summary{
+ padding:12px 14px;background:#eef4fb;cursor:pointer;
+ font-weight:800;color:#1b466f;list-style-position:inside;
+}
+.hw24-scan-page #editorFields .formGroup[open]>summary{
+ border-bottom:1px solid #d4e0ed;background:#e9f2fc;
+}
+.hw24-scan-page #editorFields .groupHint{margin:10px 14px 0;color:#61758a;font-size:12px}
+.hw24-scan-page #editorFields .fieldGrid{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:12px;padding:14px;
+}
+.hw24-scan-page #editorFields .fieldBox{min-width:0}
+.hw24-scan-page #editorFields .fieldBox.full{grid-column:1/-1}
+.hw24-scan-page #editorFields .fieldBox label{margin:0 0 5px}
+.hw24-scan-page #editorFields .fieldBox textarea{min-height:96px}
+.hw24-scan-page #editorFields .fieldBox input[readonly]{
+ background:#f1f5f9;border-style:dashed;color:#415b74;
+}
+.hw24-scan-page #editorFields .fieldBox.missing input,
+.hw24-scan-page #editorFields .fieldBox.missing select,
+.hw24-scan-page #editorFields .fieldBox.missing textarea{border-color:#d79d72;background:#fffdf7}
+.hw24-scan-page #editorFields .fieldBox .fieldNote{
+ display:block;margin:4px 0 0;color:#647b8f;font-size:11px;
+}
+.hw24-scan-page #editorFields .fieldBox .fieldNote.warn{color:#98601b}
+.hw24-scan-page #editorFields .groupCount{float:right;margin-top:2px;
+ font-size:12px;font-weight:700;color:#496984}
+.hw24-scan-page #editorFields .editorIntro{
+ background:#f5f9fd;border-left:4px solid #528cbe;border-radius:8px;
+ padding:11px 12px;font-size:13px;color:#42607b;line-height:1.55
+}
+.hw24-scan-page .editorActions{position:sticky;bottom:0;background:rgba(255,255,255,.97);
+ border:1px solid #d4e0ed;padding:12px;border-radius:12px;z-index:4}
+.hw24-scan-page #dbSetup{border:1px solid #dfbf8a;border-radius:11px;padding:12px 14px;
+ margin:10px 0;background:#fffaf0;color:#744915;font-size:13px}
+.hw24-scan-page #dbSetup[hidden]{display:none}
+.hw24-scan-page #dbSetup p{margin:6px 0}
+.hw24-scan-page .progressLine{font-weight:700;font-size:13px}
+@media(max-width:680px){
+ .hw24-scan-page #editorFields .fieldGrid{grid-template-columns:1fr}
+ .hw24-scan-page #editorFields .fieldBox.full{grid-column:auto}
+ .hw24-scan-page .card h2{font-size:17px}
+ .hw24-scan-page .editorActions{position:static}
+}
