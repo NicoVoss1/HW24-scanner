@@ -15,12 +15,12 @@
 
 1. In Plesk auf **`deploy/staging`** bleiben und nach Merge von [PR #19](https://github.com/NicoVoss1/HW24-scanner/pull/19) **„Jetzt Pull ausführen“ → „Jetzt bereitstellen“**. Nur Testdomain.
 2. Per **PuTTY/SSH** auf dem **gleichen Plesk-Testserver** anmelden. In die Root-Shell wechseln: `sudo -i` (bei fehlender Berechtigung nicht improvisieren; Abbruchmeldung melden).
-3. Den geprüften Installer aus dem GitHub-Commit `1926d70690f90c3e644583b3a4931baa09d0f4b6` laden, Syntax prüfen, Inhalt ansehen, dann einmalig ausführen:
+3. Den geprüften Installer aus dem GitHub-Commit `a3f0d8592a926fb348b589a76b2170cee1ab67c3` laden, Syntax prüfen, Inhalt ansehen, dann einmalig ausführen:
 
 ```bash
 sudo -i
 curl -fL --proto '=https' --tlsv1.2 \
-  'https://raw.githubusercontent.com/NicoVoss1/HW24-scanner/1926d70690f90c3e644583b3a4931baa09d0f4b6/ops/HW24_INSTALL_SCANLIST_TEST.sh' \
+  'https://raw.githubusercontent.com/NicoVoss1/HW24-scanner/a3f0d8592a926fb348b589a76b2170cee1ab67c3/ops/HW24_INSTALL_SCANLIST_TEST.sh' \
   -o /root/HW24_INSTALL_SCANLIST_TEST.sh
 bash -n /root/HW24_INSTALL_SCANLIST_TEST.sh
 less /root/HW24_INSTALL_SCANLIST_TEST.sh
@@ -45,7 +45,7 @@ bash /root/HW24_INSTALL_SCANLIST_TEST.sh
 | Test-UI und Screenshotbefund | **Bestätigt, 20.11.2026** |
 | Amazon-DB-Konto-Isolation | **Code gemerged**, PR #19, Staging-SHA `2175c375fdce4afe2b335dafb43167505f7123a0` |
 | Installer-PuTTY-Code | **Vorbereitet, nicht auf Plesk ausgeführt** |
-| Bash-Syntax/PHP-Lint | **GitHub Actions grün**: [Run #44819368745](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44819368745) |
+| Bash-Syntax/PHP-Lint | **GitHub Actions-Initialprüfung grün**: [Run #44819368745](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44819368745). Nach der Verbesserung der eindeutigen Testpfadsuche folgt erneute Prüfung: [Run #44819742904](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44819742904) |
 | Tabellen und privater DB-Nutzer | **FEHLT laut Diagnose / noch nicht installiert** |
 | Erfolgreiche EAN-Scans in MariaDB | **NOCH NICHT BESTÄTIGT** |
 | JTL-Wawi/Ameise-Echtimport | **NICHT durchgeführt** |
