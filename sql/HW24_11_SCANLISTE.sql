@@ -47,5 +47,18 @@ CREATE TABLE IF NOT EXISTS hw24_scan_events (
   INDEX idx_scan_events_batch_time (batch_id,event_utc),
   CONSTRAINT fk_scan_event_batch FOREIGN KEY(batch_id) REFERENCES hw24_scan_batches(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS hw24_scan_draft_audit (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  scan_item_id BIGINT UNSIGNED NOT NULL,
+  revision INT UNSIGNED NOT NULL,
+  changed_by VARCHAR(180) NOT NULL,
+  change_kind VARCHAR(24) NOT NULL,
+  previous_json LONGTEXT NULL,
+  next_json LONGTEXT NOT NULL,
+  changed_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  UNIQUE KEY uq_draft_revision (scan_item_id,revision),
+  CONSTRAINT fk_draft_item FOREIGN KEY(scan_item_id) REFERENCES hw24_scan_items(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Für den API-Benutzer ausschließlich benötigte SELECT/INSERT/UPDATE-Rechte
--- auf diese drei Tabellen; keine DDL- oder JTL-Wawi-Schreibrechte.
+-- auf die vier Scan-Tabellen; keine DDL- oder JTL-Wawi-Schreibrechte.
