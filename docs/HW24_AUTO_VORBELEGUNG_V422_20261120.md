@@ -1,6 +1,6 @@
 # HW24 V4.22 TEST · Gemeinsame automatische Stammdatenanreicherung
 
-**Stand:** 20.11.2026, nach Merge [PR #20](https://github.com/NicoVoss1/HW24-scanner/pull/20) in `deploy/staging` · GitHub-SHA **`dc9646d4863772dab823283be5d8f4bbec8f3c99`**  
+**Stand:** 20.11.2026, nach Merge [PR #20](https://github.com/NicoVoss1/HW24-scanner/pull/20) und [PR #21](https://github.com/NicoVoss1/HW24-scanner/pull/21) in `deploy/staging` · aktueller GitHub-SHA **`2f88d5a5dca6a8df80acbc38aba5287d960583c1`**  
 **WICHTIG:** GitHub-Merge ist **kein** Nachweis für Plesk-Pull, Browser-Integration oder erfolgreichen Amazon-/JTL-End-to-End-Test. Diesen Zustand erst nach der Testabnahme als erfolgreich markieren.
 
 ## 1. Anlass und gesicherter Screenshotbefund
@@ -66,15 +66,21 @@ Manuell geänderte oder bestehende JTL-Werte werden **nicht** durch niedrigere Q
 - Bei bereits vorhandenen JTL-Artikeln werden Daten **nur lesend** in der Scanliste ergänzt. Bestehende Artikel dürfen nicht als Neuanlagen exportiert werden.
 - Mehrere Amazon-ASINs zeigen einzelne Kandidaten mit ASIN, Titel, Marke, Kennungsstatus und Packungsgrößenwarnung; eine Auswahl setzt eine bewusste Bestätigung voraus.
 
-## 5. Qualitätssicherung und offene Punkte
+## 5. Nachtrag: manuelle ASIN-Auswahl ergänzt Name und Hersteller
 
-**CODE GEPRÜFT:** [GitHub Actions #44826801120](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44826801120) und nachfolgende Feature-Commits mit Node-Tests. Geprüft: JS-/PHP-Syntax, HTML-Assets, 60/100-ml-Standardregeln, bestehende JTL-Artikelnummer/HAN, Historienkonflikte, ASIN-Mehrfachpackungsschutz, Header.
+[PR #21](https://github.com/NicoVoss1/HW24-scanner/pull/21) wurde nach PR #20 gemerged. Bei einer **bewusst bestätigten** Auswahl einer Amazon-ASIN werden in der Scanliste und im Haupt-Artikelmanager jetzt außer der ASIN auch der exakte Amazon-Titel und die Marke als Quellenwerte für **noch leere** Felder übernommen. Bestehende JTL-/manuelle Produktnamen und Hersteller werden ausdrücklich nicht ersetzt. Bei mehreren ASINs, unbekannter Verpackungsgröße oder Mehrfachpackungen bleibt eine sichtbare Auswahl erforderlich.
+
+**Prüfung:** [GitHub Actions #44827355974](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44827355974) grün (Quell-/ASIN-Regeltests und Syntax). Ein echter Test auf der Plesk-Domain steht weiterhin aus. Aktueller Staging-SHA: `2f88d5a5dca6a8df80acbc38aba5287d960583c1`. Nur zwei öffentliche JS-Assets in diesem Nachtrag geändert.
+
+## 6. Qualitätssicherung und offene Punkte
+
+**CODE GEPRÜFT:** [GitHub Actions #44826801120](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44826801120) und [#44827355974](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44827355974) und nachfolgende Feature-Commits mit Node-Tests. Geprüft: JS-/PHP-Syntax, HTML-Assets, 60/100-ml-Standardregeln, bestehende JTL-Artikelnummer/HAN, Historienkonflikte, ASIN-Mehrfachpackungsschutz, Header.
 
 **NICHT durch GitHub-CI nachgewiesen:** live angebundener Browser-/iPhone-Scanner, tatsächlicher Amazon-SP-API-Snapshot für EAN `8033219164159`, vorhandene JTL-Hersteller-Mappingwerte, echte MariaDB-Entwurfsrevisionen, komplette Rate-Limit-Steuerung und JTL-Ameise-Importprofil.
 
 ### Nächster konkreter Testschritt
 
-1. Plesk **`deploy/staging`** (GitHub-SHA `dc9646d4863772dab823283be5d8f4bbec8f3c99`) → **Jetzt Pull ausführen** → **Jetzt bereitstellen**. Keine Backup-/DB-Migration-/Verzeichnisprüfung wiederholen.
+1. Plesk **`deploy/staging`** (GitHub-SHA `2f88d5a5dca6a8df80acbc38aba5287d960583c1`) → **Jetzt Pull ausführen** → **Jetzt bereitstellen**. Keine Backup-/DB-Migration-/Verzeichnisprüfung wiederholen.
 2. `https://test-artikelmanager.hairworld24.de/scanliste.html` mit Strg+F5 öffnen, Stapel `04-001`, EAN `8033219164159` auswählen. JTL-Artikelname, Hersteller, Artikelnummer und Warengruppe als vorhandene Quellen ansehen; **keine Neuanlagefreigabe**.
 3. Eine nachweislich noch nicht in JTL vorhandene EAN scannen. Quelle/Warteschlangenstatus abwarten, Seite neu laden; Felder, Quellen und Datenbank-Persistenz nachprüfen.
 4. Einen Amazon-Fall mit **mehreren ASINs oder einem 2er-Pack** testen: Wahl muss manuell erfolgen.
