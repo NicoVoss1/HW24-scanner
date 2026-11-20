@@ -283,9 +283,9 @@ try {
       (batch_id,ean,resolution,jtl_article_id,artikelnummer,artikelname,snapshot_at_utc,source_json)
       VALUES (?,?,?,?,?,?,?,?)');
     $edit=$pdo->prepare('UPDATE hw24_scan_items SET source_json=?,
-      review_state=IF(review_state="removed","scan_only",review_state),
       scan_count=IF(review_state="removed",1,scan_count),
       revision=IF(review_state="removed",revision+1,revision),
+      review_state=IF(review_state="removed","scan_only",review_state),
       updated_at_utc=UTC_TIMESTAMP(6) WHERE id=?');
     $inserted=0;$existed=0;$restored=0;
     foreach($validated as $entry){
