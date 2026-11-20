@@ -381,7 +381,7 @@ function refreshFieldGroups(){
    if(required.has(control.name)&&!has)missing.push(control.name);
  }
  $('editorCompleteness').textContent=state.selected?.resolution==='new_candidate'
-   ?(missing.length?'Noch fehlende Pflichtangaben: '+missing.join(', '):'✓ Alle fünf Pflichtfelder befüllt. Produktdaten trotzdem vor Freigabe prüfen.')
+   ?(missing.length?'Noch fehlende Pflichtangaben: '+missing.join(', '):'✓ Pflichtfelder befüllt. Für neue Artikel kann JTL-Ameise die Artikelnummer automatisch vergeben.')
    :'Bestehende oder nicht eindeutig neue Artikel werden nicht für einen Neuanlagenimport freigegeben.';
  const net=$('field_'+schema.indexOf('Kosten'))?.value||$('field_'+schema.indexOf('Netto-EK in Standardwährung'))?.value||'';
  const number=Number(val(net).replace(',','.'));
@@ -640,7 +640,8 @@ $('hairTemplate').onclick=()=>patchFields({'GTIN':state.selected?.ean||'',
  'Top-Artikel':'N','Neu im Sortiment':'Y'});
 function cell(x){let s=val(x);if(/^[=+@-]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}
 function downloadCSV(rows,filename){
- const columns=['Artikelnummer',...schema.filter(k=>k!=='Artikelnummer'&&rows.some(r=>val(r[k])))];
+ const withSku=rows.some(r=>val(r.Artikelnummer));
+ const columns=[...(withSku?['Artikelnummer']:[]),...schema.filter(k=>k!=='Artikelnummer'&&rows.some(r=>val(r[k])))];
  const content='\ufeff'+columns.map(cell).join(';')+'\r\n'+rows.map(r=>columns.map(k=>cell(r[k])).join(';')).join('\r\n')+'\r\n';
  const blob=new Blob([content],{type:'text/csv;charset=utf-8'});
  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename;
@@ -650,7 +651,11 @@ $('export').onclick=async()=>{
  if(!state.batchId)return;
  try{
  const result=await get('export',{batch_id:String(state.batchId)});
- if(!confirm(result.count+' freigegebene Neuanlagen als Ameise-Prüfdatei exportieren? Der Import selbst erfolgt später in JTL-Ameise.'))return;
+ const autoCount=Number(result.auto_article_numbers||0);
+ const question=result.count+' freigegebene Neuanlagen exportieren?'+
+ (autoCount?' Für '+autoCount+' Artikel ohne Artikelnummer in JTL-Ameise „Artikelnummern automatisch vergeben, falls nicht vorhanden: Ja, globale fortlaufende Nummer und Präfix beachten“ auswählen.':'')+
+ ' Identifizierung anhand Artikelnummer/GTIN im JTL-Ameise-Testlauf prüfen. Das ist noch kein Import.';
+ if(!confirm(question))return;
  downloadCSV(result.fields,'HW24_Ameise_Neuanlagen_'+result.count+'_PRUEFEXPORT.csv');
  $('exportStatus').textContent='✓ '+result.count+' Positionen exportiert · JTL-Spiegel: '+result.jtl_snapshot_utc+
  '. Vor Import Feldzuordnung kontrollieren und Testlauf ausführen.';
@@ -659,9 +664,10 @@ $('export').onclick=async()=>{
 };
 $('report').onclick=()=>{
  if(!state.items.length)return;
- const headers=['EAN','JTL-Status','Prüfstatus','Scanvorgänge','JTL-Artikelnummer','Artikelname','Letzter Scan'];
+ const headers=['EAN','JTL-Status','Prüfstatus','Scanvorgänge','JTL-Artikelnummer','Artikelname','CSV-Lagerplatz','CSV-Information','CSV-Kommentar','Letzter Scan'];
  const rows=state.items.map(x=>[x.ean,statuses[x.resolution]||x.resolution,x.review_state,x.scan_count,
- x.artikelnummer||x.draft?.Artikelnummer||'',x.draft?.Artikelname||x.artikelname||'',x.last_scanned_utc]);
+ x.artikelnummer||x.draft?.Artikelnummer||'',x.draft?.Artikelname||x.artikelname||'',
+ x.csv_meta?.lagerplatz||'',x.csv_meta?.information||'',x.csv_meta?.kommentar||'',x.last_scanned_utc]);
  const csv='\ufeff'+headers.map(cell).join(';')+'\r\n'+rows.map(r=>r.map(cell).join(';')).join('\r\n')+'\r\n';
  const u=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
  const a=document.createElement('a');a.href=u;a.download='HW24_Scanuebersicht_'+state.batchId+'.csv';
