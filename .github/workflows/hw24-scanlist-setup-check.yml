@@ -1,0 +1,25 @@
+name: HW24 scanlist installer and PHP validation
+on:
+  push:
+    branches:
+      - feature/hw24-v422-scanlist-install-20261120
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate guarded installer shell syntax
+        run: |
+          bash -n ops/HW24_INSTALL_SCANLIST_TEST.sh
+          grep -Fq 'test-artikelmanager' ops/HW24_INSTALL_SCANLIST_TEST.sh
+          grep -Fq 'hw24_artikelmanager' ops/HW24_INSTALL_SCANLIST_TEST.sh
+      - name: Validate PHP
+        run: |
+          php -l api/amazon-keywords.php
+          php -l api/scanliste.php
+          php -l api/scanliste-status.php
+      - name: Disallow committing private material
+        run: |
+          test ! -e hw24_private/db.php
+          test ! -e hw24_private/scanlist-db.php
