@@ -42,6 +42,16 @@
 - Einzelartikel- und Stapelpflege; Änderungsprotokoll mit altem Wert, neuem Wert, Quelle, Status, Zeitpunkt in Europe/Berlin.
 - CSV-Trockenlauf mit Vorschau, manueller Freigabe und konfliktfreiem Import über JTL-Ameise. Erkennbare Zustände Neu / Korrigieren / Unverändert; keine ungewollte Leerwert- oder Null-Preis-Überschreibung.
 
+## Testabnahme für Artikelpflege und Amazon-Gebühren in v4.35
+
+1. Auf der geschützten Testseite den Kopfbereich auf dem Desktop und bei schmaler Fensterbreite prüfen. JTL-Status und Navigation müssen auch bei einem API-Fehler gut lesbar bleiben.
+2. Den Dusy-Artikel per EAN `4016660006753` laden. Originalwerte im HW24-Artikelstand notieren. Bei `Inhalt/Menge` erst `10`, dann `0` mit Enter bestätigen. Anschließend einen Wert per Tab und einen Wert per `Übernehmen` speichern. Die Maßeinheit ändern und zurückstellen. Grün muss auf eine erfolgreiche HW24-Speicherung folgen. Danach neu laden und erneut scannen. Werte und Revision im Änderungsverlauf prüfen und den ursprünglichen Stand wiederherstellen.
+3. Steuerklasse, Inhalt, Einheit, Versandgewicht und Lieferant anhand der zugehörigen JTL-Spiegelwerte oder bestätigten HW24-Angaben abgleichen. Beim Bestandswert Bestand und gleitenden Durchschnitts-EK kontrollieren. Bei fehlender Quelle den angezeigten Hinweis prüfen.
+4. Den eigenen Amazon.de-Angebots-VK anhand des verknüpften JTL-Angebots oder des von Amazon identifizierten eigenen Angebots abgleichen. Buy Box und eigenen Preis einschließlich Versand nur vergleichen, wenn die Basis auf beiden Seiten vorliegt.
+5. Die Amazon-Gebühren für den eigenen Angebotspreis abrufen. Verkaufspreis und Versandart, die API-Gebührensumme und die beiden Prozentwerte bezogen auf den Brutto- und Netto-VK prüfen. Der Netto-VK braucht einen verifizierten Artikelsteuersatz. Bei einem Testpreis mit abweichender Eingabe muss die Schätzung als solche erkennbar bleiben.
+
+Im aktuellen Spiegel kann eine Lieferantenzuordnung ohne Firmenname vorliegen. Die Zuordnung in SQL Server lässt sich über `dbo.tliefartikel.tLieferant_kLieferant` und `dbo.tlieferant.kLieferant` abgleichen. Für die Anzeige soll der Windows-Sync `cFirma` zusammen mit der bestätigten Lieferanten-Zuordnung übertragen. Bei mehreren Zuordnungen hat der eindeutig markierte Standardlieferant Vorrang.
+
 ## Release-Vertrag
 1. Änderungen immer vom passenden GitHub-Featurebranch mit Pull Request; niemals direkt auf `deploy/staging` oder Plesk experimentieren.
 2. CI mit Syntax-, Interface- und fallbezogenen Tests muss grün sein. Vor dem Deploy Diff von `api/`, `assets/`, `index.html` gegen letzten stabilen Release prüfen.

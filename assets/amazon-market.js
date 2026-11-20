@@ -5,26 +5,25 @@
 (()=>{'use strict';
 const $=id=>document.getElementById(id);
 const el=(tag,text,css)=>{const n=document.createElement(tag);if(css)n.className=css;if(text!==undefined)n.textContent=String(text);return n;};
-const money=v=>v&&Number.isFinite(Number(v.amount))?
- new Intl.NumberFormat('de-DE',{style:'currency',currency:v.currency||'EUR'}).format(v.amount):'Keine Angabe';
+const money=v=>v&&Number.isFinite(v.amount)&&/^[A-Z]{3}$/.test(v.currency||'')?
+ new Intl.NumberFormat('de-DE',{style:'currency',currency:v.currency}).format(v.amount):'Keine Angabe';
 let panel=null, request=0, lastAsin='';
 function mount(){
  const catalog=$('focusAmazonCard');
  if(!catalog)return null;
  if(!panel){
   panel=el('div');panel.id='hw24AmazonMarket';
-  panel.style.cssText='margin:16px 0;padding:16px;border:1px solid #a9c3e3;background:#f7faff;border-radius:14px;color:#14233c';
-  // Show the offer comparison across the entire content width, not in the
-  // narrow right-hand column of the two-column product overview.
-  const section=catalog.closest('.f-section');
-  (section||catalog).insertAdjacentElement('afterend',panel);
+  panel.style.cssText='margin:12px 0;padding:12px;border:1px solid #dce5ee;background:#f7faff;border-radius:10px;color:#14233c';
+  const slot=$('hw24AmazonMarketSlot');
+  if(slot)slot.append(panel);
+  else (catalog.closest('.f-section')||catalog).insertAdjacentElement('afterend',panel);
  }
  return panel;
 }
 function reset(message='Preise sind noch nicht abgefragt.'){
  request++;lastAsin='';
  const target=mount();if(!target)return;
- target.replaceChildren(el('h3','💶 Amazon-Marktpreise und Händler'),el('p',message,'note'));
+ target.replaceChildren(el('p',message,'note'));
 }
 function pair(label,value){
  const n=el('div');n.style.cssText='padding:10px 12px;background:#fff;border:1px solid #dde5f0;border-radius:9px';
@@ -45,11 +44,14 @@ async function showOffers(data,place){
  }
  const moneyTotal=o=>o.total?.amount??Number.POSITIVE_INFINITY;
  const winnerOffers=offers.filter(o=>o.is_buybox_winner===true);
- const summaryFeatured=(data.buybox_prices||[]).find(o=>o.landed_price||o.listing_price);
- const totals=offers.map(o=>o.total?.amount).filter(Number.isFinite);
+ const featuredTotal=(data.buybox_prices||[]).find(o=>o.landed_price?.currency==='EUR')?.landed_price||
+  winnerOffers.find(o=>o.total?.currency==='EUR')?.total;
+ const featuredItem=(data.buybox_prices||[]).find(o=>o.listing_price?.currency==='EUR')?.listing_price||
+  winnerOffers.find(o=>o.item_price?.currency==='EUR')?.item_price;
+ const totals=offers.filter(o=>o.total?.currency==='EUR').map(o=>o.total.amount).filter(Number.isFinite);
  const lowest=totals.length?Math.min(...totals):null;
  place.append(grid(
-  pair('Amazon Buy Box laut Summary',summaryFeatured?money(summaryFeatured.landed_price||summaryFeatured.listing_price):'Keine Angabe'),
+  pair(featuredTotal?'Amazon Buy Box inkl. Versand':'Amazon Buy Box · Artikelpreis',money(featuredTotal||featuredItem)),
   pair('Aktuell markierte Gewinner',String(winnerOffers.length)+' von '+offers.length+' abgerufen'),
   pair('Günstigster Gesamtpreis',lowest!==null?money({amount:lowest,currency:'EUR'}):'Nicht verfügbar'),
   pair('Angebote bei Amazon',String(data.total_offer_count??'–'))
@@ -57,14 +59,15 @@ async function showOffers(data,place){
  const featured=el('p','🏆 Amazon.de-Angebote · mehrere Buy-Box-Gewinner sind möglich. Lieferbarkeit nach Deutschland, konkreter Zustelltermin und Eignung als Bezugsquelle sind aus dieser Abfrage nicht garantiert.','note');
  place.append(featured);
  if(!offers.length){place.append(el('p','Amazon hat keine einzelnen Verkäuferangebote übermittelt.','note'));return;}
+ const details=el('details');details.append(el('summary','Verkäuferangebote anzeigen'));place.append(details);
  const control=el('div');control.style.cssText='display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:15px 0 9px';
  const label=el('label','Sortierung · ');
  const select=document.createElement('select');select.style.cssText='min-height:38px;padding:7px 9px;border:1px solid #bfd0e3;border-radius:9px;background:white;color:#14233c';
  [['price','Gesamtpreis aufsteigend'],['featured','Buy Box zuerst'],['rating','Verkäuferbewertung'],['dispatch','Schnellster Versand']].forEach(([v,t])=>{const opt=document.createElement('option');opt.value=v;opt.textContent=t;select.append(opt);});
  label.append(select);control.append(label);
- const note=el('small','Bewertung = positives Verkäuferfeedback der vergangenen 365 Tage; Versandzeit = Zeit bis Versand, nicht Zustelltermin.','note');control.append(note);place.append(control);
+ const note=el('small','Bewertung = positives Verkäuferfeedback der vergangenen 365 Tage; Versandzeit = Zeit bis Versand, nicht Zustelltermin.','note');control.append(note);details.append(control);
  const list=el('div');list.style.cssText='display:grid;gap:10px';
- place.append(list);
+ details.append(list);
  const feedback=o=>o.seller_feedback?.positive_percent;
  const dispatch=o=>o.shipping_time?.max_hours??Number.POSITIVE_INFINITY;
  const dispatchText=o=>{
@@ -83,7 +86,9 @@ async function showOffers(data,place){
   who.append(el('strong',names[o.seller_id]||'Amazon-Verkäufer '+(o.seller_id||'unbekannt')));
   const badges=el('div');badges.style.cssText='display:flex;flex-wrap:wrap;gap:5px;margin:6px 0';
   const badge=label=>{const n=el('span',label);n.style.cssText='display:inline-block;padding:3px 7px;border-radius:999px;border:1px solid #ccd7e5;background:#f2f6fc;color:#2d4a6b;font-size:11px';badges.append(n);};
-  badge(o.is_fba?'FBA · Versand durch Amazon':'FBM · Händler-Versand');
+  if(o.is_own_offer===true)badge('Eigenes Angebot');
+  if(o.is_fba===true)badge('FBA · Versand durch Amazon');
+  else if(o.is_fba===false)badge('FBM · Händler-Versand');
   if(o.prime===true)badge('✓ Prime laut Amazon');
   else if(o.prime===false)badge('Kein Prime gemeldet');
   if(o.is_buybox_winner===true)badge('🏆 Aktuell Buy-Box-Gewinner');
@@ -145,27 +150,30 @@ async function showOffers(data,place){
   list.replaceChildren(...sorted.map(offerCard));
  }
  select.addEventListener('change',paint);paint();
- place.append(el('p','Amazon-Verkäufer sind nicht automatisch Bezugsquellen für Deinen Einkauf. Händlername, Bewertungen und Versandzeiten erscheinen nur, wenn sie übermittelt oder nach Profilprüfung bestätigt wurden.','note'));
+ details.append(el('p','Amazon-Verkäufer sind nicht automatisch Bezugsquellen für Deinen Einkauf. Händlername, Bewertungen und Versandzeiten erscheinen nur, wenn sie übermittelt oder nach Profilprüfung bestätigt wurden.','note'));
 }
 document.addEventListener('hw24:amazon-reset',()=>reset());
 document.addEventListener('hw24:amazon-catalog',e=>{
  const data=e.detail?.data;
  const target=mount();if(!target)return;
- target.replaceChildren(el('h3','💶 Amazon-Marktpreise und Händler'));
+ const seq=++request;lastAsin='';
+ target.replaceChildren();
  if(!data||data.count!==1||!Array.isArray(data.items)||!data.items[0]?.asin){
-  target.append(el('p','Bei mehreren ASINs muss zuerst die richtige Produktidentität bestätigt werden.','note'));return;
+  target.append(el('p',data?.count>1?'Bei mehreren ASINs zuerst die Produktidentität bestätigen.':'Kein eindeutiger Amazon-Katalogtreffer für die Preisabfrage.','note'));return;
  }
- const asin=String(data.items[0].asin);
+ const asin=String(data.items[0].asin).trim().toUpperCase();
  if(!/^[A-Z0-9]{10}$/.test(asin)){target.append(el('p','Keine gültige ASIN für die Angebotsabfrage.','note'));return;}
- lastAsin=asin;const seq=++request;
- const description=el('p','Buy Box, weitere Verkäufer und Gesamtpreise lassen sich jetzt abrufen.','note');
+ lastAsin=asin;
  const btn=el('button','💶 Aktuelle Amazon-Angebote abrufen','scan-secondary');
  btn.type='button';
- const state=el('p','Noch keine Preisabfrage ausgeführt.','note');
+ const state=el('p','Noch keine Preisabfrage ausgeführt.','note');state.setAttribute('role','status');
  const content=el('div');
+ const report=status=>document.dispatchEvent(new CustomEvent('hw24:pricing-state',{detail:{asin,status}}));
  btn.onclick=async()=>{
   if(seq!==request||lastAsin!==asin)return;
   btn.disabled=true;state.textContent='Amazon-Angebote werden abgefragt …';content.replaceChildren();
+  report('loading');
+  let received=false;
   try{
    const res=await fetch('api/amazon-pricing.php?asin='+encodeURIComponent(asin),{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
    const result=await res.json();if(seq!==request||lastAsin!==asin)return;
@@ -176,15 +184,20 @@ document.addEventListener('hw24:amazon-catalog',e=>{
      site_authentication_required:'Plesk-Anmeldung wird nicht erkannt.',
      amazon_pricing_unavailable:'Amazon-Preisabfrage technisch fehlgeschlagen.'};
     state.textContent='⚠ '+(reasons[result.error]||'Preisabfrage derzeit nicht verfügbar')+' · HTTP '+res.status;
+    report('error');
    }else{
-    state.textContent='✓ Preise von Amazon abgerufen. Kein automatischer Eingriff in Verkaufspreise.';
+    received=true;state.textContent='✓ Preise von Amazon abgerufen.';
     document.dispatchEvent(new CustomEvent('hw24:pricing-result',{detail:{asin,data:result}}));
     await showOffers(result,content);
    }
-  }catch(err){if(seq===request)state.textContent='⚠ Preisservice nicht erreichbar oder keine gültige JSON-Antwort.';}
+  }catch(err){
+   if(seq!==request)return;
+   if(received)state.textContent='Amazon hat Preise geliefert. Die Angebotsliste konnte nicht angezeigt werden.';
+   else {state.textContent='⚠ Preisservice nicht erreichbar oder keine gültige JSON-Antwort.';report('error');}
+  }
   finally{if(seq===request)btn.disabled=false;}
  };
- target.append(description,btn,state,content);
+ target.append(btn,state,content);
 });
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>reset());
 else reset();

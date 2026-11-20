@@ -5,7 +5,8 @@ const labels=['Artikelname','Hersteller','Warengruppe','Steuerklasse','Inhalt/Me
  'Kosten','Lieferant','Artikelnummer (Lieferant)','Brutto-VK','Netto-VK','Artikelgewicht','Versandgewicht',
  'Kurzbeschreibung','Beschreibung','Kategorie Ebene 1','Kategorie Ebene 2','Kategorie Ebene 3',
  'Versandklasse','Währung','Artikeltyp','ASIN','HAN'];
-let seq=0,activeEan='',revision=0,record=null,jtlSuggestions={},amazonSuggestions={},saveChain=Promise.resolve();
+let active={ean:'',revision:0,record:null,ready:false};
+let jtlSuggestions={},amazonSuggestions={},saveChain=Promise.resolve();
 const root=document.createElement('section');
 root.id='hw24CuratedPanel';root.className='f-section';root.style.cssText='margin:14px 0;padding:15px;border:1px solid #c5d5e8;border-radius:12px;background:#fff';
 const parent=$('focusAmazonCard')?.closest('.f-section');
@@ -15,8 +16,9 @@ function fieldValue(k){
  const label=[...document.querySelectorAll('#fields .field label')].find(x=>x.textContent.trim()===k);
  return label?.closest('.field')?.querySelector('input,textarea')?.value?.trim()||'';
 }
-function valid(e){return /^\d{8}$|^\d{12}$|^\d{13}$|^\d{14}$/.test(e);}
+function valid(e){return (typeof window.hw24BatchGtinValid==='function'?window.hw24BatchGtinValid(e):/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(e));}
 function suggestion(name){
+ const {record,revision}=active;
  const saved=record?.fields?.[name];
  const jtl=jtlSuggestions[name];
  const local=fieldValue(name);
@@ -28,7 +30,7 @@ function suggestion(name){
  return {value:'',source:'Keine verfügbare Quelle',trusted:false};
 }
 function updateAfterSource(){
- if(!activeEan)return;
+ if(!active.ean)return;
  if(root.querySelector('.hw24-curated-edit')){
   const wasOpen=!!root.querySelector('.hw24-curated-edit')?.open;
   render();const edit=root.querySelector('.hw24-curated-edit');if(edit)edit.open=wasOpen;
@@ -36,7 +38,7 @@ function updateAfterSource(){
 }
 document.addEventListener('hw24:jtl-result',event=>{
  const detail=event.detail||{};
- if(!activeEan||detail.ean!==activeEan)return;
+ if(!active.ean||detail.ean!==active.ean)return;
  jtlSuggestions={};
  const data=detail.data;
  if(data?.jtl_status==='current_snapshot'&&data.matches?.length===1){
@@ -45,15 +47,17 @@ document.addEventListener('hw24:jtl-result',event=>{
    'Kurzbeschreibung':r.kurzbeschreibung,'Beschreibung':r.beschreibung,
    'Brutto-VK':r.brutto_vk,'Netto-VK':r.netto_vk,'HAN':r.han,
    'Kosten':r.kosten,'Warengruppe':r.warengruppe_name,'Steuerklasse':r.steuerklasse_name,
-   'Artikelgewicht':r.artikelgewicht,'Versandgewicht':r.versandgewicht};
+   'Inhalt/Menge':r.inhalt_menge,'Maßeinheit':r.masseinheit,
+   'Artikelgewicht':r.artikelgewicht,'Versandgewicht':r.versandgewicht,
+   'Lieferant':r.lieferant,'Artikelnummer (Lieferant)':r.lieferant_artikelnummer};
   for(const [k,v] of Object.entries(mapping))if(v!==undefined&&v!==null&&String(v).trim())jtlSuggestions[k]=String(v).trim();
  }
  updateAfterSource();
- if(record?.fields)window.hw24ApplyApprovedArticle?.(activeEan,record.fields);
+ if(active.record?.fields)window.hw24ApplyApprovedArticle?.(active.ean,active.record.fields);
 });
 document.addEventListener('hw24:amazon-catalog',event=>{
  const detail=event.detail||{};
- if(!activeEan||detail.ean!==activeEan)return;
+ if(!active.ean||detail.ean!==active.ean)return;
  amazonSuggestions={};
  if(detail.data?.count===1&&detail.data.items?.length===1){
   const item=detail.data.items[0];
@@ -83,10 +87,11 @@ function head(title,subtitle){
  return info;
 }
 function render(){
+ const {ean,record,revision}=active;
  const info=head(record?'✓ Bereits geprüfter Artikel · dauerhaft gespeichert':'Artikelvorschläge automatisch prüfen',record?
   'Version '+revision+' · geprüft am '+(record.approved_at_utc||'unbekannt')+' UTC · aktuelle Freigabe hat Vorrang vor alten Excel-Recherchehinweisen.':
   'Vorhandene JTL-/CSV-Felder und eindeutige Amazon-Katalogtreffer sind als Vorschläge vorausgefüllt. Du bestätigst nur geprüfte Angaben. Keine direkte Änderung in JTL.');
- if(!activeEan)return;
+ if(!ean)return;
  if(record?.fields&&Object.keys(record.fields).length){
   const current=document.createElement('details');current.open=true;
   current.append(text('summary','Aktuell bestätigte Angaben ('+Object.keys(record.fields).length+')'));
@@ -147,42 +152,91 @@ function render(){
  save.style.marginTop='12px';
  const state=text('p','');state.setAttribute('role','status');
  save.onclick=async()=>{
-  if(!activeEan||!valid(activeEan))return;
+  const session=active;
+  if(!valid(session.ean))return;
   const chosen=Object.fromEntries(inputs.filter(r=>r.check.checked&&r.input.value.trim()).map(r=>[r.name,r.input.value.trim()]));
   if(!Object.keys(chosen).length){state.textContent='Bitte mindestens ein geprüftes Feld auswählen.';return;}
-  // The explicit browser confirm is a second deliberate approval for data writes.
-  if(!confirm('Diese '+Object.keys(chosen).length+' geprüften Felder für EAN '+activeEan+' als neuen aktuellen Artikelstand speichern?'))return;
+  if(!confirm('Diese '+Object.keys(chosen).length+' geprüften Felder für EAN '+session.ean+' als neuen aktuellen Artikelstand speichern?'))return;
   save.disabled=true;state.textContent='Geprüfter Artikelstand wird gesichert …';
-  const ean=activeEan,version=revision,request=seq;
-  try{
-   const res=await fetch('api/curated.php',{method:'POST',credentials:'same-origin',cache:'no-store',
-    headers:{'Content-Type':'application/json','X-HW24-Approval':'confirmed','Accept':'application/json'},
-    body:JSON.stringify({ean,fields:chosen,confirmed:true,expected_revision:version})});
-   const data=await res.json();if(request!==seq)return;
-   if(!res.ok||!data.ok){
-    state.textContent=data.error==='revision_conflict'?'⚠ Dieser Artikel wurde zwischenzeitlich bearbeitet. Bitte erneut scannen.':'⚠ Speichern nicht möglich: '+(data.error||'HTTP '+res.status);return;
-   }
-   revision=data.revision;record=data;render();window.hw24ApplyApprovedArticle?.(ean,data.fields);
-  }catch(err){if(request===seq)state.textContent='⚠ Speicherschnittstelle nicht erreichbar.';}
-  finally{if(request===seq)save.disabled=false;}
+  const result=await enqueue(()=>storeApproval(session,chosen));
+  if(active!==session)return;
+  if(result.ok)render();
+  else state.textContent=result.message;
+  save.disabled=false;
  };
  edit.append(save,state);root.append(edit);
 }
-window.hw24CuratedLookup=async ean=>{
- const request=++seq;activeEan=String(ean||'');record=null;revision=0;jtlSuggestions={};amazonSuggestions={};
- if(!valid(activeEan)){
+function enqueue(task){
+ const operation=saveChain.then(task);
+ saveChain=operation.catch(()=>{});
+ return operation;
+}
+function approvalMessage(error,status){
+ if(error==='revision_conflict')return 'Der Artikel wurde zwischenzeitlich bearbeitet. Bitte erneut scannen und die Eingabe prüfen.';
+ if(status===401||status===403)return 'Anmeldung für die HW24-Datenbank fehlt oder ist abgelaufen.';
+ if(status===503)return 'Das HW24-Freigabearchiv ist momentan nicht verfügbar.';
+ if(error==='invalid_asin')return 'Bitte eine gültige ASIN aus zehn Buchstaben oder Ziffern eingeben.';
+ if(error==='invalid_field_length')return 'Dieser Wert überschreitet die zulässige Feldlänge.';
+ if(status===200)return 'Die Antwort des Freigabearchivs konnte nicht bestätigt werden.';
+ return 'Speichern fehlgeschlagen (HTTP '+status+').';
+}
+function showApproved(session){
+ if(active!==session||!session.record?.fields)return;
+ try{
+  window.hw24ApplyApprovedArticle?.(session.ean,session.record.fields);
+ }catch(err){console.error('HW24: Gespeicherte Felder konnten nicht in allen Ansichten aktualisiert werden.',err);}
+}
+async function readApproval(session){
+ if(location.hostname.endsWith('.github.io'))return {ok:false,message:'Stammdatenpflege ist auf dem geschützten Plesk-Server verfügbar.'};
+ try{
+  const res=await fetch('api/curated.php?ean='+encodeURIComponent(session.ean),{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
+  const data=await res.json().catch(()=>null);
+  if(!res.ok||!data?.ok||!Number.isInteger(data.revision))
+   return {ok:false,message:approvalMessage(data?.error,res.status)};
+  session.revision=data.revision;session.record=data.exists?data:null;session.ready=true;
+  return {ok:true};
+ }catch(err){return {ok:false,message:'Das HW24-Freigabearchiv ist momentan nicht erreichbar.'};}
+}
+window.hw24CuratedLookup=ean=>{
+ const session={ean:String(ean||''),revision:0,record:null,ready:false};
+ active=session;jtlSuggestions={};amazonSuggestions={};
+ if(!valid(session.ean)){
   head('Freigegebener Artikelstand','Nach einer gültigen EAN wird hier der zuletzt geprüfte Datenstand angezeigt.');return;
  }
  const state=head('Freigegebener Artikelstand','Freigaben werden aus der Datenbank gelesen …');
- if(location.hostname.endsWith('.github.io')){state.textContent='GitHub Pages: Stammdatenpflege ausschließlich auf dem geschützten Plesk-Server.';return;}
- try{
-  const res=await fetch('api/curated.php?ean='+encodeURIComponent(activeEan),{credentials:'same-origin',cache:'no-store'});
-  const data=await res.json();if(request!==seq)return;
-  if(!res.ok||!data.ok){state.textContent='Noch nicht eingerichtet: Freigabe-Archiv · '+(data.error||'HTTP '+res.status);return;}
-  revision=data.revision||0;record=data.exists?data:null;render();
-  if(record?.fields)window.hw24ApplyApprovedArticle?.(activeEan,record.fields);
- }catch(err){if(request===seq)state.textContent='Freigabe-Archiv momentan nicht erreichbar. Alte Daten werden nicht verändert.';}
+ return enqueue(async()=>{
+  if(active!==session)return;
+  const result=await readApproval(session);
+  if(active!==session)return;
+  if(!result.ok){state.textContent=result.message;return;}
+  render();
+  showApproved(session);
+ });
 };
+async function storeApproval(session,fields){
+ if(!valid(session.ean))return {ok:false,message:'Eine gültige EAN ist zum Speichern erforderlich.'};
+ if(!session.ready){
+  const result=await readApproval(session);
+  if(!result.ok)return result;
+ }
+ if(Object.entries(fields).every(([key,value])=>session.record?.fields?.[key]===value)){
+  showApproved(session);
+  return {ok:true,revision:session.revision};
+ }
+ try{
+  const res=await fetch('api/curated.php',{method:'POST',credentials:'same-origin',cache:'no-store',
+   headers:{'Content-Type':'application/json','X-HW24-Approval':'confirmed','Accept':'application/json'},
+   body:JSON.stringify({ean:session.ean,fields,confirmed:true,expected_revision:session.revision})});
+  const data=await res.json().catch(()=>null);
+  if(!res.ok||!data?.ok||!Number.isInteger(data.revision)||
+    !Object.entries(fields).every(([key,value])=>data.fields?.[key]===value)){
+   return {ok:false,message:approvalMessage(data?.error,res.status)};
+  }
+  session.revision=data.revision;session.record=data;
+  showApproved(session);
+  return {ok:true,revision:session.revision};
+ }catch(err){return {ok:false,message:'Netzwerkfehler beim Speichern. Bitte erneut übernehmen.'};}
+}
 
 /* Explicit edits in the existing master-data editor are stored on select/change
  * or Enter. No writes occur for untouched proposals or on an EAN scan.
@@ -204,44 +258,24 @@ function feedback(box,message,error=false){
  if(!status){status=text('small','');status.dataset.hw24ReviewedFeedback='1';status.style.cssText='display:block;font-size:11px;margin-top:3px';box.append(status);}
  status.textContent=message;status.style.color=error?'#b23c39':'#17653b';
 }
-function notifyReviewed(ean,key,status,message){
- document.dispatchEvent(new CustomEvent('hw24:curated-save-status',{detail:{ean,key,status,message}}));
-}
 function saveReviewed(change){
- const ean=activeEan,requested=seq,value=change.value,key=change.key,box=change.box;
- if(!valid(ean)||!value)return;
- if(String(record?.fields?.[key]??'').trim()===value){feedback(box,'✓ Bereits dauerhaft gespeichert');notifyReviewed(ean,key,'saved','Bereits gespeichert');return;}
- saveChain=saveChain.catch(()=>{}).then(async()=>{
-  if(seq!==requested||activeEan!==ean)return;
-  if(String(record?.fields?.[key]??'').trim()===value){feedback(box,'✓ Bereits gespeichert');return;}
-  feedback(box,'Wird revisionssicher gespeichert …');notifyReviewed(ean,key,'saving','Wird gespeichert');
-  try{
-   const response=await fetch('api/curated.php',{method:'POST',credentials:'same-origin',cache:'no-store',
-    headers:{'Content-Type':'application/json','X-HW24-Approval':'confirmed','Accept':'application/json'},
-    body:JSON.stringify({ean,fields:{[key]:value},confirmed:true,expected_revision:revision})});
-   const data=await response.json();
-   if(seq!==requested||activeEan!==ean)return;
-   if(!response.ok||!data.ok){
-    const message=data.error==='revision_conflict'?'Neue Version vorhanden. Bitte erneut scannen.':'Speicherung fehlgeschlagen: '+(data.error||response.status);
-    feedback(box,'⚠ '+message,true);notifyReviewed(ean,key,'error',message);
-    return;
-   }
-   revision=data.revision;record=data;
-   feedback(box,'✓ Dauerhaft gespeichert · Version '+revision);notifyReviewed(ean,key,'saved','Version '+revision);
-   window.hw24ApplyApprovedArticle?.(ean,data.fields);
-   // Update the compact verified article card, while retaining scan context.
-   const reviewed=root.querySelector('details[open].hw24-curated-edit');
-   if(!reviewed)render();
-  }catch(err){if(seq===requested){feedback(box,'⚠ Netzwerkfehler, nicht gespeichert',true);notifyReviewed(ean,key,'error','Netzwerkfehler, nicht gespeichert');}}
+ const session=active,{key,value,box}=change;
+ feedback(box,'Wird in der HW24-Datenbank gespeichert …');
+ return enqueue(async()=>{
+  const result=await storeApproval(session,{[key]:value});
+  if(active===session){
+   feedback(box,result.ok?'✓ Dauerhaft gespeichert · Version '+result.revision:result.message,!result.ok);
+   if(result.ok&&!root.querySelector('details[open].hw24-curated-edit'))render();
+  }
+  return result;
  });
 }
 // The primary HW24 workdesk has its own controls outside #fields.
+window.hw24CuratedCanSaveField=key=>canSave.has(key);
 window.hw24CuratedSaveField=(key,value)=>{
- if(!canSave.has(key))return false;
  const chosen=String(value??'').trim();
- if(!chosen||!valid(activeEan))return false;
- saveReviewed({key,value:chosen,box:null});
- return true;
+ if(!canSave.has(key)||!chosen)return Promise.resolve({ok:false,message:'Dieses Feld kann so nicht gespeichert werden.'});
+ return saveReviewed({key,value:chosen,box:null});
 };
 document.addEventListener('change',event=>{
  const change=editedField(event.target);

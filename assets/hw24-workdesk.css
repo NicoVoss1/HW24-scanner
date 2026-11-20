@@ -1,5 +1,4 @@
 /* HW24 v4.6 · Focused EAN workspace */
-body.hw24-desk-mode .hw24-hero>p{display:none}
 body.hw24-desk-mode #hw24ScanWorkspace>h3{display:none}
 .hw24-desk{background:#fff;border:1px solid #d7e1ec;border-radius:14px;padding:clamp(13px,2vw,22px);margin:12px 0 18px;box-shadow:0 3px 16px #1022380b;color:#193250}
 .hw24-desk h2{margin:0 0 6px;font-size:21px}
@@ -44,10 +43,6 @@ body.hw24-desk-mode #hw24ScanWorkspace>h3{display:none}
 
 .hw24-desk-catalog{width:100%;border-collapse:collapse;display:table;font-size:12px}.hw24-desk-catalog tr{display:table-row}.hw24-desk-catalog th,.hw24-desk-catalog td{display:table-cell;padding:7px;border-bottom:1px solid #e7ebf3;text-align:left;overflow-wrap:anywhere}
 
-/* Version must remain legible against every blue hero/background variant. */
-.hw24-hero h1 small {display:inline-flex!important;align-items:center!important;vertical-align:middle!important;margin:4px 0 4px 10px!important;padding:6px 12px!important;border-radius:9px!important;background:#ffffff!important;color:#122d53!important;border:2px solid #ffffff!important;font-size:.48em!important;font-weight:800!important;letter-spacing:.035em!important;box-shadow:0 2px 10px rgba(0,0,0,.18)!important;text-shadow:none!important;line-height:1.2!important}
-@media(max-width:440px){.hw24-hero h1 small{margin:7px 0 0 0!important;display:table!important;font-size:.55em!important}}
-
 /* v4.18 – operational scan workspace: large readable controls, compact cards. */
 body.hw24-desk-mode{max-width:1560px;padding:clamp(10px,2vw,24px);box-sizing:border-box}
 body.hw24-desk-mode #hw24ScanWorkspace{padding:clamp(8px,1.2vw,18px);margin-top:12px}
@@ -84,3 +79,16 @@ body.hw24-desk-mode #hw24ScanWorkspace{padding:clamp(8px,1.2vw,18px);margin-top:
 @media(max-width:480px){#hw24Desk .hw24-desk-grid{grid-template-columns:minmax(0,1fr)}#hw24Desk .hw24-desk-bar .hw24-desk-scan{min-width:0;flex-basis:100%}#hw24Desk .hw24-desk-profile{flex-basis:100%}}
 
 .hw24-amazon-offer{border-top:1px solid #dbe4ed;padding:8px 0;overflow-wrap:anywhere}
+
+#hw24Desk .hw24-desk-editor{display:flex;align-items:flex-start;gap:6px}
+#hw24Desk .hw24-desk-editor :is(input,textarea,select){flex:1;min-width:0}
+#hw24Desk .hw24-desk-apply{display:none;min-height:36px;margin:0;padding:6px 8px;background:#eef3fa;color:#204366;font-size:12px;font-weight:650}
+#hw24Desk .hw24-desk-field:is(:focus-within,[data-save-state="dirty"],[data-save-state="error"]) .hw24-desk-apply:not([hidden]){display:inline-block}
+#hw24Desk .hw24-desk-field[data-save-state="reviewed"]{background:#f1fbf5;border-color:#81ba96}
+#hw24Desk .hw24-desk-badge.reviewed{background:#dff5e7;color:#16683d}
+#hw24Desk .hw24-desk-field[data-save-state="reviewed"] .hw24-desk-origin{color:#17613b}
+#hw24Desk .hw24-desk-field[data-save-state="dirty"]{background:#fff8e8;border-color:#d9b472}
+#hw24Desk .hw24-desk-badge.dirty{background:#fff0d5;color:#795117}
+#hw24Desk .hw24-desk-field[data-save-state="error"]{background:#fff4f2;border-color:#ce817e}
+#hw24Desk .hw24-desk-badge.error{background:#ffe8e5;color:#9b302c}
+#hw24Desk .hw24-desk-field[data-save-state="error"] .hw24-desk-origin{color:#9b302c}

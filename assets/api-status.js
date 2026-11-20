@@ -3,7 +3,10 @@
  'use strict';
  const btn=document.getElementById('jtlApiCheck');
  const out=document.getElementById('jtlApiState');
- if(!btn||!out)return;
+ const label=document.getElementById('jtlApiLabel');
+ const detail=document.getElementById('jtlApiDetail');
+ const capabilities=document.getElementById('jtlApiCapabilities');
+ if(!btn||!out||!label||!detail)return;
  const next={
   upgrade_php:'Plesk: PHP-Version mindestens 8.4 einstellen',
   enable_pdo_mysql:'Plesk: Erweiterung pdo_mysql aktivieren',
@@ -12,23 +15,32 @@
   check_mirror_schema:'MariaDB: vorhandene Tabellenstruktur ist unvollständig',
   fix_mariadb_access:'MariaDB-Zugriff prüfen',
   configure_and_run_windows_sync:'Tabellen bereit. Windows-Synchronisation einrichten',
-  rerun_windows_sync:'JTL-Snapshot älter als 30 Minuten. Windows-Synchronisation prüfen',
-  query_known_ean:'JTL-Spiegel aktuell. Bekannte EAN scannen'
+  rerun_windows_sync:'Windows-Synchronisation prüfen',
+  query_known_ean:'JTL-Spiegel aktuell'
  };
+ const snapshotFormat=new Intl.DateTimeFormat('de-DE',{
+  timeZone:'Europe/Berlin',day:'2-digit',month:'2-digit',
+  hour:'2-digit',minute:'2-digit',timeZoneName:'short'
+ });
+ function show(state,message,context=''){
+  out.dataset.state=state;
+  label.textContent=message;
+  detail.textContent=context;
+ }
  async function check(){
   const host=String(location.hostname||'').toLowerCase();
   if(host.endsWith('github.io')){
-   out.textContent='GitHub Pages kann nicht auf MariaDB zugreifen. Bitte die HAIRWORLD24-Subdomain öffnen.';
+   show('pending','JTL-Spiegel in der Vorschau nicht verfügbar','Artikelmanager auf hairworld24.de öffnen.');
    return;
   }
   btn.disabled=true;
-  out.textContent='JTL-API wird geprüft …';
+  show('loading','JTL-Spiegel wird geprüft …');
+  if(capabilities)capabilities.textContent='';
   try{
    const response=await fetch('api/jtl-status.php',{credentials:'same-origin',cache:'no-store'});
-   if(!response.ok){out.textContent='HTTP '+response.status+' · Bitte Plesk-Bereitstellung/Website-Schutz prüfen.';return}
+   if(!response.ok){show('error','JTL-Status nicht verfügbar','HTTP '+response.status);return}
    const d=await response.json();
-   if(!d||d.service!=='hw24-jtl'){out.textContent='Ungültige API-Antwort. Ist das neue GitHub-Deployment aktiv?';return}
-   let message=next[d.next]||'Unbekannter API-Status';
+   if(!d||d.service!=='hw24-jtl'){show('error','Ungültige Antwort der JTL-API');return}
    const wms=d.pipeline_sources||{};
    const missing=[
     wms.wms_lagerplaetze==='not_integrated'?'WMS-Lagerplätze nicht im HW24-Sync':'',
@@ -36,14 +48,19 @@
     wms.amazon_eigene_angebote==='not_integrated'?'JTL-Amazon-Angebote nicht übertragen':'',
     wms.ebay_angebotsvorlagen==='not_integrated'?'eBay-Vorlagen nicht übertragen':''
    ].filter(Boolean);
-   const stamp=d.latest_snapshot_utc?' · JTL-Snapshot '+d.latest_snapshot_utc+' UTC':'';
-   out.textContent=(d.mirror_ready?'✓ ':'⚠ ')+message+
-    (Number.isFinite(Number(d.latest_rows))&&d.latest_rows!=null?' · '+Number(d.latest_rows).toLocaleString('de-DE')+' Artikel':'')+
-    stamp+(missing.length?' · Datenumfang: '+missing.join('; '):'');
-   out.dataset.state=d.mirror_ready?'ready':'pending';
+   if(capabilities&&missing.length)capabilities.textContent='Datenumfang des versionierten Sync-Skripts: '+missing.join(', ')+'.';
+   const raw=String(d.latest_snapshot_utc??'').replace(' ','T');
+   const snapshot=Date.parse(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw)?raw:raw+'Z');
+   const rows=Number.isFinite(d.latest_rows)?d.latest_rows.toLocaleString('de-DE')+' Artikel':'';
+   const stamp=Number.isFinite(snapshot)?snapshotFormat.format(snapshot):'';
+   const context=[rows,stamp].filter(Boolean).join(' · ');
+   const message=next[d.next]||'Unbekannter API-Status';
+   if(d.mirror_ready)show('ready','JTL-Spiegel aktuell',context);
+   else show('pending',d.next==='rerun_windows_sync'?'JTL-Spiegel nicht aktuell':'JTL-Spiegel noch nicht bereit',[message,context].filter(Boolean).join(' · '));
   }catch(e){
-   out.textContent='API aktuell nicht erreichbar. HTTPS, Plesk-Schutz und jtl-status.php prüfen.';
+   show('error','JTL-API nicht erreichbar','Plesk-Schutz und JTL-Status prüfen.');
   }finally{btn.disabled=false}
  }
  btn.addEventListener('click',check);
+ check();
 })();
