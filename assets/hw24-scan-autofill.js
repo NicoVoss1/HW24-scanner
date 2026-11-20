@@ -8,6 +8,86 @@ const E=window.HW24Enrich,B=window.HW24ScanBridge;
 if(!E||!B)return;
 const memo=new Map(),busy=new Set(),selectedAsins=new Map();
 const v=x=>String(x??'').trim();
+const workKey='hw24_scan_enrichment_queue_v1';
+const pending=(()=>{
+ try{
+  const raw=JSON.parse(localStorage.getItem(workKey)||'[]');
+  return Array.isArray(raw)?raw.filter(x=>Number.isInteger(x?.id)&&
+    Number.isInteger(x?.batchId)&&E.goodGtin(x?.ean)).slice(0,3000):[];
+ }catch(_){return []}
+})();
+let working=false,paused=false;
+const queueState=document.getElementById('enrichQueueStatus');
+const retry=document.createElement('button');
+retry.type='button';retry.className='secondary';retry.textContent='Anreicherung erneut starten';
+retry.style.cssText='font-size:12px;margin-left:9px;padding:6px 10px';retry.hidden=true;
+queueState?.append(retry);
+function saveQueue(){try{localStorage.setItem(workKey,JSON.stringify(pending));}catch(_){}}
+function updateQueue(text){
+ if(!queueState)return;
+ const msg=queueState.firstChild?.nodeType===3?queueState.firstChild:
+   queueState.insertBefore(document.createTextNode(''),queueState.firstChild);
+ msg.textContent=pending.length+' Datensätze zur Anreicherung'+(text?' · '+text:'');
+ retry.hidden=!paused;
+}
+function enqueue(id,ean,batchId){
+ if(!E.goodGtin(ean)||!Number.isInteger(id)||!Number.isInteger(batchId))return;
+ if(!pending.some(x=>x.id===id&&x.batchId===batchId)){
+  pending.push({id,ean,batchId});saveQueue();updateQueue();
+ }
+ if(!working&&!paused)runQueue();
+}
+async function runQueue(){
+ if(working||paused||!pending.length)return;
+ working=true;
+ while(pending.length&&!paused){
+  const job=pending[0];
+  if(job.batchId!==B.batchId()){
+   updateQueue('Für andere Stapel später fortsetzen');break;
+  }
+  const item=B.find(job.id);
+  if(!item||item.resolution!=='new_candidate'){
+   pending.shift();saveQueue();continue;
+  }
+  updateQueue('Prüfe EAN '+job.ean+' in JTL, Historie und Amazon');
+  try{
+   const sources=await Promise.allSettled([
+     E.jtl(job.ean),E.curated(job.ean),E.history(job.ean),E.catalog(job.ean)
+   ]);
+   const jtl=sources[0].status==='fulfilled'?sources[0].value:null;
+   if(jtl?.jtl_status!=='current_snapshot'){
+    paused=true;updateQueue('JTL nicht aktuell, Anreicherung ausgesetzt');break;
+   }
+   if(jtl.matches?.length!==0){
+    pending.shift();saveQueue();continue; // existing or multiple: never new
+   }
+   const curated=sources[1].status==='fulfilled'?sources[1].value:null;
+   const history=sources[2].status==='fulfilled'?sources[2].value:null;
+   const catalog=sources[3].status==='fulfilled'?sources[3].value:null;
+   const model=E.build({ean:job.ean,curated,history,catalog,isNew:true});
+   const result=await B.backgroundApply(job.id,job.ean,model.fields,model.sources);
+   if(!result.ok){
+    if(result.error==='revision_conflict'){
+      pending.shift();saveQueue();
+      updateQueue('Artikel zwischenzeitlich geändert. Zur erneuten Prüfung Liste aktualisieren.');
+      continue;
+    }
+    paused=true;updateQueue('DB-Änderung nicht möglich: '+String(result.error).slice(0,100));break;
+   }
+   pending.shift();saveQueue();
+   if(sources[3].status!=='fulfilled')
+     updateQueue('Amazon aktuell nicht erreichbar. Andere belegte Stammdaten wurden vorbereitet.');
+   else updateQueue('EAN '+job.ean+' abgeglichen');
+   await new Promise(resolve=>setTimeout(resolve,1500));
+  }catch(e){
+   paused=true;updateQueue('Unterbrochen: '+String(e?.message||e).slice(0,100));break;
+  }
+ }
+ working=false;retry.hidden=!paused;
+}
+retry.onclick=()=>{paused=false;updateQueue('Wiederaufnahme');runQueue()};
+updateQueue();
+
 const status=msg=>B.status(msg);
 function active(item){return B.selected()?.id===item?.id}
 function clearChoices(){const node=document.getElementById('amazonChoices');if(node)node.replaceChildren()}
@@ -97,8 +177,8 @@ async function enrich(id,ean){
    status('JTL-Neuanlage noch nicht eindeutig bestätigt. Nur Scan gespeichert, keine automatische Stammdatenfreigabe.');
    candidates(item);return;
   }
-  const result=await B.apply(model.fields,model.sources,{save:true});
-  if(result.saved)status('✓ Stammdaten automatisch vorbelegt und mit Herkunft in MariaDB gespeichert. Bitte vor Import prüfen.');
+  const result=await B.apply(model.fields,model.sources,{save:false});
+  if(result.ok)status('✓ Stammdaten vorbelegt. Die zentrale Anreicherungswarteschlange speichert sie in MariaDB.');
   candidates(item);
  }catch(e){
   if(active(item))status('Quellenabgleich eingeschränkt: '+String(e?.message||'unbekannter Fehler')+'. Scan bleibt gespeichert.');
@@ -107,6 +187,17 @@ async function enrich(id,ean){
 document.addEventListener('hw24:scan-selected',e=>{
  const id=e.detail?.id,ean=v(e.detail?.ean);if(!E.goodGtin(ean))return;
  candidates(B.selected());enrich(id,ean);
+});
+document.addEventListener('hw24:scan-stored',e=>{
+ const {id,ean,batchId}=e.detail||{};
+ enqueue(id,ean,batchId);
+});
+document.addEventListener('hw24:scan-items-loaded',e=>{
+ const {batchId,items}=e.detail||{};
+ for(const it of items||[])if(it.resolution==='new_candidate'&&
+    (it.review_state==='scan_only'||!it.completed))
+   enqueue(it.id,it.ean,batchId);
+ if(pending.length&&!paused)runQueue();
 });
 document.addEventListener('hw24:scan-catalog',e=>{
  const item=B.selected();if(!item||item.ean!==e.detail?.ean)return;
