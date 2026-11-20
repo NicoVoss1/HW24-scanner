@@ -21,6 +21,15 @@ assert.equal(found.fields.Kosten,'4.20');
 assert.equal(found.fields.Artikelnummer,'ART-19');
 assert.equal(found.fields.ASIN,undefined);
 assert.equal(found.fields['Neu im Sortiment'],undefined); // no forced rewrite of existing JTL
+const partialJtl=E.build({ean,match:{ean,artikelnummer:'HI-100',
+ artikelname:'Inebrya Color Pastel Roso Intense Pink 100 ml',
+ hersteller:'',warengruppe_name:'',han:''},isNew:false});
+assert.equal(partialJtl.fields.Hersteller,'Inebrya','Known brand inferred from verified JTL title, labeled as suggestion');
+assert.equal(partialJtl.fields.Warengruppe,'Haarfarben');
+assert.equal(partialJtl.fields.HAN,ean,'Explicit HW24 HAN fallback only when missing');
+assert.equal(partialJtl.fields['Kategorie Ebene 1'],'Haarfarben');
+assert.equal(partialJtl.fields['Versandgewicht'],'0,12');
+assert.equal(partialJtl.fields['Artikelnummer'],'HI-100','JTL SKU protected');
 const source={ok:true,source:'cache',items:[{
  asin:'B012345678',title:'Inebrya Color Pastel Roso Intense Pink 100 ml',brand:'Inebrya',
  identifiers:[{identifiers:[{identifierType:'EAN',identifier:ean}]}]
