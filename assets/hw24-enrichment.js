@@ -188,6 +188,8 @@ function build({ean,match=null,curated=null,history=null,catalog=null,isNew=fals
   put('Hersteller',chosen.brand,'Amazon · eindeutige EAN / Einzelpack');
  }
  if(validGtin(ean))put('GTIN',ean,'EAN · gescannt');
+ if((isNew||accurate)&&validGtin(ean))put('HAN',ean,
+  'HW24-Regel · HAN=GTIN nur als Vorschlag, echte Hersteller-HAN hat Vorrang','rule');
  const title=fields.Artikelname||jtlName;
  const hairColor=/(?:color|colour|koleston|igora|illumina|haarfarb|tönung|färb|pastel|shinfinity|brillant)/i.test(title);
  if(title&&(isNew||accurate)){
@@ -197,6 +199,8 @@ function build({ean,match=null,curated=null,history=null,catalog=null,isNew=fals
   const brand=knownBrands.find(b=>title.toLocaleLowerCase('de').startsWith(b.toLocaleLowerCase('de')+' '));
   if(brand)put('Hersteller',brand,'HW24 · bekannter Markenname aus JTL-/Produktname; prüfen','rule');
   if(hairColor){
+   put('Steuerklasse','normaler steuersatz','HW24 · Steuervorschlag für Haarfarben; bitte JTL prüfen','rule');
+   put('Artikeltyp','Normaler Artikel','HW24 · Standardtyp-Vorschlag; bitte JTL prüfen','rule');
    put('Warengruppe','Haarfarben','HW24 · Haarfarben-Vorschlag aus Artikelname','rule');
    put('Kategorie Ebene 1','Haarfarben','HW24 · Kategorie-Vorschlag; JTL-Kategorie prüfen','rule');
   }
