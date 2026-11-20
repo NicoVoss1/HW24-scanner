@@ -2,7 +2,7 @@
 declare(strict_types=1);
 /**
  * V4.22 TEST · read-only Amazon catalog keyword/ASIN candidates.
- * Requires SQL HW24_12 and the same protected private Amazon configuration as amazon.php.
+ * Requires SQL HW24_12, protected Amazon credentials and dedicated scanlist-db.php for cache writes.
  * Never creates a JTL article, changes a listing or infers an exact EAN from a title.
  */
 header('Content-Type: application/json; charset=utf-8');
@@ -30,7 +30,9 @@ $normalized=function_exists('mb_strtolower')?mb_strtolower($q,'UTF-8'):strtolowe
 $normalized=trim($normalized);
 $hash=hash('sha256',($asinSearch?'ASIN:':'KEYWORD:').$normalized);
 $settingsFile=dirname(__DIR__,2).'/hw24_private/amazon/amazon_spapi.php';
-$dbFile=dirname(__DIR__,2).'/hw24_private/db.php';
+// Use the dedicated least-privilege scanner account for cache INSERT/UPDATE.
+ // Keep the existing JTL read-only account completely unchanged.
+$dbFile=dirname(__DIR__,2).'/hw24_private/scanlist-db.php';
 if(!is_file($settingsFile)||!is_file($dbFile))
   reply(503,['ok'=>false,'error'=>'private_config_missing']);
 function cleanItems(array $items): array {
