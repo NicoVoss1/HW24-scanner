@@ -108,6 +108,47 @@ try {
                        FROM hw24_scan_items WHERE batch_id=? ORDER BY id DESC LIMIT 3000');
     $s->execute([$id]);respond(200,['ok'=>true,'items'=>array_map('rowData',$s->fetchAll())]);
   }
+  if($op==='export'&&$method==='GET'){
+    $id=filter_var($_GET['batch_id']??null,FILTER_VALIDATE_INT);
+    if(!$id||$id<1)respond(400,['ok'=>false,'error'=>'batch_id_required']);
+    getBatch($pdo,$id,$actor);
+    $s=$pdo->prepare("SELECT ean,draft_json,artikelnummer,resolution,review_state FROM hw24_scan_items
+                      WHERE batch_id=? AND review_state='ready' ORDER BY id LIMIT 201");
+    $s->execute([$id]);$all=$s->fetchAll();
+    if(count($all)>200)respond(409,['ok'=>false,'error'=>'export_limit_200']);
+    if(!count($all))respond(409,['ok'=>false,'error'=>'no_ready_items']);
+    $meta=$pdo->query("SELECT source_id,last_completed_utc,last_row_count,
+               TIMESTAMPDIFF(MINUTE,last_completed_utc,UTC_TIMESTAMP()) AS age
+               FROM hw24_jtl_sync_meta WHERE status='ready'
+               ORDER BY last_completed_utc DESC LIMIT 1")->fetch();
+    if(!$meta || (int)$meta['last_row_count']<1 || (int)$meta['age']<0 || (int)$meta['age']>45)
+      respond(409,['ok'=>false,'error'=>'jtl_snapshot_not_fresh']);
+    $check=$pdo->prepare("SELECT COUNT(*) FROM hw24_jtl_articles WHERE source_id=?
+                         AND (ean=? OR han=? OR artikelnummer=? OR artikelnummer=?)");
+    $seen=[];$rows=[];
+    foreach($all as $entry){
+      if($entry['resolution']!=='new_candidate')
+        respond(409,['ok'=>false,'error'=>'non_new_item','ean'=>$entry['ean']]);
+      $f=json_decode((string)$entry['draft_json'],true);
+      if(!is_array($f) || !gtinValid((string)$entry['ean']) ||
+         ($f['GTIN']??'')!==$entry['ean'] || empty($f['Artikelnummer']) ||
+         empty($f['Artikelname']) || empty($f['Hersteller']) ||
+         empty($f['Steuerklasse']) || empty($f['Warengruppe']))
+        respond(409,['ok'=>false,'error'=>'incomplete_ready_row','ean'=>$entry['ean']]);
+      $sku=(string)$f['Artikelnummer'];
+      if(isset($seen[$sku]))respond(409,['ok'=>false,'error'=>'duplicate_batch_artikelnummer']);
+      $seen[$sku]=true;
+      $check->execute([$meta['source_id'],$entry['ean'],$entry['ean'],$entry['ean'],$sku]);
+      if((int)$check->fetchColumn()>0)
+        respond(409,['ok'=>false,'error'=>'jtl_duplicate_before_export','ean'=>$entry['ean']]);
+      // Server exports a verified data subset. It still DOES NOT guarantee import-field
+      // compatibility, tax correctness or successful Ameise import; dry-run is required.
+      $rows[]=$f;
+    }
+    respond(200,['ok'=>true,'fields'=>$rows,'count'=>count($rows),
+      'jtl_snapshot_utc'=>$meta['last_completed_utc'],
+      'warning'=>'JTL-Ameise-Feldzuordnung und Trockenlauf vor echtem Import prüfen']);
+  }
   if($op==='create'&&$method==='POST'){
     $label=trim((string)($body['label']??''));
     if($label===''||mb_strlen($label,'UTF-8')>160)respond(400,['ok'=>false,'error'=>'invalid_label']);
