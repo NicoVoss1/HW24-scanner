@@ -40,8 +40,10 @@ CREATE TABLE IF NOT EXISTS hw24_scan_events (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   batch_id BIGINT UNSIGNED NOT NULL,
   ean VARCHAR(14) NOT NULL,
+  client_event_key CHAR(36) NOT NULL,
   scanned_by VARCHAR(180) NOT NULL,
   event_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  UNIQUE KEY uq_scan_client_event (client_event_key),
   INDEX idx_scan_events_batch_time (batch_id,event_utc),
   CONSTRAINT fk_scan_event_batch FOREIGN KEY(batch_id) REFERENCES hw24_scan_batches(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
