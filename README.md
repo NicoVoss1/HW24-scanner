@@ -8,6 +8,8 @@
 
 **[Arbeitsjournal, Entscheidungen und Nachweise](docs/HW24_ARBEITSJOURNAL.md)**
 
+**[Aktuelle UI- und JTL-Feldprüfung anhand der Screenshots](docs/HW24_UI_JTL_FELDMASKE_20261120.md)**
+
 Diese beiden Dateien beim Fortsetzen eines Chats, beim Öffnen eines PRs und vor einer Codeänderung zuerst lesen. Alle neuen Entscheidungen, Tests, GitHub-Commits, Fehler und abgeschlossenen Arbeiten dort fortschreiben. Keine bereits bestätigten Schritte ohne neuen konkreten Anlass nochmals verlangen.
 
 ## Aktuelle Versions- und Release-Verknüpfung (20.11.2026)
@@ -15,14 +17,15 @@ Diese beiden Dateien beim Fortsetzen eines Chats, beim Öffnen eines PRs und vor
 | Zweck | Referenz | Zustand |
 |---|---|---|
 | Testanwendung | [`deploy/staging`](https://github.com/NicoVoss1/HW24-scanner/tree/deploy/staging) | V4.22 TEST, Plesk zieht diesen Branch **manuell** |
-| Verifizierter Staging-SHA | `c0da9033a8373d7e6d210f075a7a4210a9670bc6` | PR #17 bereits in GitHub-Staging gemerged; Plesk noch nicht neu deployed |
+| Verifizierter Staging-SHA | `bcb8a9664f08aeb66de5aa7efd461f284affae99` | **PR #18** jetzt im GitHub-Staging, neues Plesk-Update noch offen |
 | Feature-Entwicklung | [PR #16](https://github.com/NicoVoss1/HW24-scanner/pull/16) | V4.22 Scanner-/Amazon-Erweiterung, Draft |
 | Website-Testfreigabe | [PR #17](https://github.com/NicoVoss1/HW24-scanner/pull/17) | Nur Webdateien; **in GitHub-Staging gemerged**, Plesk noch nicht neu deployed |
+| UI & Scanlisten-Optimierung | [PR #18](https://github.com/NicoVoss1/HW24-scanner/pull/18) | **In GitHub gemerged**, wartet auf Test-Plesk-Pull |
 | Historische V4.35-Abzweigung | PR #14, geschlossener PR #15 | **Nicht** ohne bewusste Entscheidung übernehmen |
 
 ## Sofortiger nächster Schritt
 
-**Plesk Git:** Branch `deploy/staging` unverändert lassen → **Jetzt Pull ausführen** → **Jetzt bereitstellen** → `https://test-artikelmanager.hairworld24.de/scanliste.html` aufrufen. **GitHub-Merge ist fertig; Plesk-Deploy noch nicht bestätigt.** Neue Scanlisten-DB-Tabellen und Rechte danach gezielt prüfen, nicht das bereits abgeschlossene Backup-/Ordner-Setup wiederholen. Live-Seite bleibt unverändert.
+**Plesk Git:** Branch `deploy/staging` unverändert lassen → **Jetzt Pull ausführen** → **Jetzt bereitstellen** → `https://test-artikelmanager.hairworld24.de/scanliste.html` öffnen. **GitHub-Merge PR #18 ist fertig; Plesk-Deploy dieses Commits noch nicht bestätigt.** Die Screenshotmeldung „MariaDB noch nicht konfiguriert“ betrifft laut API-Code die **zusätzliche private Scanlisten-Verbindung**; die neue Lesediagnose zeigt V11/V12/Config separat an. Keine Wiederholung von bereits erledigtem Backup oder allgemeinem Verzeichnischeck. Live-Seite bleibt unverändert.
 
 ## Projektziel
 
