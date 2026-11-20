@@ -82,6 +82,8 @@ details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border
 <p class="note">Vorlagen sind Vorschläge für Neuanlagen. Hersteller, Preis, Inhalt, Artikelnummer und Kategorie vor der Freigabe prüfen.</p>
 <p class="progressLine" id="editorCompleteness">Pflichtfelder werden geprüft.</p>
 <div id="editorFields" class="editorFields"></div>
+<details style="margin-top:12px"><summary>Weitere JTL-Wawi-Reiter und Importarten</summary>
+<p class="note">Die Wawi kennt außerdem Bestände, Bilder, Attribute/Merkmale, Variationen, Stücklisten, Sonderpreise, Dateien und eigene Felder. Das wird nicht aus dem Artikelstamm-CSV erfunden oder bei Neuanlagen stillschweigend gelöscht. Lager-/WMS-Buchungen erfolgen ausschließlich über den dafür vorgesehenen Prozess. Bilder und Merkmale benötigen gegebenenfalls eigene JTL-Ameise-Importarten.</p></details>
 <div class="editorActions"><button id="save" type="button">💾 Entwurf speichern</button>
 <button id="ready" type="button">✓ Für Ameise freigeben</button></div>
 <p id="editorStatus" role="status" class="note"></p>
@@ -213,6 +215,34 @@ const fieldHelp={
 const statuses={existing:'In JTL vorhanden',new_candidate:'Neuanlage prüfen',
  multiple:'Mehrdeutige JTL-Treffer',unverified:'JTL ungeprüft'};
 function status(msg,cls=''){$('status').textContent=msg;$('status').className=cls}
+async function diagnoseScanDb(){
+ const box=$('dbSetup'),info=$('dbSetupInfo'),steps=$('dbSetupSteps');
+ box.hidden=false;info.textContent='Neue Scanlisten-Datenbankverbindung wird lesend geprüft …';steps.textContent='';
+ try{
+   const response=await fetch('api/scanliste-status.php',{credentials:'same-origin',cache:'no-store'});
+   const result=await response.json();
+   if(!response.ok||!result.ok)throw Error(result?.error||('HTTP '+response.status));
+   const missing=[];
+   if(result.read_config===false)missing.push('Lesekonfiguration dieser Testumgebung prüfen.');
+   if(result.schema_status==='checked' && result.v11_ready===false)
+     missing.push('Neue Scanlisten-Tabellen fehlen oder sind unvollständig (V11).');
+   if(result.schema_status==='checked' && result.v12_ready===false)
+     missing.push('Neue Amazon-Stichwortcache-Tabelle fehlt (V12).');
+   if(result.scan_config===false)
+     missing.push('Nur die zusätzliche private Verbindung scanlist-db.php fehlt. Bestehendes db.php nicht ersetzen.');
+   else if(result.scan_connection && result.scan_connection!=='connected')
+     missing.push('Die zusätzliche Scanlisten-Verbindung kann sich noch nicht anmelden.');
+   if(!missing.length&&result.status==='ready_for_function_test'){
+     box.hidden=true;return;
+   }
+   info.textContent='Die bisherige JTL-/MariaDB-Integration muss dafür nicht neu eingerichtet werden.';
+   steps.textContent=missing.length?missing.join(' '):
+     'Die neuen Tabellen oder die Verbindung können derzeit nicht abschließend geprüft werden.';
+ }catch(err){
+   info.textContent='Diagnose derzeit nicht abrufbar. Das sagt nichts über bestehende JTL-/WMS-Daten aus.';
+   steps.textContent='Technisches Ergebnis: '+String(err.message||err);
+ }
+}
 function message(code){
 const map={database_not_configured:'Privater Zugang für die neue Scanliste fehlt. Die vorhandene HW24-Datenbank kann trotzdem funktionieren.',
 scanlist_unavailable:'Scanlisten-API nicht erreichbar oder Datenbanktabellen/Rechte fehlen.',
@@ -559,7 +589,8 @@ $('report').onclick=()=>{
 const resend=document.createElement('button');resend.id='resend';resend.type='button';resend.className='secondary';
 resend.textContent='↻ Ungespeicherte Scans erneut senden';resend.hidden=state.queue.length===0;resend.onclick=consume;
 $('scanForm').append(resend);
-loadBatches();
+loadBatches();diagnoseScanDb();
+$('dbSetupRetry').onclick=diagnoseScanDb;
 if(state.queue.length)status(state.queue.length+' unbestätigte Scanvorgänge aus vorheriger Sitzung. Zum Senden oben „Erneut senden“ wählen.','warn');
 catalogStatus();
 if(catalogQueue.length)runCatalog();
