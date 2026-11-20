@@ -48,7 +48,7 @@ details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border
 <p class="note">Jeder Stapel wird zentral in MariaDB gespeichert, nicht nur auf Deinem iPhone oder im Browser.</p></section>
 <section class="card"><h2>2. Scannen und weitermachen</h2>
 <form id="scanForm" class="toolbar"><div class="wide"><label for="scan">EAN / GTIN mit Scanner erfassen oder eingeben</label>
-<input id="scan" name="ean" inputmode="numeric" autocomplete="off" autocapitalize="off" placeholder="EAN scannen und Enter" required></div>
+<div style="display:flex;align-items:center;gap:7px"><input id="scan" name="ean" type="search" inputmode="numeric" autocomplete="off" autocapitalize="off" placeholder="EAN scannen und Enter" required><button id="clearScan" type="button" class="secondary" aria-label="EAN löschen" title="EAN-Feld löschen" style="white-space:nowrap">✕</button></div></div>
 <button type="submit" id="scanButton">✓ Erfassen</button></form>
 <div id="status" role="status" aria-live="polite">Scanliste wird geladen …</div>
 <section id="dbSetup" hidden aria-live="polite">
@@ -59,6 +59,7 @@ details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border
 </section>
 <div class="toolbar" style="margin-top:8px"><p class="note" id="amazonQueueStatus" style="flex:1 1 340px">Amazon-Katalog: Nach jedem gespeicherten Scan automatische Cache- oder SP-API-Prüfung.</p>
 <button type="button" class="secondary" id="catalogRetry" hidden>Amazon-Abfragen fortsetzen</button></div>
+<p id="enrichQueueStatus" class="note" role="status">Stammdaten werden beim Scan hinterlegt; keine Wawi-Buchung.</p>
 <p class="note">Jede gültige EAN wird zunächst gespeichert, auch wenn noch keine Produktdaten vorliegen. Wiederholte Scans desselben Artikels werden gezählt. <strong>Das ist noch keine Lagerbuchung.</strong> Bei Verbindungsproblemen bleiben Scans zum erneuten Senden in der Warteschlange.</p>
 </section>
 <div class="stats" id="stats"></div>
@@ -75,13 +76,13 @@ details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border
 <div id="editor" hidden>
 <div class="toolbar"><button type="button" class="secondary" id="research">📚 Detaillierte Quellen und Vorschläge prüfen</button></div>
 <p class="note" id="researchStatus">Amazon-Katalog wird beim Scannen automatisch abgefragt. Hier kannst Du die Treffer und historische Daten einzeln zur Datenpflege übernehmen.</p>
-<div id="suggestions"></div>
+<div id="suggestions"></div><div id="amazonChoices" aria-live="polite"></div>
 
 <div class="toolbar"><button type="button" class="secondary" id="useEAN">EAN als Artikelnummer vorschlagen</button>
 <button type="button" class="secondary" id="hairTemplate">Vorlage Haarfarben einsetzen</button></div>
 <p class="note">Vorlagen sind Vorschläge für Neuanlagen. Hersteller, Preis, Inhalt, Artikelnummer und Kategorie vor der Freigabe prüfen.</p>
 <p class="progressLine" id="editorCompleteness">Pflichtfelder werden geprüft.</p>
-<div id="editorFields" class="editorFields"></div>
+<div id="editorFields" class="editorFields"></div><p id="grossEK" class="note">Brutto-EK: Abhängig von tatsächlichem Netto-EK und Steuerklasse (nur Anzeige, kein Import).</p>
 <details style="margin-top:12px"><summary>Weitere JTL-Wawi-Reiter und Importarten</summary>
 <p class="note">Die Wawi kennt außerdem Bestände, Bilder, Attribute/Merkmale, Variationen, Stücklisten, Sonderpreise, Dateien und eigene Felder. Das wird nicht aus dem Artikelstamm-CSV erfunden oder bei Neuanlagen stillschweigend gelöscht. Lager-/WMS-Buchungen erfolgen ausschließlich über den dafür vorgesehenen Prozess. Bilder und Merkmale benötigen gegebenenfalls eigene JTL-Ameise-Importarten.</p></details>
 <div class="editorActions"><button id="save" type="button">💾 Entwurf speichern</button>
@@ -96,6 +97,7 @@ details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border
 <div class="danger"><strong>Wichtig:</strong> Diese Scanliste erzeugt keinen JTL-Wareneingang und keinen Lagerbestand. Vor produktivem Artikelimport eine Wawi-Datenbanksicherung und den JTL-Ameise-Testlauf durchführen. Unbekannte Artikelnummern und Mehrfachtreffer dürfen nicht stillschweigend übernommen werden.</div>
 <p id="exportStatus" role="status" class="note"></p></section>
 </main>
+<script src="assets/hw24-enrichment.js?v=1"></script>
 <script>
 (()=>{'use strict';
 const $=id=>document.getElementById(id),val=x=>String(x??'').trim();
@@ -127,8 +129,7 @@ function saveCatalogPending(){
 }
 function catalogStatus(note=''){
  const target=$('amazonQueueStatus');if(!target)return;
- target.textContent='Amazon SP-API: '+catalogQueue.length+' ausstehend · '+catalogDone.size+
- ' in dieser Sitzung geprüft'+(note?' · '+note:'');
+ target.textContent='Amazon SP-API: '+(catalogQueue.length||catalogDone.size?catalogQueue.length+' ausstehend · '+catalogDone.size+' geprüft':'Bereit · Cache wird bei Auswahl/Scan geprüft')+(note?' · '+note:'');
  $('catalogRetry').hidden=!catalogStopped;
 }
 function enqueueCatalog(ean){
@@ -143,24 +144,22 @@ async function runCatalog(){
   catalogStatus('Prüfe '+ean+' über MariaDB-Cache oder Amazon …');
   let stopReason='';
   try{
-   const response=await fetch('api/amazon.php?ean='+encodeURIComponent(ean),
-    {credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
-   const result=await response.json();
-   if(!response.ok||!result.ok){
-    stopReason=response.status===429?'Amazon-Limit erreicht':
-     result.error==='amazon_catalog_request_failed'?'Amazon-Abfrage abgelehnt':
-     'SP-API/Server momentan nicht verfügbar';
+   const result=await window.HW24Enrich.catalog(ean);
+   if(!result?.ok){
+    stopReason=result?.error==='amazon_rate_limited'?'Amazon-Limit erreicht':
+      'Amazon-SP-API nicht verfügbar oder ohne eindeutigen Treffer';
     catalogStopped=true;
    }else{
-    catalogSummaries.set(ean,{count:result.count,source:result.source,items:result.items||[],at:result.fetched_at_utc});
+    catalogSummaries.set(ean,result);
     catalogDone.add(ean);catalogQueue.shift();saveCatalogPending();
     if(state.selected?.ean===ean){
+      document.dispatchEvent(new CustomEvent('hw24:scan-catalog',{detail:{ean,result}}));
       $('researchStatus').textContent='Amazon automatisch geprüft: '+result.count+' Katalogtreffer ('+
        (result.source==='cache'?'gespeicherter Cache':'aktuelle SP-API-Antwort')+
        '). Bei Bedarf „Detaillierte Quellen“ für Datenvorschläge öffnen.';
     }
    }
-  }catch(_){catalogStopped=true;stopReason='Netzwerkfehler oder ungültige Antwort'}
+  }catch(err){catalogStopped=true;stopReason='Amazon-Abfrage fehlgeschlagen: '+String(err?.message||'Netzwerkfehler').slice(0,90)}
   catalogStatus(stopReason);
   if(catalogStopped)break;
   // 1 request per 1.5 seconds or slower, even if the upstream response is immediate.
@@ -202,15 +201,17 @@ const fieldHelp={
  'GTIN':'Gescannte Kennung, schreibgeschützt',
  'Artikelnummer':'Für den freigegebenen Ameise-Import erforderlich. Bestehende JTL-Artikelnummern niemals überschreiben.',
  'ASIN':'Nur übernehmen, wenn eindeutig zu diesem Produkt verifiziert',
- 'Kosten':'Tatsächlicher Einkaufspreis; nicht Ø EK netto / letzter EK',
- 'Netto-EK in Standardwährung':'Lieferanten-EK; nur bei belegter Quelle einsetzen',
+ 'Kosten':'Tatsächlicher Netto-Einkaufspreis. Nicht Ø EK netto oder letzter EK, falls nicht belegt.',
+ 'Netto-EK in Standardwährung':'Lieferantenpreis netto; nur mit konkretem Beleg übernehmen',
  'Überverkäufe möglich':'Standard N. Y nur nach ausdrücklicher Einzelentscheidung.',
  'Inhalt/Menge':'Packungsinhalt bzw. Grundpreisangabe, nicht Lagerbestand',
- 'Steuerklasse':'Steuerklasse abhängig von Produkt und Steuerrecht prüfen',
+ 'Steuerklasse':'Normaler Steuersatz ist ein HW24-Vorschlag. Steuerklasse in JTL prüfen.',
  'Bestandsführung aktiv':'Artikelregel, keine WMS-Einbuchung',
- 'Herkunftsland':'Nur belegt übernehmen',
- 'Artikelgewicht':'Maßeinheit des aktuellen JTL-Importprofils prüfen',
- 'Versandgewicht':'Maßeinheit des aktuellen JTL-Importprofils prüfen'
+ 'Lieferant':'Textvorschlag. JTL-Lieferanten-ID vor Ameise-Import eindeutig zuordnen.',
+ 'Beschaffungszeit manuell setzen':'Zahl von Tagen, kein Ja/Nein. Der Wert 2 ist vorläufig.',
+ 'Herkunftsland':'Nur belegtes Ursprungsland eintragen, nicht aus Marke ableiten',
+ 'Artikelgewicht':'Vorlage: 60 ml ≈ 0,06 kg. Nur Schätzung (Dichte und Verpackung prüfen).',
+ 'Versandgewicht':'Vorlage: Artikelgewicht + 0,02 kg. Vor JTL-Import tatsächliches Gewicht prüfen.'
 };
 const statuses={existing:'In JTL vorhanden',new_candidate:'Neuanlage prüfen',
  multiple:'Mehrdeutige JTL-Treffer',unverified:'JTL ungeprüft'};
@@ -327,6 +328,13 @@ function refreshFieldGroups(){
  $('editorCompleteness').textContent=state.selected?.resolution==='new_candidate'
    ?(missing.length?'Noch fehlende Pflichtangaben: '+missing.join(', '):'✓ Alle fünf Pflichtfelder befüllt. Produktdaten trotzdem vor Freigabe prüfen.')
    :'Bestehende oder nicht eindeutig neue Artikel werden nicht für einen Neuanlagenimport freigegeben.';
+ const net=$('field_'+schema.indexOf('Kosten'))?.value||$('field_'+schema.indexOf('Netto-EK in Standardwährung'))?.value||'';
+ const number=Number(val(net).replace(',','.'));
+ const tax=val($('field_'+schema.indexOf('Steuerklasse'))?.value).toLowerCase();
+ $('grossEK').textContent=Number.isFinite(number)&&number>0&&tax==='normaler steuersatz'
+   ?'Brutto-EK (19 %, rechnerisch): '+(number*1.19).toFixed(2).replace('.',',')+
+    ' EUR. Nur zur Kalkulation, kein JTL-Importfeld.'
+   :'Brutto-EK: Nur bei bekanntem tatsächlichem Netto-EK und richtiger Steuerklasse berechenbar.';
  for(const details of $('editorFields').querySelectorAll('.formGroup')){
   const controls=[...details.querySelectorAll('input,textarea,select')];
   const count=controls.filter(c=>val(c.value)).length;
@@ -380,9 +388,9 @@ function selectItem(id){
            control.value=val(item.draft?.[key])||'N';refreshFieldGroups();return;
          }
        }
-       control.dataset.hw24Source='Manuelle Bearbeitung';refreshFieldGroups();
+       control.dataset.hw24Source='Manuelle Bearbeitung';control.dataset.userTouched='1';refreshFieldGroups();
     });
-    control.addEventListener('input',()=>{control.dataset.hw24Source='Manuelle Bearbeitung';refreshFieldGroups()});
+    control.addEventListener('input',()=>{control.dataset.hw24Source='Manuelle Bearbeitung';control.dataset.userTouched='1';refreshFieldGroups()});
     box.append(control);
     if(fieldHelp[key]){
       const help=textNode('small',fieldHelp[key],box,'fieldNote');
@@ -391,9 +399,13 @@ function selectItem(id){
   }
  }
  refreshFieldGroups();
- $('useEAN').disabled=disabled;$('hairTemplate').disabled=disabled;$('research').disabled=disabled;
+ $('useEAN').disabled=disabled;$('hairTemplate').disabled=disabled;$('research').disabled=false;
  $('save').disabled=disabled;$('ready').disabled=disabled;
  renderList();
+ if(window.HW24Enrich?.goodGtin(item.ean)){
+   enqueueCatalog(item.ean);
+   document.dispatchEvent(new CustomEvent('hw24:scan-selected',{detail:{id:item.id,ean:item.ean}}));
+ }
 }
 function updateLocal(item){state.items=state.items.filter(x=>x.id!==item.id);state.items.unshift(item);if(state.selected?.id===item.id)state.selected=item;renderList()}
 function editorFields(){
@@ -401,7 +413,7 @@ function editorFields(){
  return out;
 }
 async function research(){
- const item=state.selected;if(!item||item.resolution!=='new_candidate')return;
+ const item=state.selected;if(!item)return;
  const originalId=item.id,ean=item.ean,holder=$('suggestions');
  holder.replaceChildren();$('research').disabled=true;
  $('researchStatus').textContent='Historie und Amazon-Katalog werden geprüft. Amazon-Limits und Cache werden berücksichtigt.';
@@ -412,7 +424,7 @@ async function research(){
  };
  const sources=await Promise.allSettled([
  fetchSource('api/historie.php?'+new URLSearchParams({ean,include_legacy:'1'})),
- fetchSource('api/amazon.php?'+new URLSearchParams({ean}))
+ window.HW24Enrich.catalog(ean)
  ]);
  if(state.selected?.id!==originalId){$('research').disabled=false;return}
  let count=0;const info=[];
@@ -506,6 +518,9 @@ async function loadItems(){
  if(!state.batchId)return;
  try{const data=await get('items',{batch_id:String(state.batchId)});
  state.items=data.items;state.selected=null;$('editor').hidden=true;renderList();
+ document.dispatchEvent(new CustomEvent('hw24:scan-items-loaded',{detail:{batchId:state.batchId,
+  items:state.items.map(x=>({id:x.id,ean:x.ean,resolution:x.resolution,review_state:x.review_state,
+  completed:Boolean(x.draft?.Artikelname&&x.draft?.Hersteller&&x.draft?.Warengruppe)}))}}));
  status('✓ Scanliste geladen. Bereit zum Scannen.','success');$('scan').focus();
  }catch(e){status('Fehler: '+e.message,'error')}
 }
@@ -516,7 +531,10 @@ async function consume(){
   status('Speichere EAN '+current.ean+' … · '+state.queue.length+' in Warteschlange');
   try{const data=await post('scan',{batch_id:current.batchId,ean:current.ean,event_key:current.key});
    state.queue.shift();keepPending();
-   if(current.batchId===state.batchId)updateLocal(data.item);
+   if(current.batchId===state.batchId){
+    updateLocal(data.item);selectItem(data.item.id);
+    document.dispatchEvent(new CustomEvent('hw24:scan-stored',{detail:{id:data.item.id,ean:data.item.ean,batchId:state.batchId}}));
+   }
    enqueueCatalog(current.ean);
    status('✓ '+current.ean+' gespeichert · '+(statuses[data.item.resolution]||'JTL-Status offen')+
    ' · '+state.queue.length+' ausstehend','success');
@@ -589,10 +607,74 @@ $('report').onclick=()=>{
 const resend=document.createElement('button');resend.id='resend';resend.type='button';resend.className='secondary';
 resend.textContent='↻ Ungespeicherte Scans erneut senden';resend.hidden=state.queue.length===0;resend.onclick=consume;
 $('scanForm').append(resend);
+window.HW24ScanBridge={
+ selected:()=>state.selected,
+ find:id=>state.items.find(x=>String(x.id)===String(id))||null,
+ batchId:()=>state.batchId,
+ schema:()=>schema.slice(),
+ control:key=>{const n=schema.indexOf(key);return n>=0?$('field_'+n):null},
+ catalog:ean=>catalogSummaries.get(ean),
+ status:text=>{$('editorStatus').textContent=text},
+ refresh:refreshFieldGroups,
+ async backgroundApply(id,ean,fields,sources){
+  const item=state.items.find(x=>String(x.id)===String(id)&&x.ean===ean);
+  if(!item||item.resolution!=='new_candidate')return{ok:false,error:'not_current_candidate'};
+  const updates={},provenance={};
+  for(const [key,value] of Object.entries(fields||{})){
+   if(!schema.includes(key)||key==='GTIN'||!val(value)||val(item.draft?.[key]))continue;
+   const control=String(state.selected?.id)===String(id)?this.control(key):null;
+   if(control?.dataset.userTouched==='1')continue;
+   updates[key]=val(value);provenance[key]=val(sources?.[key]||'HW24 · Quellen').slice(0,170);
+  }
+  if(!Object.keys(updates).length)return{ok:true,saved:false};
+  updates.GTIN=ean;provenance.GTIN='EAN · Scan';
+  try{
+   const out=await post('edit',{batch_id:state.batchId,item_id:id,
+    expected_revision:Number(item.revision),fields:updates,field_sources:provenance,mark_ready:false});
+   item.revision=out.revision;item.draft=out.draft;item.review_state=out.review_state;
+   if(String(state.selected?.id)===String(id))this.show(out.draft,provenance);
+   renderList();return{ok:true,saved:true};
+  }catch(e){return{ok:false,error:String(e?.message||'database_unavailable')}}
+ },
+ async apply(fields,fieldSources,{save=true}={}){
+   const item=state.selected;if(!item)return{ok:false,error:'no_item'};
+   const additions={},sources={};
+   for(const [field,value] of Object.entries(fields||{})){
+     const c=this.control(field);
+     if(!c||c.readOnly||c.disabled||c.dataset.userTouched==='1'||val(c.value)||!val(value))continue;
+     c.value=val(value);
+     c.dataset.hw24Source=val(fieldSources?.[field]||'HW24 · Quellen');
+     additions[field]=val(value);sources[field]=c.dataset.hw24Source;
+   }
+   refreshFieldGroups();
+   if(!save||item.resolution!=='new_candidate'||!Object.keys(additions).length)
+     return{ok:true,fields:additions,saved:false};
+   additions.GTIN=item.ean;sources.GTIN='EAN · Scan';
+   try{
+     const out=await post('edit',{batch_id:state.batchId,item_id:item.id,
+       expected_revision:Number(item.revision),fields:additions,field_sources:sources,mark_ready:false});
+     item.revision=out.revision;item.draft=out.draft;item.review_state=out.review_state;
+     renderList();return{ok:true,fields:additions,saved:true};
+   }catch(error){
+     $('editorStatus').textContent='Vorbelegung sichtbar, aber nicht gespeichert: '+String(error.message);
+     return{ok:false,error:String(error.message),fields:additions};
+   }
+ },
+ show(fields,sources){
+  for(const [key,value] of Object.entries(fields||{})){
+   const c=this.control(key);
+   if(!c||val(c.value)||!val(value))continue;
+   c.value=val(value);c.title='Quelle: '+val(sources?.[key]||'JTL');
+  }
+  refreshFieldGroups();
+ }
+};
 loadBatches();diagnoseScanDb();
 $('dbSetupRetry').onclick=diagnoseScanDb;
 if(state.queue.length)status(state.queue.length+' unbestätigte Scanvorgänge aus vorheriger Sitzung. Zum Senden oben „Erneut senden“ wählen.','warn');
+$('clearScan').onclick=()=>{$('scan').value='';$('scan').focus();};
 catalogStatus();
 if(catalogQueue.length)runCatalog();
 })();
-</script></body></html>
+</script>
+<script src="assets/hw24-scan-autofill.js?v=1"></script></body></html>
