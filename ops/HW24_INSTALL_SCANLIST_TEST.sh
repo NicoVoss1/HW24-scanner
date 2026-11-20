@@ -13,8 +13,17 @@ command -v find >/dev/null || die 'find nicht gefunden.'
 printf 'HW24 Testserver: Installation nur NEUER Scanlisten-Tabellen und eines separaten, eingeschränkten Datenbankbenutzers.\n'
 
 # The live site is never selected. A test-specific API is the only path accepted.
-mapfile -t matches < <(find /var/www/vhosts -type f -path '*/api/scanliste.php' -print 2>/dev/null |
+mapfile -t candidates < <(find /var/www/vhosts -type f -path '*/api/scanliste.php' -print 2>/dev/null |
   grep -F 'test-artikelmanager' || true)
+matches=()
+for candidate in "${candidates[@]}"; do
+  candidate_api_dir="$(dirname "$candidate")"
+  candidate_site_root="$(dirname "$candidate_api_dir")"
+  candidate_private="$(dirname "$candidate_site_root")/hw24_private"
+  # Git clones and backup worktrees are not deployment targets; accept only a
+  # test site with the already verified working private read-only db.php.
+  if [ -f "$candidate_private/db.php" ]; then matches+=("$candidate"); fi
+done
 if [ "${#matches[@]}" -ne 1 ]; then
   printf 'Gefundene Test-API-Dateien: %s\n' "${#matches[@]}"
   printf '%s\n' "${matches[@]}"
