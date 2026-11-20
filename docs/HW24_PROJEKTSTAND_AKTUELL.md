@@ -5,6 +5,17 @@
 
 > **WICHTIG FÜR DIE FORTSETZUNG:** Beim nächsten Chat, Entwicklerauftrag oder GitHub-Arbeitsschritt **zuerst diese Seite lesen** und die letzten Commits/PRs vergleichen. Keine bereits abgeschlossenen Einrichtungs- und Backup-Schritte von vorn verlangen. Ein Sachstand darf nur aufgrund neuer Befunde geändert werden. Nicht stillschweigend auf `main`, eine andere Version oder einen alten PR zurückspringen.
 
+## AKTUELLSTER GITHUB-TESTSTAND · 20.11.2026 (PR #22)
+
+- **PR #22** erfolgreich in `deploy/staging` gemerged: **`7db542548f7ba4c31ddf12d65b1e1866ff0592ba`**. GitHub-Codefreigabe belegt, **neuer Plesk-Pull/Deploy noch nicht bestätigt**.
+- **Umgesetzt:** Pro Scanposition Button `−1` (Doppelscan korrigieren) und `Entfernen` (revisionssicher aus aktiver Liste archivieren; kein DB-DELETE); erneuter Scan oder CSV reaktiviert. CSV-Import mit EAN/GTIN, Lagerplatz/Information/Kommentar für bis zu 5.000 Zeilen, idempotenten, gedrosselten API-Blöcken, Fortschritt, Duplikatkontrolle und serverseitigen Importhinweisen in `source_json.csv_meta`. Kein JTL-/WMS-Schreibzugriff.
+- **JTL-Artikelnummernkreis:** Benutzerwunsch geprüft anhand der offiziellen JTL-Guide-Dokumentation. Neue Artikelnummer für mögliche Neuanlagen bleibt **leer**; JTL-Ameise `Artikelnummern automatisch vergeben, falls nicht vorhanden → Ja, globale fortlaufende Nummer und Präfix beachten` ist zu verwenden und im Testimport abzusichern. Die echte globale Nummer ist im aktuellen read-only HW24-Spiegel nicht verfügbar. **Keine Nummer erfunden**.
+- **Weitere Regeln:** `ml` statt `ML`, Brutto-VK aus belegtem Netto-VK + bestätigtem Normalsteuersatz, Dusicolor/Hair Styling wird bei widersprüchlicher Quelle als Konflikt markiert (Ursprung in echter JTL-Zeile noch offen), ergänzender Button heißt `Fehlende Haarfarben-Standards ergänzen`; interne JTL-Anmerkung nicht durch CSV-Kommentar überschreiben.
+- **Teststand:** [GitHub Actions #44831637094](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44831637094) grün, einschließlich 1.500-EAN-CSV-Parser, PHP-/JS-Syntax, Maßen, Netto-/Brutto-VK und Warengruppenwarnung. **Serverseitige Browser- und MariaDB-Tests dieser neuen Funktion noch offen.**
+- **Website-Root:** nur `api/`, `assets/`, `index.html`, `scanliste.html`. Keine SQL-, Sync-, Private- oder Dokumentationsdateien öffentlich. Neue DB-Schema-Migration nicht erforderlich; vorhandene V11/V12 bleiben installiert. Kein Wiederholen von Backups/PuTTY.
+- **Exakt nächster Schritt:** Plesk `deploy/staging` → **Jetzt Pull ausführen → Jetzt bereitstellen**. Erst Doppelscan/Entfernen/erneut scannen mit Test-EAN prüfen, danach 3-Zeilen-CSV mit Kommentar und Lagerplatz. Erst nach erfolgreichem Reload-Beleg die rund 1.500 EANs importieren.
+- **Dokument:** [Scanliste, CSV und Artikelnummern V4.22](./HW24_SCAN_CSV_NUMMERNKREIS_V422_20261120.md).
+
 ## LETZTER BESTÄTIGTER GITHUB-STAND · 20.11.2026 (PR #21)
 
 - **Aktueller Staging-SHA:** `2f88d5a5dca6a8df80acbc38aba5287d960583c1` auf `deploy/staging`. [PR #20](https://github.com/NicoVoss1/HW24-scanner/pull/20) und [PR #21](https://github.com/NicoVoss1/HW24-scanner/pull/21) erfolgreich gemerged, **noch kein bestätigtes Plesk-Deployment oder Server-End-to-End-Test dieser Version**.
