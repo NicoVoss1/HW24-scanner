@@ -250,7 +250,7 @@ function build({ean,match=null,curated=null,history=null,catalog=null,isNew=fals
   }
  }
  // Only derive gross selling price from a documented net price and tax class.
- if(!fields['Brutto-VK']&&fields['Netto-VK']&&fields.Steuerklasse==='normaler steuersatz'){
+ if(!fields['Brutto-VK']&&fields['Netto-VK']&&v(fields.Steuerklasse).toLocaleLowerCase('de')==='normaler steuersatz'){
    const net=positive(fields['Netto-VK']);
    if(net!==null)put('Brutto-VK',amount(net*1.19,2),
       'HW24-Rechnung aus Netto-VK und bestätigtem Normalsteuersatz','estimate');
