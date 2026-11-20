@@ -177,6 +177,8 @@ async function enrich(id,ean){
   const match=correct&&matches.length===1?matches[0]:null;
   const isNew=item.resolution==='new_candidate'&&correct&&matches.length===0;
   const model=E.build({ean,match,curated:data.curated,history:data.history,catalog:B.catalog(ean),isNew});
+  if(model.flags?.Warengruppe&&active(item))
+    status('⚠ '+model.flags.Warengruppe+' Quelle: '+(model.sources?.Warengruppe||'unbekannt'));
   if(item.resolution!=='new_candidate'){
    B.show(model.fields,model.sources);candidates(item);return;
   }
