@@ -5,6 +5,18 @@
 
 > **WICHTIG FÜR DIE FORTSETZUNG:** Beim nächsten Chat, Entwicklerauftrag oder GitHub-Arbeitsschritt **zuerst diese Seite lesen** und die letzten Commits/PRs vergleichen. Keine bereits abgeschlossenen Einrichtungs- und Backup-Schritte von vorn verlangen. Ein Sachstand darf nur aufgrund neuer Befunde geändert werden. Nicht stillschweigend auf `main`, eine andere Version oder einen alten PR zurückspringen.
 
+## NÄCHSTER SCHRITT 20.11.2026, 22:15 Uhr · PLESK TEST-DATENBANK
+
+**Vom Nutzer per Screenshot belegt:** Neue Scanliste läuft als Website. Die separate Scanner-MariaDB-Anbindung ist noch nicht eingerichtet; neue Scan-Tabellen (V11) und Keyword-Cache-Tabelle (V12) fehlen laut lesender Diagnose oder sind dem aktuellen DB-Nutzer noch nicht sichtbar. Die Meldung „Bitte zuerst einen Stapel erstellen“ ist Folge der noch nicht funktionsfähigen Stapel-API; noch keine erfolgreiche Speicherung bestätigt.
+
+**GitHub-Code bereits korrigiert:** [PR #19](https://github.com/NicoVoss1/HW24-scanner/pull/19) wurde nur mit `api/amazon-keywords.php` nach `deploy/staging` gemerged, Commit **`2175c375fdce4afe2b335dafb43167505f7123a0`**. Die Amazon-Stichwortcache-Schreibvorgänge verwenden danach das neu anzulegende `hw24_private/scanlist-db.php`, **nicht** die bisherige schreibgeschützte `db.php`. Kein DB-Schritt auf Plesk ausgeführt; Live-Seite unverändert.
+
+**PuTTY-Installer vorbereitet, aber auf Plesk NICHT ausgeführt:** `ops/HW24_INSTALL_SCANLIST_TEST.sh` im Branch `feature/hw24-v422-scanlist-install-20261120`, gepinnter Commit **`a3f0d8592a926fb348b589a76b2170cee1ab67c3`**. Der Installer erkennt ausschließlich die Test-API samt bereits vorhandener privater `db.php`, fordert explizit Eingabe TEST, legt fünf neue Tabellen an, erstellt einen separaten DB-Benutzer mit starkem zufälligem Passwort und minimale Tabellenrechte, erstellt `scanlist-db.php` ausschließlich außerhalb des Webroots. Die bestehende `db.php`, SP-API-Token, JTL/WMS und Livebestände werden nicht verändert. **Einmalige Ausführung durch den Nutzer über PuTTY mit root-/Plesk-DB-Rechten erforderlich**.
+
+**Keine Wiederholung der bisherigen Sicherungen/Ordner-/Plesk-Konfiguration!** Konkrete Copy-Paste-Befehle, Grenzen und Status in [HW24 PuTTY Scanlist-Setup](./HW24_PUTTY_SCANLIST_SETUP_20261120.md).
+
+**Exakt nächster Nutzerschritt:** In Plesk Branch `deploy/staging`: Pull → Bereitstellen (PR #19), danach **einmalig** PuTTY-Installer nach verlinkter Anleitung. Im Browser `/scanliste.html` Diagnose prüfen, Stapel `04-001` erstellen und den Scan erneut durchführen. Passwörter niemals in Chat oder GitHub ausgeben.
+
 ## AKTUELLER STATUS NACH DEN NEUEN NUTZER-SCREENSHOTS
 
 - **TESTSEITE IN PLESK SICHTBAR:** Der Nutzer hat am 20.11.2026 Screenshots von V4.22 TEST inklusive neuer `scanliste.html` geliefert. Damit ist die Website-Bereitstellung aus PR #17 praktisch bestätigt; **nicht erneut den vorherigen Release oder allgemeine Backups verlangen**.
