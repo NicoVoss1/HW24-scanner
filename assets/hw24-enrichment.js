@@ -207,7 +207,7 @@ function build({ean,match=null,curated=null,history=null,catalog=null,isNew=fals
   const size=sizeFromName(title);
   if(size&&size.quantity&&size.units===1){
    put('Inhalt/Menge',amount(size.quantity),'Produktname · Inhalt prüfen','estimate');
-   put('Maßeinheit',size.unit.toUpperCase(),'Produktname · Einheit prüfen','estimate');
+   put('Maßeinheit',size.unit,'Produktname · Einheit prüfen','estimate');
    if(size.unit==='ml'){
     const kg=size.quantity/1000;
     put('Artikelgewicht',amount(kg,4),'HW24-Schätzung: 1 ml ≈ 1 g; tatsächliches Gewicht prüfen','estimate');
@@ -216,7 +216,8 @@ function build({ean,match=null,curated=null,history=null,catalog=null,isNew=fals
   }
  }
  if(isNew){
-  put('Artikelnummer',ean,'HW24 · vorläufige EAN-Artikelnummer','rule');
+  // Intentionally leave Artikelnummer blank for JTL-Ameise global auto numbering.
+  // Do not guess a free SKU from the read-only mirror or use GTIN as internal SKU.
   put('HAN',ean,'HW24-Regel · HAN = GTIN falls keine echte HAN vorliegt','rule');
   const isCarton=/\b(?:karton|kartonage|versandkarton|faltkarton)\b/i.test(title);
   put('Artikeltyp',isCarton?'Kartonage':'Normaler Artikel',
@@ -247,6 +248,15 @@ function build({ean,match=null,curated=null,history=null,catalog=null,isNew=fals
    put('Meta-Description (SEO)',(title+'. Produktinformationen und Farbnuancen bei HAIRWORLD24.').slice(0,600),'HW24 · SEO-Vorschlag','rule');
    put('URL-Pfad',slug(title),'HW24 · sprechender URL-Vorschlag','rule');
   }
+ }
+ // Only derive gross selling price from a documented net price and tax class.
+ if(!fields['Brutto-VK']&&fields['Netto-VK']&&fields.Steuerklasse==='normaler steuersatz'){
+   const net=positive(fields['Netto-VK']);
+   if(net!==null)put('Brutto-VK',amount(net*1.19,2),
+      'HW24-Rechnung aus Netto-VK und bestätigtem Normalsteuersatz','estimate');
+ }
+ if(hairColor&&/(?:hair\s*styling|haarstyling)/i.test(fields.Warengruppe||'')){
+   flags.Warengruppe='Konflikt: Artikelname deutet auf Haarfarbe, Quelle meldet Styling. JTL-Warengruppe prüfen, nicht stillschweigend überschreiben.';
  }
  return{fields,sources,flags,choices,selected:chosen?.asin||null};
 }
