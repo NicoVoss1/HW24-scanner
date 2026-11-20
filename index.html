@@ -664,7 +664,7 @@ let lastAmazon=null,lastStatus='idle',latestJtlMeta=null,reviewedFacts={};
   const iso=raw.replace(' ','T');
    const normalized=/(?:Z|[+-]\d{2}:?\d{2})$/i.test(iso)?iso:iso+'Z';
   const date=new Date(normalized);
-  return Number.isFinite(date.valueOf())?date.toLocaleString('de-DE',{timeZone:'Europe/Berlin',dateStyle:'short',timeStyle:'short',timeZoneName:'short'}):'Unbekannter Zeitwert '+raw;
+  return Number.isFinite(date.valueOf())?date.toLocaleString('de-DE',{timeZone:'Europe/Berlin',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',timeZoneName:'short'}):'Unbekannter Zeitwert '+raw;
  }
  document.addEventListener('hw24:jtl-result',event=>{latestJtlMeta=event.detail?.data||null;updateJtl();});
  document.addEventListener('hw24:scan-start',()=>{latestJtlMeta=null;reviewedFacts={};});
@@ -799,6 +799,7 @@ window.hw24AmazonLookup=async function(ean){
  source('focusSourceAmazon','focusAmazonBadge','focusAmazonText','idle','Prüfung','Amazon-Katalog wird abgefragt …');chip('focusTagAmazon','Amazon lädt');
  showAmazonIdle();
  const legacy=byId('hw24AmazonStatus');if(legacy)legacy.textContent='Katalogdaten erscheinen in der neuen Artikelübersicht.';
+ let apiPayloadReceived=false;
  try{
   const response=await fetch('api/amazon.php?ean='+encodeURIComponent(id),{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
   const data=await response.json();if(seq!==lookupCounter)return;
@@ -808,14 +809,23 @@ window.hw24AmazonLookup=async function(ean){
    const legacy=byId('hw24AmazonStatus');if(legacy)legacy.textContent='Amazon-Fehler: '+(data.error||response.status);return;
   }
   lastAmazon=data;
+  apiPayloadReceived=true;
   if(data.count){source('focusSourceAmazon','focusAmazonBadge','focusAmazonText','ok',data.count+' Treffer',data.count+' Katalogtreffer · '+(data.source==='cache'?'MariaDB-Cache':'Amazon live')+' · Snapshot '+data.snapshot_id+' vom '+stamp(data.fetched_at_utc));chip('focusTagAmazon','Amazon gefunden','good');}
   else{source('focusSourceAmazon','focusAmazonBadge','focusAmazonText','warn','0 Treffer','Kein Katalogeintrag für diese EAN.');chip('focusTagAmazon','Amazon: kein Treffer','caution');}
   renderAmazon(data);updateIdentity();document.dispatchEvent(new CustomEvent("hw24:amazon-catalog",{detail:{ean:id,data}}));
   const legacy=byId('hw24AmazonStatus');if(legacy)legacy.textContent=data.count+' Katalogtreffer · Quelle '+data.source+' · Snapshot '+data.snapshot_id+' vom '+stamp(data.fetched_at_utc);
  }catch(error){
   if(seq!==lookupCounter)return;
-  source('focusSourceAmazon','focusAmazonBadge','focusAmazonText','error','Fehler','API-Verbindung oder Antwort nicht verfügbar.');chip('focusTagAmazon','Amazon ungeprüft','caution');
-  byId('focusAmazonCard').replaceChildren(el('div','f-amazon-empty','Amazon ist derzeit nicht erreichbar. JTL und Historie können unabhängig weiter geprüft werden.'));
+  console.error('HW24 Amazon-Katalog:',apiPayloadReceived?'Anzeigefehler nach erfolgreicher API-Antwort':'Abruf oder JSON-Verarbeitung fehlgeschlagen',error);
+  if(apiPayloadReceived){
+   source('focusSourceAmazon','focusAmazonBadge','focusAmazonText','warn','Anzeigefehler','Amazon-API hat Daten geliefert, aber die Anzeige konnte nicht vollständig aufgebaut werden.');
+   chip('focusTagAmazon','Amazon-Daten vorhanden','caution');
+   byId('focusAmazonCard').replaceChildren(el('div','f-amazon-empty','Amazon-Katalogdaten sind vorhanden. Bitte Darstellung prüfen; die API ist nicht ausgefallen.'));
+  }else{
+   source('focusSourceAmazon','focusAmazonBadge','focusAmazonText','error','Fehler','Amazon-Abruf oder JSON-Antwort nicht verfügbar.');
+   chip('focusTagAmazon','Amazon ungeprüft','caution');
+   byId('focusAmazonCard').replaceChildren(el('div','f-amazon-empty','Amazon-Katalogdaten konnten nicht abgerufen werden. JTL und Historie bleiben unabhängig prüfbar.'));
+  }
  }
 };
 // Existing scanner mutates IDs. Observe those IDs rather than requesting JTL/History twice.
