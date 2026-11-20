@@ -170,6 +170,8 @@ function build({ean,match=null,curated=null,catalog=null,isNew=false}){
   put('Stückzahl teilbar','N','HW24 · Vorlage','rule');
   put('Zusätzliche Bearbeitungszeit','1','HW24 · Tage-Vorgabe','rule');
   put('Beschaffungszeit automatisch ermitteln','0','HW24 · manuelle Beschaffungszeit','rule');
+  // In JTL "manuell setzen" is a count of days, not a boolean.
+  put('Beschaffungszeit manuell setzen','2','HW24 · vorläufig 2 Tage; Nutzerprüfung','rule');
   // This JTL field expects a *number of days*, not Ja/Nein.
   put('Neu im Sortiment','Y','HW24 · Vorlage','rule');
   put('Top-Artikel','N','HW24 · Vorlage','rule');
