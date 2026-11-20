@@ -173,6 +173,8 @@ function selectItem(id){
  state.selected=item;
  $('editor').hidden=false;
  $('editorStatus').textContent='';
+ $('suggestions').replaceChildren();
+ $('researchStatus').textContent='Optionale Recherche über MariaDB-Historie und Amazon SP-API.';
  $('itemInfo').textContent='EAN '+item.ean+' · '+(statuses[item.resolution]||item.resolution)
  +' · Revision '+item.revision+' · '+item.scan_count+' Scans. '
  +(item.resolution==='existing'?'Vorhandener Artikel: kein Neuanlage-Export. Pflege bitte im Haupt-Artikelmanager.':
@@ -186,9 +188,12 @@ function selectItem(id){
  const value=val(draft[key]??(key==='GTIN'?item.ean:key==='Artikelname'?item.artikelname:''));
  const control=full.has(key)?document.createElement('textarea'):document.createElement('input');
  control.name=key;control.value=value;control.disabled=disabled||key==='GTIN';
- control.id='field_'+schema.indexOf(key);label.htmlFor=control.id;box.append(control);
+ control.id='field_'+schema.indexOf(key);label.htmlFor=control.id;
+ control.dataset.hw24Source='';
+ control.addEventListener('input',()=>{control.dataset.hw24Source='Manuelle Bearbeitung'});
+ box.append(control);
  }
- $('useEAN').disabled=disabled;$('hairTemplate').disabled=disabled;
+ $('useEAN').disabled=disabled;$('hairTemplate').disabled=disabled;$('research').disabled=disabled;
  $('save').disabled=disabled;$('ready').disabled=disabled;
  renderList();
 }
@@ -223,7 +228,7 @@ async function research(){
   const btn=textNode('button','Vorschlag übernehmen',row,'secondary');btn.type='button';
   btn.onclick=()=>{
     if(state.selected?.id!==originalId||val(ctl.value))return;
-    ctl.value=value;btn.disabled=true;btn.textContent='Im Entwurf übernommen · bitte prüfen und speichern';
+    ctl.value=value;ctl.dataset.hw24Source=origin;btn.disabled=true;btn.textContent='Im Entwurf übernommen · bitte prüfen und speichern';
   };count++;
  };
  if(sources[0].status==='fulfilled'){
@@ -237,7 +242,7 @@ async function research(){
   const candidates=new Map(),conflicts=new Set();
   for(const row of h.matches||[])for(const cell of row.cells||[]){
     if(!cell.header_verified)continue;
-    const key=alias[val(cell.label).toLocaleLowerCase('de').replace(/\\s+/g,' ')];
+    const key=alias[val(cell.label).toLocaleLowerCase('de').replace(/\s+/g,' ')];
     const value=val(cell.value);
     if(!key||!value||value.length>10000)continue;
     if(!candidates.has(key))candidates.set(key,{value,source:(row.sheet_name||'Excel')+' · Zeile '+row.excel_row});
@@ -270,10 +275,13 @@ function patchFields(m){for(const [key,value] of Object.entries(m)){
 async function save(ready){
  const item=state.selected;if(!item)return;
  const fields=editorFields();fields.GTIN=item.ean;
+ const field_sources={};
+ for(const ctrl of $('editorFields').querySelectorAll('input,textarea'))
+  if(val(ctrl.dataset.hw24Source))field_sources[ctrl.name]=ctrl.dataset.hw24Source.slice(0,180);
  $('save').disabled=true;$('ready').disabled=true;
  try{
  const result=await post('edit',{batch_id:state.batchId,item_id:item.id,
-   expected_revision:Number(item.revision),fields,mark_ready:ready});
+   expected_revision:Number(item.revision),fields,field_sources,mark_ready:ready});
  item.revision=result.revision;item.draft=result.draft;item.review_state=result.review_state;
  $('editorStatus').textContent=ready?'✓ Für den Ameise-Prüfexport freigegeben.':'✓ Entwurf zentral gespeichert.';
  $('editorStatus').className='success';
