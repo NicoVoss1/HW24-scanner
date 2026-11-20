@@ -607,7 +607,7 @@ resend.textContent='↻ Ungespeicherte Scans erneut senden';resend.hidden=state.
 $('scanForm').append(resend);
 window.HW24ScanBridge={
  selected:()=>state.selected,
- find:id=>state.items.find(x=>x.id===id)||null,
+ find:id=>state.items.find(x=>String(x.id)===String(id))||null,
  batchId:()=>state.batchId,
  schema:()=>schema.slice(),
  control:key=>{const n=schema.indexOf(key);return n>=0?$('field_'+n):null},
@@ -615,12 +615,12 @@ window.HW24ScanBridge={
  status:text=>{$('editorStatus').textContent=text},
  refresh:refreshFieldGroups,
  async backgroundApply(id,ean,fields,sources){
-  const item=state.items.find(x=>x.id===id&&x.ean===ean);
+  const item=state.items.find(x=>String(x.id)===String(id)&&x.ean===ean);
   if(!item||item.resolution!=='new_candidate')return{ok:false,error:'not_current_candidate'};
   const updates={},provenance={};
   for(const [key,value] of Object.entries(fields||{})){
    if(!schema.includes(key)||key==='GTIN'||!val(value)||val(item.draft?.[key]))continue;
-   const control=state.selected?.id===id?this.control(key):null;
+   const control=String(state.selected?.id)===String(id)?this.control(key):null;
    if(control?.dataset.userTouched==='1')continue;
    updates[key]=val(value);provenance[key]=val(sources?.[key]||'HW24 · Quellen').slice(0,170);
   }
@@ -630,7 +630,7 @@ window.HW24ScanBridge={
    const out=await post('edit',{batch_id:state.batchId,item_id:id,
     expected_revision:Number(item.revision),fields:updates,field_sources:provenance,mark_ready:false});
    item.revision=out.revision;item.draft=out.draft;item.review_state=out.review_state;
-   if(state.selected?.id===id)this.show(out.draft,provenance);
+   if(String(state.selected?.id)===String(id))this.show(out.draft,provenance);
    renderList();return{ok:true,saved:true};
   }catch(e){return{ok:false,error:String(e?.message||'database_unavailable')}}
  },
