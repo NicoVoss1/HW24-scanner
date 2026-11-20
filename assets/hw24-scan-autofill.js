@@ -47,7 +47,7 @@ async function runQueue(){
    updateQueue('Für andere Stapel später fortsetzen');break;
   }
   const item=B.find(job.id);
-  if(!item||item.resolution!=='new_candidate'){
+  if(!item||item.review_state==='removed'||item.resolution!=='new_candidate'){
    pending.shift();saveQueue();continue;
   }
   updateQueue('Prüfe EAN '+job.ean+' in JTL, Historie und Amazon');
