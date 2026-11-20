@@ -157,7 +157,7 @@ try {
   }
   if($op==='create'&&$method==='POST'){
     $label=trim((string)($body['label']??''));
-    if($label===''||mb_strlen($label,'UTF-8')>160)respond(400,['ok'=>false,'error'=>'invalid_label']);
+    if($label===''||(function_exists('mb_strlen')?mb_strlen($label,'UTF-8'):strlen($label))>160)respond(400,['ok'=>false,'error'=>'invalid_label']);
     $s=$pdo->prepare('INSERT INTO hw24_scan_batches(label,created_by) VALUES (?,?)');
     $s->execute([$label,$actor]);
     respond(201,['ok'=>true,'batch_id'=>(int)$pdo->lastInsertId()]);
@@ -233,7 +233,7 @@ try {
     $clean=[];
     foreach($data as $k=>$v){
       if(!array_key_exists($k,$allowed)||!is_string($v) ||
-         strlen($v)>$allowed[$k]*4 || mb_strlen($v,'UTF-8')>$allowed[$k])
+         strlen($v)>$allowed[$k]*4 || (function_exists('mb_strlen')?mb_strlen($v,'UTF-8'):strlen($v))>$allowed[$k])
         respond(400,['ok'=>false,'error'=>'invalid_field','field'=>$k]);
       $v=trim($v);
       if($k==='Artikelnummer' && $v!=='' &&
