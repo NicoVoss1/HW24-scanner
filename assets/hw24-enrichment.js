@@ -218,7 +218,9 @@ function build({ean,match=null,curated=null,history=null,catalog=null,isNew=fals
  if(isNew){
   put('Artikelnummer',ean,'HW24 · vorläufige EAN-Artikelnummer','rule');
   put('HAN',ean,'HW24-Regel · HAN = GTIN falls keine echte HAN vorliegt','rule');
-  put('Artikeltyp','Normaler Artikel','HW24 · Standard Haarfarben','rule');
+  const isCarton=/\b(?:karton|kartonage|versandkarton|faltkarton)\b/i.test(title);
+  put('Artikeltyp',isCarton?'Kartonage':'Normaler Artikel',
+    isCarton?'HW24 · Kartonage aus Bezeichnung; prüfen':'HW24 · Standard Haarfarben','rule');
   // Deliberate user-approved defaults, not data obtained from Amazon.
   if(/(?:color|colour|koleston|igora|illumina|haarfarb|tönung|färb|pastel|shinfinity|brillant)/i.test(title)){
     put('Warengruppe','Haarfarben','HW24 · Haarfarben-Zuordnung aus Produktname','rule');
