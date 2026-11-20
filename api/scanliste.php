@@ -231,7 +231,7 @@ try {
         respond(400,['ok'=>false,'error'=>'invalid_field','field'=>$k]);
       $v=trim($v);
       if($k==='Artikelnummer' && $v!=='' &&
-         (!preg_match('/^[\\p{L}\\p{N}][\\p{L}\\p{N}._\\/ -]{0,139}$/uD',$v) || str_starts_with($v,'-')))
+         (!preg_match('/^[\p{L}\p{N}][\p{L}\p{N}._\/ -]{0,139}$/uD',$v) || str_starts_with($v,'-')))
          respond(400,['ok'=>false,'error'=>'invalid_artikelnummer']);
       if(($k==='GTIN' && $v!=='' && !gtinValid($v)) ||
          ($k==='ASIN' && $v!=='' && !preg_match('/^[A-Z0-9]{10}$/iD',$v)))
