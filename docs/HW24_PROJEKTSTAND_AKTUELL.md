@@ -1,9 +1,17 @@
 # HW24 · Verbindlicher Projektstand und Einstiegspunkt
 
-**Stand:** 20.11.2026 · **Projekt:** Hairworld24 Artikelmanager / HW24-scanner  
+**Stand:** 20.11.2026, fortgeschrieben nach PR-#17-Merge · **Projekt:** Hairworld24 Artikelmanager / HW24-scanner  
 **Gültigkeit:** Dies ist die zentrale, fortlaufend zu pflegende Projektdokumentation. Sie ist nicht selbst ein Nachweis, dass ein Plesk-Deployment, eine Datenbankmigration oder ein Live-Test durchgeführt wurde.
 
 > **WICHTIG FÜR DIE FORTSETZUNG:** Beim nächsten Chat, Entwicklerauftrag oder GitHub-Arbeitsschritt **zuerst diese Seite lesen** und die letzten Commits/PRs vergleichen. Keine bereits abgeschlossenen Einrichtungs- und Backup-Schritte von vorn verlangen. Ein Sachstand darf nur aufgrund neuer Befunde geändert werden. Nicht stillschweigend auf `main`, eine andere Version oder einen alten PR zurückspringen.
+
+## AKTUELLE ENTSCHEIDUNG – Website-Testfreigabe nach GitHub-Merge
+
+- **JETZT für Plesk bereit:** PR [#17](https://github.com/NicoVoss1/HW24-scanner/pull/17) wurde nach `deploy/staging` gemerged. Neuer GitHub-Staging-Commit: **`c0da9033a8373d7e6d210f075a7a4210a9670bc6`**. Plesk ist **noch nicht nachweislich gepullt oder deployed**.
+- **Nächster Nutzerschritt:** Plesk Branch `deploy/staging` unverändert lassen → **Jetzt Pull ausführen** → **Jetzt bereitstellen** → `https://test-artikelmanager.hairworld24.de/scanliste.html` aufrufen und Anzeige/Fehlerstatus mitteilen.
+- **Sicherheitsprüfung GitHub:** Nach Merge besteht der Staging-Root ausschließlich aus `api/`, `assets/`, `index.html`, `scanliste.html`; keine `sql/`, `docs/`, `.github/`, `sync/`, `hw24_private/` veröffentlicht.
+- **DB-Funktion noch nicht nachgewiesen:** Die zusätzlichen V11/V12-Tabellen und die nur für die neue Scanliste erforderliche private DB-Verbindung sind nicht als eingerichtet bestätigt. Erst nach dem UI-Deploy gezielt deren Status prüfen, **kein neuer Komplettbackup-/Ordnercheck**.
+- **GitHub privat:** GitHub Free unterstützt private Repositories. **Erst Plesk-Zugriff auf private Repo per SSH-Deploy-Key einrichten**, dann Sichtbarkeit ändern, sonst kann das bisherige HTTPS-Repository-Pull scheitern. GitHub Pro ist für Privatheit nicht nötig.
 
 ## 1. Projektziel / verbindlicher End-to-End-Workflow
 
@@ -20,11 +28,11 @@
 
 | Gegenstand | Stand / Link | Rolle |
 |---|---|---|
-| **Abgenommene sichtbare Code-Basis der Testseite** | `deploy/staging` · `dca30b015f062955c29306d2a5e6fa5265d0f45b` | **V4.22 TEST** · von Plesk manuell bereitgestellt |
+| **Letzter bestätigter Plesk-Seitenstand** | Ursprüngliche V4.22 TEST · `dca30b015f062955c29306d2a5e6fa5265d0f45b` | Bisherige UI-Basis; neuer Plesk-Pull/Deploy noch offen |
 | Plesk-Repository | `NicoVoss1/HW24-scanner.git` | Testdomain `test-artikelmanager.hairworld24.de`; Branch `deploy/staging` |
 | GitHub-Defaultbranch | `main` · Stand 20.11.2026 älter als V4.22 | **NICHT** als aktuelle Web-Version ausrollen oder als neue Featurebasis verwenden |
 | V4.22-Implementierungs-PR | [PR #16](https://github.com/NicoVoss1/HW24-scanner/pull/16) | Offener Draft, Entwicklungsdateien einschließlich SQL/Dokumentation, **nicht deployed** |
-| V4.22 bereinigter Website-Release | [PR #17](https://github.com/NicoVoss1/HW24-scanner/pull/17) | Offener Draft, nur Webdateien, **noch nicht gemerged** |
+| V4.22 bereinigter Website-Release | [PR #17](https://github.com/NicoVoss1/HW24-scanner/pull/17) | **Gemerged**, GitHub-Staging-SHA `c0da9033a8373d7e6d210f075a7a4210a9670bc6`; Plesk-Deploy noch offen |
 | Prüfkandidat Website-Branch | `release/hw24-v422-scan-test-20261120` · `7dd38d4a69ecc2897653a30029c6410b943016c4` | Auf V4.22 aufgebaut, aber nur Codevorschau; **keine bestätigte Testbereitstellung** |
 | Frühere abweichende Entwicklung | PR #14 · V4.35; PR #15 geschlossen | **Nicht** als V4.22-Quelle verwenden. #15 wurde mit Verweis auf #16 abgelöst |
 | **Dokumentations-Wahrheit** | `main/docs/HW24_PROJEKTSTAND_AKTUELL.md` | Verbindlicher handlungsorientierter Projektstand; `main` bleibt trotzdem **nicht** Codebasis |
@@ -44,7 +52,7 @@
 | Bestätigter Testseiten-Code | GitHub SHA `dca30b0` enthält Anzeige `HW24 Artikelmanager v4.22 TEST` | Keine Rückkehr zum veralteten `main` |
 | Rückfallstand | `backup/staging-before-pr4-20261120` existiert als GitHub-Branch | Nicht löschen oder überschreiben; allein ein Branch ersetzt aber kein Plesk-/DB-Backup |
 | V4.22 Amazon/JTL-Funktionen | In Code vorhanden: Amazon-Katalog mit 360-Minuten-Cache, JTL-Spiegel, WMS/Beleginformationen, historische Daten, Amazon-Preis-/Gebührenabrufe auf Anforderung | Bestehende Feature-Schnittstellen beibehalten |
-| Neue Scanlisten-Vorbereitung | PR #16 und bereinigter Website-PR #17 angelegt | **Code vorbereitet ≠ serverseitig eingerichtet oder erfolgreich getestet** |
+| Neue Scanlisten-Vorbereitung | PR #16 Entwicklungsquelle, Website-PR #17 gemerged | **GitHub-Dateien bereit ≠ Plesk-Deploy/DB-Integration erfolgreich getestet** |
 | GitHub-Codeprüfungen | Für Entwicklungsbranch #16: GitHub Actions Syntax-/Paketcheck erfolgreich, zuletzt SHA `61c164f` | **Nicht** mit DB-, Browser- oder Plesk-Abnahme verwechseln |
 
 **Nachweis-Trennung:** Benutzerbestätigte erledigte Maßnahmen werden ohne Wiederholung übernommen. Aus GitHub geprüfte Tatsachen sind gesondert bezeichnet. Nicht belegte Details wie exakte Backup-Dateinamen, Restore-Zeitpunkte, DB-Migrationsstatus oder Live-Website-Funktion dürfen nicht erfunden werden.
@@ -64,12 +72,12 @@
 
 ## 5. Wirklich offene Aufgaben – nur hier fortsetzen
 
-**Priorität 1: Testfreigabe ohne Rückschritt.**
-- PR #17 ist ein **Draft**, nicht gemerged oder deployed. **Nicht erneut Backups verlangen.**
+**Priorität 1: Plesk-Pull und manueller Testdeploy ohne Rückschritt.**
+- PR #17 ist **gemerged**, aber Plesk-Pull/Deploy **noch nicht bestätigt**. **Nicht erneut Backups verlangen.**
 - Erforderlich ist eine **lesende Statusprüfung** der beiden neuen Tabellenstrukturen (`hw24_scan_batches`, `hw24_scan_items`, `hw24_scan_events`, `hw24_scan_draft_audit`, `hw24_amazon_keyword_cache`) und der privaten Scanlist-Verbindung – **nicht** eine nochmalige Überprüfung aller bereits bestätigten Verzeichnisstrukturen.
 - Wenn die zwei SQL-Migrationen V11/V12 bereits durchgeführt worden sind, dies dokumentieren und **keine Migration wiederholen**. Wenn nicht, nach der bereits bestätigten Sicherung kontrolliert ergänzen.
 - Zugriff und Nutzerrechte für die neuen Endpunkte im geschützten Plesk-Testhosting prüfen. Admin-Daten/Schlüssel niemals ins Repo oder in den Chat kopieren.
-- PR #17 nach Freigabe auf `deploy/staging` übernehmen; in Plesk erst **„Jetzt Pull ausführen“**, danach **„Jetzt bereitstellen“**. Nur die freigegebenen Webdateien deployen.
+- PR #17 ist bereits auf `deploy/staging` übernommen. In Plesk jetzt **„Jetzt Pull ausführen“**, danach **„Jetzt bereitstellen“**. Nur die bereits geprüften Webdateien sind auf diesem Branch.
 
 **Priorität 2: Kurzer, nachvollziehbarer End-to-End-Abnahmetest.**
 - 5–10 EANs inkl. vorhanden, neu, doppelt, mehrdeutig und JTL-Ausfall testen.
