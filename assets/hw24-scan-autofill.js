@@ -19,7 +19,7 @@ function candidates(item){
  if(!catalog){
   const p=document.createElement('p');p.className='note';
   p.textContent='Amazon-Katalog wird im Hintergrund geprüft. Weitere ASINs und Packungsgrößen erscheinen hier.';
-  dest.append(p);return;
+  dest.append(p);
  }
  const choices=E.amazonChoices(catalog,item.ean);
  const known=new Set(choices.map(c=>c.asin));
@@ -111,7 +111,8 @@ document.addEventListener('hw24:scan-selected',e=>{
 document.addEventListener('hw24:scan-catalog',e=>{
  const item=B.selected();if(!item||item.ean!==e.detail?.ean)return;
  candidates(item);
- // JTL/curated are memoized; new Amazon data may fill remaining fields.
- enrich(item.id,item.ean);
+ // JTL/historical data are memoized. Repeat only if Amazon finished during an active save.
+ if(busy.has(item.id))setTimeout(()=>{if(active(item))enrich(item.id,item.ean)},900);
+ else enrich(item.id,item.ean);
 });
 })();
