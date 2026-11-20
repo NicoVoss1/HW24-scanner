@@ -49,6 +49,8 @@ details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border
 <input id="scan" name="ean" inputmode="numeric" autocomplete="off" autocapitalize="off" placeholder="EAN scannen und Enter" required></div>
 <button type="submit" id="scanButton">✓ Erfassen</button></form>
 <div id="status" role="status" aria-live="polite">Scanliste wird geladen …</div>
+<div class="toolbar" style="margin-top:8px"><p class="note" id="amazonQueueStatus" style="flex:1 1 340px">Amazon-Katalog: Nach jedem gespeicherten Scan automatische Cache- oder SP-API-Prüfung.</p>
+<button type="button" class="secondary" id="catalogRetry" hidden>Amazon-Abfragen fortsetzen</button></div>
 <p class="note">Jede gültige EAN wird zunächst gespeichert, auch wenn noch keine Produktdaten vorliegen. Wiederholte Scans desselben Artikels werden gezählt. <strong>Das ist noch keine Lagerbuchung.</strong> Bei Verbindungsproblemen bleiben Scans zum erneuten Senden in der Warteschlange.</p>
 </section>
 <div class="stats" id="stats"></div>
@@ -63,8 +65,8 @@ details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border
 <section class="card"><h2>4. Stammdaten und Freigabe</h2>
 <p id="itemInfo">Wähle einen Artikel aus der Scanliste. Bei bestätigten Neuanlagen können die Pflichtfelder ergänzt werden.</p>
 <div id="editor" hidden>
-<div class="toolbar"><button type="button" class="secondary" id="research">🔎 Historie und Amazon SP-API prüfen</button></div>
-<p class="note" id="researchStatus">Recherche ist optional und erfolgt nach dem Scan. Mehrfachtreffer werden nicht automatisch übernommen.</p>
+<div class="toolbar"><button type="button" class="secondary" id="research">📚 Detaillierte Quellen und Vorschläge prüfen</button></div>
+<p class="note" id="researchStatus">Amazon-Katalog wird beim Scannen automatisch abgefragt. Hier kannst Du die Treffer und historische Daten einzeln zur Datenpflege übernehmen.</p>
 <div id="suggestions"></div>
 
 <div class="toolbar"><button type="button" class="secondary" id="useEAN">EAN als Artikelnummer vorschlagen</button>
@@ -100,6 +102,63 @@ const keepPending=()=>{
  try{localStorage.setItem(pendingKey,JSON.stringify(state.queue));return true}
  catch(_){return false}
 };
+const catalogPendingKey='hw24_catalog_pending_v422';
+const catalogQueue=(()=>{
+ try{const v=JSON.parse(localStorage.getItem(catalogPendingKey)||'[]');
+ return Array.isArray(v)?[...new Set(v.filter(x=>typeof x==='string'&&/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(x)))].slice(0,3000):[];
+ }catch(_){return []}
+})();
+const catalogDone=new Set(),catalogSummaries=new Map();
+let catalogBusy=false,catalogStopped=false;
+function saveCatalogPending(){
+ try{localStorage.setItem(catalogPendingKey,JSON.stringify(catalogQueue));return true}
+ catch(_){return false}
+}
+function catalogStatus(note=''){
+ const target=$('amazonQueueStatus');if(!target)return;
+ target.textContent='Amazon SP-API: '+catalogQueue.length+' ausstehend · '+catalogDone.size+
+ ' in dieser Sitzung geprüft'+(note?' · '+note:'');
+ $('catalogRetry').hidden=!catalogStopped;
+}
+function enqueueCatalog(ean){
+ if(!goodEAN(ean)||catalogDone.has(ean)||catalogQueue.includes(ean))return;
+ catalogQueue.push(ean);saveCatalogPending();catalogStatus();runCatalog();
+}
+async function runCatalog(){
+ if(catalogBusy||catalogStopped||!catalogQueue.length)return;
+ catalogBusy=true;
+ while(catalogQueue.length&&!catalogStopped){
+  const ean=catalogQueue[0];
+  catalogStatus('Prüfe '+ean+' über MariaDB-Cache oder Amazon …');
+  let stopReason='';
+  try{
+   const response=await fetch('api/amazon.php?ean='+encodeURIComponent(ean),
+    {credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
+   const result=await response.json();
+   if(!response.ok||!result.ok){
+    stopReason=response.status===429?'Amazon-Limit erreicht':
+     result.error==='amazon_catalog_request_failed'?'Amazon-Abfrage abgelehnt':
+     'SP-API/Server momentan nicht verfügbar';
+    catalogStopped=true;
+   }else{
+    catalogSummaries.set(ean,{count:result.count,source:result.source,items:result.items||[],at:result.fetched_at_utc});
+    catalogDone.add(ean);catalogQueue.shift();saveCatalogPending();
+    if(state.selected?.ean===ean){
+      $('researchStatus').textContent='Amazon automatisch geprüft: '+result.count+' Katalogtreffer ('+
+       (result.source==='cache'?'gespeicherter Cache':'aktuelle SP-API-Antwort')+
+       '). Bei Bedarf „Detaillierte Quellen“ für Datenvorschläge öffnen.';
+    }
+   }
+  }catch(_){catalogStopped=true;stopReason='Netzwerkfehler oder ungültige Antwort'}
+  catalogStatus(stopReason);
+  if(catalogStopped)break;
+  // 1 request per 1.5 seconds or slower, even if the upstream response is immediate.
+  await new Promise(resolve=>setTimeout(resolve,1500));
+ }
+ catalogBusy=false;catalogStatus();
+}
+$('catalogRetry').onclick=()=>{catalogStopped=false;catalogStatus();runCatalog();};
+
 const schema=['Artikelnummer','GTIN','HAN','Artikelname','Hersteller','Warengruppe','Steuerklasse',
 'Kurzbeschreibung','Beschreibung','Kosten','Brutto-VK','Netto-VK','Inhalt/Menge','Maßeinheit',
 'Artikelgewicht','Versandgewicht','ASIN','Artikeltyp','Versandklasse','Artikel aktiv',
@@ -187,7 +246,7 @@ function selectItem(id){
  $('editor').hidden=false;
  $('editorStatus').textContent='';
  $('suggestions').replaceChildren();
- $('researchStatus').textContent='Optionale Recherche über MariaDB-Historie und Amazon SP-API.';
+ $('researchStatus').textContent=catalogSummaries.has(item.ean)?'Amazon bereits automatisch geprüft: '+catalogSummaries.get(item.ean).count+' Treffer. Detaillierte historische Angaben und Quellen sind unten abrufbar.':'Amazon-Recherche wird bei gespeicherten Scans automatisch durchgeführt.';
  $('itemInfo').textContent='EAN '+item.ean+' · '+(statuses[item.resolution]||item.resolution)
  +' · Revision '+item.revision+' · '+item.scan_count+' Scans. '
  +(item.resolution==='existing'?'Vorhandener Artikel: kein Neuanlage-Export. Pflege bitte im Haupt-Artikelmanager.':
@@ -332,6 +391,7 @@ async function consume(){
   try{const data=await post('scan',{batch_id:current.batchId,ean:current.ean,event_key:current.key});
    state.queue.shift();keepPending();
    if(current.batchId===state.batchId)updateLocal(data.item);
+   enqueueCatalog(current.ean);
    status('✓ '+current.ean+' gespeichert · '+(statuses[data.item.resolution]||'JTL-Status offen')+
    ' · '+state.queue.length+' ausstehend','success');
   }catch(e){status('Nicht gespeichert: '+e.message+
@@ -402,5 +462,7 @@ resend.textContent='↻ Ungespeicherte Scans erneut senden';resend.hidden=state.
 $('scanForm').append(resend);
 loadBatches();
 if(state.queue.length)status(state.queue.length+' unbestätigte Scanvorgänge aus vorheriger Sitzung. Zum Senden oben „Erneut senden“ wählen.','warn');
+catalogStatus();
+if(catalogQueue.length)runCatalog();
 })();
 </script></body></html>
