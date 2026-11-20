@@ -59,6 +59,7 @@ details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border
 </section>
 <div class="toolbar" style="margin-top:8px"><p class="note" id="amazonQueueStatus" style="flex:1 1 340px">Amazon-Katalog: Nach jedem gespeicherten Scan automatische Cache- oder SP-API-Prüfung.</p>
 <button type="button" class="secondary" id="catalogRetry" hidden>Amazon-Abfragen fortsetzen</button></div>
+<p id="enrichQueueStatus" class="note" role="status">Stammdaten werden beim Scan hinterlegt; keine Wawi-Buchung.</p>
 <p class="note">Jede gültige EAN wird zunächst gespeichert, auch wenn noch keine Produktdaten vorliegen. Wiederholte Scans desselben Artikels werden gezählt. <strong>Das ist noch keine Lagerbuchung.</strong> Bei Verbindungsproblemen bleiben Scans zum erneuten Senden in der Warteschlange.</p>
 </section>
 <div class="stats" id="stats"></div>
@@ -515,6 +516,9 @@ async function loadItems(){
  if(!state.batchId)return;
  try{const data=await get('items',{batch_id:String(state.batchId)});
  state.items=data.items;state.selected=null;$('editor').hidden=true;renderList();
+ document.dispatchEvent(new CustomEvent('hw24:scan-items-loaded',{detail:{batchId:state.batchId,
+  items:state.items.map(x=>({id:x.id,ean:x.ean,resolution:x.resolution,review_state:x.review_state,
+  completed:Boolean(x.draft?.Artikelname&&x.draft?.Hersteller&&x.draft?.Warengruppe)}))}}));
  status('✓ Scanliste geladen. Bereit zum Scannen.','success');$('scan').focus();
  }catch(e){status('Fehler: '+e.message,'error')}
 }
@@ -525,7 +529,10 @@ async function consume(){
   status('Speichere EAN '+current.ean+' … · '+state.queue.length+' in Warteschlange');
   try{const data=await post('scan',{batch_id:current.batchId,ean:current.ean,event_key:current.key});
    state.queue.shift();keepPending();
-   if(current.batchId===state.batchId){updateLocal(data.item);selectItem(data.item.id);}
+   if(current.batchId===state.batchId){
+    updateLocal(data.item);selectItem(data.item.id);
+    document.dispatchEvent(new CustomEvent('hw24:scan-stored',{detail:{id:data.item.id,ean:data.item.ean,batchId:state.batchId}}));
+   }
    enqueueCatalog(current.ean);
    status('✓ '+current.ean+' gespeichert · '+(statuses[data.item.resolution]||'JTL-Status offen')+
    ' · '+state.queue.length+' ausstehend','success');
@@ -606,6 +613,26 @@ window.HW24ScanBridge={
  catalog:ean=>catalogSummaries.get(ean),
  status:text=>{$('editorStatus').textContent=text},
  refresh:refreshFieldGroups,
+ async backgroundApply(id,ean,fields,sources){
+  const item=state.items.find(x=>x.id===id&&x.ean===ean);
+  if(!item||item.resolution!=='new_candidate')return{ok:false,error:'not_current_candidate'};
+  const updates={},provenance={};
+  for(const [key,value] of Object.entries(fields||{})){
+   if(!schema.includes(key)||key==='GTIN'||!val(value)||val(item.draft?.[key]))continue;
+   const control=state.selected?.id===id?this.control(key):null;
+   if(control?.dataset.userTouched==='1')continue;
+   updates[key]=val(value);provenance[key]=val(sources?.[key]||'HW24 · Quellen').slice(0,170);
+  }
+  if(!Object.keys(updates).length)return{ok:true,saved:false};
+  updates.GTIN=ean;provenance.GTIN='EAN · Scan';
+  try{
+   const out=await post('edit',{batch_id:state.batchId,item_id:id,
+    expected_revision:Number(item.revision),fields:updates,field_sources:provenance,mark_ready:false});
+   item.revision=out.revision;item.draft=out.draft;item.review_state=out.review_state;
+   if(state.selected?.id===id)this.show(out.draft,provenance);
+   renderList();return{ok:true,saved:true};
+  }catch(e){return{ok:false,error:String(e?.message||'database_unavailable')}}
+ },
  async apply(fields,fieldSources,{save=true}={}){
    const item=state.selected;if(!item)return{ok:false,error:'no_item'};
    const additions={},sources={};
