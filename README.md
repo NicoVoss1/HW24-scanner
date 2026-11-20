@@ -15,10 +15,14 @@ Diese beiden Dateien beim Fortsetzen eines Chats, beim Öffnen eines PRs und vor
 | Zweck | Referenz | Zustand |
 |---|---|---|
 | Testanwendung | [`deploy/staging`](https://github.com/NicoVoss1/HW24-scanner/tree/deploy/staging) | V4.22 TEST, Plesk zieht diesen Branch **manuell** |
-| Verifizierter Staging-SHA | `dca30b015f062955c29306d2a5e6fa5265d0f45b` | Bestätigter Code-Ausgangspunkt |
+| Verifizierter Staging-SHA | `c0da9033a8373d7e6d210f075a7a4210a9670bc6` | PR #17 bereits in GitHub-Staging gemerged; Plesk noch nicht neu deployed |
 | Feature-Entwicklung | [PR #16](https://github.com/NicoVoss1/HW24-scanner/pull/16) | V4.22 Scanner-/Amazon-Erweiterung, Draft |
-| Website-Testfreigabe | [PR #17](https://github.com/NicoVoss1/HW24-scanner/pull/17) | Nur Webdateien; **noch nicht gemerged oder deployed** |
+| Website-Testfreigabe | [PR #17](https://github.com/NicoVoss1/HW24-scanner/pull/17) | Nur Webdateien; **in GitHub-Staging gemerged**, Plesk noch nicht neu deployed |
 | Historische V4.35-Abzweigung | PR #14, geschlossener PR #15 | **Nicht** ohne bewusste Entscheidung übernehmen |
+
+## Sofortiger nächster Schritt
+
+**Plesk Git:** Branch `deploy/staging` unverändert lassen → **Jetzt Pull ausführen** → **Jetzt bereitstellen** → `https://test-artikelmanager.hairworld24.de/scanliste.html` aufrufen. **GitHub-Merge ist fertig; Plesk-Deploy noch nicht bestätigt.** Neue Scanlisten-DB-Tabellen und Rechte danach gezielt prüfen, nicht das bereits abgeschlossene Backup-/Ordner-Setup wiederholen. Live-Seite bleibt unverändert.
 
 ## Projektziel
 
