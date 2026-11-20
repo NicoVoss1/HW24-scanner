@@ -10,7 +10,9 @@
 
 **[Aktuelle UI- und JTL-Feldprüfung anhand der Screenshots](docs/HW24_UI_JTL_FELDMASKE_20261120.md)**
 
-**[Nächster Schritt: Einmaliges PuTTY-Setup der Scanlisten-Datenbank](docs/HW24_PUTTY_SCANLIST_SETUP_20261120.md)**
+**[Automatische Vorbelegung für JTL, Amazon, Historie und Scanliste – aktueller Stand](docs/HW24_AUTO_VORBELEGUNG_V422_20261120.md)**
+
+[PuTTY-Installation V11/V12 – abgeschlossen](docs/HW24_PUTTY_SCANLIST_SETUP_20261120.md)
 
 Diese beiden Dateien beim Fortsetzen eines Chats, beim Öffnen eines PRs und vor einer Codeänderung zuerst lesen. Alle neuen Entscheidungen, Tests, GitHub-Commits, Fehler und abgeschlossenen Arbeiten dort fortschreiben. Keine bereits bestätigten Schritte ohne neuen konkreten Anlass nochmals verlangen.
 
@@ -27,7 +29,11 @@ Diese beiden Dateien beim Fortsetzen eines Chats, beim Öffnen eines PRs und vor
 
 ## Sofortiger nächster Schritt
 
-**Jetzt:** Plesk `deploy/staging` **Pull → Bereitstellen** (PR #19), anschließend einmalig das [geprüfte PuTTY-Installationsskript](docs/HW24_PUTTY_SCANLIST_SETUP_20261120.md) auf dem Testserver ausführen, Scanliste laden, Stapel `04-001` anlegen und EAN testen. Der Screenshot zeigt fehlende neue V11-/V12-Tabellen und `scanlist-db.php`; **keine erneuten Backups oder Verzeichniskontrollen.** Live-Seite bleibt unverändert.
+**Stand 20.11.2026:** Die neue gemeinsame JTL-/Amazon-/Historienvorbelegung ist über [PR #20](https://github.com/NicoVoss1/HW24-scanner/pull/20) in `deploy/staging` gemerged. **Staging-SHA `dc9646d4863772dab823283be5d8f4bbec8f3c99`.** Der neue Plesk-Pull/Deploy dieses Commits steht noch aus.
+
+**Jetzt:** Plesk-Branch `deploy/staging` beibehalten → **Jetzt Pull ausführen → Jetzt bereitstellen** → Testseite `/scanliste.html` öffnen. Stapel `04-001` und bereits JTL-bekannte EAN `8033219164159` prüfen, danach eine nachweislich neue EAN erfassen und gespeicherte Felder nach Reload prüfen. Bereits erledigte Backups, private Verzeichnisprüfungen und erfolgreiche V11/V12-PuTTY-Installation **nicht wiederholen**.
+
+**Nicht automatisch wahr:** GitHub-CI grüner Code ist noch kein Nachweis für echte SP-API-Calls oder erfolgreichen DB-Revisionstest. Lieferanten-ID-Zuordnung, Kategorien 2/3 und JTL-Ameise-Importprofil bleiben gesondert zu testen. Live-Seite unverändert.
 
 ## Projektziel
 
