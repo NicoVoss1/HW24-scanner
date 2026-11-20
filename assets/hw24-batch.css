@@ -1,0 +1,42 @@
+/* v4.15: streamlined EAN batch workflow */
+.hw24-batch{border:1px solid #d2e0f0!important;border-left:5px solid #315b90!important;border-radius:12px;padding:15px!important;background:#fafcff!important;margin:12px 0!important}
+.hw24-batch h3{margin:0 0 6px!important;font-size:17px!important;color:#153b68!important}
+.hw24-batch-state{font-size:14px;font-weight:700;color:#244e77}
+.hw24-batch-status{font-size:13px;color:#243b5a}
+.hw24-batch-notices{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:6px;margin:10px 0}
+.hw24-batch-warning{font-size:12px;padding:7px 9px;border-radius:7px;background:#fff4d8;color:#755200;border:1px solid #eacb86}
+.hw24-batch-warning.red{background:#fff0ee;color:#9a2621;border-color:#e7ada7}
+.hw24-batch-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.hw24-batch-actions button{margin:0;border-radius:8px;min-height:45px;font-size:13px;font-weight:700}
+.hw24-batch-actions button:first-child{background:#17744c;color:#fff}
+.hw24-batch-actions button:nth-child(2){background:#143f7b;color:#fff}
+.hw24-batch-actions button:last-child{background:#f0f4f9;color:#35506d;border:1px solid #c7d4e4}
+.hw24-batch-actions button:disabled{background:#dfe6ed;color:#768496;cursor:not-allowed}
+.hw24-batch-count{font-size:13px;font-weight:700;color:#244765}
+.hw24-batch-item{padding:9px 0;border-bottom:1px solid #dbe6f0;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.hw24-batch-item span{min-width:0;display:grid;gap:3px}
+.hw24-batch-item strong{font-size:13px}
+.hw24-batch-item small{font-size:12px;color:#52667d;overflow-wrap:anywhere}
+.hw24-batch-item button{padding:6px 10px;margin:0;font-size:12px;flex-shrink:0;background:#eef2f8;color:#304e72}
+.hw24-batch-feedback{font-size:12px;color:#335676;font-weight:600;min-height:16px}
+body.hw24-warehouse-mode .hw24-batch{display:none!important}
+/* Transparent traffic lights: green = verified, yellow = proposal / incomplete, red = missing/conflicting. */
+.hw24-desk-field.missing{background:#fff0ed!important;border-color:#d37c70!important}
+.hw24-desk-field.missing .hw24-desk-badge{background:#f8d3ce;color:#9b2c21}
+.hw24-desk-field:not(.missing):has(.hw24-desk-badge.live){border-color:#86cba2;background:#f0faf3}
+.hw24-desk-field:not(.missing):has(.hw24-desk-badge.manual){border-color:#8bc5ab;background:#f0faf3}
+.hw24-desk-field:not(.missing):has(.hw24-desk-badge.history),
+.hw24-desk-field:not(.missing):has(.hw24-desk-badge.draft),
+.hw24-desk-field:not(.missing):has(.hw24-desk-badge.csv),
+.hw24-desk-field:not(.missing):has(.hw24-desk-badge.template),
+.hw24-desk-field:not(.missing):has(.hw24-desk-badge.conflict){background:#fff8e8;border-color:#dec17d}
+.hw24-desk-field select{cursor:pointer;min-height:41px}
+@media(max-width:650px){
+ .hw24-batch-actions{display:grid;grid-template-columns:1fr}
+ .hw24-batch-actions button{width:100%}
+}
+/* Only one export and one scan queue in the primary workspace. Legacy tools remain in advanced details. */
+#hw24Desk > .hw24-desk-actions > .hw24-desk-primary{display:none!important}
+#hw24Desk > #hw24LegacyBasket{display:none!important}
+#hw24Desk > #hw24LegacyExportMessage{display:none!important}
+.hw24-desk-field:not(.missing):has(.hw24-desk-badge.rule){background:#fff8e8;border-color:#dec17d}
