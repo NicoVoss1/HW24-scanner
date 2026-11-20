@@ -145,9 +145,8 @@ async function runCatalog(){
   try{
    const result=await window.HW24Enrich.catalog(ean);
    if(!result?.ok){
-    stopReason=response.status===429?'Amazon-Limit erreicht':
-     result.error==='amazon_catalog_request_failed'?'Amazon-Abfrage abgelehnt':
-     'SP-API/Server momentan nicht verfügbar';
+    stopReason=result?.error==='amazon_rate_limited'?'Amazon-Limit erreicht':
+      'Amazon-SP-API nicht verfügbar oder ohne eindeutigen Treffer';
     catalogStopped=true;
    }else{
     catalogSummaries.set(ean,result);
