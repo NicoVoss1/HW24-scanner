@@ -63,6 +63,9 @@ function resolve(PDO $db, string $ean): array {
 function rowData(array $r): array {
   $fields=json_decode((string)($r['draft_json']??''),true);
   $r['draft']=is_array($fields)?$fields:new stdClass();
+  $sources=json_decode((string)($r['source_json']??''),true);
+  $r['csv_meta']=is_array($sources)&&isset($sources['csv_meta'])&&is_array($sources['csv_meta'])
+    ?$sources['csv_meta']:new stdClass();
   unset($r['draft_json'],$r['source_json']);
   return $r;
 }
@@ -109,7 +112,7 @@ try {
     if(!$id||$id<1)respond(400,['ok'=>false,'error'=>'batch_id_required']);
     getBatch($pdo,$id,$actor);
     $s=$pdo->prepare('SELECT id,batch_id,ean,scan_count,resolution,jtl_article_id,
-                       artikelnummer,artikelname,review_state,draft_json,revision,
+                       artikelnummer,artikelname,review_state,draft_json,source_json,revision,
                        snapshot_at_utc,first_scanned_utc,last_scanned_utc,updated_at_utc
                        FROM hw24_scan_items WHERE batch_id=? ORDER BY id DESC LIMIT 3000');
     $s->execute([$id]);respond(200,['ok'=>true,'items'=>array_map('rowData',$s->fetchAll())]);
@@ -130,21 +133,23 @@ try {
     if(!$meta || (int)$meta['last_row_count']<1 || (int)$meta['age']<0 || (int)$meta['age']>45)
       respond(409,['ok'=>false,'error'=>'jtl_snapshot_not_fresh']);
     $check=$pdo->prepare("SELECT COUNT(*) FROM hw24_jtl_articles WHERE source_id=?
-                         AND (ean=? OR han=? OR artikelnummer=? OR artikelnummer=?)");
+                         AND (ean=? OR han=? OR artikelnummer=? OR (?<>'' AND artikelnummer=?))");
     $seen=[];$rows=[];
     foreach($all as $entry){
       if($entry['resolution']!=='new_candidate')
         respond(409,['ok'=>false,'error'=>'non_new_item','ean'=>$entry['ean']]);
       $f=json_decode((string)$entry['draft_json'],true);
       if(!is_array($f) || !gtinValid((string)$entry['ean']) ||
-         ($f['GTIN']??'')!==$entry['ean'] || empty($f['Artikelnummer']) ||
+         ($f['GTIN']??'')!==$entry['ean'] ||
          empty($f['Artikelname']) || empty($f['Hersteller']) ||
          empty($f['Steuerklasse']) || empty($f['Warengruppe']))
         respond(409,['ok'=>false,'error'=>'incomplete_ready_row','ean'=>$entry['ean']]);
-      $sku=(string)$f['Artikelnummer'];
-      if(isset($seen[$sku]))respond(409,['ok'=>false,'error'=>'duplicate_batch_artikelnummer']);
-      $seen[$sku]=true;
-      $check->execute([$meta['source_id'],$entry['ean'],$entry['ean'],$entry['ean'],$sku]);
+      $sku=trim((string)($f['Artikelnummer']??''));
+      if($sku!==''){
+        if(isset($seen[$sku]))respond(409,['ok'=>false,'error'=>'duplicate_batch_artikelnummer']);
+        $seen[$sku]=true;
+      }
+      $check->execute([$meta['source_id'],$entry['ean'],$entry['ean'],$entry['ean'],$sku,$sku]);
       if((int)$check->fetchColumn()>0)
         respond(409,['ok'=>false,'error'=>'jtl_duplicate_before_export','ean'=>$entry['ean']]);
       // Server exports a verified data subset. It still DOES NOT guarantee import-field
@@ -152,6 +157,7 @@ try {
       $rows[]=$f;
     }
     respond(200,['ok'=>true,'fields'=>$rows,'count'=>count($rows),
+      'auto_article_numbers'=>count(array_filter($rows,static fn($x)=>empty($x['Artikelnummer']))),
       'jtl_snapshot_utc'=>$meta['last_completed_utc'],
       'warning'=>'JTL-Ameise-Feldzuordnung und Trockenlauf vor echtem Import prüfen']);
   }
@@ -186,12 +192,13 @@ try {
     $s=$pdo->prepare('INSERT INTO hw24_scan_items
       (batch_id,ean,resolution,jtl_article_id,artikelnummer,artikelname,snapshot_at_utc)
       VALUES (?,?,?,?,?,?,?)
-      ON DUPLICATE KEY UPDATE scan_count=scan_count+1,
+      ON DUPLICATE KEY UPDATE scan_count=IF(review_state="removed",1,scan_count+1),
       last_scanned_utc=UTC_TIMESTAMP(6),updated_at_utc=UTC_TIMESTAMP(6),
       resolution=VALUES(resolution),jtl_article_id=VALUES(jtl_article_id),
       snapshot_at_utc=VALUES(snapshot_at_utc),
       artikelnummer=IF(VALUES(resolution)="existing",VALUES(artikelnummer),artikelnummer),
-      artikelname=IF(VALUES(resolution)="existing",VALUES(artikelname),artikelname)');
+      artikelname=IF(VALUES(resolution)="existing",VALUES(artikelname),artikelname),
+      review_state=IF(review_state="removed","scan_only",review_state)');
     $s->execute([$id,$ean,$match['resolution'],$match['jtl_article_id'],
       $match['artikelnummer'],$match['artikelname'],$match['snapshot_at_utc']]);
     } // On transport retry, return the existing scan without incrementing.
@@ -199,11 +206,125 @@ try {
     $s=$pdo->prepare('UPDATE hw24_scan_batches SET updated_at_utc=UTC_TIMESTAMP(6) WHERE id=?');
     $s->execute([$id]);
     $s=$pdo->prepare('SELECT id,batch_id,ean,scan_count,resolution,jtl_article_id,
-      artikelnummer,artikelname,review_state,draft_json,revision,snapshot_at_utc,
+      artikelnummer,artikelname,review_state,draft_json,source_json,revision,snapshot_at_utc,
       first_scanned_utc,last_scanned_utc,updated_at_utc
       FROM hw24_scan_items WHERE batch_id=? AND ean=?');
     $s->execute([$id,$ean]);$row=$s->fetch();$pdo->commit();
     respond(200,['ok'=>true,'item'=>rowData($row)]);
+  }
+  if($op==='adjust'&&$method==='POST'){
+    $batch=filter_var($body['batch_id']??null,FILTER_VALIDATE_INT);
+    $item=filter_var($body['item_id']??null,FILTER_VALIDATE_INT);
+    $expected=$body['expected_revision']??null;
+    $action=(string)($body['action']??'');
+    if(!$batch||$batch<1||!$item||$item<1||!is_int($expected)||$expected<0||
+      !in_array($action,['reduce','remove'],true))
+      respond(400,['ok'=>false,'error'=>'invalid_adjust_request']);
+    $pdo->beginTransaction();getBatch($pdo,$batch,$actor,true);
+    $q=$pdo->prepare('SELECT id,ean,scan_count,review_state,draft_json,revision
+       FROM hw24_scan_items WHERE batch_id=? AND id=? FOR UPDATE');
+    $q->execute([$batch,$item]);$old=$q->fetch();
+    if(!$old){$pdo->rollBack();respond(404,['ok'=>false,'error'=>'item_not_found']);}
+    if($old['review_state']==='removed'){$pdo->rollBack();respond(409,['ok'=>false,'error'=>'already_removed']);}
+    if((int)$old['revision']!==$expected){$pdo->rollBack();
+      respond(409,['ok'=>false,'error'=>'revision_conflict','current_revision'=>(int)$old['revision']]);}
+    $previous=(int)$old['scan_count'];
+    $removed=$action==='remove'||$previous<=1;
+    $nextCount=$removed?$previous:$previous-1;
+    $nextState=$removed?'removed':(string)$old['review_state'];
+    $q=$pdo->prepare('UPDATE hw24_scan_items
+      SET scan_count=?,review_state=?,revision=revision+1,updated_at_utc=UTC_TIMESTAMP(6)
+      WHERE id=? AND batch_id=?');
+    $q->execute([$nextCount,$nextState,$item,$batch]);
+    $prevDraft=json_decode((string)($old['draft_json']??''),true);
+    if(!is_array($prevDraft))$prevDraft=[];
+    $before=array_merge($prevDraft,['__scan_count'=>$previous,'__review_state'=>$old['review_state']]);
+    $after=array_merge($prevDraft,['__scan_count'=>$nextCount,'__review_state'=>$nextState]);
+    $q=$pdo->prepare('INSERT INTO hw24_scan_draft_audit
+      (scan_item_id,revision,changed_by,change_kind,previous_json,next_json)
+      VALUES (?,?,?,?,?,?)');
+    $q->execute([$item,$expected+1,$actor,$removed?'remove_item':'reduce_scan',
+      json_encode($before,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
+      json_encode($after,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
+    $q=$pdo->prepare('UPDATE hw24_scan_batches SET updated_at_utc=UTC_TIMESTAMP(6) WHERE id=?');
+    $q->execute([$batch]);$pdo->commit();
+    respond(200,['ok'=>true,'item_id'=>$item,'revision'=>$expected+1,
+      'removed'=>$removed,'scan_count'=>$nextCount,'review_state'=>$nextState]);
+  }
+  if($op==='import_rows'&&$method==='POST'){
+    // Each request is an atomic <=25-row batch. The browser can resume a
+    // large CSV at the last acknowledged chunk; no DDL/DELETE grant required.
+    $batch=filter_var($body['batch_id']??null,FILTER_VALIDATE_INT);
+    $rows=$body['rows']??null;
+    if(!$batch||$batch<1||!is_array($rows)||count($rows)<1||count($rows)>25)
+      respond(400,['ok'=>false,'error'=>'invalid_csv_chunk']);
+    $validated=[];$unique=[];
+    foreach($rows as $entry){
+      if(!is_array($entry))respond(400,['ok'=>false,'error'=>'invalid_csv_row']);
+      $ean=trim((string)($entry['ean']??''));
+      if(!gtinValid($ean))respond(400,['ok'=>false,'error'=>'invalid_csv_ean','ean'=>substr($ean,0,20)]);
+      $meta=[];
+      foreach(['lagerplatz'=>100,'information'=>450,'kommentar'=>600] as $key=>$limit){
+        $value=$entry[$key]??'';
+        if(!is_string($value)||strlen($value)>$limit*4||
+           (function_exists('mb_strlen')?mb_strlen($value,'UTF-8'):strlen($value))>$limit)
+          respond(400,['ok'=>false,'error'=>'invalid_csv_metadata','field'=>$key]);
+        $value=trim($value);
+        if(str_contains($value,"\0"))respond(400,['ok'=>false,'error'=>'invalid_csv_metadata']);
+        if($value!=='')$meta[$key]=$value;
+      }
+      if(isset($unique[$ean]))continue; // Duplicate source lines are not physical repeat scans.
+      $unique[$ean]=true;$validated[]=['ean'=>$ean,'meta'=>$meta];
+    }
+    $pdo->beginTransaction();getBatch($pdo,$batch,$actor,true);
+    $find=$pdo->prepare('SELECT id,revision,review_state,source_json,draft_json,scan_count
+      FROM hw24_scan_items WHERE batch_id=? AND ean=? FOR UPDATE');
+    $insert=$pdo->prepare('INSERT INTO hw24_scan_items
+      (batch_id,ean,resolution,jtl_article_id,artikelnummer,artikelname,snapshot_at_utc,source_json)
+      VALUES (?,?,?,?,?,?,?,?)');
+    $edit=$pdo->prepare('UPDATE hw24_scan_items SET source_json=?,
+      scan_count=IF(review_state="removed",1,scan_count),
+      revision=IF(review_state="removed",revision+1,revision),
+      review_state=IF(review_state="removed","scan_only",review_state),
+      updated_at_utc=UTC_TIMESTAMP(6) WHERE id=?');
+    $inserted=0;$existed=0;$restored=0;
+    foreach($validated as $entry){
+      $ean=$entry['ean'];$meta=$entry['meta'];
+      $find->execute([$batch,$ean]);$existing=$find->fetch();
+      if(!$existing){
+        $resolution=resolve($pdo,$ean);
+        $sources=$meta?['csv_meta'=>array_merge($meta,['origin'=>'CSV-Import'])]:[];
+        $insert->execute([$batch,$ean,$resolution['resolution'],$resolution['jtl_article_id'],
+          $resolution['artikelnummer'],$resolution['artikelname'],$resolution['snapshot_at_utc'],
+          json_encode($sources,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
+        $inserted++;continue;
+      }
+      $current=json_decode((string)($existing['source_json']??''),true);
+      if(!is_array($current))$current=[];
+      // Never overwrite an earlier import note or manually curated field origin.
+      if($meta&&!isset($current['csv_meta']))
+        $current['csv_meta']=array_merge($meta,['origin'=>'CSV-Import']);
+      $edit->execute([json_encode($current,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
+        (int)$existing['id']]);
+      if($existing['review_state']==='removed'){
+        $oldDraft=json_decode((string)($existing['draft_json']??''),true);
+        if(!is_array($oldDraft))$oldDraft=[];
+        $before=array_merge($oldDraft,['__review_state'=>'removed',
+          '__scan_count'=>(int)$existing['scan_count']]);
+        $after=array_merge($oldDraft,['__review_state'=>'scan_only','__scan_count'=>1]);
+        $audit=$pdo->prepare('INSERT INTO hw24_scan_draft_audit
+          (scan_item_id,revision,changed_by,change_kind,previous_json,next_json)
+          VALUES (?,?,?,?,?,?)');
+        $audit->execute([(int)$existing['id'],(int)$existing['revision']+1,$actor,
+          'restore_csv',json_encode($before,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
+          json_encode($after,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
+        $restored++;
+      }else $existed++;
+    }
+    $q=$pdo->prepare('UPDATE hw24_scan_batches SET updated_at_utc=UTC_TIMESTAMP(6) WHERE id=?');
+    $q->execute([$batch]);$pdo->commit();
+    respond(200,['ok'=>true,'inserted'=>$inserted,'existed'=>$existed,
+      'restored'=>$restored,'received'=>count($rows),'unique_rows'=>count($validated)]);
   }
   if($op==='edit'&&$method==='POST'){
     $batch=filter_var($body['batch_id']??null,FILTER_VALIDATE_INT);
@@ -268,6 +389,8 @@ try {
     $s=$pdo->prepare('SELECT * FROM hw24_scan_items WHERE id=? AND batch_id=? FOR UPDATE');
     $s->execute([$item,$batch]);$old=$s->fetch();
     if(!$old){$pdo->rollBack();respond(404,['ok'=>false,'error'=>'item_not_found']);}
+    if($old['review_state']==='removed'){$pdo->rollBack();
+      respond(409,['ok'=>false,'error'=>'item_removed']);}
     if((int)$old['revision']!==$expected){$pdo->rollBack();respond(409,['ok'=>false,
       'error'=>'revision_conflict','current_revision'=>(int)$old['revision']]);}
     $prev=json_decode((string)($old['draft_json']??''),true);
@@ -279,7 +402,7 @@ try {
     }
     $state='draft';
     $ready=($combined['GTIN']??'')===$old['ean']&&
-      !empty($combined['Artikelnummer'])&&!empty($combined['Artikelname'])&&
+      !empty($combined['Artikelname'])&&
       !empty($combined['Hersteller'])&&!empty($combined['Warengruppe'])&&
       !empty($combined['Steuerklasse'])&&$old['resolution']==='new_candidate';
     if(($body['mark_ready']??false)===true){
@@ -288,13 +411,15 @@ try {
       $match=resolve($pdo,(string)$old['ean']);
       if($match['resolution']!=='new_candidate'){$pdo->rollBack();
         respond(409,['ok'=>false,'error'=>'jtl_match_changed','resolution'=>$match['resolution']]);}
-      $sku=trim((string)$combined['Artikelnummer']);
-      $check=$pdo->prepare('SELECT COUNT(*) FROM hw24_jtl_articles WHERE source_id=
-         (SELECT source_id FROM hw24_jtl_sync_meta WHERE status="ready"
-           ORDER BY last_completed_utc DESC LIMIT 1) AND artikelnummer=?');
-      $check->execute([$sku]);
-      if((int)$check->fetchColumn()>0){$pdo->rollBack();
-        respond(409,['ok'=>false,'error'=>'artikelnummer_already_in_jtl']);}
+      $sku=trim((string)($combined['Artikelnummer']??''));
+      if($sku!==''){
+        $check=$pdo->prepare('SELECT COUNT(*) FROM hw24_jtl_articles WHERE source_id=
+           (SELECT source_id FROM hw24_jtl_sync_meta WHERE status="ready"
+             ORDER BY last_completed_utc DESC LIMIT 1) AND artikelnummer=?');
+        $check->execute([$sku]);
+        if((int)$check->fetchColumn()>0){$pdo->rollBack();
+          respond(409,['ok'=>false,'error'=>'artikelnummer_already_in_jtl']);}
+      }
       $state='ready';
     }
     $previousSources=json_decode((string)($old['source_json']??''),true);
