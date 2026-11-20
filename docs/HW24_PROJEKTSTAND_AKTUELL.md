@@ -5,7 +5,14 @@
 
 > **WICHTIG FÜR DIE FORTSETZUNG:** Beim nächsten Chat, Entwicklerauftrag oder GitHub-Arbeitsschritt **zuerst diese Seite lesen** und die letzten Commits/PRs vergleichen. Keine bereits abgeschlossenen Einrichtungs- und Backup-Schritte von vorn verlangen. Ein Sachstand darf nur aufgrund neuer Befunde geändert werden. Nicht stillschweigend auf `main`, eine andere Version oder einen alten PR zurückspringen.
 
-## NÄCHSTER SCHRITT 20.11.2026, 22:15 Uhr · PLESK TEST-DATENBANK
+## AKTUELLER MEILENSTEIN · V11/V12 DATENBANKINSTALLATION ERFOLGREICH GEMELDET
+
+- **Erledigt (Nutzerprotokoll):** PuTTY-Installer auf `root@admiring-elion` ausgeführt, Test-API und privaten Pfad erkannt, `TEST` bestätigt. Skript meldet die erfolgreiche Anlage der fünf neuen Scanlisten-/Amazon-Cache-Tabellen, minimal privilegierten Benutzer und privaten `scanlist-db.php`. Keine erneute Installation durchführen.
+- **Noch offen:** Echter End-to-End-Nachweis von Datenbankverbindung und Schreibvorgang im Browser. Nächster Schritt ist Testseite neu laden, Stapel `04-001` erstellen, EAN `8033219164159` erfassen und nach erneutem Laden die gespeicherte Position bestätigen.
+- **Fehlerprotokoll:** Nur falls der Scan fehlschlägt, gezielt die konkrete Meldung prüfen; keine allgemeinen Backups, Plesk-Pfade oder Serverinstallationen wiederholen.
+- **Quelle:** [GitHub-Arbeitsjournal](./HW24_ARBEITSJOURNAL.md), Eintrag „PuTTY-Installation V11/V12 auf Testserver“.
+
+## HISTORISCHER STAND VOR ERFOLGREICHER INSTALLATION · 20.11.2026, 22:15 Uhr · PLESK TEST-DATENBANK
 
 **Vom Nutzer per Screenshot belegt:** Neue Scanliste läuft als Website. Die separate Scanner-MariaDB-Anbindung ist noch nicht eingerichtet; neue Scan-Tabellen (V11) und Keyword-Cache-Tabelle (V12) fehlen laut lesender Diagnose oder sind dem aktuellen DB-Nutzer noch nicht sichtbar. Die Meldung „Bitte zuerst einen Stapel erstellen“ ist Folge der noch nicht funktionsfähigen Stapel-API; noch keine erfolgreiche Speicherung bestätigt.
 
