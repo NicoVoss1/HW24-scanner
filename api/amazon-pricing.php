@@ -28,8 +28,10 @@ if(!preg_match('/^[A-Z0-9]{10}$/D',$asin))
 $config=dirname(__DIR__,2).'/hw24_private/amazon/amazon_spapi.php';
 if(!is_file($config))send(503,['ok'=>false,'error'=>'private_config_missing']);
 function price(?array $v): ?array {
- if(!$v||!isset($v['Amount'])||!is_numeric($v['Amount']))return null;
- return ['amount'=>(float)$v['Amount'],'currency'=>(string)($v['CurrencyCode']??'EUR')];
+ if(!$v||!is_numeric($v['Amount']??null)||!is_string($v['CurrencyCode']??null)||
+   !preg_match('/^[A-Z]{3}$/D',$v['CurrencyCode']))return null;
+ $amount=(float)$v['Amount'];
+ return is_finite($amount)?['amount'=>$amount,'currency'=>$v['CurrencyCode']]:null;
 }
 function summaryPrices(array $list): array {
  $out=[];
@@ -38,6 +40,7 @@ function summaryPrices(array $list): array {
   $out[]=['condition'=>(string)($row['condition']??$row['Condition']??''),
    'fulfillment'=>(string)($row['fulfillmentChannel']??$row['FulfillmentChannel']??''),
    'listing_price'=>price(is_array($row['ListingPrice']??null)?$row['ListingPrice']:null),
+   'shipping'=>price(is_array($row['Shipping']??null)?$row['Shipping']:null),
    'landed_price'=>price(is_array($row['LandedPrice']??null)?$row['LandedPrice']:null)];
  }
  return $out;
@@ -86,9 +89,10 @@ try{
     ?['amount'=>round($item['amount']+$ship['amount'],2),'currency'=>$item['currency']]:null;
   $offers[]=[
    'seller_id'=>(string)($offer['SellerId']??''),
+   'is_own_offer'=>is_bool($offer['MyOffer']??null)?$offer['MyOffer']:null,
    'is_buybox_winner'=>($offer['IsBuyBoxWinner']??false)===true,
    'is_featured_merchant'=>($offer['IsFeaturedMerchant']??false)===true,
-   'is_fba'=>($offer['IsFulfilledByAmazon']??false)===true,
+   'is_fba'=>is_bool($offer['IsFulfilledByAmazon']??null)?$offer['IsFulfilledByAmazon']:null,
    'condition'=>(string)($offer['SubCondition']??''),
    'item_price'=>$item,'shipping'=>$ship,'total'=>$total,
    'seller_feedback'=>is_array($offer['SellerFeedbackRating']??null)?[

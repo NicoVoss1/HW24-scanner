@@ -76,7 +76,7 @@ try {
       'cAktiv','cTopArtikel','cTeilbar','cLagerAktiv','cLagerKleinerNull','cNeu',
       'cAnmerkung','nBearbeitungszeit','nLiefertageWennAusverkauft',
       'nAutomatischeLiefertageberechnung','kBenutzerLetzteAenderung',
-      'dMod','nLagerbestand','kSteuerklasse','fEKNetto','fLetzterEK',
+      'dMod','nLagerbestand','kSteuerklasse','fEKNetto','fLetzterEK','fGewicht','fArtGewicht',
       'kMassEinheit','fMassMenge','kGrundPreisEinheit','fGrundpreisMenge','nVPE','fVPEWert','kVPEEinheit','kVerkaufsEinheit','fPackeinheit',
       'fAmazonVK','fEbayPreis','fVKNetto','cASIN'];
     $fields=[];
@@ -121,6 +121,24 @@ try {
       ($article['warengruppe_name']===null || $article['warengruppe_name']==='');
     $article['steuerklasse_name']=$singleValue('steuerklasse','cName');
     $article['versandklasse_name']=$singleValue('versandklasse','cName');
+    $article['inhalt_menge']=$fields['fMassMenge']??null;
+    $article['masseinheit']=$singleValue('masseinheit','cDisplayCode')
+      ?:($singleValue('masseinheit','cCode')?:$singleValue('masseinheit','cUnitCode'));
+    $article['versandgewicht']=$fields['fGewicht']??null;
+    $article['artikelgewicht']=$fields['fArtGewicht']??null;
+    $article['lieferant']=null;
+    $article['lieferant_artikelnummer']=null;
+    $supplierRows=$related['lieferantenartikel']['rows']??null;
+    if (is_array($supplierRows) && empty($related['lieferantenartikel']['truncated'])) {
+      $supplierRows=array_values(array_filter($supplierRows,'is_array'));
+      $standard=array_values(array_filter($supplierRows,static fn(array $row)=>in_array($row['nStandard']??null,[1,'1',true],true)));
+      $supplier=count($standard)===1?$standard[0]:(count($supplierRows)===1?$supplierRows[0]:null);
+      $name=is_string($supplier['cFirma']??null)?trim($supplier['cFirma']):'';
+      $rawNumber=$supplier['cLiefArtNr']??null;
+      $number=is_string($rawNumber)||is_int($rawNumber)?trim((string)$rawNumber):'';
+      $article['lieferant']=$name!==''?$name:null;
+      $article['lieferant_artikelnummer']=$number!==''?$number:null;
+    }
     $article['bestand_verfuegbar']=$singleValue('bestand','fVerfuegbar');
     // ASIN candidates: linked to THIS JTL article only. Do not assume EAN:ASIN
     // is one-to-one. Multiple valid candidates stay separate and require review.

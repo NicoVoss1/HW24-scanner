@@ -8,12 +8,15 @@ const $=id=>document.getElementById(id),v=x=>String(x??'').trim();
 const labels=['Artikelnummer','GTIN','HAN','ASIN','Hersteller','Artikelname',
  'Kurzbeschreibung','Beschreibung','Warengruppe','Kosten','Netto-VK','Brutto-VK',
  'Steuerklasse','Kategorie Ebene 1','Kategorie Ebene 2','Inhalt/Menge',
- 'Maßeinheit','Ø EK netto (GLD)','Letzter EK (JTL)'];
+ 'Maßeinheit','Versandgewicht','Artikelgewicht','Lieferant','Artikelnummer (Lieferant)',
+ 'Ø EK netto (GLD)','Letzter EK (JTL)'];
 const liveMap={'Artikelnummer':'artikelnummer','GTIN':'ean','HAN':'han',
  'ASIN':'asin','Hersteller':'hersteller','Artikelname':'artikelname',
  'Kurzbeschreibung':'kurzbeschreibung','Beschreibung':'beschreibung',
  'Netto-VK':'netto_vk','Kosten':'kosten','Warengruppe':'warengruppe_name',
- 'Steuerklasse':'steuerklasse_name','Ø EK netto (GLD)':'netto_ek',
+ 'Steuerklasse':'steuerklasse_name','Inhalt/Menge':'inhalt_menge','Maßeinheit':'masseinheit',
+ 'Versandgewicht':'versandgewicht','Artikelgewicht':'artikelgewicht',
+ 'Lieferant':'lieferant','Artikelnummer (Lieferant)':'lieferant_artikelnummer','Ø EK netto (GLD)':'netto_ek',
  'Letzter EK (JTL)':'letzter_ek'};
 const alias={'artikelname':'Artikelname','name':'Artikelname','citemname':'Artikelname',
  'hersteller':'Hersteller','marke':'Hersteller','warengruppe':'Warengruppe',
@@ -25,7 +28,7 @@ const sensitive=new Set(['GTIN','HAN','ASIN','Kosten','Netto-VK','Brutto-VK',
  'Steuerklasse','Artikelnummer','Ø EK netto (GLD)','Letzter EK (JTL)']);
 const normalize=x=>v(x).normalize('NFKC').replace(/\s+/g,' ').toLocaleLowerCase('de');
 let scan='',record=null,baseline={},jtl=null,history=null,origins=new Map(),pending=new Set(),blocked=new Set(),edited=new Set();
-let basket=[],main,info,table,confirmBtn,basketList,basketMessage,finished=false;
+let basket=[],main,info,table,confirmBtn,basketList,basketMessage,finished=false,reviewedGroup=false;
 const maxBasket=100;
 const css=document.createElement('style');
 css.textContent='.hw24-sources{background:#fff;border:1px solid #d3dfed;border-radius:12px;padding:14px;margin:13px 0}.hw24-sources h3{margin:0 0 7px}.hw24-sources p{font-size:13px;color:#53667f}.hw24-sources details{margin-top:12px}.hw24-sources details>summary{cursor:pointer;font-weight:700}.hw24-sources table{width:100%;border-collapse:collapse;display:table;max-width:100%}.hw24-sources table tr{display:table-row}.hw24-sources table td,.hw24-sources table th{font-size:12px;display:table-cell;white-space:normal;word-break:break-word;border-bottom:1px solid #e4eaf3;padding:8px 5px;text-align:left}.hw24-source-live{color:#166b42;font-weight:700}.hw24-source-history{color:#905900;font-weight:700}.hw24-source-missing{color:#a83239}.hw24-small-basket{padding:9px;border:1px solid #d3dfed;border-radius:9px;margin:8px 0;background:#f6f9fd}.hw24-small-basket button{background:#eef3fa;color:#163966}.hw24-sources button{margin:6px 8px 6px 0}.hw24-sources [hidden]{display:none!important}';
@@ -50,7 +53,7 @@ function start(){
  scanNode.after(main);
 }
 function begin(e,rec){
- scan=v(e);record=rec||null;baseline={...(record||{})};jtl=null;history=null;
+ scan=v(e);record=rec||null;baseline={...(record||{})};jtl=null;history=null;reviewedGroup=false;
  origins.clear();pending.clear();blocked.clear();edited.clear();finished=false;render();
 }
 function storeJtl(e,data){if(scan===v(e))jtl=data;}
@@ -94,22 +97,18 @@ function reconcile(e,rec){
  if(scan!==v(e)||!rec||record!==rec)return;
  const live=jtl?.jtl_status==='current_snapshot'&&jtl.matches?.length===1?jtl.matches[0]:null;
  const {found,conflicts}=historicCandidates();
- // For an EXISTING JTL article the foreign key is authoritative.
- // The CSV "Haarstyling" must never masquerade as a resolved JTL group.
+ // Resolve the JTL group from its foreign key without replacing an approved HW24 value.
  const jtlGroupId=v(live?.warengruppe_id||live?.jtl_source_fields?.kWarengruppe);
  const jtlGroupName=v(live?.warengruppe_name);
  if(live && (jtlGroupId||jtlGroupName)){
    const input=[...document.querySelectorAll('#fields .field')]
      .find(x=>x.querySelector('label')?.textContent==='Warengruppe')
      ?.querySelector('input,textarea');
-   if(jtlGroupName){
+   if(jtlGroupName)blocked.delete('Warengruppe');
+   else blocked.add('Warengruppe');
+   if(!reviewedGroup){
      record.Warengruppe=jtlGroupName;
-     blocked.delete('Warengruppe');
      if(input && input.dataset.userEdited!=='1')input.value=jtlGroupName;
-   }else{
-     record.Warengruppe='';
-     blocked.add('Warengruppe');
-     if(input && input.dataset.userEdited!=='1')input.value='';
    }
  }
  const preset=window.hw24ApplyTemplateDefaults?.(record,jtl)||[];
@@ -221,6 +220,11 @@ function onEdit(ev){
  render();
 }
 document.addEventListener('input',onEdit);
+document.addEventListener('hw24:curated-applied',event=>{
+ const {ean,fields}=event.detail||{};
+ if(ean&&record&&[scan,v(record.GTIN),v(record.EAN)].includes(ean))
+  reviewedGroup=Boolean(v(fields?.Warengruppe));
+});
 window.hw24SmartScanBegin=begin;
 window.hw24SmartScanJtl=storeJtl;
 window.hw24SmartScanHistory=storeHistory;

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 /**
- * Read-only Amazon Product Fees v0 estimate for an ASIN and own hypothetical gross price.
+ * Read-only Amazon Product Fees v0 estimate for a seller SKU or ASIN and a gross price.
  * Never saves estimated prices or fees and never updates Amazon/JTL.
  * A fee estimate is not a tax invoice or guaranteed final seller payout.
  */
@@ -14,19 +14,43 @@ function failFees(int $status, array $data): void {
  echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE|JSON_PARTIAL_OUTPUT_ON_ERROR);
  exit;
 }
+function feeAmount($money): ?float {
+ if(!is_array($money)||($money['CurrencyCode']??null)!=='EUR'||!is_numeric($money['Amount']??null))return null;
+ $amount=(float)$money['Amount'];
+ return is_finite($amount)?round($amount,2):null;
+}
+function feeDetails($rows): array {
+ $details=[];
+ foreach(array_slice(is_array($rows)?$rows:[],0,30) as $fee){
+  if(!is_array($fee)||!is_string($fee['FeeType']??null))continue;
+  $base=feeAmount($fee['FeeAmount']??null);
+  $promotion=feeAmount($fee['FeePromotion']??null);
+  $tax=feeAmount($fee['TaxAmount']??null);
+  $final=feeAmount($fee['FinalFee']??null)??($base!==null?round($base-($promotion??0),2):null);
+  if($final===null)continue;
+  $details[]=['type'=>$fee['FeeType'],'amount'=>$final,'currency'=>'EUR',
+   'base_amount'=>$base,'promotion_amount'=>$promotion,'tax_amount'=>$tax];
+ }
+ return $details;
+}
 if(($_SERVER['REQUEST_METHOD']??'')!=='GET'){header('Allow: GET');failFees(405,['ok'=>false,'error'=>'method_not_allowed']);}
 $auth=$_SERVER['PHP_AUTH_USER']??$_SERVER['REMOTE_USER']??$_SERVER['REDIRECT_REMOTE_USER']??'';
 if($auth==='')failFees(403,['ok'=>false,'error'=>'site_authentication_required']);
 if(($_SERVER['HTTPS']??'')!=='on'&&($_SERVER['HTTP_X_FORWARDED_PROTO']??'')!=='https')
  failFees(403,['ok'=>false,'error'=>'https_required']);
-$asin=strtoupper(trim((string)($_GET['asin']??'')));
+$asin=is_string($_GET['asin']??null)?strtoupper(trim($_GET['asin'])):'';
 if(!preg_match('/^[A-Z0-9]{10}$/D',$asin))failFees(400,['ok'=>false,'error'=>'invalid_asin']);
+$sku=$_GET['seller_sku']??'';
+if(!is_string($sku)||($sku!==''&&(!preg_match('/^[^\p{C}]{1,40}$/uD',$sku)||trim($sku)===''||in_array($sku,['.','..'],true))))
+ failFees(400,['ok'=>false,'error'=>'invalid_seller_sku']);
 $price=filter_var($_GET['price']??null,FILTER_VALIDATE_FLOAT);
 $shipping=filter_var($_GET['shipping']??'0',FILTER_VALIDATE_FLOAT);
-if($price===false||$price<=0||$price>100000||$shipping===false||$shipping<0||$shipping>10000)
+if($price===false||$price<0.01||$price>100000||$shipping===false||$shipping<0||$shipping>10000)
  failFees(400,['ok'=>false,'error'=>'invalid_price']);
 $price=round((float)$price,2);$shipping=round((float)$shipping,2);
-$fulfilled=($_GET['fulfillment']??'FBM')==='FBA';
+$fulfillment=$_GET['fulfillment']??'FBM';
+if(!in_array($fulfillment,['FBA','FBM'],true))failFees(400,['ok'=>false,'error'=>'invalid_fulfillment']);
+$fulfilled=$fulfillment==='FBA';
 $marketplace='A1PA6795UKMFR9';
 $config=dirname(__DIR__,2).'/hw24_private/amazon/amazon_spapi.php';
 if(!is_file($config))failFees(503,['ok'=>false,'error'=>'private_config_missing']);
@@ -52,9 +76,10 @@ try {
    'ListingPrice'=>['CurrencyCode'=>'EUR','Amount'=>$price],
    'Shipping'=>['CurrencyCode'=>'EUR','Amount'=>$shipping]
   ],
-  'Identifier'=>'hw24-'.substr(hash('sha256',$asin.'|'.$price.'|'.$shipping.'|'.(int)$fulfilled),0,18)
+  'Identifier'=>'hw24-'.substr(hash('sha256',$asin.'|'.$sku.'|'.$price.'|'.$shipping.'|'.(int)$fulfilled),0,18)
  ]];
- $handle=curl_init('https://sellingpartnerapi-eu.amazon.com/products/fees/v0/items/'.rawurlencode($asin).'/feesEstimate');
+ $itemPath=$sku!==''?'listings/'.rawurlencode($sku):'items/'.rawurlencode($asin);
+ $handle=curl_init('https://sellingpartnerapi-eu.amazon.com/products/fees/v0/'.$itemPath.'/feesEstimate');
  curl_setopt_array($handle,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode($payload,JSON_THROW_ON_ERROR),
   CURLOPT_HTTPHEADER=>['Content-Type: application/json','Accept: application/json',
    'x-amz-access-token: '.$token['access_token'],'User-Agent: HW24-Scanner/1.0 (Language=PHP)'],
@@ -71,21 +96,12 @@ try {
  if(!is_array($root))throw new RuntimeException('fees_response_missing');
  $estimate=is_array($root['FeesEstimate']??null)?$root['FeesEstimate']:[];
  $state=(string)($root['Status']??'Unknown');
- $total=$estimate['TotalFeesEstimate']??null;
- $totalValue=is_array($total)&&is_numeric($total['Amount']??null)?round((float)$total['Amount'],2):null;
- $details=[];
- foreach(array_slice(is_array($estimate['FeeDetailList']??null)?$estimate['FeeDetailList']:[],0,30) as $fee){
-  if(!is_array($fee))continue;
-  $v=$fee['FeeAmount']??null;
-  $details[]=['type'=>(string)($fee['FeeType']??'Other'),
-   'amount'=>is_array($v)&&is_numeric($v['Amount']??null)?round((float)$v['Amount'],2):null,
-   'currency'=>(string)($v['CurrencyCode']??'EUR')];
- }
+ $totalValue=$state==='Success'?feeAmount($estimate['TotalFeesEstimate']??null):null;
  failFees(200,['ok'=>$totalValue!==null,'status'=>$state,
   'error'=>$totalValue===null?'estimate_not_available':null,
-  'asin'=>$asin,'marketplace_id'=>$marketplace,'fulfillment'=>$fulfilled?'FBA':'FBM',
+  'asin'=>$asin,'seller_sku'=>$sku!==''?$sku:null,'marketplace_id'=>$marketplace,'fulfillment'=>$fulfillment,
   'listing_gross_price'=>$price,'shipping_charged_to_buyer'=>$shipping,
-  'total_estimated_fees'=>$totalValue,'currency'=>'EUR','fee_breakdown'=>$details,
+  'total_estimated_fees'=>$totalValue,'currency'=>'EUR','fee_breakdown'=>feeDetails($estimate['FeeDetailList']??null),
   'retrieved_at_utc'=>gmdate('c'),
   'note'=>'Amazon fee estimate; not a tax invoice, final payout or guaranteed profit.']);
 }catch(Throwable $e){

@@ -4,42 +4,73 @@
 (function(){
 'use strict';
 const $=id=>document.getElementById(id),v=x=>String(x??'').trim();
-const keyFields=['Artikelname','Hersteller','Warengruppe','Inhalt/Menge','Maßeinheit','Kosten','Netto-VK','Steuerklasse','ASIN'];
+const keyFields=['Artikelname','Hersteller','Warengruppe','Inhalt/Menge','Maßeinheit','Kosten','Netto-VK','Steuerklasse','Versandgewicht','Lieferant','ASIN'];
 const prices=new Set(['Kosten','Netto-VK','Brutto-VK']);
 const locked=new Set(['Ø EK netto (GLD)','Letzter EK (JTL)','Datum letzter EK']);
-let main,fields,additional,extraNumber,meta,stateLine,warning,approveBtn,exportBtn,exportMsg,queue,queueMsg,queueBtn,profileSelect,catalogNote,catalogTable,manualChanges=new Set(),confirmed={},saveState={};
+const fieldViews=new Map(),drafts=new Map();
+let main,fields,additional,extraNumber,meta,stateLine,warning,approveBtn,exportBtn,exportMsg,queue,queueMsg,queueBtn,profileSelect,catalogNote,catalogTable,confirmed={};
 function node(tag,label,parent,cls){
  const e=document.createElement(tag);if(label!==undefined)e.textContent=label;
  if(cls)e.className=cls;if(parent)parent.append(e);return e;
 }
 const source=()=>window.hw24SourceState?.()||{};
 const empty=(k,x)=>!v(x)||(prices.has(k)&&!(Number(v(x).replace(',','.'))>0));
-const provenance=k=>Object.prototype.hasOwnProperty.call(confirmed,k)&&v(confirmed[k])===v(source().record?.[k])?{kind:'reviewed',name:'✓ Dauerhaft geprüft · HW24-Datenbank'}:
-  manualChanges.has(k)?{kind:'manual',name:'Manuell bearbeitet · Speicherung läuft'}:
+const provenance=(k,record)=>Object.hasOwn(confirmed,k)&&v(confirmed[k])===v(record?.[k])?{kind:'reviewed',name:'✓ Dauerhaft geprüft · HW24-Datenbank'}:
  window.hw24SourceFor?.(k)||{kind:'draft',name:'Quelle noch nicht bestätigt'};
 function legacyControl(k){
  return [...($('fields')?.querySelectorAll('.field')||[])].find(x=>v(x.querySelector('label')?.textContent)===k)?.querySelector('input,textarea');
 }
-function changed(k,newValue){
- const s=source();if(!s.record||!s.finished)return;
- if(['Artikelnummer','GTIN'].includes(k)&&s.jtl?.matches?.length===1)return;
- s.record[k]=v(newValue);manualChanges.add(k);
+function applyToWorkspace(k,value,s){
+ s.record[k]=value;
  const old=legacyControl(k);
- if(old&&!old.readOnly){old.value=v(newValue);old.dispatchEvent(new Event('input',{bubbles:true}));}
+ if(old&&!old.readOnly){old.value=value;old.dispatchEvent(new Event('input',{bubbles:true}));}
  window.hw24MarkEdited?.(k);
  window.hw24BatchRefresh?.();
  window.hw24AmeiseCurrent?.(s.record);
  window.hw24ProfileCurrent?.(s.record);
  window.hw24NamingRefresh?.();
- render();
- if(v(newValue))window.hw24CuratedSaveField?.(k,v(newValue));
 }
-function field(k,target){
- const s=source(),value=v(s.record?.[k]),missing=empty(k,value),src=provenance(k);
- const item=node('div',undefined,target,'hw24-desk-field'+(missing?' missing':''));item.dataset.field=k;
+function draftField(k,view){
+ if(view.input.disabled)return;
+ drafts.set(k,{status:'dirty',value:view.input.value});
+ updateField(k,view,source());
+}
+async function saveField(k,view,explicit=false){
+ if(view.input.disabled)return;
+ const s=source(),previous=drafts.get(k);
+ if(!s.record||previous?.status==='saving'||(!explicit&&previous?.status!=='dirty'))return;
+ const value=v(view.input.value);
+ if(!window.hw24CuratedCanSaveField?.(k)){
+  drafts.delete(k);
+  applyToWorkspace(k,value,s);
+  render();
+  return;
+ }
+ if(!value){
+  drafts.set(k,{status:'error',value:view.input.value,message:'Bitte einen Wert zum Speichern eingeben.'});
+  updateField(k,view,s);
+  return;
+ }
+ const pending={status:'saving',value};
+ drafts.set(k,pending);
+ updateField(k,view,s);
+ const result=await window.hw24CuratedSaveField(k,value);
+ if(source().record!==s.record||fieldViews.get(k)!==view)return;
+ if(result.ok){
+  confirmed={...confirmed,[k]:value};
+  applyToWorkspace(k,value,s);
+ }
+ if(drafts.get(k)===pending){
+  if(result.ok)drafts.delete(k);
+  else drafts.set(k,{status:'error',value,message:result.message});
+ }
+ render();
+}
+function makeField(k,value){
+ const item=node('div',undefined,null,'hw24-desk-field');item.dataset.field=k;
  const label=node('label',undefined,item);
  node('strong',k,label);
- node('small',missing?'Fehlt':src.kind==='live'?'JTL':src.kind==='history'?'Historie':src.kind==='manual'?'Speichert':src.kind==='reviewed'?'Gespeichert':'Prüfen',label,'hw24-desk-badge '+(missing?'missing':src.kind));
+ const badge=node('small',undefined,label,'hw24-desk-badge');
  const selectOptions={
   'Warengruppe':['Haarfarben','Haarpflege','Haarstyling','Beauty','Haarschmuck','Sammelkarten'],
   'Steuerklasse':['Normaler Steuersatz','Ermäßigter Steuersatz','Steuerfrei'],
@@ -51,29 +82,73 @@ function field(k,target){
  };
  const textarea=['Beschreibung','Kurzbeschreibung','Artikelname'].includes(k)&&value.length>160;
  const isSelect=Object.hasOwn(selectOptions,k);
- const input=node(isSelect?'select':textarea?'textarea':'input',undefined,item);
- if(isSelect){
-  const options=[...new Set(['',value,...selectOptions[k]])];
-  for(const option of options){
-    const o=node('option',option||'Bitte auswählen',input);
-    o.value=option;
-  }
- }else if(!textarea)input.type='text';
- input.value=value;
- if(!isSelect)input.placeholder=missing?'Fehlenden Wert eintragen':'';
+ const editor=node('div',undefined,item,'hw24-desk-editor');
+ const input=node(isSelect?'select':textarea?'textarea':'input',undefined,editor);
+ input.id='hw24DeskField'+fieldViews.size;
+ label.htmlFor=input.id;
+ if(isSelect)for(const option of ['',...selectOptions[k]])node('option',option||'Bitte auswählen',input).value=option;
+ else if(!textarea)input.type='text';
+ if(k==='Inhalt/Menge'||k==='Versandgewicht'||k==='Artikelgewicht')input.inputMode='decimal';
+ const apply=node('button','Übernehmen',editor,'hw24-desk-apply');apply.type='button';
+ apply.setAttribute('aria-label',k+' übernehmen');
+ const origin=node('small',undefined,item,'hw24-desk-origin');
+ origin.id=input.id+'Status';
+ origin.setAttribute('role','status');
+ input.setAttribute('aria-describedby',origin.id);
+ const reference=node('small',undefined,item,'hw24-desk-origin');
+ const view={item,input,badge,origin,reference,apply,isSelect};
+ fieldViews.set(k,view);
+ input.addEventListener('input',()=>draftField(k,view));
+ input.addEventListener('change',()=>{
+  if(!isSelect)return;
+  if(drafts.get(k)?.value!==input.value)draftField(k,view);
+  void saveField(k,view);
+ });
+ input.addEventListener('blur',()=>{void saveField(k,view);});
+ input.addEventListener('keydown',e=>{
+  if(isSelect||e.key!=='Enter'||e.isComposing||e.shiftKey)return;
+  e.preventDefault();
+  void saveField(k,view,true);
+ });
+ apply.addEventListener('click',()=>{void saveField(k,view,true);});
+ return view;
+}
+function updateField(k,{item,input,badge,origin,reference,apply,isSelect},s){
+ const draft=drafts.get(k),value=draft?.value??v(s.record?.[k]),missing=empty(k,value),src=provenance(k,s.record);
+ item.classList.toggle('missing',missing&&!draft);
+ item.dataset.saveState=draft?.status||(src.kind==='reviewed'?'reviewed':'');
+ const status=draft?.status||(missing?'missing':src.kind);
+ badge.className='hw24-desk-badge '+status;
+ badge.textContent=({dirty:'Offen',saving:'Speichert …',error:'Nicht gespeichert',missing:'Fehlt',live:'JTL',history:'Historie',manual:'Entwurf',reviewed:'Gespeichert'})[status]||'Prüfen';
  input.disabled=!s.finished||locked.has(k)||(['Artikelnummer','GTIN'].includes(k)&&s.jtl?.matches?.length===1);
- input.addEventListener('change',()=>changed(k,input.value));
- const origin=node('small',missing?'Nicht belegt':src.name,item,'hw24-desk-origin');
- if(src.kind==='reviewed'){item.style.background='#f1fbf5';item.style.borderColor='#81ba96';origin.style.color='#1e784a';}
- if(saveState[k]?.status==='error'){origin.textContent='⚠ '+saveState[k].message;origin.style.color='#b23c39';}
+ if(isSelect&&value&&![...input.options].some(option=>option.value===value))node('option',value,input).value=value;
+ if(input.value!==value)input.value=value;
+ if(!isSelect)input.placeholder=missing?'Fehlenden Wert eintragen':'';
+ apply.hidden=input.disabled;
+ const feedback={dirty:'Mit Enter, Übernehmen oder beim Verlassen des Felds bestätigen.',saving:'Wird in der HW24-Datenbank gespeichert …',error:draft?.message};
+ const message=draft?feedback[draft.status]:missing?'Nicht belegt':src.name;
+ if(origin.textContent!==message)origin.textContent=message;
+ reference.textContent='';
  if(k==='Inhalt/Menge'||k==='Maßeinheit'){
   const article=s.jtl?.jtl_status==='current_snapshot'&&s.jtl.matches?.length===1?s.jtl.matches[0]:null;
   if(article){
    const raw=article.jtl_source_fields||{},mass=article.related_sources?.masseinheit?.rows||[];
-   const q=v(raw.fMassMenge),code=mass.length===1?v(mass[0].cDisplayCode||mass[0].cCode||mass[0].cUnitCode):'';
-   if(k==='Inhalt/Menge'&&q&&Number.isFinite(Number(q))&&Number(q)>0)node('small','JTL-Inhalt: '+Number(q).toLocaleString('de-DE')+(code?' '+code:''),item,'hw24-desk-origin');
-   if(k==='Maßeinheit'&&code)node('small','JTL-Maßeinheit: '+code,item,'hw24-desk-origin');
+   const q=v(article.inhalt_menge??raw.fMassMenge);
+   const code=v(article.masseinheit)||(mass.length===1?v(mass[0].cDisplayCode||mass[0].cCode||mass[0].cUnitCode):'');
+   if(k==='Inhalt/Menge'&&q&&Number.isFinite(Number(q))&&Number(q)>=0)reference.textContent='JTL-Inhalt: '+Number(q).toLocaleString('de-DE')+(code?' '+code:'');
+   if(k==='Maßeinheit'&&code)reference.textContent='JTL-Maßeinheit: '+code;
   }
+ }
+ reference.hidden=!reference.textContent;
+}
+function renderFields(target,keys,s){
+ for(const item of [...target.children])if(!keys.includes(item.dataset.field))item.remove();
+ let next=target.firstElementChild;
+ for(const k of keys){
+  const view=fieldViews.get(k)||makeField(k,v(s.record?.[k]));
+  if(view.item!==next)target.insertBefore(view.item,next);
+  next=view.item.nextElementSibling;
+  updateField(k,view,s);
  }
 }
 function renderSourcesCatalog(){
@@ -156,12 +231,9 @@ function render(){
  const selected=window.hw24TemplateExportFields?.()||[];
  const all=[...new Set([...keyFields,...selected])];
  const gaps=all.filter(k=>empty(k,r[k]));
- const first=keyFields;
- fields.replaceChildren();
- for(const k of first)field(k,fields);
- additional.replaceChildren();
- const visible=new Set(first),rest=all.filter(k=>!visible.has(k));
- for(const k of rest)field(k,additional);
+ const rest=all.filter(k=>!keyFields.includes(k));
+ renderFields(fields,keyFields,s);
+ renderFields(additional,rest,s);
  extraNumber.textContent=' · '+rest.length+' Felder';
  warning.hidden=false;
  warning.textContent=s.finished?gaps.length+' offene Vorlagenfelder (Details aufklappen). '+(s.pending?.length||0)+' historische Vorschläge prüfen.'+((s.blocked||[]).includes('Warengruppe')?' ⚠ JTL-Warengruppe-ID vorhanden, Klarname nicht synchronisiert. Kein Ameise-Export mit vermuteter Kategorie.':''):
@@ -271,7 +343,9 @@ function make(){
  }
  const originalStart=window.hw24SmartScanBegin,originalFinish=window.hw24SmartScanFinish;
  if(typeof originalStart==='function')window.hw24SmartScanBegin=(...args)=>{
-  manualChanges.clear();confirmed={};saveState={};const x=originalStart(...args);render();return x;
+  fieldViews.clear();drafts.clear();confirmed={};
+  fields.replaceChildren();additional.replaceChildren();
+  const x=originalStart(...args);render();return x;
  };
  if(typeof originalFinish==='function')window.hw24SmartScanFinish=(...args)=>{
   const x=originalFinish(...args);render();return x;
@@ -283,13 +357,6 @@ document.addEventListener('hw24:curated-applied',event=>{
  const record=source().record;
  if(!record||![v(record.GTIN),v(record.EAN),v(record.Suchbegriff)].includes(v(data.ean)))return;
  confirmed=data.fields||{};
- for(const key of Object.keys(confirmed))manualChanges.delete(key);
- render();
-});
-document.addEventListener('hw24:curated-save-status',event=>{
- const detail=event.detail||{},record=source().record;
- if(!record||![v(record.GTIN),v(record.EAN),v(record.Suchbegriff)].includes(v(detail.ean)))return;
- saveState[detail.key]={status:detail.status,message:detail.message||''};
  render();
 });
 window.hw24WorkdeskRender=render;

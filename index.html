@@ -42,19 +42,30 @@
 .scan-autofill{border:1px solid #e2bb4b;background:#fff7e0}
 button:disabled{opacity:.55;cursor:not-allowed}
 </style>
-<link rel="stylesheet" href="assets/hw24-ui.css?v=4.3"><link rel="stylesheet" href="assets/hw24-workdesk.css?v=4.18"><link rel="stylesheet" href="assets/hw24-operations.css?v=4.20"><link rel="stylesheet" href="assets/hw24-batch.css?v=4.15">
-<header class="hw24-hero">
-  <div class="hw24-eyebrow">HAIRWORLD24 · E-COMMERCE</div>
-  <h1>HW24 Artikelmanager <small>v4.22 TEST</small></h1>
-  <p>EAN scannen, Artikel erkennen, Daten aus JTL und Amazon vergleichen und fehlende Angaben gezielt ergänzen. Änderungen bleiben prüfbare Entwürfe.</p>
-  <div class="hw24-status-strip">
-    <span id="jtlApiState" role="status" class="note" data-state="loading">JTL-Synchronisation wird geprüft …</span>
-    <button type="button" class="scan-secondary" id="jtlApiCheck">↻ Status aktualisieren</button>
+<link rel="stylesheet" href="assets/hw24-ui.css?v=4.35"><link rel="stylesheet" href="assets/hw24-workdesk.css?v=4.35"><link rel="stylesheet" href="assets/hw24-operations.css?v=4.20"><link rel="stylesheet" href="assets/hw24-batch.css?v=4.15">
+<header class="hw24-header">
+  <div class="hw24-header-title">
+    <p>Hairworld24</p>
+    <h1>Artikelmanager <small>Test · v4.35</small></h1>
   </div>
+  <div class="hw24-status-strip">
+    <div id="jtlApiState" role="status" data-state="loading">
+      <strong id="jtlApiLabel">JTL-Spiegel wird geprüft …</strong>
+      <small id="jtlApiDetail"></small>
+    </div>
+    <button type="button" id="jtlApiCheck">Status prüfen</button>
+  </div>
+  <nav class="hw24-focus-nav" aria-label="Arbeitsbereiche">
+    <button type="button" aria-current="true" data-focus-go="scan">Artikelprüfung</button>
+    <button type="button" data-focus-go="edit">Stammdaten</button>
+    <button type="button" data-focus-go="export">JTL-Export</button>
+    <button type="button" data-focus-go="tools">Werkzeuge</button>
+  </nav>
 </header>
 <section id="hw24Project"><details>
-<summary><strong>📋 Projektfortschritt · Artikelmanager v4.22 TEST</strong></summary>
+<summary><strong>Projektfortschritt</strong></summary>
 <p class="note">Technischer Ausbaustand und verfügbare Datenquellen. Aktuelle JTL-Artikel werden über den SQL-MariaDB-Spiegel abgefragt.</p>
+<p id="jtlApiCapabilities" class="note"></p>
 <ol id="hw24Milestones"></ol>
 </details></section>
 <section id="importArea"><h3>📂 Optional: JTL-CSV für Massenprüfung laden</h3>
@@ -145,6 +156,14 @@ function dateField(k){return /(?:^|\s)(?:datum|date|termin)(?:\b|$)/i.test(k)||/
 let historicalLookupSeq=0;
 let sourceLookupSeq=0;
 let lastResolvedGtin='';
+let approvedArticleFields={};
+const jtlFactFields={
+ 'Netto-VK':'netto_vk','Ø EK netto (GLD)':'netto_ek','Letzter EK (JTL)':'letzter_ek',
+ 'Kosten':'kosten','Warengruppe':'warengruppe_name','Steuerklasse':'steuerklasse_name',
+ 'Inhalt/Menge':'inhalt_menge','Maßeinheit':'masseinheit','Artikelgewicht':'artikelgewicht',
+ 'Versandgewicht':'versandgewicht','Lieferant':'lieferant','Artikelnummer (Lieferant)':'lieferant_artikelnummer'
+};
+document.addEventListener('hw24:scan-start',()=>{approvedArticleFields={};});
 function goodGtin(value){
   if(!/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(value)||/^0+$/.test(value))return false;
   let sum=0,weight=3;
@@ -201,8 +220,12 @@ async function lookupProductSources(ean){
         $('status').textContent='Produktpflege: Artikel im aktuellen JTL-Spiegel gefunden.';
         const r=m[0];
         if(current)current.Status='JTL_GEFUNDEN';
-        for(const [k,v] of Object.entries({'Artikelnummer':r.artikelnummer,'GTIN':r.ean,'HAN':r.han,'ASIN':r.asin,'Artikelname':r.artikelname,'Kurzbeschreibung':r.kurzbeschreibung,'Beschreibung':r.beschreibung,'Hersteller':r.hersteller,'Kosten':r.kosten,'Warengruppe':r.warengruppe_name,'Steuerklasse':r.steuerklasse_name,'Netto-VK':r.netto_vk,'Ø EK netto (GLD)':r.netto_ek,'Letzter EK (JTL)':r.letzter_ek,'Datum letzter EK':r.letzter_ek_datum})){
-          if(!val(v)||!current)continue;
+        const jtlFields={'Artikelnummer':r.artikelnummer,'GTIN':r.ean,'HAN':r.han,'ASIN':r.asin,
+          'Artikelname':r.artikelname,'Kurzbeschreibung':r.kurzbeschreibung,'Beschreibung':r.beschreibung,
+          'Hersteller':r.hersteller,'Datum letzter EK':r.letzter_ek_datum};
+        for(const [key,column] of Object.entries(jtlFactFields))jtlFields[key]=r[column];
+        for(const [k,v] of Object.entries(jtlFields)){
+          if(!val(v)||!current||Object.hasOwn(approvedArticleFields,k))continue;
           const box=[...$('fields').querySelectorAll('.field')].find(x=>x.querySelector('label')?.textContent===k);
           const input=box?.querySelector('input,textarea');
           if(input?.dataset.userEdited==='1')continue;
@@ -349,6 +372,7 @@ window.hw24AmazonLookup?.(goodGtin(e)?e:"");window.hw24CuratedLookup?.(goodGtin(
    if(!current||!fields||typeof fields!=='object')return;
    const id=val(ean);
    if(!id||![val(current.Suchbegriff),val(current.GTIN),val(current.EAN),val(lastResolvedGtin)].includes(id))return;
+   approvedArticleFields=fields;
    let changes=0;
    for(const [key,raw] of Object.entries(fields)){
      if(raw===null||raw===undefined)continue;
@@ -496,7 +520,7 @@ $('auditCancel').onclick=()=>{$('auditEditor').hidden=true;auditEditing=-1};
 $('auditAuto').onclick=()=>{let count=0;for(let i=0;i<data.length;i++){if(!auditSelected.has(auditId(data[i],i)))continue;let p=auditSuggest(data[i],i);if(Object.keys(p).length){auditApply(i,p);count++}}auditRender();alert(count+' ausgewählte Artikel mit sicheren Vorschlägen ergänzt. Bitte alle Vorschläge prüfen.')};
 $('auditFilter').onchange=auditRender;$('auditSearch').oninput=auditRender;
 $('auditExport').onclick=()=>{if(!auditDrafts.size){alert('Noch keine Änderungen vorhanden');return}let keys=['Artikelnummer',...new Set([...auditDrafts.values()].flatMap(Object.keys))].filter(k=>!isExcludedEditorField(k)&&k!=='Interner Schlüssel'&&k!=='GTIN'&&k!=='HAN'&&k!=='ASIN');let quote=v=>'"'+val(v).replace(/"/g,'""')+'"';let lines=[keys.map(quote).join(';')];for(let i=0;i<data.length;i++){let r=data[i],d=auditDrafts.get(auditId(r,i));if(!d)continue;lines.push(keys.map(k=>quote(k==='Artikelnummer'?r.Artikelnummer:Object.hasOwn(d,k)?d[k]:r[k])).join(';'))}let blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='HW24_JTL_Ameise_AENDERUNGEN_ZUERST_PRUEFEN.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};
-</script><script src="assets/kanalcheck.js?v=4.1"></script><script src="assets/ameise.js?v=4.16"></script><script src="assets/hw24-vorlagen.js?v=4.15"></script><script src="assets/scanflow.js?v=4.8"></script><script src="assets/jtl-profil.js?v=4.15"></script><script src="assets/qualitaet.js?v=4.15"></script><script src="assets/reiter.js?v=4.21"></script><script src="assets/api-status.js?v=4.4"></script><script src="assets/hw24-smartscan.js?v=4.15"></script><script src="assets/hw24-workdesk.js?v=4.18"></script><script src="assets/hw24-operations.js?v=4.20"></script><script src="assets/hw24-batch.js?v=4.18"></script>
+</script><script src="assets/kanalcheck.js?v=4.1"></script><script src="assets/ameise.js?v=4.16"></script><script src="assets/hw24-vorlagen.js?v=4.15"></script><script src="assets/scanflow.js?v=4.8"></script><script src="assets/jtl-profil.js?v=4.15"></script><script src="assets/qualitaet.js?v=4.15"></script><script src="assets/reiter.js?v=4.21"></script><script src="assets/api-status.js?v=4.35"></script><script src="assets/hw24-smartscan.js?v=4.35"></script><script src="assets/hw24-workdesk.js?v=4.35"></script><script src="assets/hw24-operations.js?v=4.20"></script><script src="assets/hw24-batch.js?v=4.18"></script>
 <script>
 (function(){
   // Keep EAN scanning first; CSV uploads and project status remain available below.
@@ -504,7 +528,7 @@ $('auditExport').onclick=()=>{if(!auditDrafts.size){alert('Noch keine Änderunge
   const project=document.getElementById('hw24Project');
   if(scan&&project)project.before(scan);
 })();
-</script><script src="assets/amazon-catalog.js?v=1.1"></script><script src="assets/amazon-market.js?v=1.1"></script><script src="assets/hw24-curated.js?v=1.3"></script><script src="assets/hw24-economics.js?v=1.1"></script>
+</script><script src="assets/amazon-catalog.js?v=1.1"></script><script src="assets/amazon-market.js?v=4.35"></script><script src="assets/hw24-curated.js?v=4.35"></script><script src="assets/hw24-economics.js?v=4.35"></script>
 <script>
 (function(){
   'use strict';
@@ -570,10 +594,6 @@ $('auditExport').onclick=()=>{if(!auditDrafts.size){alert('Noch keine Änderunge
 /* HW24 Artikelfokus v4.22 | additive UI layer, no existing feature removed */
 :root{--fink:#14243d;--fnavy:#163a6b;--fmuted:#65758c;--fedge:#e1e8f0;--fsoft:#f5f8fc;--fgreen:#087f5b;--famber:#a26307;--fblue:#2864ab;--fshadow:0 10px 34px rgba(24,48,84,.055)}
 html{scroll-behavior:smooth}body{max-width:1260px!important;margin:0 auto!important;padding:20px 20px 70px!important;background:#f3f6fa!important;color:var(--fink)!important;font-family:system-ui,-apple-system,'Segoe UI',sans-serif!important;line-height:1.5}
-body > .hw24-hero{background:linear-gradient(120deg,#102b50,#224c7b)!important;color:#fff!important;box-shadow:0 14px 35px rgba(20,47,79,.14);padding:27px 34px!important;border-radius:22px!important;margin:4px 0 22px!important;position:relative;overflow:hidden}
-body > .hw24-hero:after{content:"";position:absolute;right:-95px;top:-120px;width:360px;height:360px;border:1px solid rgba(255,255,255,.10);border-radius:50%;pointer-events:none;box-shadow:0 0 0 65px rgba(255,255,255,.025),0 0 0 135px rgba(255,255,255,.025)}
-.hw24-hero .hw24-eyebrow{color:#a5d4f5!important;font-size:11px!important;font-weight:800!important;letter-spacing:.15em}.hw24-hero h1{color:#fff!important;font-size:clamp(24px,3vw,38px)!important;letter-spacing:-.04em!important;margin:5px 0 2px!important}.hw24-hero h1 small{display:inline-block;font-size:10px!important;letter-spacing:.08em;vertical-align:middle;border-radius:20px;background:#c4ebff;color:#14355b;padding:6px 10px;margin-left:10px}.hw24-hero p{color:#d8e6f6!important;max-width:680px!important;font-size:14px!important;margin:5px 0 16px!important}.hw24-hero .hw24-status-strip{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.hw24-hero #jtlApiState{color:#e3eefb!important;font-size:12px!important}.hw24-hero #jtlApiCheck{background:rgba(255,255,255,.12)!important;color:#fff!important;border:1px solid rgba(255,255,255,.3)!important;font-size:12px!important;padding:7px 12px!important}
-.hw24-focus-nav{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:0 0 16px}.hw24-focus-nav button{margin:0;background:#fff;color:#34506c;border:1px solid #dbe5ef;border-radius:100px;padding:10px 16px;font-size:13px;font-weight:750;box-shadow:0 3px 13px #183d6010}.hw24-focus-nav button[aria-current="page"]{background:#153e70;color:#fff;border-color:#153e70}.hw24-focus-nav button:hover{filter:brightness(.94)}
 body #hw24ScanWorkspace{background:transparent!important;box-shadow:none!important;padding:0!important;border-radius:0!important;margin:0!important;overflow:visible!important}#hw24ScanWorkspace>h3{font-size:19px;font-weight:800;letter-spacing:-.02em;margin:12px 0 10px}#hw24ScanWorkspace #ean{background:#fff!important;border:2px solid #d4e0ed!important;min-height:57px!important;font-size:21px!important;letter-spacing:.025em;padding:13px 17px!important;border-radius:12px!important;max-width:530px;box-shadow:0 3px 12px #102a4a0c}#hw24ScanWorkspace #ean:focus{outline:4px solid #bfdbf6;border-color:#1d6aaf!important}#hw24ScanWorkspace #scanStart{background:#145b9f!important;border:1px solid #145b9f!important;min-height:56px!important;font-weight:750!important;border-radius:12px!important;margin:6px 0 6px 9px!important;padding:11px 22px!important}#hw24ScanWorkspace #historyRetry,#hw24ScanWorkspace #historyRetry + button{display:none!important}#hw24ScanWorkspace> #status{font-size:12px;color:#587088;margin:5px 0 15px;min-height:18px}
 #hw24FocusMain{background:#fff;border:1px solid #e0e8f0;box-shadow:var(--fshadow);padding:0;border-radius:21px;overflow:hidden;margin:14px 0 19px}#hw24FocusMain *{box-sizing:border-box}#hw24FocusMain .f-header{padding:20px 25px 12px;border-bottom:1px solid #eff2f7;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}#hw24FocusMain .f-label{display:block;color:#6a7d95;text-transform:uppercase;letter-spacing:.12em;font-size:10px;font-weight:850}#hw24FocusMain .f-title{font-size:19px;font-weight:850;margin:2px 0;letter-spacing:-.025em}#hw24FocusMain .f-state{font-size:12px;border:1px solid #dae5ef;background:#f6f9fc;color:#475d75;padding:6px 11px;border-radius:100px;font-weight:700;display:inline-flex;align-items:center;gap:6px}
 #hw24FocusMain .f-product{display:grid;grid-template-columns:100px minmax(0,1fr);gap:23px;padding:24px 25px 18px;align-items:start}#hw24FocusMain .f-product-avatar{width:100px;height:112px;border:1px solid #d9e4ed;background:linear-gradient(145deg,#eaf5ff,#fff);border-radius:16px;display:grid;place-items:center;color:#2d679f;position:relative}#hw24FocusMain .f-product-avatar svg{height:51px;width:51px;opacity:.85}#hw24FocusMain .f-product-avatar:after{content:"EAN";position:absolute;bottom:11px;color:#6b8aad;font-size:9px;letter-spacing:.16em;font-weight:800}#hw24FocusMain .f-product h2{font-size:clamp(21px,2.8vw,30px);letter-spacing:-.04em;line-height:1.2;margin:4px 0 10px;max-width:900px}#hw24FocusMain .f-badges{display:flex;flex-wrap:wrap;gap:7px}#hw24FocusMain .f-chip{display:inline-block;background:#f3f7fb;color:#46617c;border:1px solid #e0e9f2;border-radius:8px;font-size:11px;font-weight:750;padding:5px 9px;overflow-wrap:anywhere}#hw24FocusMain .f-chip.good{background:#eaf8f0;color:#087249;border-color:#bce6cb}#hw24FocusMain .f-chip.caution{background:#fff5e6;color:#945409;border-color:#f4ddab}#hw24FocusMain .f-chip.bad{background:#fff0f0;color:#9a2635;border-color:#f0c1c7}
@@ -584,7 +604,7 @@ body #hw24ScanWorkspace{background:transparent!important;box-shadow:none!importa
 #hw24ScanWorkspace>.scan-advanced,#hw24ScanWorkspace>details.group,#hw24Tools{border:1px solid #e1e8ef!important;background:#fff!important;border-radius:14px!important;padding:0!important;box-shadow:0 4px 20px rgba(20,48,80,.025)!important;margin:10px 0!important}#hw24ScanWorkspace>.scan-advanced>summary,#hw24ScanWorkspace>details.group>summary,#hw24Tools>summary{padding:16px 19px!important;cursor:pointer!important;color:#294b6e!important;font-size:14px!important;font-weight:750!important}#hw24ScanWorkspace>.scan-advanced[open],#hw24ScanWorkspace>details.group[open]{padding:0 16px 16px!important}#hw24ScanWorkspace>.scan-advanced[open]>summary,#hw24ScanWorkspace>details.group[open]>summary{padding:16px 3px!important;border-bottom:1px solid #e7edf2;margin-bottom:13px}#hw24Tools[open]{padding:0 17px 17px!important}#hw24Tools[open]>summary{padding:16px 0!important;border-bottom:1px solid #e7edf2}#hw24Tools section,#hw24Tools details{max-width:100%;box-sizing:border-box}#hw24Tools #hw24AmazonDiagnostic{box-shadow:none!important;border:1px solid #d7e4ef!important}#hw24Tools .f-diagnostic details>summary{cursor:pointer;color:#35608a;font-size:13px;font-weight:700;padding:7px 0}#hw24Tools .f-diagnostic{background:#f7faff;border:1px solid #e4eaf1;border-radius:10px;padding:12px;margin-top:12px}
 #hw24ScanWorkspace #unknownActions{border:1px solid #f1d4d8!important;background:#fff6f6!important;color:#7f3e44;font-size:12px}#hw24ScanWorkspace #unknownActions button{font-size:12px}#hw24ScanWorkspace #ameisePanel{overflow:visible}#hw24ScanWorkspace #channelMore{border:1px solid #e0e8f0;border-radius:12px;padding:13px;background:#fff}#hw24ScanWorkspace #scanSourceDetails .group,#hw24ScanWorkspace #masterDataDetails .group{box-shadow:none}#hw24AmazonPanel{display:none!important}
 @media(max-width:940px){#hw24FocusMain .f-two-col{grid-template-columns:1fr}#hw24FocusMain .f-identity{grid-template-columns:repeat(2,minmax(0,1fr))}#hw24FocusMain .f-identity>div{border-left:0!important;padding:10px 12px!important}#hw24FocusMain .f-identity>div:nth-child(2n){border-left:1px solid #e8eef5!important}#hw24FocusMain .f-source-grid{grid-template-columns:1fr}}
-@media(max-width:620px){body{padding:9px 10px 45px!important}body>.hw24-hero{padding:19px!important;border-radius:16px!important;margin:0 0 14px!important}.hw24-hero h1{font-size:25px!important}.hw24-focus-nav{gap:5px}.hw24-focus-nav button{padding:8px 11px;font-size:11px}#hw24ScanWorkspace #ean{width:100%!important;max-width:none!important;font-size:18px!important}#hw24ScanWorkspace #scanStart{width:100%!important;margin:8px 0!important}#hw24FocusMain{border-radius:15px}#hw24FocusMain .f-header{padding:15px}#hw24FocusMain .f-product{grid-template-columns:67px 1fr;gap:11px;padding:17px 15px 14px}#hw24FocusMain .f-product-avatar{width:67px;height:75px}#hw24FocusMain .f-product-avatar svg{width:35px;height:35px}#hw24FocusMain .f-product-avatar:after{font-size:7px;bottom:5px}#hw24FocusMain .f-product h2{font-size:20px}#hw24FocusMain .f-identity{margin:0 15px}#hw24FocusMain .f-section{padding:15px}#hw24FocusMain .f-facts,#hw24FocusMain .f-amazon-meta{grid-template-columns:1fr}#hw24FocusMain .f-actions{padding:15px}#hw24FocusMain .f-actions button{width:100%}#hw24FocusMain .f-actions .f-helper{width:100%;max-width:none;text-align:left;margin:0}}
+@media(max-width:620px){body{padding:9px 10px 45px!important}#hw24ScanWorkspace #ean{width:100%!important;max-width:none!important;font-size:18px!important}#hw24ScanWorkspace #scanStart{width:100%!important;margin:8px 0!important}#hw24FocusMain{border-radius:15px}#hw24FocusMain .f-header{padding:15px}#hw24FocusMain .f-product{grid-template-columns:67px 1fr;gap:11px;padding:17px 15px 14px}#hw24FocusMain .f-product-avatar{width:67px;height:75px}#hw24FocusMain .f-product-avatar svg{width:35px;height:35px}#hw24FocusMain .f-product-avatar:after{font-size:7px;bottom:5px}#hw24FocusMain .f-product h2{font-size:20px}#hw24FocusMain .f-identity{margin:0 15px}#hw24FocusMain .f-section{padding:15px}#hw24FocusMain .f-facts,#hw24FocusMain .f-amazon-meta{grid-template-columns:1fr}#hw24FocusMain .f-actions{padding:15px}#hw24FocusMain .f-actions button{width:100%}#hw24FocusMain .f-actions .f-helper{width:100%;max-width:none;text-align:left;margin:0}}
 
 </style>
 <script id="hw24FocusController">
@@ -599,12 +619,10 @@ const safe=v=>String(v??'').trim();
 const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=String(text);return n;};
 const host=byId('hw24ScanWorkspace'), scan=byId('ean'), searchButton=byId('scanStart');
 if(!host||!scan||!searchButton||byId('hw24FocusMain'))return;
-const nav=el('nav','hw24-focus-nav');nav.setAttribute('aria-label','Arbeitsbereiche');
-nav.innerHTML='<button type="button" aria-current="page" data-focus-go="scan">① Artikelprüfung</button><button type="button" data-focus-go="edit">② Stammdaten</button><button type="button" data-focus-go="export">③ JTL-Export</button><button type="button" data-focus-go="tools">⚙ Weitere Werkzeuge</button>';
-const header=document.querySelector('.hw24-hero');if(header)header.insertAdjacentElement('afterend',nav);
+const nav=document.querySelector('.hw24-focus-nav');
 const focus=el('section');focus.id='hw24FocusMain';focus.setAttribute('aria-label','Zentrale Artikelübersicht');
 focus.innerHTML=`
-  <div class="f-header"><div><span class="f-label">Arbeitsplatz · Artikelprüfung</span><h2 class="f-title">Ein Artikel. Alle wichtigen Informationen.</h2></div><span id="focusStatusPill" class="f-state" role="status">● Bereit zum Scannen</span></div>
+  <div class="f-header"><h2 class="f-title">Artikelübersicht</h2><span id="focusStatusPill" class="f-state" role="status">Bereit zum Scannen</span></div>
   <div class="f-product">
     <div class="f-product-avatar" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2"><rect x="17" y="10" width="30" height="45" rx="5"/><path d="M24 10V5h16v5M24 27h16M24 34h16M24 41h10"/><path d="M12 20v24m40-24v24" stroke-width="1.4"/></svg></div>
     <div><span class="f-label">Artikelidentität</span><h2 id="focusProductName">Noch keinen Artikel ausgewählt</h2><div class="f-badges"><span id="focusTagJtl" class="f-chip">JTL nicht geprüft</span><span id="focusTagAmazon" class="f-chip">Amazon nicht geprüft</span><span id="focusTagQuality" class="f-chip">EAN eingeben und prüfen</span></div></div>
@@ -646,8 +664,15 @@ function go(where){
  if(where==='export'){node=byId('ameisePanel');if(node)node.open=true;}
  if(where==='tools'){node=tools;tools.open=true;}
  if(where==='sources'){node=byId('scanSourceDetails');if(node)node.open=true;}
- if(node)node.scrollIntoView({behavior:'smooth',block:'start'});
- for(const b of buttons)b.setAttribute('aria-current',b.dataset.focusGo===where?'page':'false');
+ if(node){
+  for(let disclosure=node.parentElement?.closest('details');disclosure;disclosure=disclosure.parentElement?.closest('details')){
+   disclosure.open=true;
+  }
+  node.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});
+ }
+ if(buttons.some(button=>button.dataset.focusGo===where)){
+  for(const b of buttons)b.setAttribute('aria-current',String(b.dataset.focusGo===where));
+ }
 }
 nav.addEventListener('click',e=>{const button=e.target.closest('[data-focus-go]');if(button)go(button.dataset.focusGo);});
 byId('focusEdit').addEventListener('click',()=>go('edit'));
@@ -657,7 +682,7 @@ const set=(id,value)=>{const item=byId(id);if(item)item.textContent=safe(value)|
 function chip(id,text,state){const node=byId(id);if(!node)return;node.textContent=text;node.className='f-chip'+(state?' '+state:'');}
 function source(id,badge,textId,state,badgeText,message){const node=byId(id);if(node)node.dataset.state=state;chip(badge,badgeText,state==='ok'?'good':state==='warn'?'caution':state==='error'?'bad':'');set(textId,message);}
 function extractField(name){const box=Array.from(document.querySelectorAll('#fields .field')).find(item=>item.querySelector('label')?.textContent.trim()===name);return safe(box?.querySelector('input,textarea')?.value);}
-let lastAmazon=null,lastStatus='idle',latestJtlMeta=null,reviewedFacts={};
+let lastAmazon=null,lastStatus='idle',latestJtlMeta=null;
  function stamp(value){
   if(!value)return 'Zeitpunkt nicht übermittelt';
   const raw=String(value).trim();
@@ -666,28 +691,49 @@ let lastAmazon=null,lastStatus='idle',latestJtlMeta=null,reviewedFacts={};
   const date=new Date(normalized);
   return Number.isFinite(date.valueOf())?date.toLocaleString('de-DE',{timeZone:'Europe/Berlin',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',timeZoneName:'short'}):'Unbekannter Zeitwert '+raw;
  }
- document.addEventListener('hw24:jtl-result',event=>{latestJtlMeta=event.detail?.data||null;updateJtl();});
- document.addEventListener('hw24:scan-start',()=>{latestJtlMeta=null;reviewedFacts={};});
- document.addEventListener('hw24:curated-applied',event=>{
-  reviewedFacts=event.detail?.fields||{};
-  updateFacts();
+ document.addEventListener('hw24:jtl-result',event=>{
+   latestJtlMeta=event.detail?.data||null;
+   updateJtl();
+   updateFacts();
  });
- function fmtEUR(raw){const v=safe(raw);return v?v+(v.endsWith('€')?'':' €'):'Nicht verfügbar';}
+ document.addEventListener('hw24:scan-start',()=>{
+   latestJtlMeta=null;
+   byId('focusFacts')?.replaceChildren();
+ });
+ document.addEventListener('hw24:curated-applied',updateFacts);
+ const factQuantity=new Intl.NumberFormat('de-DE',{maximumFractionDigits:6});
+ const factEuro=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'});
+ function formatFact(value,kind){
+   if(!kind)return value;
+   const raw=value.replace(/[€\s]/g,'');
+   if(!/^-?\d+(?:[.,]\d+)*$/.test(raw))return value;
+   const amount=Number(raw.includes(',')?raw.replace(/\./g,'').replace(',','.'):raw);
+   if(!Number.isFinite(amount))return value;
+   return kind==='money'?factEuro.format(amount):factQuantity.format(amount)+(kind==='weight'?' kg':'');
+ }
  function updateFacts(){
    const area=byId('focusFacts');if(!area)return;
-   const values=[['Brutto-VK','Standard-VK brutto'],['Netto-VK','Standard-VK netto'],
-     ['Ø EK netto (GLD)','Durchschnittlicher EK (JTL)'],['Letzter EK (JTL)','Letzter EK (JTL)'],
-     ['Kosten','Kosten / eigener Artikelstand'],['Warengruppe','Warengruppe'],
-     ['Steuerklasse','Steuerklasse'],['Inhalt/Menge','Inhalt / Menge'],
-     ['Artikelgewicht','Artikelgewicht'],['Versandgewicht','Versandgewicht'],['Lieferant','Lieferant']];
-   const moneyFields=new Set(['Brutto-VK','Netto-VK','Ø EK netto (GLD)','Letzter EK (JTL)','Kosten']);
+   const match=latestJtlMeta?.jtl_status==='current_snapshot'&&latestJtlMeta.matches?.length===1?latestJtlMeta.matches[0]:null;
+   const values=[['Brutto-VK','Standard-VK brutto','money'],['Netto-VK','Standard-VK netto','money'],
+     ['Ø EK netto (GLD)','Durchschnittlicher EK (JTL)','money'],['Letzter EK (JTL)','Letzter EK (JTL)','money'],
+     ['Kosten','Kosten / eigener Artikelstand','money'],['Warengruppe','Warengruppe'],
+     ['Steuerklasse','Steuerklasse'],['Inhalt/Menge','Inhalt / Menge','quantity'],['Maßeinheit','Maßeinheit'],
+     ['Artikelgewicht','Artikelgewicht','weight'],['Versandgewicht','Versandgewicht','weight'],['Lieferant','Lieferant']];
    area.replaceChildren();
-   for(const [key,label] of values){
+   if(!current)return;
+   for(const [key,label,kind] of values){
     const d=el('div','f-fact');d.append(el('span','',label));
-    const checked=Object.prototype.hasOwnProperty.call(reviewedFacts,key)&&safe(reviewedFacts[key]);
-    const value=checked?safe(reviewedFacts[key]):extractField(key);
-    d.append(el('strong','',value?(moneyFields.has(key)?fmtEUR(value):value):'Noch nicht belegt'));
-    if(checked){const verified=el('small','f-footnote','✓ Dauerhaft geprüft');verified.style.color='#23784d';d.append(verified);}
+    const checked=safe(approvedArticleFields[key]);
+    const mirrored=safe(match?.[jtlFactFields[key]]);
+    const value=checked||mirrored||extractField(key)||safe(current[key]);
+    d.append(el('strong','',value?formatFact(value,kind):'Noch nicht belegt'));
+    const labelSource=checked?'✓ Dauerhaft gespeichert':mirrored?'JTL-Spiegel':value?'Artikelfeld / CSV':
+      key==='Steuerklasse'&&safe(match?.steuerklasse_id)?'Klarname fehlt im JTL-Spiegel':'';
+    if(labelSource){
+     const note=el('small','f-footnote',labelSource);
+     if(checked)note.style.color='#23784d';
+     d.append(note);
+    }
     area.append(d);
    }
  }
