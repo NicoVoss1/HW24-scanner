@@ -86,7 +86,20 @@ details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border
 <script>
 (()=>{'use strict';
 const $=id=>document.getElementById(id),val=x=>String(x??'').trim();
-const state={batchId:0,batches:[],items:[],selected:null,queue:[],sending:false,loading:false};
+const pendingKey='hw24_scanliste_pending_v1';
+const persisted=()=>{
+ try{
+  const records=JSON.parse(localStorage.getItem(pendingKey)||'[]');
+  return Array.isArray(records)?records.filter(x=>
+    /^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(String(x?.ean||''))&&
+    /^[0-9a-f-]{36}$/i.test(String(x?.key||''))&&Number.isInteger(Number(x?.batchId))&&Number(x.batchId)>0).slice(0,3000):[];
+ }catch(_){return []}
+};
+const state={batchId:0,batches:[],items:[],selected:null,queue:persisted(),sending:false,loading:false};
+const keepPending=()=>{
+ try{localStorage.setItem(pendingKey,JSON.stringify(state.queue));return true}
+ catch(_){return false}
+};
 const schema=['Artikelnummer','GTIN','HAN','Artikelname','Hersteller','Warengruppe','Steuerklasse',
 'Kurzbeschreibung','Beschreibung','Kosten','Brutto-VK','Netto-VK','Inhalt/Menge','Maßeinheit',
 'Artikelgewicht','Versandgewicht','ASIN','Artikeltyp','Versandklasse','Artikel aktiv',
@@ -317,7 +330,7 @@ async function consume(){
   const current=state.queue[0];
   status('Speichere EAN '+current.ean+' … · '+state.queue.length+' in Warteschlange');
   try{const data=await post('scan',{batch_id:current.batchId,ean:current.ean,event_key:current.key});
-   state.queue.shift();
+   state.queue.shift();keepPending();
    if(current.batchId===state.batchId)updateLocal(data.item);
    status('✓ '+current.ean+' gespeichert · '+(statuses[data.item.resolution]||'JTL-Status offen')+
    ' · '+state.queue.length+' ausstehend','success');
@@ -333,6 +346,7 @@ $('scanForm').addEventListener('submit',e=>{
  if(!goodEAN(ean)){status('Ungültige EAN/GTIN (Länge oder Prüfziffer).','error');return}
  let key;try{key=uuid()}catch(err){status(err.message,'error');return}
  state.queue.push({ean,batchId:state.batchId,key});
+ if(!keepPending()){status('Browserspeicher nicht verfügbar. Scans sind bei Netzwerkverlust möglicherweise nicht wiederherstellbar.','warn')}
  $('scan').value='';$('scan').focus();consume();
 });
 $('create').onclick=async()=>{
@@ -384,8 +398,9 @@ $('report').onclick=()=>{
  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),5000);
 };
 const resend=document.createElement('button');resend.id='resend';resend.type='button';resend.className='secondary';
-resend.textContent='↻ Ungespeicherte Scans erneut senden';resend.hidden=true;resend.onclick=consume;
+resend.textContent='↻ Ungespeicherte Scans erneut senden';resend.hidden=state.queue.length===0;resend.onclick=consume;
 $('scanForm').append(resend);
 loadBatches();
+if(state.queue.length)status(state.queue.length+' unbestätigte Scanvorgänge aus vorheriger Sitzung. Zum Senden oben „Erneut senden“ wählen.','warn');
 })();
 </script></body></html>
