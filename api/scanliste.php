@@ -31,28 +31,34 @@ function getBatch(PDO $db, int $id, string $actor, bool $lock=false): array {
   return $r;
 }
 function resolve(PDO $db, string $ean): array {
-  $meta=$db->query("SELECT source_id,last_completed_utc,last_row_count,
-                   TIMESTAMPDIFF(MINUTE,last_completed_utc,UTC_TIMESTAMP()) AS age
-                   FROM hw24_jtl_sync_meta WHERE status='ready'
-                   AND last_completed_utc IS NOT NULL
-                   ORDER BY last_completed_utc DESC LIMIT 1")->fetch();
-  if(!$meta || (int)$meta['last_row_count']<1 || (int)$meta['age']<0 || (int)$meta['age']>45)
-    return ['resolution'=>'unverified','jtl_article_id'=>null,'artikelnummer'=>null,
-            'artikelname'=>null,'snapshot_at_utc'=>null];
-  // EAN is not guaranteed unique. HAN and article number must be checked too.
-  $s=$db->prepare('SELECT jtl_article_id,artikelnummer,artikelname FROM hw24_jtl_articles
-                   WHERE source_id=? AND (ean=? OR han=? OR artikelnummer=?)
-                   ORDER BY jtl_article_id LIMIT 2');
-  $s->execute([$meta['source_id'],$ean,$ean,$ean]);$matches=$s->fetchAll();
-  if(count($matches)>1) return ['resolution'=>'multiple','jtl_article_id'=>null,
-    'artikelnummer'=>null,'artikelname'=>null,'snapshot_at_utc'=>$meta['last_completed_utc']];
-  if(count($matches)===1) return ['resolution'=>'existing',
-    'jtl_article_id'=>$matches[0]['jtl_article_id'],
-    'artikelnummer'=>$matches[0]['artikelnummer'],
-    'artikelname'=>$matches[0]['artikelname'],
-    'snapshot_at_utc'=>$meta['last_completed_utc']];
-  return ['resolution'=>'new_candidate','jtl_article_id'=>null,
-          'artikelnummer'=>null,'artikelname'=>null,'snapshot_at_utc'=>$meta['last_completed_utc']];
+  $unknown=['resolution'=>'unverified','jtl_article_id'=>null,
+    'artikelnummer'=>null,'artikelname'=>null,'snapshot_at_utc'=>null];
+  // Even without an available JTL mirror, raw scanning MUST continue.
+  try {
+    $meta=$db->query("SELECT source_id,last_completed_utc,last_row_count,
+                     TIMESTAMPDIFF(MINUTE,last_completed_utc,UTC_TIMESTAMP()) AS age
+                     FROM hw24_jtl_sync_meta WHERE status='ready'
+                     AND last_completed_utc IS NOT NULL
+                     ORDER BY last_completed_utc DESC LIMIT 1")->fetch();
+    if(!$meta || (int)$meta['last_row_count']<1 || (int)$meta['age']<0 || (int)$meta['age']>45)
+      return $unknown;
+    $s=$db->prepare('SELECT jtl_article_id,artikelnummer,artikelname FROM hw24_jtl_articles
+                     WHERE source_id=? AND (ean=? OR han=? OR artikelnummer=?)
+                     ORDER BY jtl_article_id LIMIT 2');
+    $s->execute([$meta['source_id'],$ean,$ean,$ean]);$matches=$s->fetchAll();
+    if(count($matches)>1) return ['resolution'=>'multiple','jtl_article_id'=>null,
+      'artikelnummer'=>null,'artikelname'=>null,'snapshot_at_utc'=>$meta['last_completed_utc']];
+    if(count($matches)===1) return ['resolution'=>'existing',
+      'jtl_article_id'=>$matches[0]['jtl_article_id'],
+      'artikelnummer'=>$matches[0]['artikelnummer'],
+      'artikelname'=>$matches[0]['artikelname'],
+      'snapshot_at_utc'=>$meta['last_completed_utc']];
+    return ['resolution'=>'new_candidate','jtl_article_id'=>null,
+            'artikelnummer'=>null,'artikelname'=>null,'snapshot_at_utc'=>$meta['last_completed_utc']];
+  } catch(PDOException $e) {
+    error_log('HW24 scanlist mirror unavailable: '.$e->getCode());
+    return $unknown;
+  }
 }
 function rowData(array $r): array {
   $fields=json_decode((string)($r['draft_json']??''),true);
