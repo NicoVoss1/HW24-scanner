@@ -133,7 +133,7 @@ try {
     if(!$meta || (int)$meta['last_row_count']<1 || (int)$meta['age']<0 || (int)$meta['age']>45)
       respond(409,['ok'=>false,'error'=>'jtl_snapshot_not_fresh']);
     $check=$pdo->prepare("SELECT COUNT(*) FROM hw24_jtl_articles WHERE source_id=?
-                         AND (ean=? OR han=? OR artikelnummer=? OR artikelnummer=?)");
+                         AND (ean=? OR han=? OR artikelnummer=? OR (?<>'' AND artikelnummer=?))");
     $seen=[];$rows=[];
     foreach($all as $entry){
       if($entry['resolution']!=='new_candidate')
@@ -149,7 +149,7 @@ try {
         if(isset($seen[$sku]))respond(409,['ok'=>false,'error'=>'duplicate_batch_artikelnummer']);
         $seen[$sku]=true;
       }
-      $check->execute([$meta['source_id'],$entry['ean'],$entry['ean'],$entry['ean'],$sku]);
+      $check->execute([$meta['source_id'],$entry['ean'],$entry['ean'],$entry['ean'],$sku,$sku]);
       if((int)$check->fetchColumn()>0)
         respond(409,['ok'=>false,'error'=>'jtl_duplicate_before_export','ean'=>$entry['ean']]);
       // Server exports a verified data subset. It still DOES NOT guarantee import-field
