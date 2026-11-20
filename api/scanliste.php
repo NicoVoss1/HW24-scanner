@@ -264,7 +264,8 @@ try {
       $pdo->rollBack();respond(400,['ok'=>false,'error'=>'gtin_must_match_scan']);
     }
     $state='draft';
-    $ready=!empty($combined['Artikelnummer'])&&!empty($combined['Artikelname'])&&
+    $ready=($combined['GTIN']??'')===$old['ean']&&
+      !empty($combined['Artikelnummer'])&&!empty($combined['Artikelname'])&&
       !empty($combined['Hersteller'])&&!empty($combined['Warengruppe'])&&
       !empty($combined['Steuerklasse'])&&$old['resolution']==='new_candidate';
     if(($body['mark_ready']??false)===true){
