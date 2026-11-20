@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>HW24 | Scanliste und Ameise-Sammelimport</title>
+<style>
+:root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#17334e;background:#f2f6fa}
+*{box-sizing:border-box}body{margin:0}header{padding:22px max(16px,calc((100vw - 1240px)/2));background:#123763;color:white}
+header a{color:#d5ecff}header h1{font-size:clamp(1.4rem,3vw,2rem);margin:6px 0}
+header p{font-size:14px;max-width:850px;color:#e3edf7}
+main{max-width:1240px;margin:16px auto;padding:0 12px 48px}
+.card{border:1px solid #d5e2ee;background:white;border-radius:14px;padding:16px;margin:12px 0;box-shadow:0 3px 10px #143f6610}
+h2{font-size:1.18rem;margin:0 0 12px}h3{font-size:1rem;margin:0 0 8px}
+button,input,select,textarea{font:inherit}button{border:0;border-radius:9px;padding:11px 15px;background:#155c9e;color:white;cursor:pointer}
+button.secondary{background:#eaf2f8;color:#184971;border:1px solid #bdd2e2}
+button:disabled{opacity:.45;cursor:not-allowed}input,select,textarea{background:#fff;border:1px solid #b5cbda;border-radius:9px;padding:11px;width:100%;min-width:0}
+input:focus,select:focus,textarea:focus{outline:3px solid #b4def6;outline-offset:1px}
+label{font-size:13px;font-weight:700;display:block;margin-bottom:5px}
+.toolbar{display:flex;gap:9px;flex-wrap:wrap;align-items:end}.toolbar>.wide{flex:1 1 260px}.toolbar>.medium{flex:1 1 180px}
+#scan{font-size:23px;letter-spacing:.04em;padding:15px}#scanForm button{font-weight:700}
+.note{font-size:13px;color:#526579;line-height:1.5}.warn{color:#9c460d}.error{color:#ad2037}.success{color:#176747}
+#status{min-height:36px;font-size:14px;font-weight:700;margin:12px 0 2px}
+.stats{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.stat{border:1px solid #cde0f0;border-radius:12px;padding:8px 13px;background:#f5f9fd;font-size:13px}
+.stat b{font-size:19px;display:block}.layout{display:grid;grid-template-columns:minmax(350px,1.4fr) minmax(310px,1fr);gap:14px}
+.listhead{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.items{max-height:670px;overflow:auto;border:1px solid #dce5ed;border-radius:10px}
+.item{display:flex;gap:10px;justify-content:space-between;align-items:center;width:100%;border-bottom:1px solid #e5ebf1;padding:11px;background:#fff;color:#17334e;border-radius:0;text-align:left;cursor:pointer}
+.item:hover,.item.active{background:#edf6ff}.item b{display:block;font-size:14px}.item small{font-size:12px;color:#536d82;display:block;margin-top:4px}
+.pill{display:inline-block;font-size:11px;border-radius:20px;padding:4px 8px;white-space:nowrap;background:#e8eff7;color:#294c6b}
+.pill.new_candidate{background:#e6f5e9;color:#1c6b3e}.pill.existing{background:#e4effc;color:#245999}
+.pill.multiple,.pill.unverified{background:#fff0d6;color:#92520d}
+.editorFields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}.editorFields .full{grid-column:1 / -1}
+.editorFields textarea{min-height:68px}.editorActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+#itemInfo{font-size:13px;line-height:1.5;color:#435d70}.export{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border:1px solid #e8c5a6;padding:10px;border-radius:9px}
+@media(max-width:820px){.layout{grid-template-columns:1fr}.editorFields{grid-template-columns:1fr}.items{max-height:380px}}
+</style></head>
+<body>
+<header><a href="index.html">← Zurück zum HW24 Artikelmanager</a>
+<h1>📦 Scanliste und JTL-Ameise-Sammelimport</h1>
+<p>Artikel schnell scannen und dauerhaft in HW24 sammeln. Anschließend Stammdaten vervollständigen, prüfen und als JTL-Ameise-Prüfdatei exportieren. Kein direkter Wawi- oder WMS-Schreibzugriff.</p></header>
+<main>
+<section class="card"><h2>1. Scan-Stapel auswählen</h2>
+<div class="toolbar"><div class="wide"><label for="batch">Aktiver Scan-Stapel</label><select id="batch"></select></div>
+<div class="medium"><label for="batchName">Neuen Stapel benennen</label><input id="batchName" maxlength="160" placeholder="z. B. Haarfarben Lieferung 20.11.2026"></div>
+<button type="button" id="create">Stapel anlegen</button><button type="button" class="secondary" id="reload">Aktualisieren</button></div>
+<p class="note">Jeder Stapel wird zentral in MariaDB gespeichert, nicht nur auf Deinem iPhone oder im Browser.</p></section>
+<section class="card"><h2>2. Scannen und weitermachen</h2>
+<form id="scanForm" class="toolbar"><div class="wide"><label for="scan">EAN / GTIN mit Scanner erfassen oder eingeben</label>
+<input id="scan" name="ean" inputmode="numeric" autocomplete="off" autocapitalize="off" placeholder="EAN scannen und Enter" required></div>
+<button type="submit" id="scanButton">✓ Erfassen</button></form>
+<div id="status" role="status" aria-live="polite">Scanliste wird geladen …</div>
+<div class="toolbar" style="margin-top:8px"><p class="note" id="amazonQueueStatus" style="flex:1 1 340px">Amazon-Katalog: Nach jedem gespeicherten Scan automatische Cache- oder SP-API-Prüfung.</p>
+<button type="button" class="secondary" id="catalogRetry" hidden>Amazon-Abfragen fortsetzen</button></div>
+<p class="note">Jede gültige EAN wird zunächst gespeichert, auch wenn noch keine Produktdaten vorliegen. Wiederholte Scans desselben Artikels werden gezählt. <strong>Das ist noch keine Lagerbuchung.</strong> Bei Verbindungsproblemen bleiben Scans zum erneuten Senden in der Warteschlange.</p>
+</section>
+<div class="stats" id="stats"></div>
+<div class="layout"><section class="card"><div class="listhead"><h2>3. Scan-Übersicht</h2><span id="total" class="note"></span></div>
+<div class="toolbar"><div class="wide"><label for="search">EAN, Name, Artikelnummer suchen</label><input id="search" placeholder="Liste durchsuchen"></div>
+<div class="medium"><label for="filter">Status</label><select id="filter"><option value="all">Alle</option>
+<option value="new_candidate">Mögliche Neuanlagen</option><option value="existing">In JTL vorhanden</option>
+<option value="unverified">JTL-Abgleich offen</option><option value="multiple">Mehrfachtreffer</option>
+<option value="ready">Importbereit</option></select></div></div>
+<div class="items" id="items" aria-label="Gespeicherte Scans"></div><p class="note" id="listFoot"></p>
+</section>
+<section class="card"><h2>4. Stammdaten und Freigabe</h2>
+<p id="itemInfo">Wähle einen Artikel aus der Scanliste. Bei bestätigten Neuanlagen können die Pflichtfelder ergänzt werden.</p>
+<div id="editor" hidden>
+<div class="toolbar"><button type="button" class="secondary" id="research">📚 Detaillierte Quellen und Vorschläge prüfen</button></div>
+<p class="note" id="researchStatus">Amazon-Katalog wird beim Scannen automatisch abgefragt. Hier kannst Du die Treffer und historische Daten einzeln zur Datenpflege übernehmen.</p>
+<div id="suggestions"></div>
+
+<div class="toolbar"><button type="button" class="secondary" id="useEAN">EAN als Artikelnummer vorschlagen</button>
+<button type="button" class="secondary" id="hairTemplate">Vorlage Haarfarben einsetzen</button></div>
+<p class="note">Vorlagen sind Vorschläge für Neuanlagen. Hersteller, Preis, Inhalt, Artikelnummer und Kategorie vor der Freigabe prüfen.</p>
+<div id="editorFields" class="editorFields"></div>
+<div class="editorActions"><button id="save" type="button">💾 Entwurf speichern</button>
+<button id="ready" type="button">✓ Für Ameise freigeben</button></div>
+<p id="editorStatus" role="status" class="note"></p>
+</div>
+</section></div>
+<section class="card"><h2>5. JTL-Ameise-Import vorbereiten</h2>
+<div class="export"><button id="export" type="button">📄 Freigegebene Neuanlagen als CSV exportieren</button>
+<button id="report" type="button" class="secondary">Gesamte Scanliste als CSV</button></div>
+<p class="note">Die Ameise-Datei ist UTF-8 mit BOM und Semikolon getrennt. Originalspalten aus dem JTL-Export werden verwendet. Vor dem echten Import die Zuordnung der <strong>importierbaren</strong> JTL-Ameise-Felder prüfen. Je Export maximal 200 freigegebene Positionen.</p>
+<div class="danger"><strong>Wichtig:</strong> Diese Scanliste erzeugt keinen JTL-Wareneingang und keinen Lagerbestand. Vor produktivem Artikelimport eine Wawi-Datenbanksicherung und den JTL-Ameise-Testlauf durchführen. Unbekannte Artikelnummern und Mehrfachtreffer dürfen nicht stillschweigend übernommen werden.</div>
+<p id="exportStatus" role="status" class="note"></p></section>
+</main>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id),val=x=>String(x??'').trim();
+const pendingKey='hw24_scanliste_pending_v1';
+const persisted=()=>{
+ try{
+  const records=JSON.parse(localStorage.getItem(pendingKey)||'[]');
+  return Array.isArray(records)?records.filter(x=>
+    /^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(String(x?.ean||''))&&
+    /^[0-9a-f-]{36}$/i.test(String(x?.key||''))&&Number.isInteger(Number(x?.batchId))&&Number(x.batchId)>0).slice(0,3000):[];
+ }catch(_){return []}
+};
+const state={batchId:0,batches:[],items:[],selected:null,queue:persisted(),sending:false,loading:false};
+const keepPending=()=>{
+ try{localStorage.setItem(pendingKey,JSON.stringify(state.queue));return true}
+ catch(_){return false}
+};
+const catalogPendingKey='hw24_catalog_pending_v422';
+const catalogQueue=(()=>{
+ try{const v=JSON.parse(localStorage.getItem(catalogPendingKey)||'[]');
+ return Array.isArray(v)?[...new Set(v.filter(x=>typeof x==='string'&&/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(x)))].slice(0,3000):[];
+ }catch(_){return []}
+})();
+const catalogDone=new Set(),catalogSummaries=new Map();
+let catalogBusy=false,catalogStopped=false;
+function saveCatalogPending(){
+ try{localStorage.setItem(catalogPendingKey,JSON.stringify(catalogQueue));return true}
+ catch(_){return false}
+}
+function catalogStatus(note=''){
+ const target=$('amazonQueueStatus');if(!target)return;
+ target.textContent='Amazon SP-API: '+catalogQueue.length+' ausstehend · '+catalogDone.size+
+ ' in dieser Sitzung geprüft'+(note?' · '+note:'');
+ $('catalogRetry').hidden=!catalogStopped;
+}
+function enqueueCatalog(ean){
+ if(!goodEAN(ean)||catalogDone.has(ean)||catalogQueue.includes(ean))return;
+ catalogQueue.push(ean);saveCatalogPending();catalogStatus();runCatalog();
+}
+async function runCatalog(){
+ if(catalogBusy||catalogStopped||!catalogQueue.length)return;
+ catalogBusy=true;
+ while(catalogQueue.length&&!catalogStopped){
+  const ean=catalogQueue[0];
+  catalogStatus('Prüfe '+ean+' über MariaDB-Cache oder Amazon …');
+  let stopReason='';
+  try{
+   const response=await fetch('api/amazon.php?ean='+encodeURIComponent(ean),
+    {credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
+   const result=await response.json();
+   if(!response.ok||!result.ok){
+    stopReason=response.status===429?'Amazon-Limit erreicht':
+     result.error==='amazon_catalog_request_failed'?'Amazon-Abfrage abgelehnt':
+     'SP-API/Server momentan nicht verfügbar';
+    catalogStopped=true;
+   }else{
+    catalogSummaries.set(ean,{count:result.count,source:result.source,items:result.items||[],at:result.fetched_at_utc});
+    catalogDone.add(ean);catalogQueue.shift();saveCatalogPending();
+    if(state.selected?.ean===ean){
+      $('researchStatus').textContent='Amazon automatisch geprüft: '+result.count+' Katalogtreffer ('+
+       (result.source==='cache'?'gespeicherter Cache':'aktuelle SP-API-Antwort')+
+       '). Bei Bedarf „Detaillierte Quellen“ für Datenvorschläge öffnen.';
+    }
+   }
+  }catch(_){catalogStopped=true;stopReason='Netzwerkfehler oder ungültige Antwort'}
+  catalogStatus(stopReason);
+  if(catalogStopped)break;
+  // 1 request per 1.5 seconds or slower, even if the upstream response is immediate.
+  await new Promise(resolve=>setTimeout(resolve,1500));
+ }
+ catalogBusy=false;catalogStatus();
+}
+$('catalogRetry').onclick=()=>{catalogStopped=false;catalogStatus();runCatalog();};
+
+const schema=['Artikelnummer','GTIN','HAN','Artikelname','Hersteller','Warengruppe','Steuerklasse',
+'Kurzbeschreibung','Beschreibung','Kosten','Brutto-VK','Netto-VK','Inhalt/Menge','Maßeinheit',
+'Artikelgewicht','Versandgewicht','ASIN','Artikeltyp','Versandklasse','Artikel aktiv',
+'Bestandsführung aktiv','Überverkäufe möglich','Lieferstatus',
+'Kategorie Ebene 1','Kategorie Ebene 2','Kategorie Ebene 3',
+'Titel-Tag (SEO)','Meta-Description (SEO)','URL-Pfad'];
+const required=new Set(['Artikelnummer','Artikelname','Hersteller','Warengruppe','Steuerklasse']);
+const full=new Set(['Kurzbeschreibung','Beschreibung','Meta-Description (SEO)']);
+const statuses={existing:'In JTL vorhanden',new_candidate:'Neuanlage prüfen',
+ multiple:'Mehrdeutige JTL-Treffer',unverified:'JTL ungeprüft'};
+function status(msg,cls=''){$('status').textContent=msg;$('status').className=cls}
+function message(code){
+const map={database_not_configured:'MariaDB noch nicht konfiguriert.',
+scanlist_unavailable:'Scanlisten-API nicht erreichbar oder Datenbanktabellen/Rechte fehlen.',
+authentication_required:'Geschützte Anmeldung erforderlich.',batch_closed:'Dieser Stapel ist geschlossen.',
+revision_conflict:'Zwischenzeitlich geändert: bitte aktualisieren.',jtl_match_changed:'JTL-Bestand hat sich geändert. Erneut prüfen.',
+jtl_snapshot_not_fresh:'JTL-Spiegel ist nicht frisch. Kein Importexport möglich.',
+jtl_duplicate_before_export:'Ein Artikel wurde inzwischen in JTL gefunden. Export abgebrochen.',
+artikelnummer_already_in_jtl:'Artikelnummer existiert bereits in JTL.',
+duplicate_batch_artikelnummer:'Eine Artikelnummer wird im Stapel mehrfach verwendet.',
+no_ready_items:'Noch keine freigegebenen Neuanlagen vorhanden.',
+not_ready:'Pflichtfelder fehlen oder EAN ist nicht eindeutig neu.',
+invalid_batch_gtin_or_event_key:'EAN ungültig. Nur GTIN/EAN mit gültiger Prüfziffer.',
+export_limit_200:'Mehr als 200 Positionen. Bitte kleinere Stapel verwenden.'};
+return map[code]||code||'Unbekannter Fehler';
+}
+async function api(op,body){
+ const url='api/scanliste.php';
+ let response;
+ if(body)response=await fetch(url,{method:'POST',credentials:'same-origin',cache:'no-store',
+  headers:{'Content-Type':'application/json','X-HW24-Approval':'confirmed'},
+  body:JSON.stringify({...body,op})});
+ else response=await fetch(url+'?'+new URLSearchParams({op,...(typeof arguments[2]==='object'?arguments[2]:{})}),{credentials:'same-origin',cache:'no-store'});
+ let data;try{data=await response.json()}catch(e){throw Error('Keine gültige API-Antwort. HTTPS und Anmeldung prüfen.')}
+ if(!response.ok||!data.ok)throw Error(message(data.error));
+ return data;
+}
+async function get(op,params={}){
+ const r=await fetch('api/scanliste.php?'+new URLSearchParams({op,...params}),{credentials:'same-origin',cache:'no-store'});
+ let j;try{j=await r.json()}catch(e){throw Error('Keine gültige API-Antwort. Server prüfen.')}
+ if(!r.ok||!j.ok)throw Error(message(j.error));
+ return j;
+}
+async function post(op,fields){return api(op,fields)}
+function uuid(){if(!crypto?.randomUUID)throw Error('Sicherer HTTPS-Kontext erforderlich (UUID).');return crypto.randomUUID()}
+function goodEAN(s){
+ if(!/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(s)||/^0+$/.test(s))return false;
+ let sum=0,w=3;for(let i=s.length-2;i>=0;i--){sum+=Number(s[i])*w;w=w===3?1:3}
+ return(10-sum%10)%10===Number(s.at(-1));
+}
+function textNode(tag,text,parent,cls){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;parent.append(e);return e}
+function refreshStats(){
+ const stats=$('stats');stats.replaceChildren();
+ for(const [name,number] of [['Positionen',state.items.length],
+ ['Mögliche Neuanlagen',state.items.filter(x=>x.resolution==='new_candidate').length],
+ ['Bereit',state.items.filter(x=>x.review_state==='ready').length],
+ ['Bereits in JTL',state.items.filter(x=>x.resolution==='existing').length],
+ ['Ungeprüft / mehrdeutig',state.items.filter(x=>['unverified','multiple'].includes(x.resolution)).length]]){
+ const node=textNode('div',undefined,stats,'stat');textNode('b',number,node);textNode('span',name,node);
+ }
+}
+function renderList(){
+ const q=val($('search').value).toLocaleLowerCase('de'),filter=$('filter').value;
+ const selected=state.selected;
+ const matches=state.items.filter(x=>(filter==='all'||(filter==='ready'?x.review_state==='ready':x.resolution===filter)) &&
+ (!q||[x.ean,x.artikelnummer,x.artikelname,x.draft?.Artikelname,x.draft?.Artikelnummer].some(t=>val(t).toLocaleLowerCase('de').includes(q))));
+ $('total').textContent=state.items.length+' gespeichert';
+ const wrap=$('items');wrap.replaceChildren();
+ for(const item of matches.slice(0,150)){
+ const b=textNode('button',undefined,wrap,'item'+(selected?.id===item.id?' active':''));
+ b.type='button';b.onclick=()=>selectItem(item.id);
+ const left=textNode('span',undefined,b);
+ textNode('b',item.ean,left);textNode('small',
+ (val(item.draft?.Artikelname)||val(item.artikelname)||'Artikelname noch offen')+
+ ' · '+item.scan_count+' Scan'+(item.scan_count===1?'':'s'),left);
+ const pill=textNode('span',item.review_state==='ready'?'Importbereit':statuses[item.resolution]||item.resolution,b,'pill '+item.resolution);
+ if(item.review_state==='ready')pill.className='pill new_candidate';
+ }
+ $('listFoot').textContent=matches.length>150?'150 von '+matches.length+' Treffern angezeigt. Suche zum Eingrenzen nutzen.':matches.length+' Treffer angezeigt.';
+ refreshStats();
+}
+function selectItem(id){
+ const item=state.items.find(x=>x.id===id);if(!item)return;
+ state.selected=item;
+ $('editor').hidden=false;
+ $('editorStatus').textContent='';
+ $('suggestions').replaceChildren();
+ $('researchStatus').textContent=catalogSummaries.has(item.ean)?'Amazon bereits automatisch geprüft: '+catalogSummaries.get(item.ean).count+' Treffer. Detaillierte historische Angaben und Quellen sind unten abrufbar.':'Amazon-Recherche wird bei gespeicherten Scans automatisch durchgeführt.';
+ $('itemInfo').textContent='EAN '+item.ean+' · '+(statuses[item.resolution]||item.resolution)
+ +' · Revision '+item.revision+' · '+item.scan_count+' Scans. '
+ +(item.resolution==='existing'?'Vorhandener Artikel: kein Neuanlage-Export. Pflege bitte im Haupt-Artikelmanager.':
+ 'Daten aus Quellen erst nach Sichtprüfung für Ameise freigeben.');
+ const disabled=item.resolution!=='new_candidate';
+ const container=$('editorFields');container.replaceChildren();
+ const draft=item.draft||{};
+ for(const key of schema){
+ const box=textNode('div',undefined,container,full.has(key)?'full':'');
+ const label=textNode('label',key+(required.has(key)?' *':''),box);
+ const value=val(draft[key]??(key==='GTIN'?item.ean:key==='Artikelname'?item.artikelname:''));
+ const control=full.has(key)?document.createElement('textarea'):document.createElement('input');
+ control.name=key;control.value=value;control.disabled=disabled||key==='GTIN';
+ control.id='field_'+schema.indexOf(key);label.htmlFor=control.id;
+ control.dataset.hw24Source='';
+ control.addEventListener('input',()=>{control.dataset.hw24Source='Manuelle Bearbeitung'});
+ box.append(control);
+ }
+ $('useEAN').disabled=disabled;$('hairTemplate').disabled=disabled;$('research').disabled=disabled;
+ $('save').disabled=disabled;$('ready').disabled=disabled;
+ renderList();
+}
+function updateLocal(item){state.items=state.items.filter(x=>x.id!==item.id);state.items.unshift(item);if(state.selected?.id===item.id)state.selected=item;renderList()}
+function editorFields(){
+ const out={};for(const control of $('editorFields').querySelectorAll('input,textarea'))out[control.name]=val(control.value);
+ return out;
+}
+async function research(){
+ const item=state.selected;if(!item||item.resolution!=='new_candidate')return;
+ const originalId=item.id,ean=item.ean,holder=$('suggestions');
+ holder.replaceChildren();$('research').disabled=true;
+ $('researchStatus').textContent='Historie und Amazon-Katalog werden geprüft. Amazon-Limits und Cache werden berücksichtigt.';
+ const fetchSource=async u=>{
+  const response=await fetch(u,{credentials:'same-origin',cache:'no-store'});
+  const value=await response.json();if(!response.ok||!value.ok)throw Error(message(value.error));
+  return value;
+ };
+ const sources=await Promise.allSettled([
+ fetchSource('api/historie.php?'+new URLSearchParams({ean,include_legacy:'1'})),
+ fetchSource('api/amazon.php?'+new URLSearchParams({ean}))
+ ]);
+ if(state.selected?.id!==originalId){$('research').disabled=false;return}
+ let count=0;const info=[];
+ const suggest=(field,value,origin)=>{
+  value=val(value);if(!value||!schema.includes(field)||value.length>10000)return;
+  const index=schema.indexOf(field),ctl=$('field_'+index);
+  if(!ctl||ctl.disabled||val(ctl.value))return;
+  const row=textNode('div',undefined,holder,'card');
+  textNode('strong',field+' · '+origin,row);
+  textNode('p',value.slice(0,250),row,'note');
+  const btn=textNode('button','Vorschlag übernehmen',row,'secondary');btn.type='button';
+  btn.onclick=()=>{
+    if(state.selected?.id!==originalId||val(ctl.value))return;
+    ctl.value=value;ctl.dataset.hw24Source=origin;btn.disabled=true;btn.textContent='Im Entwurf übernommen · bitte prüfen und speichern';
+  };count++;
+ };
+ if(sources[0].status==='fulfilled'){
+  const h=sources[0].value;
+  const a=h.approved?.fields||{};
+  for(const key of ['Artikelname','Hersteller','HAN','Kurzbeschreibung','Beschreibung'])
+   if(val(a[key]))suggest(key,a[key],'freigegebener HW24-Artikelstand');
+  const alias={'artikelname':'Artikelname','name':'Artikelname',
+   'citemname':'Artikelname','hersteller':'Hersteller','marke':'Hersteller',
+   'han':'HAN','kurzbeschreibung':'Kurzbeschreibung','beschreibung':'Beschreibung'};
+  const candidates=new Map(),conflicts=new Set();
+  for(const row of h.matches||[])for(const cell of row.cells||[]){
+    if(!cell.header_verified)continue;
+    const key=alias[val(cell.label).toLocaleLowerCase('de').replace(/\s+/g,' ')];
+    const value=val(cell.value);
+    if(!key||!value||value.length>10000)continue;
+    if(!candidates.has(key))candidates.set(key,{value,source:(row.sheet_name||'Excel')+' · Zeile '+row.excel_row});
+    else if(candidates.get(key).value.toLocaleLowerCase('de')!==value.toLocaleLowerCase('de'))conflicts.add(key);
+  }
+  for(const [field,x] of candidates)if(!conflicts.has(field)&&!val(a[field]))
+   suggest(field,x.value,'historischer Excel-Beleg: '+x.source);
+  info.push('Historie: '+(h.archived_reference_count||0)+' Referenzen');
+ }else info.push('Historie derzeit nicht abrufbar');
+ if(sources[1].status==='fulfilled'){
+  const a=sources[1].value;
+  if(a.count===1 && (a.items||[]).length===1){
+   const x=a.items[0];
+   for(const [field,value] of [['Artikelname',x.title],['Hersteller',x.brand||x.manufacturer],['ASIN',x.asin]])
+    suggest(field,value,'Amazon SP-API · '+(a.source==='cache'?'Cache':'live')+' · ASIN '+(x.asin||''));
+  }else if(a.count>1){
+   const p=textNode('p','Amazon: '+a.count+' Treffer. Mehrdeutig, bitte Produktidentität im Artikelmanager prüfen.',holder,'note warn');
+  }
+  info.push('Amazon: '+a.count+' Treffer');
+ }else info.push('Amazon derzeit nicht abrufbar oder ohne Berechtigung');
+ $('researchStatus').textContent=info.join(' · ')+'. '+count+
+ ' eindeutige Vorschläge, noch nicht gespeichert. Produktidentität und Nutzungsrechte prüfen.';
+ $('research').disabled=false;
+}
+$('research').onclick=research;
+function patchFields(m){for(const [key,value] of Object.entries(m)){
+ const index=schema.indexOf(key);if(index<0)continue;
+ const ctl=$('field_'+index);if(ctl && !ctl.disabled && !val(ctl.value))ctl.value=value;
+ }}
+async function save(ready){
+ const item=state.selected;if(!item)return;
+ const fields=editorFields();fields.GTIN=item.ean;
+ const field_sources={};
+ for(const ctrl of $('editorFields').querySelectorAll('input,textarea'))
+  if(val(ctrl.dataset.hw24Source))field_sources[ctrl.name]=ctrl.dataset.hw24Source.slice(0,180);
+ $('save').disabled=true;$('ready').disabled=true;
+ try{
+ const result=await post('edit',{batch_id:state.batchId,item_id:item.id,
+   expected_revision:Number(item.revision),fields,field_sources,mark_ready:ready});
+ item.revision=result.revision;item.draft=result.draft;item.review_state=result.review_state;
+ $('editorStatus').textContent=ready?'✓ Für den Ameise-Prüfexport freigegeben.':'✓ Entwurf zentral gespeichert.';
+ $('editorStatus').className='success';
+ selectItem(item.id);
+ $('editorStatus').textContent=ready?'✓ Für den Ameise-Prüfexport freigegeben.':'✓ Entwurf zentral gespeichert.';
+ }catch(e){$('editorStatus').textContent=e.message;$('editorStatus').className='error'}
+ finally{$('save').disabled=item.resolution!=='new_candidate';$('ready').disabled=item.resolution!=='new_candidate';renderList();}
+}
+async function loadBatches(){
+ try{
+ const data=await get('batches');state.batches=data.batches;
+ const sel=$('batch');sel.replaceChildren();
+ for(const b of data.batches){const o=textNode('option',b.label,sel);o.value=b.id}
+ if(!data.batches.length){
+  textNode('option','Noch kein Stapel angelegt',sel).value='';
+  state.batchId=0;state.items=[];$('editor').hidden=true;renderList();status('Lege zuerst einen Scan-Stapel an.');return;
+ }
+ const requested=Number(state.batchId);
+ state.batchId=data.batches.some(x=>Number(x.id)===requested)?requested:Number(data.batches[0].id);
+ sel.value=String(state.batchId);await loadItems();
+ }catch(e){status('Fehler: '+e.message,'error')}
+}
+async function loadItems(){
+ if(!state.batchId)return;
+ try{const data=await get('items',{batch_id:String(state.batchId)});
+ state.items=data.items;state.selected=null;$('editor').hidden=true;renderList();
+ status('✓ Scanliste geladen. Bereit zum Scannen.','success');$('scan').focus();
+ }catch(e){status('Fehler: '+e.message,'error')}
+}
+async function consume(){
+ if(state.sending||!state.batchId)return;state.sending=true;
+ while(state.queue.length){
+  const current=state.queue[0];
+  status('Speichere EAN '+current.ean+' … · '+state.queue.length+' in Warteschlange');
+  try{const data=await post('scan',{batch_id:current.batchId,ean:current.ean,event_key:current.key});
+   state.queue.shift();keepPending();
+   if(current.batchId===state.batchId)updateLocal(data.item);
+   enqueueCatalog(current.ean);
+   status('✓ '+current.ean+' gespeichert · '+(statuses[data.item.resolution]||'JTL-Status offen')+
+   ' · '+state.queue.length+' ausstehend','success');
+  }catch(e){status('Nicht gespeichert: '+e.message+
+   ' · '+state.queue.length+' Scans bleiben hier zur Wiederholung. „Erneut senden“ drücken.','error');break;}
+ }
+ state.sending=false;
+ $('resend').hidden=state.queue.length===0;
+}
+$('scanForm').addEventListener('submit',e=>{
+ e.preventDefault();const ean=val($('scan').value).replace(/\s/g,'');
+ if(!state.batchId){status('Bitte zuerst einen Stapel erstellen.','error');return}
+ if(!goodEAN(ean)){status('Ungültige EAN/GTIN (Länge oder Prüfziffer).','error');return}
+ let key;try{key=uuid()}catch(err){status(err.message,'error');return}
+ state.queue.push({ean,batchId:state.batchId,key});
+ if(!keepPending()){status('Browserspeicher nicht verfügbar. Scans sind bei Netzwerkverlust möglicherweise nicht wiederherstellbar.','warn')}
+ $('scan').value='';$('scan').focus();consume();
+});
+$('create').onclick=async()=>{
+ const label=val($('batchName').value);if(!label){status('Bitte Namen für den Stapel eingeben.','error');return}
+ try{const r=await post('create',{label});state.batchId=r.batch_id;$('batchName').value='';await loadBatches();}
+ catch(e){status(e.message,'error')}
+};
+$('batch').onchange=async e=>{
+ if(state.queue.length){status('Erst ungespeicherte Scans erneut senden.','error');e.target.value=String(state.batchId);return}
+ state.batchId=Number(e.target.value);await loadItems();
+};
+$('reload').onclick=loadBatches;$('search').oninput=renderList;$('filter').onchange=renderList;
+$('save').onclick=()=>save(false);$('ready').onclick=()=>save(true);
+$('useEAN').onclick=()=>{
+ const item=state.selected;if(!item)return;
+ const control=$('field_0');if(control)control.value=item.ean;
+};
+$('hairTemplate').onclick=()=>patchFields({'GTIN':state.selected?.ean||'',
+ 'Warengruppe':'Haarfarben','Steuerklasse':'normaler steuersatz',
+ 'Artikel aktiv':'Y','Bestandsführung aktiv':'Y','Überverkäufe möglich':'N',
+ 'Versandklasse':'standard','Artikeltyp':'Normaler Artikel'});
+function cell(x){let s=val(x);if(/^[=+@-]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}
+function downloadCSV(rows,filename){
+ const columns=['Artikelnummer',...schema.filter(k=>k!=='Artikelnummer'&&rows.some(r=>val(r[k])))];
+ const content='\ufeff'+columns.map(cell).join(';')+'\r\n'+rows.map(r=>columns.map(k=>cell(r[k])).join(';')).join('\r\n')+'\r\n';
+ const blob=new Blob([content],{type:'text/csv;charset=utf-8'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename;
+ document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);
+}
+$('export').onclick=async()=>{
+ if(!state.batchId)return;
+ try{
+ const result=await get('export',{batch_id:String(state.batchId)});
+ if(!confirm(result.count+' freigegebene Neuanlagen als Ameise-Prüfdatei exportieren? Der Import selbst erfolgt später in JTL-Ameise.'))return;
+ downloadCSV(result.fields,'HW24_Ameise_Neuanlagen_'+result.count+'_PRUEFEXPORT.csv');
+ $('exportStatus').textContent='✓ '+result.count+' Positionen exportiert · JTL-Spiegel: '+result.jtl_snapshot_utc+
+ '. Vor Import Feldzuordnung kontrollieren und Testlauf ausführen.';
+ $('exportStatus').className='note success';
+ }catch(e){$('exportStatus').textContent='Export gesperrt: '+e.message;$('exportStatus').className='note error'}
+};
+$('report').onclick=()=>{
+ if(!state.items.length)return;
+ const headers=['EAN','JTL-Status','Prüfstatus','Scanvorgänge','JTL-Artikelnummer','Artikelname','Letzter Scan'];
+ const rows=state.items.map(x=>[x.ean,statuses[x.resolution]||x.resolution,x.review_state,x.scan_count,
+ x.artikelnummer||x.draft?.Artikelnummer||'',x.draft?.Artikelname||x.artikelname||'',x.last_scanned_utc]);
+ const csv='\ufeff'+headers.map(cell).join(';')+'\r\n'+rows.map(r=>r.map(cell).join(';')).join('\r\n')+'\r\n';
+ const u=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+ const a=document.createElement('a');a.href=u;a.download='HW24_Scanuebersicht_'+state.batchId+'.csv';
+ document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),5000);
+};
+const resend=document.createElement('button');resend.id='resend';resend.type='button';resend.className='secondary';
+resend.textContent='↻ Ungespeicherte Scans erneut senden';resend.hidden=state.queue.length===0;resend.onclick=consume;
+$('scanForm').append(resend);
+loadBatches();
+if(state.queue.length)status(state.queue.length+' unbestätigte Scanvorgänge aus vorheriger Sitzung. Zum Senden oben „Erneut senden“ wählen.','warn');
+catalogStatus();
+if(catalogQueue.length)runCatalog();
+})();
+</script></body></html>
