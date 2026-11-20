@@ -607,6 +607,7 @@ resend.textContent='↻ Ungespeicherte Scans erneut senden';resend.hidden=state.
 $('scanForm').append(resend);
 window.HW24ScanBridge={
  selected:()=>state.selected,
+ find:id=>state.items.find(x=>x.id===id)||null,
  batchId:()=>state.batchId,
  schema:()=>schema.slice(),
  control:key=>{const n=schema.indexOf(key);return n>=0?$('field_'+n):null},
