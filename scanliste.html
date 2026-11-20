@@ -63,6 +63,10 @@ details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border
 <section class="card"><h2>4. Stammdaten und Freigabe</h2>
 <p id="itemInfo">Wähle einen Artikel aus der Scanliste. Bei bestätigten Neuanlagen können die Pflichtfelder ergänzt werden.</p>
 <div id="editor" hidden>
+<div class="toolbar"><button type="button" class="secondary" id="research">🔎 Historie und Amazon SP-API prüfen</button></div>
+<p class="note" id="researchStatus">Recherche ist optional und erfolgt nach dem Scan. Mehrfachtreffer werden nicht automatisch übernommen.</p>
+<div id="suggestions"></div>
+
 <div class="toolbar"><button type="button" class="secondary" id="useEAN">EAN als Artikelnummer vorschlagen</button>
 <button type="button" class="secondary" id="hairTemplate">Vorlage Haarfarben einsetzen</button></div>
 <p class="note">Vorlagen sind Vorschläge für Neuanlagen. Hersteller, Preis, Inhalt, Artikelnummer und Kategorie vor der Freigabe prüfen.</p>
@@ -193,6 +197,72 @@ function editorFields(){
  const out={};for(const control of $('editorFields').querySelectorAll('input,textarea'))out[control.name]=val(control.value);
  return out;
 }
+async function research(){
+ const item=state.selected;if(!item||item.resolution!=='new_candidate')return;
+ const originalId=item.id,ean=item.ean,holder=$('suggestions');
+ holder.replaceChildren();$('research').disabled=true;
+ $('researchStatus').textContent='Historie und Amazon-Katalog werden geprüft. Amazon-Limits und Cache werden berücksichtigt.';
+ const fetchSource=async u=>{
+  const response=await fetch(u,{credentials:'same-origin',cache:'no-store'});
+  const value=await response.json();if(!response.ok||!value.ok)throw Error(message(value.error));
+  return value;
+ };
+ const sources=await Promise.allSettled([
+ fetchSource('api/historie.php?'+new URLSearchParams({ean,include_legacy:'1'})),
+ fetchSource('api/amazon.php?'+new URLSearchParams({ean}))
+ ]);
+ if(state.selected?.id!==originalId){$('research').disabled=false;return}
+ let count=0;const info=[];
+ const suggest=(field,value,origin)=>{
+  value=val(value);if(!value||!schema.includes(field)||value.length>10000)return;
+  const index=schema.indexOf(field),ctl=$('field_'+index);
+  if(!ctl||ctl.disabled||val(ctl.value))return;
+  const row=textNode('div',undefined,holder,'card');
+  textNode('strong',field+' · '+origin,row);
+  textNode('p',value.slice(0,250),row,'note');
+  const btn=textNode('button','Vorschlag übernehmen',row,'secondary');btn.type='button';
+  btn.onclick=()=>{
+    if(state.selected?.id!==originalId||val(ctl.value))return;
+    ctl.value=value;btn.disabled=true;btn.textContent='Im Entwurf übernommen · bitte prüfen und speichern';
+  };count++;
+ };
+ if(sources[0].status==='fulfilled'){
+  const h=sources[0].value;
+  const a=h.approved?.fields||{};
+  for(const key of ['Artikelname','Hersteller','HAN','Kurzbeschreibung','Beschreibung'])
+   if(val(a[key]))suggest(key,a[key],'freigegebener HW24-Artikelstand');
+  const alias={'artikelname':'Artikelname','name':'Artikelname',
+   'citemname':'Artikelname','hersteller':'Hersteller','marke':'Hersteller',
+   'han':'HAN','kurzbeschreibung':'Kurzbeschreibung','beschreibung':'Beschreibung'};
+  const candidates=new Map(),conflicts=new Set();
+  for(const row of h.matches||[])for(const cell of row.cells||[]){
+    if(!cell.header_verified)continue;
+    const key=alias[val(cell.label).toLocaleLowerCase('de').replace(/\\s+/g,' ')];
+    const value=val(cell.value);
+    if(!key||!value||value.length>10000)continue;
+    if(!candidates.has(key))candidates.set(key,{value,source:(row.sheet_name||'Excel')+' · Zeile '+row.excel_row});
+    else if(candidates.get(key).value.toLocaleLowerCase('de')!==value.toLocaleLowerCase('de'))conflicts.add(key);
+  }
+  for(const [field,x] of candidates)if(!conflicts.has(field)&&!val(a[field]))
+   suggest(field,x.value,'historischer Excel-Beleg: '+x.source);
+  info.push('Historie: '+(h.archived_reference_count||0)+' Referenzen');
+ }else info.push('Historie derzeit nicht abrufbar');
+ if(sources[1].status==='fulfilled'){
+  const a=sources[1].value;
+  if(a.count===1 && (a.items||[]).length===1){
+   const x=a.items[0];
+   for(const [field,value] of [['Artikelname',x.title],['Hersteller',x.brand||x.manufacturer],['ASIN',x.asin]])
+    suggest(field,value,'Amazon SP-API · '+(a.source==='cache'?'Cache':'live')+' · ASIN '+(x.asin||''));
+  }else if(a.count>1){
+   const p=textNode('p','Amazon: '+a.count+' Treffer. Mehrdeutig, bitte Produktidentität im Artikelmanager prüfen.',holder,'note warn');
+  }
+  info.push('Amazon: '+a.count+' Treffer');
+ }else info.push('Amazon derzeit nicht abrufbar oder ohne Berechtigung');
+ $('researchStatus').textContent=info.join(' · ')+'. '+count+
+ ' eindeutige Vorschläge, noch nicht gespeichert. Produktidentität und Nutzungsrechte prüfen.';
+ $('research').disabled=false;
+}
+$('research').onclick=research;
 function patchFields(m){for(const [key,value] of Object.entries(m)){
  const index=schema.indexOf(key);if(index<0)continue;
  const ctl=$('field_'+index);if(ctl && !ctl.disabled && !val(ctl.value))ctl.value=value;
