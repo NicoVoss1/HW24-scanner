@@ -60,7 +60,7 @@ jobs:
           python3 - <<'PY'
           import re, subprocess, pathlib, sys
           html=pathlib.Path('index.html').read_text(encoding='utf-8')
-          scan_html=pathlib.Path('scanliste.html').read_text(encoding='utf-8')
+          scan_html=pathlib.Path('scanliste.html').read_text(encoding='utf-8') if pathlib.Path('scanliste.html').is_file() else ''
           errors=0
           for i, script in enumerate(re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>',html,re.I),1):
               if not script.strip():continue
@@ -68,7 +68,7 @@ jobs:
               if p.returncode:
                   print('Inline script',i,'failed:\n',p.stderr)
                   errors+=1
-          for i, script in enumerate(re.findall(r'<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>',scan_html,re.I),1):
+          for i, script in enumerate(re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>',scan_html,re.I),1):
               if not script.strip():continue
               p=subprocess.run(['node','--check'],input=script,text=True,capture_output=True)
               if p.returncode:
@@ -96,7 +96,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build/site build
-          cp index.html scanliste.html build/site/
+          cp index.html build/site/index.html
+          if [[ -f scanliste.html ]]; then cp scanliste.html build/site/scanliste.html; fi
           cp -R assets api build/site/
           printf 'GitHub SHA: %s\nBranch or ref: %s\n' "$GITHUB_SHA" "$GITHUB_REF" > build/site/RELEASE.txt
           # Deliberately exclude: .git, .github, sql, docs, sync, hw24_private.
@@ -132,11 +133,11 @@ jobs:
           REPO="$GITHUB_REPOSITORY"
           CURRENT="$(gh api "repos/$REPO/git/ref/heads/deploy/staging" --jq '.object.sha')"
           INDEX="$(git rev-parse HEAD:index.html)"
-          SCANLIST="$(git rev-parse HEAD:scanliste.html)"
+          SCANLIST="$(git rev-parse HEAD:scanliste.html 2>/dev/null || true)"
           ASSETS="$(git rev-parse HEAD:assets)"
           API="$(git rev-parse HEAD:api)"
-          TREE="$(jq -n --arg index "$INDEX" --arg assets "$ASSETS" --arg api "$API" \
-            '{tree:[{path:"index.html",mode:"100644",type:"blob",sha:$index},{path:"scanliste.html",mode:"100644",type:"blob",sha:$scanliste},{path:"assets",mode:"040000",type:"tree",sha:$assets},{path:"api",mode:"040000",type:"tree",sha:$api}]}' \
+          TREE="$(jq -n --arg index "$INDEX" --arg scanliste "$SCANLIST" --arg assets "$ASSETS" --arg api "$API" \
+            '{tree:([{path:"index.html",mode:"100644",type:"blob",sha:$index},{path:"assets",mode:"040000",type:"tree",sha:$assets},{path:"api",mode:"040000",type:"tree",sha:$api}] + (if $scanliste=="" then [] else [{path:"scanliste.html",mode:"100644",type:"blob",sha:$scanliste}] end))}' \
             | gh api -X POST "repos/$REPO/git/trees" --input - --jq '.sha')"
           PREVIOUS_TREE="$(gh api "repos/$REPO/git/commits/$CURRENT" --jq '.tree.sha')"
           if [[ "$TREE" = "$PREVIOUS_TREE" ]]; then
