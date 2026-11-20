@@ -63,6 +63,9 @@ function resolve(PDO $db, string $ean): array {
 function rowData(array $r): array {
   $fields=json_decode((string)($r['draft_json']??''),true);
   $r['draft']=is_array($fields)?$fields:new stdClass();
+  $sources=json_decode((string)($r['source_json']??''),true);
+  $r['csv_meta']=is_array($sources)&&isset($sources['csv_meta'])&&is_array($sources['csv_meta'])
+    ?$sources['csv_meta']:new stdClass();
   unset($r['draft_json'],$r['source_json']);
   return $r;
 }
@@ -137,13 +140,15 @@ try {
         respond(409,['ok'=>false,'error'=>'non_new_item','ean'=>$entry['ean']]);
       $f=json_decode((string)$entry['draft_json'],true);
       if(!is_array($f) || !gtinValid((string)$entry['ean']) ||
-         ($f['GTIN']??'')!==$entry['ean'] || empty($f['Artikelnummer']) ||
+         ($f['GTIN']??'')!==$entry['ean'] ||
          empty($f['Artikelname']) || empty($f['Hersteller']) ||
          empty($f['Steuerklasse']) || empty($f['Warengruppe']))
         respond(409,['ok'=>false,'error'=>'incomplete_ready_row','ean'=>$entry['ean']]);
-      $sku=(string)$f['Artikelnummer'];
-      if(isset($seen[$sku]))respond(409,['ok'=>false,'error'=>'duplicate_batch_artikelnummer']);
-      $seen[$sku]=true;
+      $sku=trim((string)($f['Artikelnummer']??''));
+      if($sku!==''){
+        if(isset($seen[$sku]))respond(409,['ok'=>false,'error'=>'duplicate_batch_artikelnummer']);
+        $seen[$sku]=true;
+      }
       $check->execute([$meta['source_id'],$entry['ean'],$entry['ean'],$entry['ean'],$sku]);
       if((int)$check->fetchColumn()>0)
         respond(409,['ok'=>false,'error'=>'jtl_duplicate_before_export','ean'=>$entry['ean']]);
@@ -152,6 +157,7 @@ try {
       $rows[]=$f;
     }
     respond(200,['ok'=>true,'fields'=>$rows,'count'=>count($rows),
+      'auto_article_numbers'=>count(array_filter($rows,static fn($x)=>empty($x['Artikelnummer']))),
       'jtl_snapshot_utc'=>$meta['last_completed_utc'],
       'warning'=>'JTL-Ameise-Feldzuordnung und Trockenlauf vor echtem Import prüfen']);
   }
@@ -186,12 +192,13 @@ try {
     $s=$pdo->prepare('INSERT INTO hw24_scan_items
       (batch_id,ean,resolution,jtl_article_id,artikelnummer,artikelname,snapshot_at_utc)
       VALUES (?,?,?,?,?,?,?)
-      ON DUPLICATE KEY UPDATE scan_count=scan_count+1,
+      ON DUPLICATE KEY UPDATE scan_count=IF(review_state="removed",1,scan_count+1),
       last_scanned_utc=UTC_TIMESTAMP(6),updated_at_utc=UTC_TIMESTAMP(6),
       resolution=VALUES(resolution),jtl_article_id=VALUES(jtl_article_id),
       snapshot_at_utc=VALUES(snapshot_at_utc),
       artikelnummer=IF(VALUES(resolution)="existing",VALUES(artikelnummer),artikelnummer),
-      artikelname=IF(VALUES(resolution)="existing",VALUES(artikelname),artikelname)');
+      artikelname=IF(VALUES(resolution)="existing",VALUES(artikelname),artikelname),
+      review_state=IF(review_state="removed","scan_only",review_state)');
     $s->execute([$id,$ean,$match['resolution'],$match['jtl_article_id'],
       $match['artikelnummer'],$match['artikelname'],$match['snapshot_at_utc']]);
     } // On transport retry, return the existing scan without incrementing.
@@ -279,7 +286,7 @@ try {
     }
     $state='draft';
     $ready=($combined['GTIN']??'')===$old['ean']&&
-      !empty($combined['Artikelnummer'])&&!empty($combined['Artikelname'])&&
+      !empty($combined['Artikelname'])&&
       !empty($combined['Hersteller'])&&!empty($combined['Warengruppe'])&&
       !empty($combined['Steuerklasse'])&&$old['resolution']==='new_candidate';
     if(($body['mark_ready']??false)===true){
@@ -288,13 +295,15 @@ try {
       $match=resolve($pdo,(string)$old['ean']);
       if($match['resolution']!=='new_candidate'){$pdo->rollBack();
         respond(409,['ok'=>false,'error'=>'jtl_match_changed','resolution'=>$match['resolution']]);}
-      $sku=trim((string)$combined['Artikelnummer']);
-      $check=$pdo->prepare('SELECT COUNT(*) FROM hw24_jtl_articles WHERE source_id=
-         (SELECT source_id FROM hw24_jtl_sync_meta WHERE status="ready"
-           ORDER BY last_completed_utc DESC LIMIT 1) AND artikelnummer=?');
-      $check->execute([$sku]);
-      if((int)$check->fetchColumn()>0){$pdo->rollBack();
-        respond(409,['ok'=>false,'error'=>'artikelnummer_already_in_jtl']);}
+      $sku=trim((string)($combined['Artikelnummer']??''));
+      if($sku!==''){
+        $check=$pdo->prepare('SELECT COUNT(*) FROM hw24_jtl_articles WHERE source_id=
+           (SELECT source_id FROM hw24_jtl_sync_meta WHERE status="ready"
+             ORDER BY last_completed_utc DESC LIMIT 1) AND artikelnummer=?');
+        $check->execute([$sku]);
+        if((int)$check->fetchColumn()>0){$pdo->rollBack();
+          respond(409,['ok'=>false,'error'=>'artikelnummer_already_in_jtl']);}
+      }
       $state='ready';
     }
     $previousSources=json_decode((string)($old['source_json']??''),true);
