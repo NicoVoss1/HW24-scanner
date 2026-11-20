@@ -83,7 +83,7 @@ if($method==='POST'){
   if(!is_array($body))respond(400,['ok'=>false,'error'=>'invalid_body']);
 }
 $op=(string)($method==='GET'?($_GET['op']??'batches'):($body['op']??''));
-$config=dirname(__DIR__,2).'/hw24_private/db.php';
+$config=dirname(__DIR__,2).'/hw24_private/scanlist-db.php';
 if(!is_file($config))respond(503,['ok'=>false,'error'=>'database_not_configured']);
 try {
   $cfg=require $config;
