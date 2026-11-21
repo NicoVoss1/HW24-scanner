@@ -1,6 +1,20 @@
 # HW24 · Verbindlicher Projektstand und Einstiegspunkt
 
-**Stand:** 20.11.2026, fortgeschrieben nach UI-Release PR #18 · **Projekt:** Hairworld24 Artikelmanager / HW24-scanner  
+**Stand:** 22.11.2026, aktueller Release PR #32 (ältere Abschnitte dokumentieren historische Projektstände).
+
+## AKTUELLSTE TESTFREIGABE · V4.24
+
+- **Website-only [PR #32](https://github.com/NicoVoss1/HW24-scanner/pull/32)** in `deploy/staging` gemerged, SHA **`f51ab67240bd1bf0e5be25498269049a24748b85`**. Plesk-Deployment noch **nicht nachgewiesen**, Live `main` unverändert.
+- **Neue Alltagspflege:** `artikelpflege.html`, eindeutige JTL-Artikelabfrage, klare Eingabebereiche, dokumentierte Vorher/Nachher-Werte, revisionsgeschützte HW24-Entwurfsspeicherung. Alte `index.html` bleibt Expertenansicht.
+- **Qualitätsfilter:** Bestand und EK unabhängig, ODER/UND auswählbar, Standard mit positivem Bestand zuerst, echte numerische Sortierung und separate Spalten Bestand / Netto-EK / letzter EK.
+- **Haarfarben-Referenz:** EAN **3474630337398** Prüfziffer gültig; deren **echte** Liefer-/Beschaffungs-/Lagerparameter werden erst auf dem authentifizierten Testserver aus JTL gelesen, derzeit keine Kopie unbekannter Werte. Sicherung: nur belegte Leerfelder, Checkbox Produktart Haarfarbe und Bestätigung. Keine direkten JTL-/WMS-/Shopify-Schreibrechte.
+- **Automatische Tests:** [#44963263588](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44963263588) und [#44963263701](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44963263701) grün; reale Browser-/MariaDB-Tests offen.
+- **Genau nächster Schritt:** Testdomain `test-artikelmanager.hairworld24.de` in Plesk auf `deploy/staging` Pull → Bereitstellen. Anschließend `/qualitaetszentrum.html` und `/artikelpflege.html?ean=3474630337398` prüfen. KEINE Wiederholung der bereits erledigten Datenbankinstallationen/Backups; KEIN Live-Deploy.
+- [Vollständiges Releaseprotokoll](./HW24_V424_QUALITY_EDITOR_RELEASE_20261122.md).
+
+---
+
+**Historischer Stand:** 20.11.2026, fortgeschrieben nach UI-Release PR #18 · **Projekt:** Hairworld24 Artikelmanager / HW24-scanner  
 **Gültigkeit:** Dies ist die zentrale, fortlaufend zu pflegende Projektdokumentation. Sie ist nicht selbst ein Nachweis, dass ein Plesk-Deployment, eine Datenbankmigration oder ein Live-Test durchgeführt wurde.
 
 > **WICHTIG FÜR DIE FORTSETZUNG:** Beim nächsten Chat, Entwicklerauftrag oder GitHub-Arbeitsschritt **zuerst diese Seite lesen** und die letzten Commits/PRs vergleichen. Keine bereits abgeschlossenen Einrichtungs- und Backup-Schritte von vorn verlangen. Ein Sachstand darf nur aufgrund neuer Befunde geändert werden. Nicht stillschweigend auf `main`, eine andere Version oder einen alten PR zurückspringen.
