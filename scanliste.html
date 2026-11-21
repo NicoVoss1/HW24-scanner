@@ -798,7 +798,12 @@ window.HW24ScanBridge={
    for(const [field,value] of Object.entries(fields||{})){
      const c=this.control(field);
      if(!c||c.readOnly||c.disabled||!val(value))continue;
-     const replacing=confirmedChoice&&field==='ASIN'&&val(c.value)!==val(value);
+     const replacing=confirmedChoice&&['ASIN','Warengruppe'].includes(field)&&val(c.value)!==val(value);
+     if(replacing&&c.tagName==='SELECT'&&!Array.from(c.options).some(o=>o.value===val(value))){
+       const suggested=document.createElement('option');
+       suggested.value=val(value);suggested.textContent=val(value)+' · KI-Vorschlag (prüfen)';
+       c.append(suggested);
+     }
      if(!replacing&&(c.dataset.userTouched==='1'||val(c.value)))continue;
      c.value=val(value);
      c.dataset.hw24Source=val(fieldSources?.[field]||'HW24 · Quellen');
@@ -840,4 +845,4 @@ catalogStatus();
 if(catalogQueue.length)runCatalog();
 })();
 </script>
-<script src="assets/hw24-scan-autofill.js?v=1"></script><script src="assets/hw24-csv-intake.js?v=1"></script><script src="assets/hw24-ai-cost.js?v=1"></script></body></html>
+<script src="assets/hw24-scan-autofill.js?v=1"></script><script src="assets/hw24-csv-intake.js?v=1"></script><script src="assets/hw24-ai-history.js?v=1"></script><script src="assets/hw24-ai-cost.js?v=1"></script></body></html>
