@@ -70,6 +70,22 @@ function renderItem(item,index,total) {
   const box=document.createElement('div');
   box.style.cssText='background:white;border:1px solid #ccd9e7;border-radius:9px;margin:9px 0;padding:12px';
   box.append(make('strong',(item.title||'Ohne Titel')+' · '+(item.asin||'ASIN unbekannt')));
+  const asin=String(item.asin||'').trim().toUpperCase();
+  if(/^[A-Z0-9]{10}$/.test(asin)){
+    const link=make('a','Amazon.de · ASIN '+asin+' direkt öffnen','note');
+    link.href='https://www.amazon.de/dp/'+asin;link.target='_blank';
+    link.rel='noopener noreferrer';link.style.cssText='display:block;font-weight:700;color:#125a9a;margin:8px 0';
+    box.append(link);
+  }
+  const pack=window.HW24Enrich?.classifyPack?.(item.title||'',item);
+  if(pack){
+    const text=pack.kind==='single'?'1 Stück belegt':
+      pack.kind==='multipack'?pack.units+' Stück als Mehrfachpackung erkannt':
+      pack.kind==='conflict'?'Widersprüchliche Packungsangaben':'Stückzahl nicht verifiziert';
+    const line=make('p','Packungsprüfung: '+text+' · '+pack.reasons.join(' · '),'note');
+    if(pack.kind==='multipack'||pack.kind==='conflict')line.style.color='#9b371e';
+    box.append(line);
+  }
   const rating=assessment(item);const info=make('p',rating.text,'note');if(rating.level==='warning')info.style.color='#9b371e';box.append(info);
   box.append(make('p','Marke: '+(item.brand||'nicht verfügbar')+' · Hersteller: '+(item.manufacturer||'nicht verfügbar'),'note'));
   if(total>1)box.append(make('p','Mehrere Amazon-Treffer: keine automatische Zuordnung. Artikelidentität prüfen.','note'));
