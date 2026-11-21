@@ -17,6 +17,10 @@ assert(review.includes('WHERE actor=? AND ean=? ORDER BY id DESC LIMIT 1'));
 assert(review.includes("'reused'=>true"));
 assert(review.includes("'usd_call'=>0"));
 assert(review.includes("HTTP_X_HW24_RECHECK"));
+assert(review.includes("HTTP_X_HW24_PREVIOUS_REVIEW"),'Forced recheck must include expected review revision');
+assert(review.includes("review_recheck_conflict"),'Stale recheck must be rejected before billing');
+assert(badge.includes("X-HW24-Previous-Review"),'Browser sends expected previous ID');
+
 const pre=review.indexOf('WHERE actor=? AND ean=? ORDER BY id DESC LIMIT 1');
 const paid=review.indexOf("curl_init('https://api.openai.com");
 assert(pre>=0&&paid>pre,'Server checks EAN BEFORE paid OpenAI');
