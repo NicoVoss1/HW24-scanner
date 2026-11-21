@@ -1,0 +1,38 @@
+name: HW24 JTL references and AI cost gate
+on:
+  push:
+    branches:
+      - feature/hw24-v422-jtl-reference-ai-ledger-20261121
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify UI and API contract
+        run: node tests/hw24-jtl-ai-wiring.test.cjs
+      - name: JavaScript and PHP syntax
+        run: |
+          set -euo pipefail
+          for asset in assets/*.js; do node --check "$asset"; done
+          for script in api/*.php; do php -l "$script"; done
+      - name: Verify inline HTML JavaScript and asset paths
+        run: |
+          python3 - <<'PY'
+          import pathlib,re,subprocess
+          for filename in ('index.html','scanliste.html'):
+            html=pathlib.Path(filename).read_text(encoding='utf8')
+            for script in re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>',html,re.I):
+              if not script.strip():continue
+              run=subprocess.run(['node','--check'],input=script,text=True,capture_output=True)
+              if run.returncode:raise RuntimeError(filename+': '+run.stderr)
+            for asset in re.findall(r'(?:src|href)=["\'](assets/[^"\']+)',html):
+              path=asset.split('?')[0]
+              if not pathlib.Path(path).is_file():raise RuntimeError('Missing '+path)
+          print('Inline JS and asset links verified')
+          PY
+      - name: Confirm no private credentials in deploy source
+        run: |
+          test ! -e hw24_private/openai-review.php
+          test ! -e hw24_private/db.php
+          test ! -e hw24_private/scanlist-db.php
