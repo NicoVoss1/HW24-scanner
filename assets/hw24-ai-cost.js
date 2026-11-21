@@ -98,7 +98,7 @@ async function lookupStored(ean){
 async function refreshArticleStatus(){
  const nonce=++lookupNonce;
  const ean=article().ean;
- if(!ready||!/^\\d{8,14}$/.test(ean)){
+ if(!ready||!/^\d{8,14}$/.test(ean)){
   lookupOk=false;knownReport=null;rerun.hidden=true;
   check.textContent='KI-Prüfung starten';
   check.disabled=!ready||busy;
@@ -189,7 +189,7 @@ async function runPaid(payload,force){
 check.onclick=async()=>{
  if(!ready||busy)return;
  const payload=article();
- if(!/^\\d{8,14}$/.test(payload.ean)||!payload.articleName){
+ if(!/^\d{8,14}$/.test(payload.ean)||!payload.articleName){
   output.textContent='Bitte zuerst einen Artikel mit EAN und Produktname auswählen.';return;
  }
  // Always check the authoritative archive again, not just stale browser markers.
@@ -209,7 +209,7 @@ check.onclick=async()=>{
 rerun.onclick=async()=>{
  if(!ready||busy)return;
  const payload=article();
- if(!/^\\d{8,14}$/.test(payload.ean)||!payload.articleName)return;
+ if(!/^\d{8,14}$/.test(payload.ean)||!payload.articleName)return;
  try{
   const previous=await lookupStored(payload.ean);
   if(!previous){await refreshArticleStatus();return}
