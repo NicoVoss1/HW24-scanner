@@ -30,7 +30,7 @@ $catalog=hw24QualityCatalog();
 if($filter!=='all'&&!array_key_exists($filter,$catalog))
  auditReply(400,['ok'=>false,'error'=>'invalid_filter']);
 $severity=(string)($_GET['severity']??'all');
-if(!in_array($severity,['all','critical','warning','no_detected_issues'],true))
+if(!in_array($severity,['all','with_issues','critical','warning','no_detected_issues'],true))
  auditReply(400,['ok'=>false,'error'=>'invalid_severity']);
 $page=filter_var($_GET['page']??1,FILTER_VALIDATE_INT);
 $perPage=filter_var($_GET['per_page']??25,FILTER_VALIDATE_INT);
@@ -113,7 +113,8 @@ try{
   foreach($result['issues'] as $code)$stats['issue_counts'][$code]++;
   if(in_array('stock_without_ek',$result['issues'],true))$stats['stock_without_ek']++;
   if(($filter!=='all'&&!in_array($filter,$result['issues'],true))||
-     ($severity!=='all'&&$severity!==$result['severity'])||
+     ($severity==='with_issues'&&$result['issue_count']===0)||
+     ($severity!=='all'&&$severity!=='with_issues'&&$severity!==$result['severity'])||
      !$queryMatches($a,$q))continue;
   $selected[]=[
    'jtl_article_id'=>(string)$a['jtl_article_id'],
