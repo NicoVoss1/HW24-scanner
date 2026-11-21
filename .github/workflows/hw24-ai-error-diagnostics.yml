@@ -1,0 +1,17 @@
+name: HW24 OpenAI error diagnosis
+on:
+  push:
+    branches:
+      - feature/hw24-openai-error-diagnostics-20261121
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Safe error mapping test
+        run: node tests/hw24-ai-errors.test.cjs
+      - name: JavaScript and PHP syntax checks
+        run: |
+          node --check assets/hw24-ai-cost.js
+          php -l api/ai-review.php
