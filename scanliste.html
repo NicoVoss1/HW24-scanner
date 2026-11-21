@@ -216,7 +216,9 @@ const options={
  'Beschaffungszeit automatisch ermitteln':['','0','1'],
  'Steuerklasse':['','normaler steuersatz','ermäßigter steuersatz','steuerfrei'],
  'Artikeltyp':['','Normaler Artikel','Kartonage','Mehrzweckgutschein'],
- 'Währung':['','EUR']
+ 'Währung':['','EUR'],
+ 'Zusätzliche Bearbeitungszeit':['','1','2','3'],
+ 'Beschaffungszeit manuell setzen':['','1','2','3','4','5']
 };
 const fieldHelp={
  'GTIN':'Gescannte Kennung, schreibgeschützt',
@@ -490,6 +492,11 @@ function selectItem(id){
         const option=document.createElement('option');option.value=choice;
         option.textContent=choice||'Bitte auswählen';control.append(option);
       }
+      if(['Hersteller','Warengruppe','Lieferstatus','Kategorie Ebene 1',
+          'Kategorie Ebene 2','Kategorie Ebene 3'].includes(key)){
+         const other=document.createElement('option');other.value='__manual_hw24__';
+         other.textContent='✍️ Anderen Wert zur Prüfung eingeben …';control.append(other);
+      }
     }else control=document.createElement('input');
     control.name=key;control.value=value;
     // Reference menus remain open for existing articles in non-saving comparison mode.
@@ -498,6 +505,19 @@ function selectItem(id){
     control.id='field_'+schema.indexOf(key);label.htmlFor=control.id;
     control.dataset.hw24Source='';
     control.addEventListener('change',()=>{
+       if(control.tagName==='SELECT'&&control.value==='__manual_hw24__'){
+          const newValue=window.prompt('Neuen '+key+'-Wert als HW24-Entwurf eintragen (JTL-Zuordnung vor Import prüfen):','');
+          if(!newValue||!newValue.trim()||newValue.trim().length>130){
+            control.value=value||'';return;
+          }
+          const candidate=newValue.trim();
+          if(!Array.from(control.options).some(o=>o.value===candidate)){
+            const custom=document.createElement('option');custom.value=candidate;
+            custom.textContent=candidate+' · manuell (JTL-Zuordnung prüfen)';
+            control.add(custom,control.options.length-1);
+          }
+          control.value=candidate;
+       }
        if(disabled){$('editorStatus').textContent='Nur Vergleich: Änderungen an bestehenden JTL-Artikeln bitte im Haupt-Artikelmanager als Entwurf prüfen.';return}
        if(key==='Überverkäufe möglich'&&control.value==='Y'){
          if(!window.confirm('Überverkäufe sind standardmäßig deaktiviert. Ausnahme für diesen Artikel bewusst freigeben?')){
