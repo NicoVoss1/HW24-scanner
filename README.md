@@ -29,13 +29,13 @@ Diese beiden Dateien beim Fortsetzen eines Chats, beim Öffnen eines PRs und vor
 
 ## Sofortiger nächster Schritt
 
-**Stand 21.11.2026:** [PR #24](https://github.com/NicoVoss1/HW24-scanner/pull/24) mit JTL-Referenz-Dropdowns, bestätigter ASIN-Übernahme, Direktlink zum Bestandsartikel und optionalem OpenAI-Tokenkostenzähler wurde in **`deploy/staging`** gemerged. **Aktueller Test-Staging-SHA: `41bd862178d23a2e385d253767898318a490fdca`.**
+**Aktueller Testbranch:** `deploy/staging` GitHub-Commit **`6e6e7f7dfd536f4bef42c401321cafe95f855004`** nach [PR #26](https://github.com/NicoVoss1/HW24-scanner/pull/26) und [PR #27](https://github.com/NicoVoss1/HW24-scanner/pull/27). Große historische KI-Auswertungen, EAN-Filter/ASIN-Prüfungen, dokumentierte HW24-Entwurfsfreigaben und serverseitige Aufbewahrung von OpenAI-Reviewdaten mit Tokenkosten. **GitHub-Testcode fertig, Plesk-Deployment und MariaDB-Integrationstest offen.**
 
-**Jetzt:** Nur die **Testdomain** in Plesk `deploy/staging` → **Jetzt Pull ausführen** → **Jetzt bereitstellen**. Danach JTL-Bestandsartikel, neue EAN-Dropdowns, bestätigte ASIN-Persistenz nach Reload und den ohne API-Key deaktivierten KI-Kostenzähler prüfen. **Live bleibt `main`; kein Live-Pull.**
+**Nur noch neue Installation:** Plesk **TEST** `deploy/staging` → Pull → Bereitstellen. Danach **einmalig** die neue `hw24_ai_reviews`-V13-Archiv-Tabelle über das gesicherte `ops/HW24_INSTALL_AI_ARCHIVE_TEST.sh` einrichten (einzige neue Tabelle, keine Änderungen an JTL/WMS). Vor dem Archiv bleibt `KI-Prüfung starten` ausdrücklich gesperrt. Danach `GET /api/ai-reviews.php` prüfen und eine einzelne neue KI-Prüfung mit Historie/Reload und Kosten dokumentieren.
 
-**OpenAI:** Der private Projektschlüssel ist **noch nicht auf dem Plesk-Testserver eingerichtet**; erst nach gezielter Installation in `hw24_private/openai-review.php` kann eine bewusst bestätigte, kostenpflichtige KI-Prüfung erfolgen. Die Kostenanzeige liefert **HW24-tokenbasierte USD-Schätzungen**, nicht den gesamten OpenAI-Abrechnungsstand. Die Referenzoptionen stammen aus dem MariaDB-JTL-Spiegel, nicht aus sämtlichen SQL-Server-Referenztabellen.
+**Nicht wiederholen:** V11/V12-Scanlisten-Installation, Backups, bestehende DB-Dateien, SQL-/PuTTY-Basissetup. Die **Live-Domain bleibt auf `main`**, und die erste bereits früher bezahlte KI-Auswertung ist aus dem Kostenledger nicht rekonstruierbar.
 
-[Dokumentierter Stand, Serverkonfiguration und offene Prüfungen](docs/HW24_JTL_REFERENZEN_OPENAI_API_20261121.md). Frühere Backups, PuTTY/SQL und Plesk-Installationen sind bereits erledigt und werden nicht wiederholt.
+[Komplette Anleitung: KI-Archiv und große Analysen](docs/HW24_KI_ARCHIV_UND_ANALYSEN_20261121.md).
 
 ## Vorheriger Schritt (PR #22)
 
