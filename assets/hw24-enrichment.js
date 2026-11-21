@@ -70,6 +70,21 @@ function classifyPack(name,item={}){
   reasons:signals.length?signals:['Keine ausdrückliche Stückzahl in Titel oder Amazon-Attributen']};
 }
 function likelyMultipack(name,item){const c=classifyPack(name,item);return c.kind==='multipack'||c.kind==='conflict'}
+// Deterministic audit layer, not a language-model inference. Never invent a JTL category ID.
+function classifyWarengruppe(title){
+ const name=normalize(title,700).toLocaleLowerCase('de');
+ if(!name)return{suggested:null,confidence:'none',reason:'Kein Produktname'};
+ const styling=/\b(?:haarstyling|haarspray|haarlack|styling\s*(?:gel|spray|mousse|wax|creme)|pomade|haarwachs|haargel)\b/;
+ const care=/\b(?:shampoo|conditioner|haarkur|hair\s*mask|maske|pflegekur|trockenshampoo|dry\s*shampoo)\b/;
+ const color=/(?:\bcolor\s*touch\b|dusicolor|creation\s*mix|koleston|igora|illumina|\bhaarfarbe\b|\bcoloration\b|\btönung\b|\bcolor\s*mix\b|\bshinfinity\b)/;
+ const matches=[color.test(name)&&'Haarfarben',styling.test(name)&&'Haarstyling',care.test(name)&&'Haarpflege'].filter(Boolean);
+ if(matches.length===1)return{suggested:matches[0],confidence:'rule',
+   reason:'Produkttyp im Artikelname erkannt; vor JTL-Zuordnung prüfen'};
+ if(matches.length>1)return{suggested:null,confidence:'conflict',
+   reason:'Produktname enthält widersprüchliche Produktklassen'};
+ return{suggested:null,confidence:'unknown',
+   reason:'Keine eindeutige Produktklasse aus Artikelbezeichnung erkennbar'};
+}
 function shadeOf(title){
  const s=normalize(title,700).replace(/[.]/g,'/');
  const m=s.match(/(?:^|[\s(\[])(([0-9]{1,2})\s*\/\s*([0-9]{1,3}))(?!\d)/);
@@ -253,7 +268,8 @@ function build({ean,match=null,curated=null,history=null,catalog=null,isNew=fals
  if((isNew||accurate)&&validGtin(ean))put('HAN',ean,
   'HW24-Regel · HAN=GTIN nur als Vorschlag, echte Hersteller-HAN hat Vorrang','rule');
  const title=fields.Artikelname||jtlName;
- const hairColor=/(?:color|colour|koleston|igora|illumina|haarfarb|tönung|färb|pastel|shinfinity|brillant)/i.test(title);
+ const classified=classifyWarengruppe(title);
+ const hairColor=classified.suggested==='Haarfarben';
  if(title&&(isNew||accurate)){
   // Manufacturer is often readable in the verified title even if the JTL mirror
   // currently contains only its numeric kHersteller ID.
@@ -318,7 +334,11 @@ function build({ean,match=null,curated=null,history=null,catalog=null,isNew=fals
       'HW24-Rechnung aus Netto-VK und bestätigtem Normalsteuersatz','estimate');
  }
  if(hairColor&&/(?:hair\s*styling|haarstyling)/i.test(fields.Warengruppe||'')){
-   flags.Warengruppe='Konflikt: Artikelname deutet auf Haarfarbe, Quelle meldet Styling. JTL-Warengruppe prüfen, nicht stillschweigend überschreiben.';
+   flags.Warengruppe='Warengruppenkonflikt: '+classified.reason+
+     '. Quelle meldet "'+fields.Warengruppe+'", Artikelname deutet auf Haarfarben. JTL-Zuordnung vor Import prüfen; nicht automatisch überschreiben.';
+ }
+ if(classified.confidence==='conflict'&&fields.Warengruppe){
+   flags.Warengruppe='Uneindeutige Kategorie: '+classified.reason+'. Manuelle Kontrolle nötig.';
  }
  return{fields,sources,flags,choices,selected:chosen?.asin||null};
 }
@@ -371,7 +391,7 @@ function renderCandidates(container,choices,selected,onSelect,reference={}){
  }
 }
 root.HW24Enrich=Object.freeze({
- goodGtin:validGtin,sizeFromName,likelyMultipack,classifyPack,reviewCandidate,amazonChoices,verifiedHistory,build,renderCandidates,
+ goodGtin:validGtin,sizeFromName,likelyMultipack,classifyPack,classifyWarengruppe,reviewCandidate,amazonChoices,verifiedHistory,build,renderCandidates,
  jtl:ean=>get('jtl',ean),curated:ean=>get('curated',ean),
  history:ean=>get('history',ean),catalog:ean=>get('catalog',ean)
 });
