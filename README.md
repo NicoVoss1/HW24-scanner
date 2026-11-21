@@ -1,6 +1,6 @@
 # HW24 Artikelmanager · Hairworld24
 
-> **Zuerst lesen, dann weiterarbeiten:** Wir starten nicht bei null. Backups, Plesk-Verzeichnisprüfung und GitHub-Deployabgrenzung wurden bereits bearbeitet. Die aktuelle, verbindliche Anwendungsbasis ist **V4.22 TEST** im Branch **`deploy/staging`**, nicht der ältere `main`-Quellcode. Dieser Defaultbranch dient vorerst als dauerhaft auffindbarer **Dokumentations-Einstieg**.
+> **Zuerst lesen, dann weiterarbeiten:** Wir starten nicht bei null. Backups, Plesk-Verzeichnisprüfung und GitHub-Deployabgrenzung wurden bereits bearbeitet. Die aktuelle, verbindliche Anwendungsbasis ist **V4.24 TEST** im Branch **`deploy/staging`** (PR #32, Commit `f51ab67240bd1bf0e5be25498269049a24748b85`). Diese GitHub-Version ist noch nicht nachweislich in Plesk bereitgestellt, nicht der ältere `main`-Quellcode. Dieser Defaultbranch dient vorerst als dauerhaft auffindbarer **Dokumentations-Einstieg**.
 
 ## 📌 Verbindliche Projektübersicht
 
