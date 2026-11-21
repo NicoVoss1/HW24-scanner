@@ -63,11 +63,10 @@ function asinList(catalog,ean){
  E.renderCandidates(info,choices,existing,candidate=>{
   const current=source().record;
   if(!current||current!==r)return;
-  if(value(current.ASIN)&&value(current.ASIN)!==candidate.asin){
-    const p=document.createElement('p');p.className='note';
-    p.textContent='Bereits vorhandene ASIN bitte gezielt in der Stammdatenpflege prüfen. Keine automatische Überschreibung.';
-    info.append(p);return;
-  }
+  if(value(current.ASIN)&&value(current.ASIN)!==candidate.asin&&
+     !window.confirm('Vorhandene ASIN '+value(current.ASIN)+
+      ' im lokalen Artikelentwurf ausdrücklich durch '+candidate.asin+
+      ' ersetzen? JTL-Wawi wird dadurch nicht geschrieben.'))return;
   const check=E.reviewCandidate(candidate,{
     articleName:value(r.Artikelname),brand:value(r.Hersteller),packUnits:1
   });
