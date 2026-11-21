@@ -5,6 +5,14 @@
 
 > **WICHTIG FÜR DIE FORTSETZUNG:** Beim nächsten Chat, Entwicklerauftrag oder GitHub-Arbeitsschritt **zuerst diese Seite lesen** und die letzten Commits/PRs vergleichen. Keine bereits abgeschlossenen Einrichtungs- und Backup-Schritte von vorn verlangen. Ein Sachstand darf nur aufgrund neuer Befunde geändert werden. Nicht stillschweigend auf `main`, eine andere Version oder einen alten PR zurückspringen.
 
+## NEUESTER NUTZER-NACHWEIS · 21.11.2026 · V13 INSTALLIERT UND PRODUCT DATA HUB GEPLANT
+
+- Der Nutzer hat per PuTTY bestätigt, dass das einmalige V13-Installationsskript mit `ARCHIV` erfolgreich abgeschlossen wurde; Ausgabe `bisherige_ki_pruefungen=0` und `OK: KI-Prüfarchiv eingerichtet`. **Kein erneuter Installerlauf nötig.**
+- Noch offen: Authentifizierter Browser-GET `/api/ai-reviews.php` und ein neuer erfolgreicher KI-Bericht mit `stored:true`, Prüf-ID und Wiederaufruf nach Reload. Ein reiner Terminal-Installationsnachweis ist **kein** vollständiger End-to-End-Test.
+- Shopify-Konfiguration über angeschlossenen Store lesend verifiziert; Qualitätslücken in Produktklassifikation/SEO-Overrides bei kleiner Stichprobe entdeckt. Keine Shopify-Schreibänderung ausgeführt; private Shop-Metriken bewusst nicht im öffentlichen GitHub dokumentiert.
+- Strategischer nächster Meilenstein: [HW24 Product Intelligence Hub](./HW24_PRODUCT_INTELLIGENCE_HUB_STRATEGIE_20261121.md), zuerst quellengeprüfte Produktfakten mit zentralem Identitäts-/Lizenzmodell, **Shopify/JTL lesender Bestandsabgleich** über [Issue #28](https://github.com/NicoVoss1/HW24-scanner/issues/28), danach einzelne freigegebene Shop-Produktpilotartikel, später kanalweise Wawi/Shop/Social-Verteilung. **Kein** direkter Wawi/WMS-/Shop-Live-Write freigegeben.
+- Social App: Vor Kanalpublikation muss eine eigenständige HAIRWORLD24-Markenanbindung abgegrenzt von anderen Projekten geprüft werden.
+
 ## AKTUELLSTER TESTSTAND · 21.11.2026 · KI-PRÜFERGEBNISSE PERSISTENT (PR #26/#27)
 
 - **GitHub-Testrelease:** [PR #26](https://github.com/NicoVoss1/HW24-scanner/pull/26) und [PR #27](https://github.com/NicoVoss1/HW24-scanner/pull/27) in `deploy/staging` gemerged. Aktueller TEST-Commit **`6e6e7f7dfd536f4bef42c401321cafe95f855004`**. GitHub CI [#44933326129](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44933326129), [#44933692434](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44933692434) grün. **Noch kein Plesk-Pull/Deploy/realer MariaDB-E2E-Nachweis dieser Version.**
