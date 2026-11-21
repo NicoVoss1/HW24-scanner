@@ -53,8 +53,8 @@ function classifyPack(name,item={}){
    add(match[1],'Titel: Packmenge vor Volumen');
  for(const match of title.matchAll(/(?:^|[\s,;(\[])(\d{1,2})\s*(?:er[\s-]*(?:pack|paket|set)|[- ]?pack|[- ]?stk\.?|[- ]?st[üu]ck|[- ]?flaschen|[- ]?tuben)\b/g))
    add(match[1],'Titel: Packungsangabe');
- for(const match of title.matchAll(/\bpack(?:ungsgr[oö]ße)?\s*(?:mit|of)?\s*(\d{1,2})\b/g))
-   add(match[1],'Titel: Pack');
+ for(const match of title.matchAll(/\bpack\s*(?:mit|of)\s*(\d{1,2})\s*(?:stk\.?|st[üu]ck|pieces?|units?)\b/g))
+   add(match[1],'Titel: ausdrückliche Packanzahl');
  if(/\b(?:doppelpack|zweierpack|duopack|twin[\s-]*pack|2[\s-]?er[\s-]?set)\b/.test(title))add(2,'Titel: Doppelpack');
  if(/\b(?:dreierpack|triple[\s-]*pack|3[\s-]?er[\s-]?set)\b/.test(title))add(3,'Titel: Dreierpack');
  if(/\b(?:einzelpack|einzelst[üu]ck|single[\s-]?pack|single[\s-]?unit)\b/.test(title))add(1,'Titel: Einzelstück');
