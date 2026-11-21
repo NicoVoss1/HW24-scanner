@@ -43,7 +43,13 @@ const fieldSets={
   ['Kategorie Ebene 2','Kategorie Ebene 2','list:categoryValues'],
   ['Kategorie Ebene 3','Kategorie Ebene 3','list:categoryValues'],
   ['Steuerklasse','Steuerklasse','text'],
-  ['Währung','Währung','text']
+  ['Währung','Währung','text'],
+  ['Artikel aktiv','Artikel aktiv','yesno'],
+  ['Bestandsführung aktiv','Bestandsführung aktiv','yesno'],
+  ['Überverkäufe möglich','Überverkäufe möglich','yesno'],
+  ['Stückzahl teilbar','Stückzahl teilbar','yesno'],
+  ['Top-Artikel','Top-Artikel','yesno'],
+  ['Neu im Sortiment','Neu im Sortiment','yesno']
  ]
 };
 const editable=new Set(Object.values(fieldSets).flatMap(group=>group.map(f=>f[0])));
@@ -80,7 +86,13 @@ function original(key,a){
   'Lieferstatus':verifiedRelatedValue(a,'lieferstatus','cName'),
   'Zusätzliche Bearbeitungszeit':f.nBearbeitungszeit,
   'Beschaffungszeit manuell setzen':f.nLiefertageWennAusverkauft,
-  'Beschaffungszeit automatisch ermitteln':f.nAutomatischeLiefertageberechnung
+  'Beschaffungszeit automatisch ermitteln':f.nAutomatischeLiefertageberechnung,
+  'Artikel aktiv':f.cAktiv,
+  'Bestandsführung aktiv':f.cLagerAktiv,
+  'Überverkäufe möglich':f.cLagerKleinerNull,
+  'Stückzahl teilbar':f.cTeilbar,
+  'Top-Artikel':f.cTopArtikel,
+  'Neu im Sortiment':f.cNeu
  };
  return source[key]===undefined||source[key]===null?'':String(source[key]);
 }
@@ -125,10 +137,12 @@ function createField(target,definition){
  const id='field_'+key.replace(/[^a-zA-Z0-9]/g,'_');
  tag.htmlFor=id;
  let control;
- if(type==='unit'||type==='yesno01'){
+ if(type==='unit'||type==='yesno01'||type==='yesno'){
    control=el('select',box);
    const choices=type==='yesno01'?
     [['','Bitte auswählen'],['0','Nein (0)'],['1','Ja (1)']]:
+    type==='yesno'?
+    [['','Bitte auswählen'],['Y','Ja (Y)'],['J','Ja (J)'],['N','Nein (N)']]:
     [['','Bitte auswählen'],...['ml','g','l','Stück','kg','cm'].map(v=>[v,v])];
    for(const [v,label] of choices){
     const option=el('option',control,label);option.value=v;
@@ -288,6 +302,7 @@ async function loadReference(){
    ['Versandklasse',a.versandklasse_name||f.kVersandklasse],
    ['Artikel aktiv',f.cAktiv],['Bestandsführung',f.cLagerAktiv],
    ['Überverkäufe',f.cLagerKleinerNull],['Teilbar',f.cTeilbar],
+   ['Top-Artikel',f.cTopArtikel],['Neu im Sortiment',f.cNeu],
    ['Steuerklasse',a.steuerklasse_name||f.kSteuerklasse]
   ])fact(root,caption,v==null?'':v);
   $('suggestReference').disabled=false;
@@ -309,7 +324,13 @@ $('suggestReference').onclick=()=>{
   'Lieferstatus':verifiedRelatedValue(reference,'lieferstatus','cName'),
   'Zusätzliche Bearbeitungszeit':source.nBearbeitungszeit,
   'Beschaffungszeit manuell setzen':source.nLiefertageWennAusverkauft,
-  'Beschaffungszeit automatisch ermitteln':source.nAutomatischeLiefertageberechnung
+  'Beschaffungszeit automatisch ermitteln':source.nAutomatischeLiefertageberechnung,
+  'Artikel aktiv':source.cAktiv,
+  'Bestandsführung aktiv':source.cLagerAktiv,
+  'Überverkäufe möglich':source.cLagerKleinerNull,
+  'Stückzahl teilbar':source.cTeilbar,
+  'Top-Artikel':source.cTopArtikel,
+  'Neu im Sortiment':source.cNeu
  };
  if(!confirm('Nur leere, belegte und eindeutig zugeordnete Felder aus der Haarfarben-Referenz als VORSCHLAG einsetzen? Keine Identitätsdaten, Lieferstatus-IDs, Preise oder Bestände. Noch keine Speicherung in JTL.'))return;
  let count=0;
