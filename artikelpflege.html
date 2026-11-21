@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>HW24 · Artikelpflege</title>
+<link rel="icon" type="image/svg+xml" href="assets/hw24-favicon.svg">
+<link rel="stylesheet" href="assets/hw24-quality-center.css?v=2">
+<link rel="stylesheet" href="assets/hw24-article-editor.css?v=1">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="brand-icon">H24</span><span>HAIRWORLD24 <small>INTELLIGENCE · TEST</small></span></div>
+  <nav aria-label="Hauptnavigation">
+    <a href="qualitaetszentrum.html">Qualitätszentrum</a>
+    <a class="active" aria-current="page" href="artikelpflege.html">Artikelpflege</a>
+    <a href="scanliste.html">Neue EANs</a>
+    <a href="index.html" id="expertLink">Expertenansicht</a>
+  </nav>
+</header>
+<main class="editor-main">
+  <section class="editor-intro">
+    <div class="eyebrow">JTL-BESTANDSARTIKEL · EINE MASKE</div>
+    <h1>Artikel bearbeiten</h1>
+    <p>Nur die wichtigsten Felder. JTL-Originalwerte bleiben sichtbar, Änderungen werden getrennt in HW24 gespeichert und erst später kontrolliert über JTL-Ameise übertragen.</p>
+    <form id="lookupForm" class="editor-search" autocomplete="off">
+      <label for="identifier">EAN, HAN oder JTL-Artikelnummer</label>
+      <div class="search-row">
+        <input id="identifier" type="search" maxlength="64" required placeholder="EAN scannen oder Artikelnummer eingeben">
+        <button class="action" type="submit">Artikel öffnen</button>
+        <button class="secondary" type="button" id="clearArticle" title="Suchfeld leeren">✕</button>
+      </div>
+    </form>
+    <p id="editorStatus" class="status-line" role="status" aria-live="polite">Artikel auswählen. Ein Live-Schreibzugriff in JTL ist deaktiviert.</p>
+  </section>
+  <section id="productView" hidden>
+    <div id="productHeader" class="article-head">
+      <div>
+        <div class="eyebrow">JTL-BESTANDSARTIKEL</div>
+        <h2 id="articleHeading">Artikel</h2>
+        <p id="articleIdentifiers" class="muted"></p>
+      </div>
+      <div class="summary-metrics">
+        <div><small>Bestand laut JTL-Spiegel</small><strong id="stockValue">–</strong></div>
+        <div><small>EK netto laut JTL</small><strong id="jtlEkValue">–</strong></div>
+        <div><small>HW24-Entwurf</small><strong id="revisionValue">–</strong></div>
+      </div>
+    </div>
+    <div class="editor-layout">
+      <div class="editor-left">
+        <form id="editForm" class="edit-form">
+          <section class="editor-section">
+            <div class="section-title"><span class="section-no">01</span><div><h3>Stammdaten</h3><p>Identifikation, Hersteller, Warengruppe und Produktmenge</p></div></div>
+            <div id="identityFields" class="editor-fields"></div>
+          </section>
+          <section class="editor-section">
+            <div class="section-title"><span class="section-no">02</span><div><h3>Produkttexte</h3><p>Beschreibung und Kurzbeschreibung, jeweils mit ursprünglichem JTL-Wert</p></div></div>
+            <div id="textFields" class="editor-fields"></div>
+          </section>
+          <section class="editor-section">
+            <div class="section-title"><span class="section-no">03</span><div><h3>Einkauf und Verkauf</h3><p>Belegte Preise pflegen. Lagerbestand wird nicht geändert.</p></div></div>
+            <div id="priceFields" class="editor-fields"></div>
+          </section>
+          <details class="editor-section advanced" id="advancedSection">
+            <summary>Weitere Artikeldaten (nur bei Bedarf)</summary>
+            <div id="advancedFields" class="editor-fields"></div>
+          </details>
+          <section class="editor-section">
+            <div class="section-title"><span class="section-no">04</span><div><h3>Änderungen prüfen</h3><p>Nur tatsächlich geänderte Felder werden gespeichert.</p></div></div>
+            <div id="diffList" class="diff-list"><p class="muted">Noch keine Änderungen.</p></div>
+            <div class="editor-actions">
+              <button type="submit" class="action" id="saveChanges" disabled>✓ Als HW24-Entwurf bestätigen</button>
+              <button type="button" class="secondary" id="discardChanges" disabled>Änderungen verwerfen</button>
+            </div>
+            <p class="muted">Die Speicherung erfolgt revisionsgeschützt mit Prüfprotokoll. Weder JTL-Wawi noch WMS, Shopify oder Marktplatzangebote werden dabei direkt beschrieben.</p>
+          </section>
+        </form>
+      </div>
+      <aside class="editor-right">
+        <section class="sidebar-panel">
+          <h3>JTL-Einstellungen</h3>
+          <p class="muted">Tatsächliche Quellwerte des gewählten Artikels. Technische IDs werden nicht als Namen ausgegeben.</p>
+          <div id="currentLogistics" class="facts"><p class="muted">Artikel zuerst öffnen.</p></div>
+        </section>
+        <section class="sidebar-panel reference-panel">
+          <div class="eyebrow">STANDARDBEISPIEL HAARFARBEN</div>
+          <h3>Referenz-EAN 3474630337398</h3>
+          <p class="muted">Die Einstellungen werden direkt aus dem JTL-Spiegel gelesen. Keine Kopie von Hersteller, EAN, HAN, Name, Preis oder Bestand.</p>
+          <div id="referenceStatus" class="template-note">JTL-Referenzdaten werden geladen …</div>
+          <div id="referenceFacts" class="facts"></div>
+          <button type="button" class="secondary" id="suggestReference" disabled>Geeignete Leerfelder vorschlagen</button>
+          <p class="muted">Liefer- und Bearbeitungszeiten sind vorerst Vergleichswerte. Eine Übernahme in Ameise erfolgt erst nach bestätigter Feldzuordnung.</p>
+        </section>
+        <section class="sidebar-panel">
+          <h3>Arbeitsablauf</h3>
+          <p class="muted">1. JTL-Werte ansehen. 2. Fehlende oder falsche Felder bearbeiten. 3. Änderungen kontrollieren und bestätigen. 4. Später Ameise-Import vorbereiten.</p>
+          <a class="detail-link" href="qualitaetszentrum.html">Zurück zur Qualitätsliste</a>
+        </section>
+      </aside>
+    </div>
+  </section>
+  <footer>HW24 TEST · JTL bleibt führend · Keine automatischen Artikel-, Preis- oder Lagerbuchungen.</footer>
+</main>
+<datalist id="manufacturerValues"></datalist>
+<datalist id="groupValues"></datalist>
+<datalist id="categoryValues"></datalist>
+<datalist id="statusValues"></datalist>
+<script src="assets/hw24-article-editor.js?v=1" defer></script>
+</body>
+</html>
