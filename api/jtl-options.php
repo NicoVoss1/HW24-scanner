@@ -14,6 +14,10 @@ function reply(int $code,array $json): never {
  echo json_encode($json,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE|JSON_THROW_ON_ERROR);
  exit;
 }
+$actor=trim((string)($_SERVER['PHP_AUTH_USER']??$_SERVER['REMOTE_USER']??$_SERVER['REDIRECT_REMOTE_USER']??''));
+if($actor===''||strlen($actor)>180)reply(403,['ok'=>false,'error'=>'authentication_required']);
+if(($_SERVER['HTTPS']??'')!=='on'&&($_SERVER['HTTP_X_FORWARDED_PROTO']??'')!=='https')
+ reply(403,['ok'=>false,'error'=>'https_required']);
 if(($_SERVER['REQUEST_METHOD']??'')!=='GET'){header('Allow: GET');reply(405,['ok'=>false,'error'=>'method']);}
 $file=dirname(__DIR__,2).'/hw24_private/db.php';
 if(!is_file($file))reply(503,['ok'=>false,'error'=>'mirror_not_configured']);
