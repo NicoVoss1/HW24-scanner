@@ -121,8 +121,29 @@ curl_setopt_array($curl,[
  CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>30,CURLOPT_CONNECTTIMEOUT=>5,
  CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2,CURLOPT_FOLLOWLOCATION=>false
 ]);
-$raw=curl_exec($curl);$http=(int)curl_getinfo($curl,CURLINFO_RESPONSE_CODE);curl_close($curl);
-if($raw===false||$http!==200)answer(503,['ok'=>false,'error'=>'openai_request_failed','upstream_http'=>$http]);
+$raw=curl_exec($curl);
+$http=(int)curl_getinfo($curl,CURLINFO_RESPONSE_CODE);
+$networkErrno=(int)curl_errno($curl);
+curl_close($curl);
+if($raw===false||$http!==200){
+ // Preserve the machine-readable upstream status without echoing the API key,
+ // request payload or arbitrary upstream error messages into browser responses.
+ $parsedError=is_string($raw)?json_decode($raw,true):null;
+ $detail=is_array($parsedError['error']??null)?$parsedError['error']:[];
+ $safeCode=static function($value): ?string {
+   if(!is_string($value))return null;
+   return preg_match('/^[a-zA-Z0-9_.\\-]{1,90}$/D',$value)?$value:null;
+ };
+ error_log('HW24 OpenAI request rejected: HTTP '.$http.' (curl errno '.$networkErrno.
+   ') error.type='.($safeCode($detail['type']??null)??'unavailable').
+   ' error.code='.($safeCode($detail['code']??null)??'unavailable'));
+ answer(503,['ok'=>false,'error'=>'openai_request_failed',
+   'upstream_http'=>$http,
+   'upstream_code'=>$safeCode($detail['code']??null),
+   'upstream_type'=>$safeCode($detail['type']??null),
+   'upstream_param'=>$safeCode($detail['param']??null),
+   'network_errno'=>$http===0?$networkErrno:null]);
+}
 $response=json_decode((string)$raw,true);
 if(!is_array($response)||($response['status']??'')!=='completed')
  answer(503,['ok'=>false,'error'=>'openai_response_incomplete']);
