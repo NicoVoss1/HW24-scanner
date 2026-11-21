@@ -22,6 +22,7 @@ if($actor===''||strlen($actor)>180)auditReply(403,['ok'=>false,'error'=>'authent
 if(($_SERVER['HTTPS']??'')!=='on'&&($_SERVER['HTTP_X_FORWARDED_PROTO']??'')!=='https')
  auditReply(403,['ok'=>false,'error'=>'https_required']);
 require_once __DIR__.'/hw24-quality-rules.php';
+require_once __DIR__.'/hw24-quality-filters.php';
 $q=(string)($_GET['q']??'');
 if(strlen($q)>100||preg_match('/[\x00-\x1f\x7f]/',$q))auditReply(400,['ok'=>false,'error'=>'invalid_search']);
 $q=trim($q);
@@ -32,6 +33,16 @@ if($filter!=='all'&&!array_key_exists($filter,$catalog))
 $severity=(string)($_GET['severity']??'all');
 if(!in_array($severity,['all','with_issues','critical','warning','no_detected_issues'],true))
  auditReply(400,['ok'=>false,'error'=>'invalid_severity']);
+// Stock and EK are independent. If both are filtered the operator is explicitly selectable.
+$stock=(string)($_GET['stock']??'all');
+$ek=(string)($_GET['ek']??'all');
+$combine=(string)($_GET['combine']??'or');
+$sort=(string)($_GET['sort']??'priority');
+if(!in_array($stock,['all','positive','zero','negative','missing'],true)||
+   !in_array($ek,['all','positive','missing_both','netto_missing'],true)||
+   !in_array($combine,['or','and'],true)||
+   !in_array($sort,['priority','stock_desc','stock_asc','ek_desc','ek_asc'],true))
+ auditReply(400,['ok'=>false,'error'=>'invalid_stock_ek_sort_filter']);
 $page=filter_var($_GET['page']??1,FILTER_VALIDATE_INT);
 $perPage=filter_var($_GET['per_page']??25,FILTER_VALIDATE_INT);
 if($page===false||$page<1||$page>10000||$perPage===false||
@@ -112,7 +123,9 @@ try{
   if($result['critical_count'])$stats['critical_articles']++;
   foreach($result['issues'] as $code)$stats['issue_counts'][$code]++;
   if(in_array('stock_without_ek',$result['issues'],true))$stats['stock_without_ek']++;
-  if(($filter!=='all'&&!in_array($filter,$result['issues'],true))||
+  $quantityMatches=hw24QualityQuantityMatches($a,$stock,$ek,$combine);
+  if(!$quantityMatches||
+     ($filter!=='all'&&!in_array($filter,$result['issues'],true))||
      ($severity==='with_issues'&&$result['issue_count']===0)||
      ($severity!=='all'&&$severity!=='with_issues'&&$severity!==$result['severity'])||
      !$queryMatches($a,$q))continue;
@@ -137,12 +150,7 @@ try{
  if($seen!==$actual)
   auditReply(503,['ok'=>false,'error'=>'snapshot_changed_during_audit',
    'note'=>'Artikelzahl hat sich während der Prüfung verändert; bitte erneut prüfen']);
- usort($selected,static function(array $a,array $b): int {
-  return $b['critical_count']<=>$a['critical_count']
-   ?: $b['issue_count']<=>$a['issue_count']
-   ?: strnatcasecmp($a['artikelname'],$b['artikelname'])
-   ?: strcmp($a['jtl_article_id'],$b['jtl_article_id']);
- });
+ usort($selected,static fn(array $a,array $b):int=>hw24QualityCompare($a,$b,$sort));
  $totalFiltered=count($selected);
  $items=array_slice($selected,($page-1)*$perPage,$perPage);
  auditReply(200,[
@@ -156,7 +164,9 @@ try{
    'legal_compliance'=>'Nicht durch diese technische Feldprüfung nachgewiesen',
    'supplier_cost_evidence'=>'Kostenbeleg und Kommissionsstatus nicht vollständig in den beiden EK-Spiegelfeldern'
   ],
-  'rule_catalog'=>$catalog,'summary'=>$stats,'total_filtered'=>$totalFiltered,
+  'rule_catalog'=>$catalog,'summary'=>$stats,'filters'=>[
+    'stock'=>$stock,'ek'=>$ek,'combine'=>$combine,'sort'=>$sort
+   ],'total_filtered'=>$totalFiltered,
   'page'=>(int)$page,'per_page'=>(int)$perPage,'total_pages'=>max(1,(int)ceil($totalFiltered/$perPage)),
   'items'=>$items
  ]);

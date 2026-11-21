@@ -7,15 +7,15 @@
 <meta name="referrer" content="no-referrer">
 <title>HW24 Intelligence · Datenqualität</title>
 <link rel="icon" type="image/svg+xml" href="assets/hw24-favicon.svg">
-<link rel="stylesheet" href="assets/hw24-quality-center.css?v=1">
+<link rel="stylesheet" href="assets/hw24-quality-center.css?v=2">
 </head>
 <body>
 <header class="topbar">
   <div class="brand"><span class="brand-icon">H24</span><span>HAIRWORLD24 <small>INTELLIGENCE CONSOLE · TEST</small></span></div>
   <nav aria-label="Hauptnavigation">
     <a class="active" aria-current="page" href="qualitaetszentrum.html">Qualitätszentrum</a>
-    <a href="index.html">Artikelstamm</a>
-    <a href="scanliste.html">Neue EANs</a>
+    <a href="artikelpflege.html">Artikelpflege</a>
+    <a href="scanliste.html">Neue EANs</a><a href="index.html">Expertenansicht</a>
   </nav>
 </header>
 <main>
@@ -68,6 +68,38 @@
           <option value="no_detected_issues">Ohne Regelwarnung</option>
         </select>
       </label>
+      <label>Bestand
+        <select id="stockFilter">
+          <option value="all">Alle Bestände</option>
+          <option value="positive">Bestand größer 0</option>
+          <option value="zero">Bestand genau 0</option>
+          <option value="negative">Bestand negativ</option>
+          <option value="missing">Nicht belegt</option>
+        </select>
+      </label>
+      <label>Einkaufspreis
+        <select id="ekFilter">
+          <option value="all">Alle EK</option>
+          <option value="missing_both">Kein positiver Netto-/Letzter EK</option>
+          <option value="positive">Positiver Netto- oder letzter EK</option>
+          <option value="netto_missing">Netto-EK fehlt / nicht positiv</option>
+        </select>
+      </label>
+      <label>Bestand und EK verknüpfen
+        <select id="combineFilter">
+          <option value="or">ODER: eine Bedingung genügt</option>
+          <option value="and">UND: beide Bedingungen</option>
+        </select>
+      </label>
+      <label>Sortierung
+        <select id="sortOrder">
+          <option value="priority">Bestand zuerst · danach Prüfpriorität</option>
+          <option value="stock_desc">Bestand: absteigend</option>
+          <option value="stock_asc">Bestand: aufsteigend</option>
+          <option value="ek_desc">Netto-EK: absteigend</option>
+          <option value="ek_asc">Netto-EK: aufsteigend</option>
+        </select>
+      </label>
       <label>Pro Seite
         <select id="pageSize"><option>25</option><option>50</option><option>100</option></select>
       </label>
@@ -78,8 +110,11 @@
     </div>
     <div class="table-scroll">
       <table aria-label="Qualitätsfälle aus dem JTL-Spiegel">
-        <thead><tr><th>Artikel</th><th>Bestand / EK</th><th>Qualitätsprüfung</th><th>Aktion</th></tr></thead>
-        <tbody id="resultRows"><tr><td colspan="4">Lade aktuelle Artikeldaten …</td></tr></tbody>
+        <thead><tr><th>Artikel</th>
+          <th><button type="button" class="table-sort" id="sortStock" title="Bestand aufsteigend/absteigend sortieren">Bestand ↕</button></th>
+          <th><button type="button" class="table-sort" id="sortEk" title="Netto-EK aufsteigend/absteigend sortieren">EK netto ↕</button></th>
+          <th>Letzter EK</th><th>Prüfhinweise</th><th>Aktion</th></tr></thead>
+        <tbody id="resultRows"><tr><td colspan="6">Lade aktuelle Artikeldaten …</td></tr></tbody>
       </table>
     </div>
     <div class="pagination">
@@ -100,6 +135,6 @@
   </section>
   <footer>HW24 Intelligence · Testumgebung · Keine direkte Artikel-, Preis- oder Lagerbuchung. Für Verifizierung und Freigabe gelten die JTL-Originaldaten und bestätigte Produktquellen.</footer>
 </main>
-<script src="assets/hw24-quality-center.js?v=1" defer></script>
+<script src="assets/hw24-quality-center.js?v=2" defer></script>
 </body>
 </html>
