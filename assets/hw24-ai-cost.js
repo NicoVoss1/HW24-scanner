@@ -15,8 +15,14 @@ const check=document.createElement('button');check.type='button';check.textConte
 check.disabled=true;check.style.cssText='font:inherit;padding:7px 9px;border-radius:7px;color:white;background:#165f9d';
 const refresh=document.createElement('button');refresh.type='button';refresh.textContent='↻';
 refresh.title='HW24-Kostenzähler aktualisieren';refresh.style.cssText='font:inherit;padding:7px 9px;border-radius:7px';
-actions.append(check,refresh);wrap.append(actions);
-const output=document.createElement('div');output.style.cssText='margin-top:7px;white-space:pre-wrap';
+const archive=document.createElement('button');
+archive.type='button';archive.textContent='📂 Auswertungen';
+archive.title='KI-Prüfarchiv mit vollständiger Historie öffnen';
+archive.style.cssText='font:inherit;padding:7px 9px;border-radius:7px;background:#e6f1fc;color:#15466d';
+archive.onclick=()=>window.HW24AiHistory?.open();
+actions.append(check,archive,refresh);wrap.append(actions);
+const output=document.createElement('div');
+output.style.cssText='margin-top:7px;white-space:pre-wrap;font-size:12px;line-height:1.4;max-height:130px;overflow:auto';
 output.setAttribute('role','status');wrap.append(output);
 document.body.append(wrap);
 const fmt=n=>Number(n).toLocaleString('de-DE',{minimumFractionDigits:4,maximumFractionDigits:4});
@@ -102,10 +108,11 @@ check.onclick=async()=>{
   const x=await response.json();
   if(!response.ok||!x.ok)throw Error(explainAiFailure(x));
   const rev=x.review||{};
-  output.textContent='KI-Einschätzung: '+val(rev.status)+'\n'+val(rev.reason)+
-    '\nWarengruppe-Vorschlag: '+val(rev.suggestedWarengruppe||'keiner')+
-    '\n'+(rev.asinChecks||[]).map(v=>v.asin+' · '+v.status+' · '+v.reason).join('\n')+
-    '\nDiese Angaben sind Vorschläge, keine automatische JTL-Korrektur. Kosten dieser Prüfung: '+fmt(x.usd_call)+' USD.';
+  output.textContent=x.stored&&x.review_id?
+   '✓ KI-Prüfung #'+x.review_id+' gespeichert · '+val(rev.status)+
+   ' · '+fmt(x.usd_call)+' USD. Vollständige Auswertung im KI-Prüfarchiv.':
+   '⚠ KI-Prüfung nicht als dauerhaft gespeichert bestätigt. Bitte Kostenstatus prüfen.';
+  if(x.stored&&x.review_id)window.HW24AiHistory?.afterSaved(x,payload);
  }catch(e){output.textContent='KI-Prüfung fehlgeschlagen: '+e.message+
    '\nBitte nicht wiederholt auslösen. Der HW24-Kostenzähler wird aktualisiert; er ist keine vollständige OpenAI-Rechnung.'}
  finally{busy=false;await showCosts()}
