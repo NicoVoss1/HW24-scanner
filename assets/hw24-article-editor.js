@@ -16,7 +16,7 @@ const fieldSets={
   ['Warengruppe','Warengruppe','list:groupValues'],
   ['Inhalt/Menge','Füllmenge','text'],
   ['Maßeinheit','Maßeinheit','unit'],
-  ['Artikeltyp','Artikeltyp','text'],
+  ['Artikeltyp','Artikeltyp','options:articleTypeValues'],
   ['ASIN','Amazon ASIN','text']
  ],
  texts:[
@@ -28,7 +28,7 @@ const fieldSets={
   ['Zusätzliche Bearbeitungszeit','Bearbeitungszeit (Tage)','text'],
   ['Beschaffungszeit manuell setzen','Manuelle Beschaffungszeit (Tage)','text'],
   ['Beschaffungszeit automatisch ermitteln','Beschaffung automatisch ermitteln','yesno01'],
-  ['Versandklasse','Versandklasse','text']
+  ['Versandklasse','Versandklasse','options:shippingValues']
  ],
  prices:[
   ['Netto-EK','Einkaufspreis netto (€)','decimal'],
@@ -37,13 +37,12 @@ const fieldSets={
   ['Brutto-VK','Verkaufspreis brutto (€)','decimal']
  ],
  advanced:[
-  ['Lieferant','Lieferant','text'],
-  ['Artikelnummer (Lieferant)','Lieferantenartikelnummer','text'],
+  // Suppliers intentionally remain out of the working view until supplier records are linked.
   ['Kategorie Ebene 1','Kategorie Ebene 1','list:categoryValues'],
   ['Kategorie Ebene 2','Kategorie Ebene 2','list:categoryValues'],
   ['Kategorie Ebene 3','Kategorie Ebene 3','list:categoryValues'],
-  ['Steuerklasse','Steuerklasse','text'],
-  ['Währung','Währung','text'],
+  ['Steuerklasse','Steuerklasse','options:taxValues'],
+  ['Währung','Währung','options:currencyValues'],
   ['Artikel aktiv','Artikel aktiv','yesno'],
   ['Bestandsführung aktiv','Bestandsführung aktiv','yesno'],
   ['Überverkäufe möglich','Überverkäufe möglich','yesno'],
@@ -54,7 +53,8 @@ const fieldSets={
 };
 const editable=new Set(Object.values(fieldSets).flatMap(group=>group.map(f=>f[0])));
 const state={jtl:null,article:null,approved:{},revision:0,controls:new Map(),
- initial:new Map(),reference:null,latestRequest:0,saving:false,sourceFresh:false};
+ initial:new Map(),reference:null,latestRequest:0,saving:false,sourceFresh:false,
+ options:{articleTypeValues:['Normaler Artikel'],shippingValues:[],taxValues:[],currencyValues:['EUR']}};
 const money=x=>x===null||x===undefined||val(x)===''?'Nicht belegt':
  Number.isFinite(Number(x))?Number(x).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €':'Nicht lesbar';
 const gtinGood=ean=>{
@@ -79,10 +79,10 @@ function original(key,a){
   'Artikelname':a.artikelname,'Hersteller':a.hersteller,'HAN':a.han,
   'Warengruppe':a.warengruppe_name,
   'Kurzbeschreibung':a.kurzbeschreibung,'Beschreibung':a.beschreibung,
-  'Netto-EK':a.netto_ek,'Netto-VK':a.netto_vk,'Kosten':a.kosten,
-  'Inhalt/Menge':f.fMassMenge,'Artikeltyp':null,
+  'Netto-EK':a.netto_ek,'Netto-VK':a.netto_vk,'Brutto-VK':a.brutto_vk,'Kosten':a.kosten,
+  'Inhalt/Menge':f.fMassMenge,'Artikeltyp':a.artikeltyp,
   'ASIN':a.asin,'Maßeinheit':getMassCode(a),
-  'Versandklasse':a.versandklasse_name,'Steuerklasse':a.steuerklasse_name,
+  'Versandklasse':a.versandklasse_name,'Steuerklasse':a.steuerklasse_name,'Währung':a.waehrung,
   'Lieferstatus':verifiedRelatedValue(a,'lieferstatus','cName'),
   'Zusätzliche Bearbeitungszeit':f.nBearbeitungszeit,
   'Beschaffungszeit manuell setzen':f.nLiefertageWennAusverkauft,
@@ -123,7 +123,11 @@ function logistics(a){
   ['Überverkäufe möglich (JTL)',f.cLagerKleinerNull],
   ['Stückzahl teilbar (JTL)',f.cTeilbar],
   ['Versandklasse (JTL)',a.versandklasse_name||f.kVersandklasse],
-  ['Steuerklasse (JTL)',a.steuerklasse_name||f.kSteuerklasse]
+  ['Steuerklasse (JTL)',a.steuerklasse_name||f.kSteuerklasse],
+  ['Brutto-VK (belegte JTL-Quelle)',a.brutto_vk],
+  ['Brutto-VK Quelle',a.brutto_vk_source],
+  ['Währung (JTL)',a.waehrung],
+  ['Artikeltyp (JTL)',a.artikeltyp]
  ])fact(root,caption,v===null||v===undefined?'':v);
 }
 function createField(target,definition){
@@ -137,15 +141,30 @@ function createField(target,definition){
  const id='field_'+key.replace(/[^a-zA-Z0-9]/g,'_');
  tag.htmlFor=id;
  let control;
- if(type==='unit'||type==='yesno01'||type==='yesno'){
+ if(type==='unit'||type==='yesno01'||type==='yesno'||type.startsWith('options:')){
    control=el('select',box);
-   const choices=type==='yesno01'?
+   const listId=type.startsWith('options:')?type.slice(8):'';
+   const choices=listId?
+    [['','Bitte auswählen'],...[...new Set(state.options[listId]||[])].map(v=>[v,v])]:
+    type==='yesno01'?
     [['','Bitte auswählen'],['0','Nein (0)'],['1','Ja (1)']]:
     type==='yesno'?
     [['','Bitte auswählen'],['Y','Ja (Y)'],['J','Ja (J)'],['N','Nein (N)']]:
     [['','Bitte auswählen'],...['ml','g','l','Stück','kg','cm'].map(v=>[v,v])];
    for(const [v,label] of choices){
     const option=el('option',control,label);option.value=v;
+   }
+   if(listId){
+    const custom=el('option',control,'✍️ Anderen Wert für HW24 prüfen …');
+    custom.value='__hw24_custom__';
+    control.addEventListener('change',()=>{
+      if(control.value!=='__hw24_custom__')return;
+      const typed=window.prompt('Eigene Angabe für den HW24-Entwurf eingeben (vor JTL-Ameise abgleichen):','');
+      if(typed&&typed.trim()&&typed.trim().length<160){
+        const op=el('option',control,typed.trim());op.value=typed.trim();control.value=op.value;
+      }else control.value=current;
+      control.dispatchEvent(new Event('input',{bubbles:true}));
+    });
    }
    if(current&&!Array.from(control.options).some(o=>o.value===current)){
     const extra=el('option',control,current);extra.value=current;
@@ -272,12 +291,30 @@ async function fillLists(){
   const data=await res.json();
   if(!res.ok||!data.ok||data.status!=='ready')return;
   const defs=[['Hersteller','manufacturerValues'],['Warengruppe','groupValues'],
-   ['Kategorie Ebene 1','categoryValues'],['Lieferstatus','statusValues']];
+   ['Kategorie Ebene 1','categoryValues'],['Lieferstatus','statusValues'],
+   ['Versandklasse','shippingValues'],['Steuerklasse','taxValues'],
+   ['Artikeltyp','articleTypeValues'],['Währung','currencyValues']];
   for(const [key,id] of defs){
    const root=$(id);root.replaceChildren();
    for(const raw of (data.lists?.[key]||[]).slice(0,250)){
     if(typeof raw!=='string'||raw.length>180)continue;
     const option=el('option',root);option.value=raw;
+   }
+   if(Object.hasOwn(state.options,id)){
+    state.options[id]=[...new Set([...(state.options[id]||[]),
+      ...(data.lists?.[key]||[]).filter(x=>typeof x==='string'&&x.trim().length>0&&x.length<160)])].slice(0,250);
+    // Refresh options on existing SELECT elements without re-rendering/dropping unsaved edits.
+    for(const [field,entry] of state.controls){
+      const def=Object.values(fieldSets).flat().find(x=>x[0]===field);
+      if(!def||def[2]!=='options:'+id)continue;
+      const select=entry.control,old=select.value;
+      for(const value of state.options[id]){
+       if(![...select.options].some(x=>x.value===value)){
+        const option=el('option',select,value);option.value=value;
+       }
+      }
+      select.value=old;
+    }
    }
   }
  }catch(e){/* Optional observed-values list, manual entry remains available. */}
@@ -326,6 +363,8 @@ $('suggestReference').onclick=()=>{
   'Warengruppe':reference.warengruppe_name,
   'Versandklasse':reference.versandklasse_name,
   'Steuerklasse':reference.steuerklasse_name,
+  'Artikeltyp':reference.artikeltyp||'Normaler Artikel',
+  'Währung':reference.waehrung||'',
   'Lieferstatus':verifiedRelatedValue(reference,'lieferstatus','cName'),
   'Zusätzliche Bearbeitungszeit':source.nBearbeitungszeit,
   'Beschaffungszeit manuell setzen':source.nLiefertageWennAusverkauft,
@@ -346,6 +385,25 @@ $('suggestReference').onclick=()=>{
  }
  status(count?'✓ '+count+' passende Leerfelder vorbelegt. Bitte Änderungen kontrollieren und danach bestätigen.':
   'Keine passenden leeren Felder oder keine verifizierten Referenzwerte vorhanden.',count?'success':'');
+};
+$('suggestTimes').onclick=()=>{
+ if(!state.article||!state.sourceFresh)return;
+ if(!$('confirmHaircolor').checked){
+  status('Für die Haarfarben-Zeiten bitte zuerst die tatsächliche Produktart bestätigen.','error');return;
+ }
+ const proposal={
+  'Beschaffungszeit automatisch ermitteln':'0',
+  'Beschaffungszeit manuell setzen':'1',
+  'Zusätzliche Bearbeitungszeit':'1'
+ };
+ if(!window.confirm('Nur fehlende Zeitfelder als Entwurf vorschlagen: automatische Beschaffung = Nein (0), manuelle Beschaffung = 1 Tag und Bearbeitung = 1 Tag? Bestehende JTL-/Entwurfswerte bleiben unverändert. Keine automatische Lieferzusage.'))return;
+ let count=0;
+ for(const [key,value] of Object.entries(proposal)){
+  const entry=state.controls.get(key);
+  if(!entry||val(entry.control.value))continue;
+  entry.control.value=value;entry.control.dispatchEvent(new Event('input',{bubbles:true}));count++;
+ }
+ status(count+' fehlende Zeitfelder als HW24-Vorschlag ergänzt. Lieferstatus separat anhand JTL prüfen.');
 };
 $('lookupForm').addEventListener('submit',e=>{
  e.preventDefault();
