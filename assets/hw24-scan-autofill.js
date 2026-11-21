@@ -151,6 +151,11 @@ function candidates(item){
   if(!window.confirm('ASIN '+option.asin+' zuordnen? '+identity+
      '. Bitte Amazon-Link, Farbnuance und Stückzahl kontrollieren. Bei Abweichungen KEINE Zuordnung vornehmen.'))return;
   const existing=v(B.control('ASIN')?.value);
+  if(existing===option.asin){
+   selectedAsins.set(item.id,option.asin);
+   status('✓ ASIN '+option.asin+' bereits im Artikelentwurf hinterlegt.');
+   return;
+  }
   if(existing&&existing!==option.asin&&!window.confirm('Die bisherige ASIN '+existing+
      ' durch '+option.asin+' ersetzen? Das ändert nur den HW24-Entwurf, nicht den JTL-Artikel.'))return;
   const chosen={ASIN:option.asin};
