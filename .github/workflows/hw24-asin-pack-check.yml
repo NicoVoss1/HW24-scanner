@@ -1,0 +1,30 @@
+name: HW24 ASIN link and pack validation
+on:
+  push:
+    branches:
+      - feature/hw24-v422-asin-verification-live-prep-20261121
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ASIN and pack unit contract tests
+        run: node tests/hw24-asin-pack-intelligence.test.cjs
+      - name: JavaScript and PHP syntax checks
+        run: |
+          set -euo pipefail
+          for file in assets/*.js; do node --check "$file"; done
+          for file in api/*.php; do php -l "$file"; done
+      - name: Inline script check
+        run: |
+          python3 - <<'PY'
+          import pathlib,re,subprocess
+          for p in ('index.html','scanliste.html'):
+            s=pathlib.Path(p).read_text(encoding='utf8')
+            for js in re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>',s,re.I):
+              if not js.strip():continue
+              r=subprocess.run(['node','--check'],input=js,text=True,capture_output=True)
+              if r.returncode:raise RuntimeError(p+': '+r.stderr)
+          print('Inline JS syntax: PASS')
+          PY
