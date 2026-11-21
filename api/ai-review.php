@@ -55,7 +55,29 @@ $status=['ok'=>true,'enabled'=>true,'configured'=>true,'model'=>$model,
  'not_provider_invoice'=>true,'pricing'=>[
   'input_per_million_usd'=>$inputRate,'cached_input_per_million_usd'=>$cacheRate,
   'output_per_million_usd'=>$outputRate]];
-if($method==='GET')answer(200,$status);
+if($method==='GET'){
+ // Readiness is visible before the user starts a billable OpenAI request.
+ $ready=false;
+ try{
+   $path=dirname(__DIR__,2).'/hw24_private/scanlist-db.php';
+   if(is_file($path)){
+     $dbCfg=require $path;
+     if(is_array($dbCfg)&&!empty($dbCfg['user'])&&array_key_exists('password',$dbCfg)){
+       $probe=new PDO('mysql:host=127.0.0.1;port=3306;dbname=hw24_artikelmanager;charset=utf8mb4',
+         (string)$dbCfg['user'],(string)$dbCfg['password'],[
+           PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,
+           PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,
+           PDO::ATTR_EMULATE_PREPARES=>false,PDO::ATTR_TIMEOUT=>5
+         ]);
+       $probe->query('SELECT id FROM hw24_ai_reviews LIMIT 0');$ready=true;
+     }
+   }
+ }catch(Throwable $e){$ready=false;}
+ $status['archive_ready']=$ready;
+ $status['archive_note']=$ready?'KI-Ergebnisse werden in MariaDB archiviert':
+   'Einmalige HW24-V13-Archivinstallation fehlt; kostenpflichtige KI-Prüfung gesperrt';
+ answer(200,$status);
+}
 $origin=(string)($_SERVER['HTTP_ORIGIN']??'');
 $host=strtolower((string)parse_url('https://'.($_SERVER['HTTP_HOST']??''),PHP_URL_HOST));
 if($origin===''||strtolower((string)parse_url($origin,PHP_URL_HOST))!==$host||
