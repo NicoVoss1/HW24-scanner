@@ -1,0 +1,17 @@
+name: HW24 AI archive readiness and billing gate
+on:
+  push:
+    branches:
+      - feature/hw24-ai-archive-readiness-20261121
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify archive preflight before OpenAI billing
+        run: node tests/hw24-ai-readiness.test.cjs
+      - name: Validate PHP and JS
+        run: |
+          php -l api/ai-review.php
+          node --check assets/hw24-ai-cost.js
