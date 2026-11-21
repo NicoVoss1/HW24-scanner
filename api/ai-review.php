@@ -150,6 +150,12 @@ try{
  answer(503,['ok'=>false,'error'=>'review_duplicate_check_unavailable']);
 }
 $forceRecheck=(($_SERVER['HTTP_X_HW24_RECHECK']??'')==='confirmed');
+if($forceRecheck){
+ $expectedId=(string)($_SERVER['HTTP_X_HW24_PREVIOUS_REVIEW']??'');
+ if(!$previous||!ctype_digit($expectedId)||$expectedId!==(string)$previous['id'])
+  answer(409,['ok'=>false,'error'=>'review_recheck_conflict',
+   'note'=>'Ein anderer Vorgang hat den KI-Bericht aktualisiert. Keine neue OpenAI-Anfrage ausgelöst.']);
+}
 if($previous&&!$forceRecheck){
  $oldReview=json_decode((string)$previous['review_json'],true);
  $oldInput=json_decode((string)$previous['input_json'],true);
