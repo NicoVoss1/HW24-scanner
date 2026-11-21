@@ -65,6 +65,28 @@ function article(){
    unit:val(r['Inhalt/Menge'])+' '+val(r.Maßeinheit),
    jtl_status:val(s.jtl?.jtl_status),candidates:candidates.slice(0,8).map(x=>({asin:x.asin,title:x.title}))};
 }
+function explainAiFailure(failure){
+ const code=val(failure?.upstream_code),http=Number(failure?.upstream_http);
+ const net=Number(failure?.network_errno);
+ if(failure?.error!=='openai_request_failed')return val(failure?.error||'KI-Prüfung fehlgeschlagen');
+ if(http===0)return 'OpenAI-Verbindung nicht aufgebaut (cURL-Fehler '+(Number.isFinite(net)?net:'?')+
+   '). Plesk-Netzwerk, DNS und TLS prüfen.';
+ if(http===401)return 'OpenAI HTTP 401: API-Schlüssel falsch, ungültig oder widerrufen. Schlüssel ausschließlich privat auf Plesk prüfen.';
+ if(http===403)return 'OpenAI HTTP 403: API-Projekt oder Modellzugriff nicht erlaubt. Zugriffsrechte in der OpenAI-Plattform prüfen.';
+ if(http===429){
+   const quota=/quota|credit|billing|balance|usage_limit/i.test(code);
+   return 'OpenAI HTTP 429'+(code?' ('+code+')':'')+': '+
+     (quota?'API-Guthaben, Billing oder Nutzungslimit des OpenAI-Projekts prüfen.':
+      'Rate-Limit oder API-Guthaben prüfen; bei Kontingentproblemen nicht wiederholt klicken.');
+ }
+ if(http===400)return 'OpenAI HTTP 400'+(code?' ('+code+')':'')+
+   ': API-Anfrageformat abgelehnt. Die Anwendung muss den betroffenen Parameter korrigieren.'+
+   (failure?.upstream_param?' Parameter: '+val(failure.upstream_param):'');
+ if(http===404)return 'OpenAI HTTP 404: Modell oder API-Ressource für dieses Projekt nicht verfügbar.';
+ if(http===500||http===502||http===503)return 'OpenAI HTTP '+http+': OpenAI-Dienst aktuell nicht verfügbar.';
+ return 'OpenAI HTTP '+http+(code?' ('+code+')':'')+
+   ': Anfrage wurde vom API-Anbieter abgelehnt. Technischen HTTP-Status prüfen.';
+}
 check.onclick=async()=>{
  if(!ready||busy)return;
  const payload=article();
@@ -78,14 +100,14 @@ check.onclick=async()=>{
    cache:'no-store',headers:{'Content-Type':'application/json','X-HW24-Approval':'confirmed'},
    body:JSON.stringify(payload)});
   const x=await response.json();
-  if(!response.ok||!x.ok)throw Error(x.error||'KI-Prüfung fehlgeschlagen');
+  if(!response.ok||!x.ok)throw Error(explainAiFailure(x));
   const rev=x.review||{};
   output.textContent='KI-Einschätzung: '+val(rev.status)+'\n'+val(rev.reason)+
     '\nWarengruppe-Vorschlag: '+val(rev.suggestedWarengruppe||'keiner')+
     '\n'+(rev.asinChecks||[]).map(v=>v.asin+' · '+v.status+' · '+v.reason).join('\n')+
     '\nDiese Angaben sind Vorschläge, keine automatische JTL-Korrektur. Kosten dieser Prüfung: '+fmt(x.usd_call)+' USD.';
- }catch(e){output.textContent='KI-Prüfung nicht abgeschlossen: '+e.message+
-   '. Der Monatszähler wird trotzdem aktualisiert, weil die API bereits Tokens verbraucht haben kann.'}
+ }catch(e){output.textContent='KI-Prüfung fehlgeschlagen: '+e.message+
+   '\nBitte nicht wiederholt auslösen. Der HW24-Kostenzähler wird aktualisiert; er ist keine vollständige OpenAI-Rechnung.'}
  finally{busy=false;await showCosts()}
 };
 refresh.onclick=showCosts;
