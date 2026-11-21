@@ -35,6 +35,7 @@ $daily=(int)($cfg['max_daily_requests']??25);
 if($inputRate<=0||$outputRate<=0||$cacheRate<=0||$budget<=0||$daily<1||
   $daily>10000||$budget>1000)answer(503,['ok'=>false,'error'=>'invalid_cost_limits']);
 $ledgerPath=dirname(__DIR__,2).'/hw24_private/hw24-ai-usage.json';
+umask(0077); // new ledger files never readable by the world
 $handle=@fopen($ledgerPath,'c+');
 if(!$handle||!flock($handle,LOCK_EX))answer(503,['ok'=>false,'error'=>'usage_ledger_unavailable']);
 // Lock serializes requests so two reviews cannot both pass the same limit.
