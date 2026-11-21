@@ -1,6 +1,7 @@
 'use strict';
 const fs=require('node:fs'),assert=require('node:assert/strict'),{spawnSync}=require('node:child_process');
 const php=fs.readFileSync('api/jtl-quality.php','utf8');
+const filters=fs.readFileSync('api/hw24-quality-filters.php','utf8');
 const qualityHtml=fs.readFileSync('qualitaetszentrum.html','utf8');
 const qualityJs=fs.readFileSync('assets/hw24-quality-center.js','utf8');
 const editorHtml=fs.readFileSync('artikelpflege.html','utf8');
@@ -13,8 +14,10 @@ for(const id of ['stockFilter','ekFilter','combineFilter','sortOrder','sortStock
 for(const q of ["'positive'","'zero'","'negative'","'missing'","'missing_both'","'or'","'and'","'stock_desc'","'ek_asc'"]){
  assert(php.includes(q),'Server filter/sort missing '+q);
 }
-assert(php.includes("$combine==='or'?($stockMatch||$ekMatch):($stockMatch&&$ekMatch)"), 'OR/AND rule missing');
-assert(php.includes('$positiveB<=>$positiveA'),'Positive stock must be prioritized');
+assert(filters.includes("$combine==='or'"), 'OR/AND rule missing');
+assert(filters.includes('$bPositive<=>$aPositive'),'Positive stock must be prioritized');
+assert(php.includes('hw24QualityQuantityMatches($a,$stock,$ek,$combine)'));
+assert(php.includes('hw24QualityCompare($a,$b,$sort)'));
 assert(qualityJs.includes("artikelpflege.html?ean="),'Quality rows must link to new editor');
 for(const id of ['lookupForm','identifier','productView','identityFields','textFields','priceFields','logisticsFields','advancedFields','diffList','saveChanges','suggestReference','confirmHaircolor','referenceFacts']){
  assert(editorHtml.includes('id="'+id+'"'), 'Editor element missing '+id);
