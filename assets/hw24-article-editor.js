@@ -23,6 +23,13 @@ const fieldSets={
   ['Kurzbeschreibung','Kurzbeschreibung','textarea','wide'],
   ['Beschreibung','Ausführliche Beschreibung','longtext','wide']
  ],
+ logistics:[
+  ['Lieferstatus','Lieferstatus','list:statusValues'],
+  ['Zusätzliche Bearbeitungszeit','Bearbeitungszeit (Tage)','text'],
+  ['Beschaffungszeit manuell setzen','Manuelle Beschaffungszeit (Tage)','text'],
+  ['Beschaffungszeit automatisch ermitteln','Beschaffung automatisch ermitteln','yesno01'],
+  ['Versandklasse','Versandklasse','text']
+ ],
  prices:[
   ['Netto-EK','Einkaufspreis netto (€)','decimal'],
   ['Kosten','Artikelkosten (€)','decimal'],
@@ -35,7 +42,6 @@ const fieldSets={
   ['Kategorie Ebene 1','Kategorie Ebene 1','list:categoryValues'],
   ['Kategorie Ebene 2','Kategorie Ebene 2','list:categoryValues'],
   ['Kategorie Ebene 3','Kategorie Ebene 3','list:categoryValues'],
-  ['Versandklasse','Versandklasse','text'],
   ['Steuerklasse','Steuerklasse','text'],
   ['Währung','Währung','text']
  ]
@@ -70,9 +76,18 @@ function original(key,a){
   'Netto-EK':a.netto_ek,'Netto-VK':a.netto_vk,'Kosten':a.kosten,
   'Inhalt/Menge':f.fMassMenge,'Artikeltyp':null,
   'ASIN':a.asin,'Maßeinheit':getMassCode(a),
-  'Versandklasse':a.versandklasse_name,'Steuerklasse':a.steuerklasse_name
+  'Versandklasse':a.versandklasse_name,'Steuerklasse':a.steuerklasse_name,
+  'Lieferstatus':verifiedRelatedValue(a,'lieferstatus','cName'),
+  'Zusätzliche Bearbeitungszeit':f.nBearbeitungszeit,
+  'Beschaffungszeit manuell setzen':f.nLiefertageWennAusverkauft,
+  'Beschaffungszeit automatisch ermitteln':f.nAutomatischeLiefertageberechnung
  };
  return source[key]===undefined||source[key]===null?'':String(source[key]);
+}
+function verifiedRelatedValue(a,source,column){
+ const rel=a?.related_sources?.[source];
+ if(rel?.truncated||!Array.isArray(rel?.rows)||rel.rows.length!==1)return '';
+ return val(rel.rows[0]?.[column]);
 }
 function getMassCode(a){
  const rel=a.related_sources?.masseinheit;
@@ -110,10 +125,13 @@ function createField(target,definition){
  const id='field_'+key.replace(/[^a-zA-Z0-9]/g,'_');
  tag.htmlFor=id;
  let control;
- if(type==='unit'){
+ if(type==='unit'||type==='yesno01'){
    control=el('select',box);
-   for(const v of ['', 'ml','g','l','Stück','kg','cm']){
-    const option=el('option',control,v||'Bitte auswählen');option.value=v;
+   const choices=type==='yesno01'?
+    [['','Bitte auswählen'],['0','Nein (0)'],['1','Ja (1)']]:
+    [['','Bitte auswählen'],...['ml','g','l','Stück','kg','cm'].map(v=>[v,v])];
+   for(const [v,label] of choices){
+    const option=el('option',control,label);option.value=v;
    }
    if(current&&!Array.from(control.options).some(o=>o.value===current)){
     const extra=el('option',control,current);extra.value=current;
@@ -176,7 +194,7 @@ function renderChanges(){
 function render(){
  state.controls.clear();state.initial.clear();
  for(const [group,defs] of Object.entries(fieldSets)){
-  const parent=$(({identity:'identityFields',texts:'textFields',prices:'priceFields',advanced:'advancedFields'})[group]);
+  const parent=$(({identity:'identityFields',texts:'textFields',logistics:'logisticsFields',prices:'priceFields',advanced:'advancedFields'})[group]);
   parent.replaceChildren();
   for(const item of defs)createField(parent,item);
  }
@@ -210,7 +228,15 @@ async function loadArticle(query){
    throw Error('Mehrere JTL-Artikel gefunden. Bitte eindeutig über die JTL-Artikelnummer suchen: '+nums.slice(0,6).join(', '));
   }
   const article=matches[0];
-  if(!gtinGood(val(article.ean)))throw Error('Artikel hat keine gültige GTIN. Hier nur anzeigen; EAN-Zuordnung zuerst in JTL klären.');
+  if(!gtinGood(val(article.ean))){
+   // JTL can contain incomplete articles. Show them, but never write an overlay
+   // through the EAN-keyed API until the product identity is unambiguous.
+   state.jtl=data;state.article=article;state.sourceFresh=false;
+   state.approved={};state.revision=0;
+   $('productView').hidden=false;render();
+   status('EAN fehlt oder ist ungültig: Artikeldaten werden nur lesend angezeigt. Erst die Identität in JTL klären; hier keine EAN-basierte HW24-Speicherung möglich.','error');
+   return;
+  }
   const approvedRes=await fetch('api/curated.php?ean='+encodeURIComponent(article.ean),
    {cache:'no-store',credentials:'same-origin'});
   const overlay=await approvedRes.json();
@@ -275,10 +301,15 @@ async function loadReference(){
 $('suggestReference').onclick=()=>{
  if(!state.reference||!state.article||!state.sourceFresh)return;
  const reference=state.reference;
+ const source=reference.jtl_source_fields||{};
  const safe={
   'Warengruppe':reference.warengruppe_name,
   'Versandklasse':reference.versandklasse_name,
-  'Steuerklasse':reference.steuerklasse_name
+  'Steuerklasse':reference.steuerklasse_name,
+  'Lieferstatus':verifiedRelatedValue(reference,'lieferstatus','cName'),
+  'Zusätzliche Bearbeitungszeit':source.nBearbeitungszeit,
+  'Beschaffungszeit manuell setzen':source.nLiefertageWennAusverkauft,
+  'Beschaffungszeit automatisch ermitteln':source.nAutomatischeLiefertageberechnung
  };
  if(!confirm('Nur leere, belegte und eindeutig zugeordnete Felder aus der Haarfarben-Referenz als VORSCHLAG einsetzen? Keine Identitätsdaten, Lieferstatus-IDs, Preise oder Bestände. Noch keine Speicherung in JTL.'))return;
  let count=0;
