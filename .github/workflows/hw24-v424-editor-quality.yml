@@ -1,0 +1,42 @@
+name: HW24 V4.24 quality filters and clear article editor
+on:
+  push:
+    branches:
+      - feature/hw24-v424-clean-editor-and-filters-20261122
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test real EAN and independent stock/EK filters
+        run: php tests/hw24-v424-quality.php
+      - name: Verify article editor and source controls
+        run: node tests/hw24-v424-editor.test.cjs
+      - name: Validate PHP and JavaScript
+        run: |
+          set -euo pipefail
+          php -l api/hw24-quality-filters.php
+          php -l api/jtl-quality.php
+          php -l api/curated.php
+          node --check assets/hw24-quality-center.js
+          node --check assets/hw24-article-editor.js
+      - name: Check HTML inline script syntax and local assets
+        run: |
+          python3 - <<'PY'
+          import pathlib,re,subprocess
+          for path in ('qualitaetszentrum.html','artikelpflege.html','scanliste.html','index.html'):
+            html=pathlib.Path(path).read_text(encoding='utf8')
+            for script in re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>',html,re.I):
+              if not script.strip(): continue
+              r=subprocess.run(['node','--check'],input=script,text=True,capture_output=True)
+              if r.returncode: raise RuntimeError(path+': '+r.stderr)
+            for source in re.findall(r'(?:src|href)=["\'](assets/[^"\']+)',html):
+              asset=source.split('?')[0]
+              if not pathlib.Path(asset).is_file(): raise RuntimeError('Missing '+asset)
+          print('V4.24 assets and inline scripts: PASS')
+          PY
+      - name: Never package private API keys
+        run: |
+          test ! -e hw24_private/openai-review.php
+          test ! -e hw24_private/db.php
