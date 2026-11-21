@@ -126,6 +126,8 @@ document.getElementById('ean')?.addEventListener('change',()=>{if(!busy)refreshA
 function explainAiFailure(failure){
  const code=val(failure?.upstream_code),http=Number(failure?.upstream_http);
  const net=Number(failure?.network_errno);
+ if(failure?.error==='review_recheck_conflict')
+  return 'Die letzte KI-Prüfung hat sich zwischenzeitlich geändert. Bericht ohne neue Kosten erneut öffnen.';
  if(failure?.error==='review_storage_not_ready')
   return 'Das MariaDB-KI-Prüfarchiv V13 fehlt oder hat noch keine Rechte. Keine API-Abfrage wurde ausgelöst.';
  if(failure?.error==='review_storage_write_failed')
@@ -149,7 +151,7 @@ function explainAiFailure(failure){
  return 'OpenAI HTTP '+http+(code?' ('+code+')':'')+
    ': Anfrage wurde vom API-Anbieter abgelehnt. Technischen HTTP-Status prüfen.';
 }
-async function runPaid(payload,force){
+async function runPaid(payload,force,expectedReviewId=null){
  if(!ready||busy)return;
  const warning=force?
   'Für diese EAN ist bereits ein KI-Bericht vorhanden. Möchtest Du ausdrücklich ERNEUT kostenpflichtig prüfen? Das ist nur bei neuen oder geänderten Informationen sinnvoll.':
@@ -160,7 +162,10 @@ async function runPaid(payload,force){
    'KI-Prüfung wird ausgeführt. Vorhandene Berichte werden kostenfrei wiederverwendet.';
  try{
   const headers={'Content-Type':'application/json','X-HW24-Approval':'confirmed'};
-  if(force)headers['X-HW24-Recheck']='confirmed';
+  if(force){
+   headers['X-HW24-Recheck']='confirmed';
+   headers['X-HW24-Previous-Review']=String(expectedReviewId);
+  }
   const response=await fetch('api/ai-review.php',{method:'POST',credentials:'same-origin',
     cache:'no-store',headers,body:JSON.stringify(payload)});
   const x=await response.json();
@@ -213,8 +218,8 @@ rerun.onclick=async()=>{
  try{
   const previous=await lookupStored(payload.ean);
   if(!previous){await refreshArticleStatus();return}
+  await runPaid(payload,true,previous.id);
  }catch(e){output.textContent='Archiv nicht erreichbar. Neue KI-Prüfung gesperrt.';return}
- await runPaid(payload,true);
 };
 refresh.onclick=showCosts;
 showCosts();
