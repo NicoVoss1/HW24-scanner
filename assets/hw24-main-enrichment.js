@@ -15,6 +15,12 @@ const title=document.createElement('h3');title.textContent='Amazon ASIN-Auswahl 
 panel.append(title);
 const info=document.createElement('div');panel.append(info);
 parent.insertAdjacentElement('afterend',panel);
+const categoryWarning=document.createElement('p');
+categoryWarning.id='hw24CategoryReview';
+categoryWarning.hidden=true;
+categoryWarning.setAttribute('role','status');
+categoryWarning.style.cssText='padding:10px 14px;border-left:3px solid #b97624;background:#fff6e7;margin:10px 0;color:#70420c';
+panel.insertAdjacentElement('afterend',categoryWarning);
 function source(){return window.hw24SourceState?.()||{}}
 function render(){
  const s=source(),r=s.record;if(!r)return;
@@ -27,6 +33,10 @@ function render(){
 }
 function addFields(model){
  const s=source(),r=s.record;if(!r||!model)return;
+ categoryWarning.hidden=!model.flags?.Warengruppe;
+ if(model.flags?.Warengruppe)
+  categoryWarning.textContent='⚠ Warengruppe prüfen: '+model.flags.Warengruppe+
+   ' Gespeicherte JTL-Warengruppe bleibt bis zur Bestätigung unverändert.';
  const additions=[];
  for(const [key,proposed] of Object.entries(model.fields||{})){
   if(!value(proposed)||value(r[key])||window.hw24WasManuallyEdited?.(key))continue;
@@ -58,8 +68,15 @@ function asinList(catalog,ean){
     p.textContent='Bereits vorhandene ASIN bitte gezielt in der Stammdatenpflege prüfen. Keine automatische Überschreibung.';
     info.append(p);return;
   }
-  const description=candidate.pack?'mögliche Mehrfachpackung':'Einzelartikel oder unbekannte Packungsgröße';
-  if(!confirm('ASIN '+candidate.asin+' auswählen ('+description+')? Farbnuance und Packungsinhalt zuvor prüfen.'))return;
+  const check=E.reviewCandidate(candidate,{
+    articleName:value(r.Artikelname),brand:value(r.Hersteller),packUnits:1
+  });
+  const explanation=check.reasons.length?check.reasons.join('; '):
+    candidate.packKind==='single'?'1 Stück laut expliziter Amazon-Angabe':
+    candidate.packKind==='multipack'?'Mehrfachpackung mit '+candidate.packUnits+' Stück':
+    'Stückzahl nicht durch Amazon-Katalog belegt';
+  if(!confirm('ASIN '+candidate.asin+' nach Amazon-Detailprüfung übernehmen? '+explanation+
+   '. Bei Abweichung von Einzelfarbe, Farbcode oder Menge abbrechen.'))return;
   current.ASIN=candidate.asin;
   window.hw24MarkEdited?.('ASIN');
   if(!value(current.Artikelname)&&candidate.title){
@@ -72,7 +89,7 @@ function asinList(catalog,ean){
   }
   render();
   asinList(catalog,ean);
- });
+ },{articleName:value(r.Artikelname),brand:value(r.Hersteller),packUnits:1});
  const note=document.createElement('p');note.className='note';
  note.textContent='Mehrfachpackungen und Varianten dürfen nicht automatisch derselben JTL-Einzelartikelnummer zugeordnet werden.';
  info.append(note);
