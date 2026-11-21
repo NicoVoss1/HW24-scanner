@@ -29,9 +29,13 @@ Diese beiden Dateien beim Fortsetzen eines Chats, beim Öffnen eines PRs und vor
 
 ## Sofortiger nächster Schritt
 
-**21.11.2026 · PR #29 (JETZT TEST):** `deploy/staging` SHA **`1618ebac749a6cc1854a8e0673da4725f5bcf984`**. `GET /api/ai-reviews.php` ohne `before_id` wird nicht länger irrtümlich als `invalid_cursor` abgewiesen. Authentifizierte Scanlistenpositionen zeigen nach erfolgreicher, dauerhaft archivierter KI-Analyse `🤖 KI geprüft`; Wiederholungen derselben EAN verwenden den vorhandenen Prüfbericht mit 0 USD neuen API-Kosten, solange nicht bewusst `🔄 Neu prüfen ($)` gewählt wird. Die erneute Prüfung ist zusätzlich revisionsgesichert gegen zwei gleichzeitige Browser-Tabs. [CI #44950463294 erfolgreich](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44950463294). **V13 vom Nutzer bereits erfolgreich installiert, nicht erneut ausführen.** Plesk-Test-Pull/-Deploy und Browser-E2E der neuen Version noch nicht bestätigt. Live-Branch `main` unverändert. [PR #29](https://github.com/NicoVoss1/HW24-scanner/pull/29).
+**Stand 21.11.2026:** **HW24 V4.23 Qualitätszentrum** [PR #31](https://github.com/NicoVoss1/HW24-scanner/pull/31) ist in GitHub-`deploy/staging` gemerged, SHA **`c54894c854c538e79ef8e6fc9b9132102be79a6c`**. [CI #44953759138](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44953759138) grün. Noch **kein** bestätigter Plesk-Deploy oder JTL-Gesamtqualitätslauf.
 
-**Jetzt:** Ausschließlich Testdomain in Plesk `deploy/staging` → **Jetzt Pull ausführen** → **Jetzt bereitstellen**. Dann authentifizierte [KI-Archivroute](https://test-artikelmanager.hairworld24.de/api/ai-reviews.php) ohne `invalid_cursor` prüfen und nach genau einer neuen gespeicherten Analyse den Marker `🤖 KI geprüft` sowie das kostenlose Öffnen des Berichts testen. Keine alte SQL-Installation wiederholen, kein Live-Deployment.
+**Jetzt einmalig nur die Testseite aktualisieren:** Plesk `test-artikelmanager.hairworld24.de` → Git Branch `deploy/staging` → **Jetzt Pull ausführen** → **Jetzt bereitstellen**. Danach die neue `https://test-artikelmanager.hairworld24.de/qualitaetszentrum.html` im angemeldeten Browser öffnen. Dort **Snapshot-Zeit, tatsächliche Artikelzahl, Bestand-ohne-EK- und Hersteller-Lücken** und einen Direktsprung zum vorhandenen JTL-Artikel testen.
+
+**Wichtig:** Der Code liest ausschließlich den bereits vorhandenen vollständigen JTL-MariaDB-Spiegel; keine neue SQL-Installation, keine Kosten für OpenAI, keine Produkt-/Bestandsänderung. **Keine alten Backups/PuTTY-Skripte wiederholen. Die Live-Seite bleibt auf `main` unverändert.** Echte Fehlerraten noch nicht gemessen.
+
+[Ausführliche V4.23-Anleitung](docs/HW24_QUALITAETSZENTRUM_V423_20261121.md) · [Gesamtauftrag Intelligence Console #30](https://github.com/NicoVoss1/HW24-scanner/issues/30).
 
 ## Vorheriger Schritt (PR #22)
 
