@@ -1,0 +1,30 @@
+name: HW24 AI EAN duplicate protection and cursor
+on:
+  push:
+    branches:
+      - feature/hw24-ai-dedupe-cursor-20261121
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify AI review archive and deduplication
+        run: node tests/hw24-ai-dedupe.test.cjs
+      - name: Syntax for affected API/JS
+        run: |
+          php -l api/ai-reviews.php
+          php -l api/ai-review.php
+          node --check assets/hw24-ai-cost.js
+          node --check assets/hw24-ai-markers.js
+      - name: Check inline Scanliste JavaScript
+        run: |
+          python3 - <<'PY'
+          import re,pathlib,subprocess
+          source=pathlib.Path('scanliste.html').read_text('utf8')
+          for code in re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>',source,re.I):
+            if code.strip():
+              r=subprocess.run(['node','--check'],input=code,text=True,capture_output=True)
+              if r.returncode:raise RuntimeError(r.stderr)
+          print('scanliste inline scripts valid')
+          PY
