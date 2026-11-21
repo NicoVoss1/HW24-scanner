@@ -114,14 +114,17 @@ function candidates(item){
   const asin=v(candidate.asin).toUpperCase();
   if(!/^[A-Z0-9]{10}$/.test(asin)||known.has(asin))continue;
   choices.push({asin,title:v(knownJtl.artikelname),brand:v(knownJtl.hersteller),
-   pack:false,exact:false,source:'JTL-Amazon-Zuordnung'});
+   pack:false,packKind:'unknown',packUnits:null,packReasons:['Packmenge aus JTL-ASIN nicht eindeutig'],
+   exact:false,source:'JTL-Amazon-Zuordnung'});
   known.add(asin);
  }
  const hist=E.verifiedHistory(refs?.history||null);
  for(const asin of hist.asins||[]){
   if(known.has(asin))continue;
   choices.push({asin,title:v(item.draft?.Artikelname||item.artikelname),
-   brand:v(item.draft?.Hersteller),pack:false,exact:false,source:'Historischer Excel-Beleg'});
+   brand:v(item.draft?.Hersteller),pack:false,packKind:'unknown',packUnits:null,
+   packReasons:['Amazon-Packungsdaten noch nicht abgeglichen'],
+   exact:false,source:'Historischer Excel-Beleg'});
   known.add(asin);
  }
  const selected=selectedAsins.get(item.id)||v(B.control('ASIN')?.value)||'';
@@ -136,10 +139,17 @@ function candidates(item){
    status('Artikel bereits in JTL. In der Scanliste keine neue ASIN-Zuordnung oder Neuanlage.');
    return;
   }
-  const info=(option.pack?'Mehrfachpackung/Set':'Einzelartikel')+
-    ', '+(option.exact?'EAN im Amazon-Katalog gefunden':'EAN nicht im Amazon-Datensatz bestätigt');
-  if(!window.confirm(option.asin+' auswählen? '+info+
-    '. Bitte Farbnuance, Produktidentität und Packungsgröße vor der Übernahme prüfen.'))return;
+  const verdict=E.reviewCandidate(option,{
+    articleName:v(B.control('Artikelname')?.value)||v(item.draft?.Artikelname||item.artikelname),
+    brand:v(B.control('Hersteller')?.value)||v(item.draft?.Hersteller),
+    packUnits:1
+  });
+  const identity=verdict.reasons.length?verdict.reasons.join('; '):
+    option.packKind==='single'?'Einzelartikel laut Amazon-Titel/Attribut belegt':
+    option.packKind==='multipack'?'Mehrfachpackung: '+option.packUnits+' Stück':
+    'Packungsmenge unklar';
+  if(!window.confirm('ASIN '+option.asin+' zuordnen? '+identity+
+     '. Bitte Amazon-Link, Farbnuance und Stückzahl kontrollieren. Bei Abweichungen KEINE Zuordnung vornehmen.'))return;
   const existing=v(B.control('ASIN')?.value);
   if(existing&&existing!==option.asin){
    status('ASIN-Feld enthält bereits '+existing+'. Zum Ersetzen bitte den bisherigen Wert manuell löschen und erneut wählen.');
@@ -152,6 +162,10 @@ function candidates(item){
   const result=await B.apply(chosen,origins,{save:true});
   if(result.ok){selectedAsins.set(item.id,option.asin);status('✓ ASIN gewählt. Farbnuance und Packungsgröße vor Ameise-Freigabe prüfen.')}
   candidates(item);
+ },{
+  articleName:v(B.control('Artikelname')?.value)||v(item.draft?.Artikelname||item.artikelname),
+  brand:v(B.control('Hersteller')?.value)||v(item.draft?.Hersteller),
+  packUnits:1
  });
  if(item.resolution==='existing'){
   const p=document.createElement('p');p.className='note';
