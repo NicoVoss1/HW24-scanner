@@ -58,7 +58,7 @@ assert.equal(ids[0].url,'https://www.amazon.de/dp/B001234567');
 assert.equal(ids[0].packKind,'single');
 // Simulate DOM to verify there is a real independent Amazon link for each ASIN.
 class Node {
- constructor(tag){this.tag=tag;this.children=[];this.textContent='';}
+ constructor(tag){this.tag=tag;this.children=[];this.textContent='';this.style={};}
  append(x){this.children.push(x)}
  replaceChildren(){this.children=[]}
 }
