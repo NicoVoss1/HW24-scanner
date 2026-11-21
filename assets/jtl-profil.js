@@ -112,11 +112,29 @@ function applyDefaults(){
  return count;
 }
 function status(msg){const o=$('profileStatus');if(o)o.textContent=msg}
-function sel(parent,options,value,onValue){
+function sel(parent,options,value,onValue,allowCustom=false){
  const select=document.createElement('select');
  const opts=[...new Set(['',value,...options])];
  for(const name of opts){const o=document.createElement('option');o.value=name;o.textContent=name||'Bitte auswählen';select.append(o)}
- select.value=value;select.onchange=()=>onValue(select.value);parent.append(select);return select;
+ if(allowCustom){
+   const other=document.createElement('option');other.value='__manual_hw24__';
+   other.textContent='✍️ Anderen Wert zur Prüfung eintragen …';select.append(other);
+ }
+ select.value=value;
+ select.onchange=()=>{
+   if(select.value==='__manual_hw24__'){
+     const typed=window.prompt('Neuen Wert für HW24-Entwurf eingeben (JTL-Verknüpfung vor Ameise-Import prüfen):','');
+     if(!typed||typed.trim().length>130){select.value=value;return;}
+     const v=typed.trim();
+     if(!Array.from(select.options).some(o=>o.value===v)){
+       const choice=document.createElement('option');choice.value=v;choice.textContent=v+' · manuell';
+       select.add(choice,select.options.length-1);
+     }
+     select.value=v;
+   }
+   onValue(select.value);
+ };
+ parent.append(select);return select;
 }
 function createControl(container,key,type,read){
  const value=val(rec?.[key]),label=document.createElement('label');
@@ -145,10 +163,10 @@ function createControl(container,key,type,read){
  }
  else if(type==='yn01')sel(field,['0','1'],value,update);
  else if(type==='artikeltyp')sel(field,lists.artikeltyp,value,update);
- else if(type==='warengruppe')sel(field,lists.warengruppe,value,update);
- else if(type==='hersteller')sel(field,lists.hersteller,value,update);
- else if(type==='lieferstatus')sel(field,lists.lieferstatus,value,update);
- else if(type==='category')sel(field,lists[key]||lists.category,value,update);
+ else if(type==='warengruppe')sel(field,lists.warengruppe,value,update,true);
+ else if(type==='hersteller')sel(field,lists.hersteller,value,update,true);
+ else if(type==='lieferstatus')sel(field,lists.lieferstatus,value,update,true);
+ else if(type==='category')sel(field,lists[key]||lists.category,value,update,true);
  else if(type==='tax')sel(field,['normaler steuersatz','ermäßigter steuersatz','steuerfrei'],value,update);
  else if(type==='currency')sel(field,['EUR'],value,update);
  else if(type==='int')sel(field,['0','1','2','3','4','5','7','10'],value,update);
