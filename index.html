@@ -866,7 +866,7 @@ updateIdentity();
 /* Open an existing JTL article directly from the Scanliste, read-only lookup. */
 window.addEventListener('load',()=>{
  const ean=new URLSearchParams(window.location.search).get('ean');
- if(!ean||!/^\\d{8,14}$/.test(ean))return;
+ if(!ean||!/^\d{8,14}$/.test(ean))return;
  const search=document.getElementById('ean'),button=document.getElementById('scanStart');
  if(search&&button){
   search.value=ean;button.click();
