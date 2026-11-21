@@ -607,7 +607,7 @@ const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className
 const host=byId('hw24ScanWorkspace'), scan=byId('ean'), searchButton=byId('scanStart');
 if(!host||!scan||!searchButton||byId('hw24FocusMain'))return;
 const nav=el('nav','hw24-focus-nav');nav.setAttribute('aria-label','Arbeitsbereiche');
-nav.innerHTML='<button type="button" aria-current="page" data-focus-go="scan">① Artikelprüfung</button><button type="button" data-focus-go="edit">② Stammdaten</button><button type="button" data-focus-go="export">③ JTL-Export</button><button type="button" data-focus-go="tools">⚙ Weitere Werkzeuge</button><a href="scanliste.html" style="display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border-radius:20px;background:#eaf2fb;border:1px solid #bed2e9;color:#123d70;text-decoration:none;font-weight:700">📦 Scanliste</a>';
+nav.innerHTML='<button type="button" aria-current="page" data-focus-go="scan">① Artikelprüfung</button><button type="button" data-focus-go="edit">② Stammdaten</button><button type="button" data-focus-go="export">③ JTL-Export</button><button type="button" data-focus-go="tools">⚙ Weitere Werkzeuge</button><a href="scanliste.html" style="display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border-radius:20px;background:#eaf2fb;border:1px solid #bed2e9;color:#123d70;text-decoration:none;font-weight:700">📦 Scanliste</a><a href="qualitaetszentrum.html" style="display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border-radius:20px;background:#e5f4ef;border:1px solid #b4ddc8;color:#15533d;text-decoration:none;font-weight:700">📊 Qualitätszentrum</a>';
 const header=document.querySelector('.hw24-hero');if(header)header.insertAdjacentElement('afterend',nav);
 const focus=el('section');focus.id='hw24FocusMain';focus.setAttribute('aria-label','Zentrale Artikelübersicht');
 focus.innerHTML=`
@@ -865,11 +865,14 @@ updateIdentity();
 <script>
 /* Open an existing JTL article directly from the Scanliste, read-only lookup. */
 window.addEventListener('load',()=>{
- const ean=new URLSearchParams(window.location.search).get('ean');
- if(!ean||!/^\d{8,14}$/.test(ean))return;
+ const params=new URLSearchParams(window.location.search);
+ const ean=params.get('ean'),articleNo=params.get('q');
+ const identifier=ean&&/^\d{8,14}$/.test(ean)?ean:
+   articleNo&&/^[\p{L}\p{N}][\p{L}\p{N}._\/-]{1,63}$/u.test(articleNo)?articleNo:null;
+ if(!identifier)return;
  const search=document.getElementById('ean'),button=document.getElementById('scanStart');
  if(search&&button){
-  search.value=ean;button.click();
+  search.value=identifier;button.click();
   document.getElementById('scanJtlStatus')?.scrollIntoView?.({block:'nearest'});
  }
 });
