@@ -5,6 +5,12 @@
 
 > **WICHTIG FÜR DIE FORTSETZUNG:** Beim nächsten Chat, Entwicklerauftrag oder GitHub-Arbeitsschritt **zuerst diese Seite lesen** und die letzten Commits/PRs vergleichen. Keine bereits abgeschlossenen Einrichtungs- und Backup-Schritte von vorn verlangen. Ein Sachstand darf nur aufgrund neuer Befunde geändert werden. Nicht stillschweigend auf `main`, eine andere Version oder einen alten PR zurückspringen.
 
+## AKTUELLER STAND 21.11.2026 · PR #23 AMAZON-LINKS/PRODUKTABGLEICH
+
+**21.11.2026 · PR #23:** Neue Amazon-ASIN-Direktlinks und validierte 1/2/3-Pack-, Farbcode-, Marken- und Gebindeprüfung sind in GitHub-`deploy/staging` gemerged. **Aktueller SHA `753abbbe4c9e25d99ec1f821d7e058271fbc26d0`**, [CI #44910579185 erfolgreich](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44910579185). Warengruppenkonflikte werden als Vorschläge gewarnt, JTL-Quellwerte bleiben unverändert. **Kein bestätigter Plesk-Test-/Live-Deploy.** Weitere Abnahme und exakte Vorbedingungen für KI/Live: [ASIN, KI und Live-Freigabe](./HW24_KI_ASIN_LIVE_FREIGABE_20261121.md). Der konkrete Wella-Color-Touch-9/01-Treffer ist ohne seine ASIN nicht real verifiziert.
+
+**Nächster Schritt:** Testdomain in Plesk `deploy/staging` Pull → Bereitstellen; konkrete Wella-ASIN und Mehrfachpack im Browser prüfen. **Live nicht automatisch umstellen.** Erst Plesk-Live-Git-/Bereitstellungspfad und eigene Datenbank-/Private-Konfiguration vergleichen, dann getrennten, rückrollbaren Live-Release planen.
+
 ## AKTUELLSTER GITHUB-TESTSTAND · 20.11.2026 (PR #22)
 
 - **PR #22** erfolgreich in `deploy/staging` gemerged: **`7db542548f7ba4c31ddf12d65b1e1866ff0592ba`**. GitHub-Codefreigabe belegt, **neuer Plesk-Pull/Deploy noch nicht bestätigt**.
