@@ -58,9 +58,9 @@ function hw24QualityEvaluate(array $article): array {
  if(!hw24QualityFilled($article['hersteller']??null))$add('manufacturer_missing');
  if(!hw24QualityFilled($article['han']??null))$add('han_missing');
  if(!hw24QualityFilled($article['has_short']??null)||
-  (string)$article['has_short']==='0')$add('short_missing');
+  (string)($article['has_short']??'0')==='0')$add('short_missing');
  if(!hw24QualityFilled($article['has_description']??null)||
-  (string)$article['has_description']==='0')$add('description_missing');
+  (string)($article['has_description']??'0')==='0')$add('description_missing');
  $groupId=trim((string)($article['warengruppe_id']??''));
  $groupName=trim((string)($article['warengruppe_name']??''));
  if($groupId===''||$groupId==='0'){
