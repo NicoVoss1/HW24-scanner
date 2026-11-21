@@ -29,6 +29,8 @@ const controls=node('div',panel,null,'display:flex;gap:9px;flex-wrap:wrap;align-
 const allBtn=node('button',controls,'Alle letzten Prüfungen','padding:8px 12px');
 const currentBtn=node('button',controls,'Aktuelle EAN','padding:8px 12px');
 const reloadBtn=node('button',controls,'↻ Aktualisieren','padding:8px 12px');
+const moreBtn=node('button',controls,'Ältere laden','padding:8px 12px');
+moreBtn.hidden=true;
 const status=node('p',panel,'Lade KI-Prüfungen …','min-height:22px;color:#46647b');
 status.setAttribute('role','status');
 const layout=node('div',panel,null,'display:grid;grid-template-columns:minmax(240px,1fr) minmax(300px,1.6fr);gap:13px');
@@ -37,7 +39,7 @@ const detail=node('div',layout,null,'min-height:230px;border:1px solid #dbe6ee;b
 const css=node('style',panel);
 css.textContent='@media(max-width:730px){#hw24AiHistory .hw24-ai-layout{grid-template-columns:1fr!important;max-height:none!important}#hw24AiHistory .hw24-ai-list{max-height:28vh!important}}';
 layout.className='hw24-ai-layout';list.className='hw24-ai-list';
-let items=[],onlyEan='',selectedId=null,lastFocus=null;
+let items=[],onlyEan='',selectedId=null,lastFocus=null,nextBefore=null;
 function activeEan(){
  const selected=root.HW24ScanBridge?.selected();
  return v(selected?.ean||root.hw24SourceState?.()?.record?.GTIN||document.getElementById('ean')?.value);
@@ -145,13 +147,15 @@ async function load(preferredId){
   const data=await res.json();
   if(!res.ok||!data.ok)throw Error(data.error||'Abfrage fehlgeschlagen');
   items=Array.isArray(data.reviews)?data.reviews:[];
+  nextBefore=data.next_before_id||null;moreBtn.hidden=!nextBefore;
   notify(items.length+' gespeicherte KI-Analysen'+(onlyEan?' für EAN '+onlyEan:'')+
    ' · neueste zuerst. Anzeige ohne erneute KI-Kosten.');
   renderList();
   const chosen=items.find(x=>x.id===preferredId)||items.find(x=>x.id===selectedId)||items[0];
   if(chosen)showDetail(chosen);
   else{selectedId=null;detail.replaceChildren();text(detail,'Noch keine dauerhaften KI-Ergebnisse.')}
- }catch(e){items=[];list.replaceChildren();detail.replaceChildren();
+ }catch(e){items=[];nextBefore=null;moreBtn.hidden=true;
+  list.replaceChildren();detail.replaceChildren();
   notify('KI-Archiv nicht erreichbar: '+v(e.message)+
    '. Einmalige V13-Tabelleninstallation und Leserechte erforderlich.',true)}
 }
@@ -166,6 +170,25 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&layer.style.display
 allBtn.onclick=()=>{onlyEan='';selectedId=null;load()};
 currentBtn.onclick=()=>{onlyEan=activeEan();selectedId=null;load()};
 reloadBtn.onclick=()=>load(selectedId);
+moreBtn.onclick=async()=>{
+ if(!nextBefore)return;
+ const query=new URLSearchParams({limit:'30',before_id:String(nextBefore)});
+ if(onlyEan)query.set('ean',onlyEan);
+ moreBtn.disabled=true;
+ try{
+  const response=await fetch('api/ai-reviews.php?'+query.toString(),
+   {credentials:'same-origin',cache:'no-store'});
+  const data=await response.json();
+  if(!response.ok||!data.ok)throw Error(data.error||'Laden fehlgeschlagen');
+  const older=Array.isArray(data.reviews)?data.reviews:[];
+  const known=new Set(items.map(x=>x.id));
+  items.push(...older.filter(x=>!known.has(x.id)));
+  nextBefore=data.next_before_id||null;moreBtn.hidden=!nextBefore;
+  notify(items.length+' gespeicherte Auswertungen geladen · weitere historische Daten bleiben in MariaDB.');
+  renderList();
+ }catch(e){notify('Ältere KI-Berichte konnten nicht geladen werden: '+v(e.message),true)}
+ finally{moreBtn.disabled=false}
+};
 root.HW24AiHistory=Object.freeze({
  open,refresh:()=>load(selectedId),
  afterSaved(data,article){
