@@ -100,10 +100,6 @@ try{
   'Lieferant'=>240,'Artikelnummer (Lieferant)'=>150,
   'Kategorie Ebene 1'=>250,'Kategorie Ebene 2'=>250,'Kategorie Ebene 3'=>250,
   'Versandklasse'=>120,'Währung'=>20,'Artikeltyp'=>120,
-  // HW24-only, approved comparison values. No direct JTL/WMS writes.
-  'Lieferstatus'=>120,'Zusätzliche Bearbeitungszeit'=>25,
-  'Beschaffungszeit manuell setzen'=>25,
-  'Beschaffungszeit automatisch ermitteln'=>25,
   'Maßeinheit'=>40,'ASIN'=>20,
   // HW24 overlay proposals only, NEVER direct SQL Server/JTL/WMS writes.
   'Lieferstatus'=>180,'Zusätzliche Bearbeitungszeit'=>12,
