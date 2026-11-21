@@ -15,6 +15,12 @@ const title=document.createElement('h3');title.textContent='Amazon ASIN-Auswahl 
 panel.append(title);
 const info=document.createElement('div');panel.append(info);
 parent.insertAdjacentElement('afterend',panel);
+const categoryWarning=document.createElement('p');
+categoryWarning.id='hw24CategoryReview';
+categoryWarning.hidden=true;
+categoryWarning.setAttribute('role','status');
+categoryWarning.style.cssText='padding:10px 14px;border-left:3px solid #b97624;background:#fff6e7;margin:10px 0;color:#70420c';
+panel.insertAdjacentElement('afterend',categoryWarning);
 function source(){return window.hw24SourceState?.()||{}}
 function render(){
  const s=source(),r=s.record;if(!r)return;
@@ -27,6 +33,10 @@ function render(){
 }
 function addFields(model){
  const s=source(),r=s.record;if(!r||!model)return;
+ categoryWarning.hidden=!model.flags?.Warengruppe;
+ if(model.flags?.Warengruppe)
+  categoryWarning.textContent='⚠ Warengruppe prüfen: '+model.flags.Warengruppe+
+   ' Gespeicherte JTL-Warengruppe bleibt bis zur Bestätigung unverändert.';
  const additions=[];
  for(const [key,proposed] of Object.entries(model.fields||{})){
   if(!value(proposed)||value(r[key])||window.hw24WasManuallyEdited?.(key))continue;
