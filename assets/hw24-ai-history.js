@@ -82,6 +82,17 @@ function showDetail(review){
  text(detail,suggested?'Vorschlag: '+suggested:'Kein eindeutiger Vorschlag');
  if(suggested&&canApply(review))button(detail,'✓ Warengruppe nach Prüfung in Entwurf übernehmen',
   ()=>applyField(review,'Warengruppe',suggested));
+ const facts=review.review?.productFacts;
+ if(facts&&typeof facts==='object'){
+  title(detail,'Erkannte Produktmerkmale (KI-Vorschläge)');
+  const labels={manufacturer:'Hersteller',shade:'Farbcode',volume:'Inhalt',unit:'Einheit',
+   packUnits:'Packungsmenge',articleType:'Artikeltyp',suggestedTitle:'Artikelname',notes:'Offene Prüfpunkte'};
+  for(const [key,name] of Object.entries(labels)){
+   const value=facts[key];
+   if(value===null||value===undefined||v(value)==='')continue;
+   text(detail,name+': '+v(value));
+  }
+ }
  title(detail,'ASIN-Einzelprüfungen');
  const checks=Array.isArray(review.review?.asinChecks)?review.review.asinChecks:[];
  const candidates=Array.isArray(review.input?.amazon_candidates)?review.input.amazon_candidates:[];
