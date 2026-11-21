@@ -6,7 +6,7 @@ const sandbox={window:{},fetch:()=>{throw new Error('unit-test has no network')}
 vm.runInNewContext(fs.readFileSync('assets/hw24-enrichment.js','utf8'),sandbox);
 const E=sandbox.window.HW24Enrich;
 assert(E);
-const ean='4056800100830';
+const ean='4056800100835';
 const mk=(asin,title,attributes={})=>({
  asin,title,brand:'Wella',
  identifiers:[{identifiers:[{identifierType:'EAN',identifier:ean}]}],attributes
@@ -65,7 +65,7 @@ class Node {
 const dom={createElement:x=>new Node(x)};
 sandbox.document=dom;
 const list=new Node('div');E.renderCandidates(list,ids,'',()=>{},{articleName:context.curated.fields.Artikelname,brand:'Wella'});
-const link=list.children.flatMap(el=>el.children||[]).flatMap(el=>el.children||[])
+const link=list.children.flatMap(el=>el.children||[])
  .find(el=>el.tag==='a');
 assert(link,'ASIN link should render');
 assert.equal(link.href,ids[0].url);
