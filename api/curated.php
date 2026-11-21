@@ -100,7 +100,13 @@ try{
   'Lieferant'=>240,'Artikelnummer (Lieferant)'=>150,
   'Kategorie Ebene 1'=>250,'Kategorie Ebene 2'=>250,'Kategorie Ebene 3'=>250,
   'Versandklasse'=>120,'Währung'=>20,'Artikeltyp'=>120,
-  'Maßeinheit'=>40,'ASIN'=>20];
+  'Maßeinheit'=>40,'ASIN'=>20,
+  // HW24 overlay proposals only, NEVER direct SQL Server/JTL/WMS writes.
+  'Lieferstatus'=>180,'Zusätzliche Bearbeitungszeit'=>12,
+  'Beschaffungszeit manuell setzen'=>12,'Beschaffungszeit automatisch ermitteln'=>3,
+  'Artikel aktiv'=>3,'Bestandsführung aktiv'=>3,
+  'Überverkäufe möglich'=>3,'Stückzahl teilbar'=>3,
+  'Top-Artikel'=>3,'Neu im Sortiment'=>3];
  $requested=$body['fields']??null;$expected=$body['expected_revision']??null;
  if(!is_array($requested)||!count($requested)||count($requested)>count($allow))
   answer(400,['ok'=>false,'error'=>'fields_required']);
@@ -112,6 +118,15 @@ try{
   $v=trim($value);
   if($key==='ASIN'&&!preg_match('/^[A-Z0-9]{10}$/D',strtoupper($v)))
    answer(400,['ok'=>false,'error'=>'invalid_asin']);
+  if(in_array($key,['Zusätzliche Bearbeitungszeit','Beschaffungszeit manuell setzen'],true) &&
+     (!preg_match('/^[0-9]{1,3}$/D',$v)||(int)$v>365))
+   answer(400,['ok'=>false,'error'=>'invalid_time_days','field'=>$key]);
+  if($key==='Beschaffungszeit automatisch ermitteln'&&!in_array($v,['0','1'],true))
+   answer(400,['ok'=>false,'error'=>'invalid_auto_procurement']);
+  if(in_array($key,['Artikel aktiv','Bestandsführung aktiv',
+    'Überverkäufe möglich','Stückzahl teilbar','Top-Artikel','Neu im Sortiment'],true) &&
+     !in_array($v,['Y','J','N'],true))
+   answer(400,['ok'=>false,'error'=>'invalid_jtl_flag','field'=>$key]);
   if($v===''||strlen($v)>$allow[$key]*4)
    answer(400,['ok'=>false,'error'=>'invalid_field_length','field'=>$key]);
   if(function_exists('mb_strlen')&&mb_strlen($v,'UTF-8')>$allow[$key])
