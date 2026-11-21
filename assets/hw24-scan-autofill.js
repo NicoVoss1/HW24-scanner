@@ -151,16 +151,16 @@ function candidates(item){
   if(!window.confirm('ASIN '+option.asin+' zuordnen? '+identity+
      '. Bitte Amazon-Link, Farbnuance und Stückzahl kontrollieren. Bei Abweichungen KEINE Zuordnung vornehmen.'))return;
   const existing=v(B.control('ASIN')?.value);
-  if(existing&&existing!==option.asin){
-   status('ASIN-Feld enthält bereits '+existing+'. Zum Ersetzen bitte den bisherigen Wert manuell löschen und erneut wählen.');
-   return;
-  }
+  if(existing&&existing!==option.asin&&!window.confirm('Die bisherige ASIN '+existing+
+     ' durch '+option.asin+' ersetzen? Das ändert nur den HW24-Entwurf, nicht den JTL-Artikel.'))return;
   const chosen={ASIN:option.asin};
   const origins={ASIN:'Amazon SP-API · ASIN manuell bestätigt'};
   if(option.title){chosen.Artikelname=option.title;origins.Artikelname='Amazon · bestätigter ASIN-Titel';}
   if(option.brand){chosen.Hersteller=option.brand;origins.Hersteller='Amazon · bestätigte ASIN-Marke';}
-  const result=await B.apply(chosen,origins,{save:true});
-  if(result.ok){selectedAsins.set(item.id,option.asin);status('✓ ASIN gewählt. Farbnuance und Packungsgröße vor Ameise-Freigabe prüfen.')}
+  const result=await B.apply(chosen,origins,{save:true,confirmedChoice:true});
+  if(result.saved){selectedAsins.set(item.id,option.asin);
+    status('✓ ASIN '+option.asin+' im Datenbankentwurf gespeichert. Farbnuance/Packung vor Ameise-Freigabe prüfen.');
+  }else status('ASIN konnte noch nicht gespeichert werden: '+String(result.error||'Bitte Quellstatus prüfen'));
   candidates(item);
  },{
   articleName:v(B.control('Artikelname')?.value)||v(item.draft?.Artikelname||item.artikelname),
