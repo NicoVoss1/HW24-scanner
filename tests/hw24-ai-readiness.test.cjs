@@ -1,0 +1,14 @@
+'use strict';
+const fs=require('node:fs'),assert=require('node:assert/strict');
+const php=fs.readFileSync('api/ai-review.php','utf8');
+const js=fs.readFileSync('assets/hw24-ai-cost.js','utf8');
+assert(php.includes("$status['archive_ready']=$ready"));
+assert(php.includes("SELECT id FROM hw24_ai_reviews LIMIT 0"));
+assert(php.includes("'error'=>'review_storage_not_ready'"));
+assert(php.indexOf("'error'=>'review_storage_not_ready'")<php.indexOf("curl_init('https://api.openai.com"));
+assert(js.includes("x.archive_ready===true"));
+assert(js.includes("Archivinstallation erforderlich"));
+assert(js.includes("check.disabled=true;return;"));
+assert(js.includes("review_storage_not_ready"));
+assert(js.includes("review_storage_write_failed"));
+console.log('AI archive readiness gates before paid OpenAI requests: PASS');
