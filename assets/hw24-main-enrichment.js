@@ -78,6 +78,14 @@ function asinList(catalog,ean){
   if(!confirm('ASIN '+candidate.asin+' nach Amazon-Detailprüfung übernehmen? '+explanation+
    '. Bei Abweichung von Einzelfarbe, Farbcode oder Menge abbrechen.'))return;
   current.ASIN=candidate.asin;
+  // Update the real legacy editor input, not just the separate ASIN suggestion card.
+  const asinRow=[...document.querySelectorAll('#fields .field')].find(row=>
+    value(row.querySelector('label')?.textContent).replace(/\s*\*$/,'')==='ASIN');
+  const asinInput=asinRow?.querySelector('input,textarea');
+  if(asinInput&&!asinInput.readOnly){
+    asinInput.value=candidate.asin;
+    asinInput.dispatchEvent(new Event('change',{bubbles:true}));
+  }
   window.hw24MarkEdited?.('ASIN');
   if(!value(current.Artikelname)&&candidate.title){
    current.Artikelname=candidate.title;
