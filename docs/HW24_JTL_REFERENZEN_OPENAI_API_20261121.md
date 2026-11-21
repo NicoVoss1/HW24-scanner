@@ -1,6 +1,6 @@
 # HW24 V4.22: JTL-Referenzen, ASIN-Übernahme und OpenAI-Kostenkontrolle
 
-**Stand:** 21.11.2026. Entwicklungszweig `feature/hw24-v422-jtl-reference-ai-ledger-20261121`. Vor einer Live-Umstellung zuerst Test-Plesk-Bereitstellung und echte End-to-End-Prüfung. Die frühere Sicherung, private DB-Konfiguration und V11/V12-Tabellen bestehen fort und müssen nicht neu aufgebaut werden.
+**Stand:** 21.11.2026. [PR #24](https://github.com/NicoVoss1/HW24-scanner/pull/24) **in GitHub-Testbranch `deploy/staging` gemerged**, aktueller Staging-SHA **`41bd862178d23a2e385d253767898318a490fdca`**. [GitHub Actions #44923871216](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44923871216) grün. **Plesk-Bereitstellung und echte End-to-End-Tests stehen noch aus**; keine Live-Änderung. Vor einer Live-Umstellung zuerst Test-Plesk-Bereitstellung und echte End-to-End-Prüfung. Die frühere Sicherung, private DB-Konfiguration und V11/V12-Tabellen bestehen fort und müssen nicht neu aufgebaut werden.
 
 ## Tatsächlich vorhandener Datenbankzugriff
 
