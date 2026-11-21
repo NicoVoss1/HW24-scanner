@@ -226,6 +226,7 @@ function render(){
 }
 async function loadArticle(query){
  const request=++state.latestRequest;
+ $('confirmHaircolor').checked=false;
  $('productView').hidden=true;
  state.article=null;state.sourceFresh=false;
  status('JTL-Artikel und vorhandenen HW24-Entwurf werden geladen …');
@@ -315,6 +316,10 @@ async function loadReference(){
 }
 $('suggestReference').onclick=()=>{
  if(!state.reference||!state.article||!state.sourceFresh)return;
+ if(!$('confirmHaircolor').checked){
+  status('Bitte zuerst bestätigen, dass dieser Zielartikel tatsächlich eine Haarfarbe ist.','error');
+  return;
+ }
  const reference=state.reference;
  const source=reference.jtl_source_fields||{};
  const safe={
