@@ -5,6 +5,12 @@
 
 > **WICHTIG FÜR DIE FORTSETZUNG:** Beim nächsten Chat, Entwicklerauftrag oder GitHub-Arbeitsschritt **zuerst diese Seite lesen** und die letzten Commits/PRs vergleichen. Keine bereits abgeschlossenen Einrichtungs- und Backup-Schritte von vorn verlangen. Ein Sachstand darf nur aufgrund neuer Befunde geändert werden. Nicht stillschweigend auf `main`, eine andere Version oder einen alten PR zurückspringen.
 
+## NEUESTER CODESTAND · 21.11.2026 · PR #29 KI-DOPPELABFRAGENSPERRE
+
+**21.11.2026 · PR #29 (JETZT TEST):** `deploy/staging` SHA **`1618ebac749a6cc1854a8e0673da4725f5bcf984`**. `GET /api/ai-reviews.php` ohne `before_id` wird nicht länger irrtümlich als `invalid_cursor` abgewiesen. Authentifizierte Scanlistenpositionen zeigen nach erfolgreicher, dauerhaft archivierter KI-Analyse `🤖 KI geprüft`; Wiederholungen derselben EAN verwenden den vorhandenen Prüfbericht mit 0 USD neuen API-Kosten, solange nicht bewusst `🔄 Neu prüfen ($)` gewählt wird. Die erneute Prüfung ist zusätzlich revisionsgesichert gegen zwei gleichzeitige Browser-Tabs. [CI #44950463294 erfolgreich](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44950463294). **V13 vom Nutzer bereits erfolgreich installiert, nicht erneut ausführen.** Plesk-Test-Pull/-Deploy und Browser-E2E der neuen Version noch nicht bestätigt. Live-Branch `main` unverändert. [PR #29](https://github.com/NicoVoss1/HW24-scanner/pull/29).
+
+**Nächste Einzelaktion:** Plesk-Testseite `deploy/staging` Pull → Bereitstellen, danach `GET /api/ai-reviews.php` und Scanliste mit tatsächlich gespeicherter KI-EAN überprüfen. Die **erste** vor V13 bezahlte KI-Prüfung ist nicht als fachlicher Archivbericht gespeichert und daher kein Marker.
+
 ## NEUESTER NUTZER-NACHWEIS · 21.11.2026 · V13 INSTALLIERT UND PRODUCT DATA HUB GEPLANT
 
 - Der Nutzer hat per PuTTY bestätigt, dass das einmalige V13-Installationsskript mit `ARCHIV` erfolgreich abgeschlossen wurde; Ausgabe `bisherige_ki_pruefungen=0` und `OK: KI-Prüfarchiv eingerichtet`. **Kein erneuter Installerlauf nötig.**
