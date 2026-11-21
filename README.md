@@ -29,13 +29,11 @@ Diese beiden Dateien beim Fortsetzen eines Chats, beim Öffnen eines PRs und vor
 
 ## Sofortiger nächster Schritt
 
-**Stand 21.11.2026:** **HW24 V4.23 Qualitätszentrum** [PR #31](https://github.com/NicoVoss1/HW24-scanner/pull/31) ist in GitHub-`deploy/staging` gemerged, SHA **`c54894c854c538e79ef8e6fc9b9132102be79a6c`**. [CI #44953759138](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44953759138) grün. Noch **kein** bestätigter Plesk-Deploy oder JTL-Gesamtqualitätslauf.
+**Stand 22.11.2026:** [PR #32](https://github.com/NicoVoss1/HW24-scanner/pull/32) wurde in GitHub-`deploy/staging` als **V4.24 TEST** gemerged, SHA **`f51ab67240bd1bf0e5be25498269049a24748b85`**. Neu: übersichtliche `artikelpflege.html` mit JTL-Istwerten, HW24-Entwurf/Revision und Haarfarben-Referenz-EAN `3474630337398`; `qualitaetszentrum.html` mit getrennten Bestands-/EK-Filtern, **ODER/UND**, sortierbaren Spalten und **Bestand zuerst**. Die bisherige `index.html` bleibt Expertenansicht.
 
-**Jetzt einmalig nur die Testseite aktualisieren:** Plesk `test-artikelmanager.hairworld24.de` → Git Branch `deploy/staging` → **Jetzt Pull ausführen** → **Jetzt bereitstellen**. Danach die neue `https://test-artikelmanager.hairworld24.de/qualitaetszentrum.html` im angemeldeten Browser öffnen. Dort **Snapshot-Zeit, tatsächliche Artikelzahl, Bestand-ohne-EK- und Hersteller-Lücken** und einen Direktsprung zum vorhandenen JTL-Artikel testen.
+**Jetzt genau einmal:** Nur Plesk-Testdomain Git-Branch `deploy/staging` → **Jetzt Pull ausführen** → **Jetzt bereitstellen**. Dann `https://test-artikelmanager.hairworld24.de/qualitaetszentrum.html` und `https://test-artikelmanager.hairworld24.de/artikelpflege.html?ean=3474630337398` kontrollieren. Echte JTL-Referenzwerte werden dabei **erst aus dem privaten frischen JTL-Spiegel abgerufen**; sie sind noch nicht unabhängig geprüft. `main`/Live bleibt unverändert. Keine neuen DB-Tabellen, API-Keys oder PuTTY-Installationen nötig.
 
-**Wichtig:** Der Code liest ausschließlich den bereits vorhandenen vollständigen JTL-MariaDB-Spiegel; keine neue SQL-Installation, keine Kosten für OpenAI, keine Produkt-/Bestandsänderung. **Keine alten Backups/PuTTY-Skripte wiederholen. Die Live-Seite bleibt auf `main` unverändert.** Echte Fehlerraten noch nicht gemessen.
-
-[Ausführliche V4.23-Anleitung](docs/HW24_QUALITAETSZENTRUM_V423_20261121.md) · [Gesamtauftrag Intelligence Console #30](https://github.com/NicoVoss1/HW24-scanner/issues/30).
+[Technische Freigabe- und Testanleitung V4.24](docs/HW24_V424_QUALITY_EDITOR_RELEASE_20261122.md).
 
 ## Vorheriger Schritt (PR #22)
 
