@@ -8,11 +8,11 @@
 const $=id=>document.getElementById(id),val=x=>String(x??'').trim();
 const grouped=[
  ['Identifikation und Kosten',[
-  ['Kosten','text','edit'],['Durchschnittlicher Einkaufspreis (netto)','text','read'],
+  ['Hersteller','hersteller','edit'],['Kosten','text','edit'],['Durchschnittlicher Einkaufspreis (netto)','text','read'],
   ['Lieferant','text','edit'],['Artikelnummer (Lieferant)','text','edit'],
   ['Auf Lager','text','read'],['In Aufträgen','text','read'],['Verfügbar','text','read']]],
  ['Artikelstandards und Versand',[
-  ['Überverkäufe möglich','yn','edit'],['Lieferstatus','text','edit'],
+  ['Überverkäufe möglich','yn','edit'],['Lieferstatus','lieferstatus','edit'],
   ['Stückzahl teilbar','yn','edit'],['Zusätzliche Bearbeitungszeit','int','edit'],
   ['Beschaffungszeit automatisch ermitteln','yn01','edit'],
   ['Beschaffungszeit manuell setzen','int','edit'],['Versandklasse','text','edit'],
@@ -57,6 +57,8 @@ const notAutoImport=new Set([...protectedFields,'Lagerkommentar_1 [ZepCh]',
 let rec=null,ean='',jtl=null,source='none',pending=false;
 let manuallyChanged=new Set(),confirmed={};
 let lists={
+ hersteller:[],lieferstatus:[],
+ 'Kategorie Ebene 1':[],'Kategorie Ebene 2':[],'Kategorie Ebene 3':[],
  warengruppe:['Haarfarben','Haarpflege','Haarstyling','Sammelkarten','Beauty','Haarschmuck'],
  artikeltyp:['Normaler Artikel','Kartonage','Mehrzweckgutschein'],
  category:['Haarfarben','Haarpflege','Haarstyling']
@@ -110,11 +112,29 @@ function applyDefaults(){
  return count;
 }
 function status(msg){const o=$('profileStatus');if(o)o.textContent=msg}
-function sel(parent,options,value,onValue){
+function sel(parent,options,value,onValue,allowCustom=false){
  const select=document.createElement('select');
  const opts=[...new Set(['',value,...options])];
  for(const name of opts){const o=document.createElement('option');o.value=name;o.textContent=name||'Bitte auswählen';select.append(o)}
- select.value=value;select.onchange=()=>onValue(select.value);parent.append(select);return select;
+ if(allowCustom){
+   const other=document.createElement('option');other.value='__manual_hw24__';
+   other.textContent='✍️ Anderen Wert zur Prüfung eintragen …';select.append(other);
+ }
+ select.value=value;
+ select.onchange=()=>{
+   if(select.value==='__manual_hw24__'){
+     const typed=window.prompt('Neuen Wert für HW24-Entwurf eingeben (JTL-Verknüpfung vor Ameise-Import prüfen):','');
+     if(!typed||typed.trim().length>130){select.value=value;return;}
+     const v=typed.trim();
+     if(!Array.from(select.options).some(o=>o.value===v)){
+       const choice=document.createElement('option');choice.value=v;choice.textContent=v+' · manuell';
+       select.add(choice,select.options.length-1);
+     }
+     select.value=v;
+   }
+   onValue(select.value);
+ };
+ parent.append(select);return select;
 }
 function createControl(container,key,type,read){
  const value=val(rec?.[key]),label=document.createElement('label');
@@ -143,8 +163,10 @@ function createControl(container,key,type,read){
  }
  else if(type==='yn01')sel(field,['0','1'],value,update);
  else if(type==='artikeltyp')sel(field,lists.artikeltyp,value,update);
- else if(type==='warengruppe')sel(field,lists.warengruppe,value,update);
- else if(type==='category')sel(field,lists.category,value,update);
+ else if(type==='warengruppe')sel(field,lists.warengruppe,value,update,true);
+ else if(type==='hersteller')sel(field,lists.hersteller,value,update,true);
+ else if(type==='lieferstatus')sel(field,lists.lieferstatus,value,update,true);
+ else if(type==='category')sel(field,lists[key]||lists.category,value,update,true);
  else if(type==='tax')sel(field,['normaler steuersatz','ermäßigter steuersatz','steuerfrei'],value,update);
  else if(type==='currency')sel(field,['EUR'],value,update);
  else if(type==='int')sel(field,['0','1','2','3','4','5','7','10'],value,update);
@@ -235,5 +257,24 @@ window.hw24ProfileCurrent=record=>{rec=record||null;render()};
 window.hw24ProfileDefaults=newDefaults;
 window.hw24ProfileNotAutoImport=notAutoImport;
 $('profileApply')?.addEventListener('click',applyDefaults);
+(async()=>{
+ try{
+  const response=await fetch('api/jtl-options.php',{credentials:'same-origin',cache:'no-store'});
+  const data=await response.json();
+  if(!response.ok||!data.ok||data.status!=='ready')return;
+  const names={'Hersteller':'hersteller','Warengruppe':'warengruppe',
+   'Lieferstatus':'lieferstatus',
+   'Kategorie Ebene 1':'Kategorie Ebene 1',
+   'Kategorie Ebene 2':'Kategorie Ebene 2','Kategorie Ebene 3':'Kategorie Ebene 3'};
+  for(const [name,target] of Object.entries(names)){
+   const values=data.lists?.[name];
+   if(!Array.isArray(values))continue;
+   lists[target]=[...new Set([...(lists[target]||[]),
+     ...values.filter(x=>typeof x==='string'&&x.trim())])].slice(0,250);
+  }
+  // Keep current draft and user-edited values; only rebuild its select choices.
+  render();
+ }catch(error){console.warn('JTL-Referenzvorschläge nicht verfügbar; bestehender Entwurf bleibt erhalten.')}
+})();
 render();
 })();
