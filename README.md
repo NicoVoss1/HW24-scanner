@@ -29,9 +29,13 @@ Diese beiden Dateien beim Fortsetzen eines Chats, beim Öffnen eines PRs und vor
 
 ## Sofortiger nächster Schritt
 
-**21.11.2026 · PR #23:** Neue Amazon-ASIN-Direktlinks und validierte 1/2/3-Pack-, Farbcode-, Marken- und Gebindeprüfung sind in GitHub-`deploy/staging` gemerged. **Aktueller SHA `753abbbe4c9e25d99ec1f821d7e058271fbc26d0`**, [CI #44910579185 erfolgreich](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44910579185). Warengruppenkonflikte werden als Vorschläge gewarnt, JTL-Quellwerte bleiben unverändert. **Kein bestätigter Plesk-Test-/Live-Deploy.** Weitere Abnahme und exakte Vorbedingungen für KI/Live: [ASIN, KI und Live-Freigabe](docs/HW24_KI_ASIN_LIVE_FREIGABE_20261121.md). Der konkrete Wella-Color-Touch-9/01-Treffer ist ohne seine ASIN nicht real verifiziert.
+**Stand 21.11.2026:** [PR #24](https://github.com/NicoVoss1/HW24-scanner/pull/24) mit JTL-Referenz-Dropdowns, bestätigter ASIN-Übernahme, Direktlink zum Bestandsartikel und optionalem OpenAI-Tokenkostenzähler wurde in **`deploy/staging`** gemerged. **Aktueller Test-Staging-SHA: `41bd862178d23a2e385d253767898318a490fdca`.**
 
-**Jetzt:** Plesk-Testdomain `deploy/staging` Pull/Bereitstellen; danach Wella Color Touch 9/01-ASIN-Karte, 2er-/3er-Packs und Links prüfen. Zur Live-Promotion bitte Plesk Git-Einstellungen der **Live-Domain** ermitteln, nicht Testzweig einfach live überschreiben.
+**Jetzt:** Nur die **Testdomain** in Plesk `deploy/staging` → **Jetzt Pull ausführen** → **Jetzt bereitstellen**. Danach JTL-Bestandsartikel, neue EAN-Dropdowns, bestätigte ASIN-Persistenz nach Reload und den ohne API-Key deaktivierten KI-Kostenzähler prüfen. **Live bleibt `main`; kein Live-Pull.**
+
+**OpenAI:** Der private Projektschlüssel ist **noch nicht auf dem Plesk-Testserver eingerichtet**; erst nach gezielter Installation in `hw24_private/openai-review.php` kann eine bewusst bestätigte, kostenpflichtige KI-Prüfung erfolgen. Die Kostenanzeige liefert **HW24-tokenbasierte USD-Schätzungen**, nicht den gesamten OpenAI-Abrechnungsstand. Die Referenzoptionen stammen aus dem MariaDB-JTL-Spiegel, nicht aus sämtlichen SQL-Server-Referenztabellen.
+
+[Dokumentierter Stand, Serverkonfiguration und offene Prüfungen](docs/HW24_JTL_REFERENZEN_OPENAI_API_20261121.md). Frühere Backups, PuTTY/SQL und Plesk-Installationen sind bereits erledigt und werden nicht wiederholt.
 
 ## Vorheriger Schritt (PR #22)
 
