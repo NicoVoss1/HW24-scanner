@@ -43,7 +43,8 @@ try{
   'Hersteller'=>[],'Warengruppe'=>[],'Lieferstatus'=>[],
   'Kategorie Ebene 1'=>[],'Kategorie Ebene 2'=>[],'Kategorie Ebene 3'=>[],
   'Zusätzliche Bearbeitungszeit'=>[],'Beschaffungszeit manuell setzen'=>[],
-  'Beschaffungszeit automatisch ermitteln'=>[]
+  'Beschaffungszeit automatisch ermitteln'=>[],
+  'Versandklasse'=>[],'Steuerklasse'=>[],'Währung'=>[],'Artikeltyp'=>[]
  ];
  $add=static function(string $key,$value) use (&$result): void {
   if(!isset($result[$key])||!is_scalar($value))return;
@@ -61,7 +62,11 @@ try{
   'Kategorie Ebene 1'=>"JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.HW24_RelatedSources.kategorien.rows[0].cName'))",
   'Zusätzliche Bearbeitungszeit'=>"JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.nBearbeitungszeit'))",
   'Beschaffungszeit manuell setzen'=>"JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.nLiefertageWennAusverkauft'))",
-  'Beschaffungszeit automatisch ermitteln'=>"JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.nAutomatischeLiefertageberechnung'))"
+  'Beschaffungszeit automatisch ermitteln'=>"JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.nAutomatischeLiefertageberechnung'))",
+  'Versandklasse'=>"JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.HW24_RelatedSources.versandklasse.rows[0].cName'))",
+  'Steuerklasse'=>"JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.HW24_RelatedSources.steuerklasse.rows[0].cName'))",
+  'Währung'=>"JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.HW24_Waehrung'))",
+  'Artikeltyp'=>"JSON_UNQUOTE(JSON_EXTRACT(raw_json,'$.HW24_Artikeltyp'))"
  ];
  foreach($select as $field=>$expression){
    $sql="SELECT DISTINCT $expression AS item FROM hw24_jtl_articles
