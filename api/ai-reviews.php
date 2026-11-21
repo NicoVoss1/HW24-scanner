@@ -23,6 +23,9 @@ if(($_SERVER['HTTPS']??'')!=='on'&&($_SERVER['HTTP_X_FORWARDED_PROTO']??'')!=='h
 $ean=trim((string)($_GET['ean']??''));
 if($ean!==''&&!preg_match('/^[0-9]{8,14}$/D',$ean))
  send(400,['ok'=>false,'error'=>'invalid_ean']);
+$before=filter_var($_GET['before_id']??null,FILTER_VALIDATE_INT);
+if($before===false||($before!==null&&$before<1))
+ send(400,['ok'=>false,'error'=>'invalid_cursor']);
 $limit=filter_var($_GET['limit']??20,FILTER_VALIDATE_INT);
 if(!$limit||$limit<1||$limit>50)$limit=20;
 $path=dirname(__DIR__,2).'/hw24_private/scanlist-db.php';
@@ -42,6 +45,7 @@ try{
         FROM hw24_ai_reviews WHERE actor=?';
  $params=[$actor];
  if($ean!==''){$query.=' AND ean=?';$params[]=$ean;}
+ if($before!==null){$query.=' AND id<?';$params[]=$before;}
  $query.=' ORDER BY id DESC LIMIT '.(int)$limit;
  $stmt=$db->prepare($query);$stmt->execute($params);
  $reviews=[];
@@ -59,7 +63,9 @@ try{
    'created_at_utc'=>$row['created_at_utc']];
  }
  send(200,['ok'=>true,'stored'=>true,'scope'=>'authenticated_user',
-   'ean_filter'=>$ean,'count'=>count($reviews),'reviews'=>$reviews]);
+   'ean_filter'=>$ean,'count'=>count($reviews),
+   'next_before_id'=>count($reviews)===$limit?(int)end($reviews)['id']:null,
+   'reviews'=>$reviews]);
 }catch(Throwable $e){
  error_log('HW24 AI archive GET failed: '.get_class($e));
  send(503,['ok'=>false,'error'=>'review_storage_unavailable',
