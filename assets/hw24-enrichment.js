@@ -39,15 +39,72 @@ function sizeFromName(name){
  const b=s.match(/(\d+(?:[,.]\d+)?)\s*(ml|l|g|kg)\b/i);
  return b?{units:1,quantity:positive(b[1]),unit:b[2].toLowerCase(),estimated:true}:null;
 }
-function likelyMultipack(name,item){
- const s=normalize(name).toLowerCase();
- if(/\b(?:2er|3er|4er|5er|6er|10er|12er)[\s-]*(?:pack|set|bundle)\b/.test(s))return true;
- if(/\b(?:set|bundle|multipack|doppelpack|mehrfachpack)\b/.test(s))return true;
- if(/\b[2-9]\s*(?:x|×)\s*\d/.test(s))return true;
- for(const qty of [item?.attributes?.number_of_items,item?.attributes?.item_package_quantity]){
-  if(Array.isArray(qty)&&positive(qty[0]?.value)>1)return true;
+// Unit-count evidence is separate from bottle volume (60 ml ≠ 60 bottles).
+// "Single" is never inferred from the absence of a multi-pack keyword.
+function classifyPack(name,item={}){
+ const title=normalize(name,700).toLocaleLowerCase('de').replace(/×/g,'x');
+ const signals=[],quantities=new Set();
+ function add(q,origin){
+  q=Number(q);if(Number.isSafeInteger(q)&&q>=1&&q<=100){
+   quantities.add(q);signals.push(origin+': '+q+' Stück');
+  }
  }
- return false;
+ for(const match of title.matchAll(/(?:^|[\s,;(\[])(\d{1,2})\s*x\s*\d+(?:[,.]\d+)?\s*(?:ml|l|g|kg)\b/g))
+   add(match[1],'Titel: Packmenge vor Volumen');
+ for(const match of title.matchAll(/(?:^|[\s,;(\[])(\d{1,2})\s*(?:er[\s-]*(?:pack|paket|set)|[- ]?pack|[- ]?stk\.?|[- ]?st[üu]ck|[- ]?flaschen|[- ]?tuben)\b/g))
+   add(match[1],'Titel: Packungsangabe');
+ for(const match of title.matchAll(/\bpack(?:ungsgr[oö]ße)?\s*(?:mit|of)?\s*(\d{1,2})\b/g))
+   add(match[1],'Titel: Pack');
+ if(/\b(?:doppelpack|duopack|twin[\s-]*pack|2[\s-]?er[\s-]?set)\b/.test(title))add(2,'Titel: Doppelpack');
+ if(/\b(?:dreierpack|triple[\s-]*pack|3[\s-]?er[\s-]?set)\b/.test(title))add(3,'Titel: Dreierpack');
+ if(/\b(?:einzelpack|einzelst[üu]ck|single[\s-]?pack|single[\s-]?unit)\b/.test(title))add(1,'Titel: Einzelstück');
+ for(const key of ['number_of_items','item_package_quantity','package_quantity']){
+  const entries=item?.attributes?.[key];
+  if(Array.isArray(entries))for(const entry of entries) add(entry?.value,'Amazon-Attribut '+key);
+ }
+ const multi=[...quantities].filter(q=>q>1);
+ const single=quantities.has(1);
+ const conflict=(single&&multi.length>0)||multi.length>1;
+ const kind=conflict?'conflict':multi.length?'multipack':single?'single':'unknown';
+ return {kind,units:conflict||kind==='unknown'?null:kind==='single'?1:multi[0],
+  reasons:signals.length?signals:['Keine ausdrückliche Stückzahl in Titel oder Amazon-Attributen']};
+}
+function likelyMultipack(name,item){const c=classifyPack(name,item);return c.kind==='multipack'||c.kind==='conflict'}
+function shadeOf(title){
+ const s=normalize(title,700).replace(/[.]/g,'/');
+ const m=s.match(/(?:^|[\s(\[])(([0-9]{1,2})\s*\/\s*([0-9]{1,3}))(?!\d)/);
+ return m?m[2]+'/'+m[3]:null;
+}
+function brandKey(text){
+ const s=normalize(text,200).toLocaleLowerCase('de');
+ for(const brand of ['wella','schwarzkopf','matrix','goldwell','inebrya','keune','l’oréal',"l'oreal",'hair haus']){
+  if(s.includes(brand))return brand.replace(/['’]/g,'');
+ }
+ return null;
+}
+function reviewCandidate(candidate,reference={}){
+ const reasons=[],checks=[];
+ const identity=normalize(reference.articleName||reference.Artikelname||'',600);
+ const brand=normalize(reference.brand||reference.Hersteller||'',200);
+ const expectedPack=Number(reference.packUnits||1);
+ if(candidate.packKind==='multipack'&&expectedPack===1)
+   reasons.push('Mehrfachpackung statt erwartetem Einzelartikel ('+candidate.packUnits+' Stück)');
+ if(candidate.packKind==='conflict')reasons.push('Amazon-Titel und Packungsattribute widersprechen sich');
+ if(candidate.packKind==='unknown')checks.push('Stückzahl nicht bestätigt: Amazon-Detailseite prüfen');
+ if(!candidate.exact)checks.push('GTIN nicht als Kennung im Amazon-Treffer bestätigt');
+ const a=brandKey(brand)||brandKey(identity),b=brandKey(candidate.brand)||brandKey(candidate.title);
+ if(a&&b&&a!==b)reasons.push('Marke weicht vom Stammartikel ab');
+ else if(a&&b)checks.push('Marke stimmt überein');
+ const x=shadeOf(identity),y=shadeOf(candidate.title);
+ if(x&&y&&x!==y)reasons.push('Farbcode weicht ab: '+x+' ≠ '+y);
+ else if(x&&y)checks.push('Farbcode '+x+' stimmt überein');
+ const local=sizeFromName(identity),remote=sizeFromName(candidate.title);
+ if(local&&remote&&local.unit===remote.unit&&local.quantity!==remote.quantity)
+   reasons.push('Einzelgebinde-Größe weicht ab: '+local.quantity+local.unit+' ≠ '+remote.quantity+remote.unit);
+ else if(local&&remote&&local.unit===remote.unit)checks.push('Gebindegröße stimmt überein');
+ const status=reasons.length?'mismatch':
+  candidate.packKind==='single'&&candidate.exact&&(!x||!y||x===y)&&(!a||!b||a===b)?'compatible':'review';
+ return {status,reasons,checks};
 }
 function itemIdentifiers(item){
  const all=new Set();
@@ -69,8 +126,11 @@ function amazonChoices(catalog,ean){
   const title=normalize(a?.title,600);
   const ids=itemIdentifiers(a);
   const pack=likelyMultipack(title,a);
+  const packInfo=classifyPack(title,a);
   list.push({asin,title,brand:normalize(a?.brand||a?.manufacturer,180),
-   pack,identifiers:ids,exact:ids.includes(ean),source:catalog?.source||'amazon'});
+   pack,packKind:packInfo.kind,packUnits:packInfo.units,packReasons:packInfo.reasons,
+   identifiers:ids,exact:ids.includes(ean),source:catalog?.source||'amazon',
+   url:'https://www.amazon.de/dp/'+asin});
  }
  return list;
 }
@@ -180,7 +240,8 @@ function build({ean,match=null,curated=null,history=null,catalog=null,isNew=fals
  // JTL-derived / approved identity is stronger than Amazon catalog guesses.
  let chosen=null;
  const choices=amazonChoices(catalog,ean);
- const exactSingles=choices.filter(x=>x.exact&&!x.pack);
+ // Amazon may omit the pack count in the title; never silently assume 1 piece.
+ const exactSingles=choices.filter(x=>x.exact&&x.packKind==='single');
  if(exactSingles.length===1&&choices.length===1)chosen=exactSingles[0];
  if(chosen){
   put('ASIN',chosen.asin,'Amazon · eindeutige EAN / Einzelpack');
@@ -260,30 +321,56 @@ function build({ean,match=null,curated=null,history=null,catalog=null,isNew=fals
  }
  return{fields,sources,flags,choices,selected:chosen?.asin||null};
 }
-function renderCandidates(container,choices,selected,onSelect){
+function renderCandidates(container,choices,selected,onSelect,reference={}){
  if(!container)return;container.replaceChildren();
  if(!choices?.length)return;
  const heading=document.createElement('p');
- heading.textContent=choices.length===1?'Amazon-ASIN-Kandidat · Verpackung prüfen':'Amazon: '+choices.length+' verschiedene ASIN-Kandidaten · bitte auswählen';
+ heading.textContent=choices.length===1?'Amazon-ASIN-Kandidat · Stückzahl prüfen':
+   'Amazon: '+choices.length+' verschiedene ASIN-Kandidaten · bitte prüfen';
  container.append(heading);
  for(const x of choices){
   const article=document.createElement('div');article.className='hw24-asin-choice';
   article.style.cssText='border:1px solid #cbdcea;background:#f5f9ff;border-radius:9px;padding:10px;margin:7px 0';
-  const b=document.createElement('b');b.textContent=x.asin+' · '+(x.title||'Titel nicht vorhanden');article.append(b);
+  const verdict=reviewCandidate(x,reference);
+  const label=document.createElement('b');
+  label.textContent=x.asin+' · '+(x.title||'Amazon-Titel nicht vorhanden');article.append(label);
   const p=document.createElement('div');
   p.style.cssText='font-size:12px;color:#465e76;margin:6px 0';
-  p.textContent='Hersteller: '+(x.brand||'unbekannt')+' · '+(x.pack?'Mehrfachpackung oder Set':'Packungsgröße prüfen')+
-  ' · '+(x.exact?'EAN im Amazon-Treffer bestätigt':'EAN nicht als Kennung im Treffer belegt');
+  const packText=x.packKind==='single'?'Einzelartikel ausdrücklich belegt':
+    x.packKind==='multipack'?('Mehrfachpackung: '+x.packUnits+' Stück'):
+    x.packKind==='conflict'?'Widersprüchliche Angaben zur Packung':'Stückzahl unbekannt';
+  const state=verdict.status==='mismatch'?'⚠ Nicht passend':
+    verdict.status==='compatible'?'✓ Plausibler Einzelartikel':'Prüfen';
+  p.textContent=state+' · '+packText+' · Hersteller: '+(x.brand||'unbekannt')+
+    ' · '+(x.exact?'EAN als Amazon-Kennung belegt':'EAN nicht im Treffer belegt');
   article.append(p);
-  const button=document.createElement('button');button.type='button';button.className='secondary';
-  button.textContent=x.asin===selected?'✓ Auswahl': 'Nach Prüfung ASIN auswählen';
+  const reasons=verdict.reasons.length?verdict.reasons:
+     x.packReasons||[];
+  if(reasons.length){
+   const detail=document.createElement('small');
+   detail.style.cssText='display:block;color:#634f36;margin:5px 0';
+   detail.textContent='Prüfung: '+reasons.join(' · ').slice(0,520);
+   article.append(detail);
+  }
+  // Construct URL only from the validated 10-character ASIN. No user-controlled URL.
+  if(/^[A-Z0-9]{10}$/.test(x.asin)){
+   const link=document.createElement('a');
+   link.href='https://www.amazon.de/dp/'+x.asin;
+   link.target='_blank';link.rel='noopener noreferrer';
+   link.textContent='Auf Amazon.de prüfen (ASIN '+x.asin+')';
+   link.style.cssText='display:inline-block;margin:6px 12px 8px 0;color:#135b98;font-weight:600';
+   article.append(link);
+  }
+  const button=document.createElement('button');
+  button.type='button';button.className='secondary';
+  button.textContent=x.asin===selected?'✓ Auswahl':verdict.status==='mismatch'?'Nach Warnung manuell prüfen und auswählen':'Nach Prüfung ASIN auswählen';
   button.disabled=x.asin===selected;
   button.onclick=()=>onSelect?.(x);
   article.append(button);container.append(article);
  }
 }
 root.HW24Enrich=Object.freeze({
- goodGtin:validGtin,sizeFromName,likelyMultipack,amazonChoices,verifiedHistory,build,renderCandidates,
+ goodGtin:validGtin,sizeFromName,likelyMultipack,classifyPack,reviewCandidate,amazonChoices,verifiedHistory,build,renderCandidates,
  jtl:ean=>get('jtl',ean),curated:ean=>get('curated',ean),
  history:ean=>get('history',ean),catalog:ean=>get('catalog',ean)
 });
