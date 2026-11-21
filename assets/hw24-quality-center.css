@@ -74,3 +74,12 @@ footer{text-align:center;font-size:11px;color:#71899b;margin-top:28px}
  td::before{content:attr(data-label);font-size:10px;letter-spacing:.04em;color:#668199;font-weight:760;display:block;margin-bottom:4px}
  .information{grid-template-columns:1fr}.list-context{align-items:start;flex-direction:column}.secure-indicator{white-space:normal}
 }
+/* V4.24 independent stock/EK filters and actual sortable table columns */
+.filters{grid-template-columns:minmax(205px,1.5fr) repeat(2,minmax(145px,1fr)) repeat(2,minmax(150px,1fr)) minmax(175px,1.2fr) minmax(150px,1fr) 85px;gap:9px}
+.table-sort{border:0;background:transparent;color:#23567b;font:inherit;font-weight:800;cursor:pointer;padding:2px;text-align:left}
+.table-sort:hover{text-decoration:underline}
+.table-sort:focus-visible{outline:3px solid #559fe0;outline-offset:2px}
+.stock-positive{display:block;color:#257348;font-size:11px;font-weight:740;margin-top:6px}
+@media(max-width:1360px){.filters{grid-template-columns:repeat(4,minmax(150px,1fr))}}
+@media(max-width:820px){.filters{grid-template-columns:repeat(2,minmax(145px,1fr))}}
+@media(max-width:520px){.filters{grid-template-columns:1fr}}
