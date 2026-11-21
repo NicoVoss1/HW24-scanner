@@ -7,6 +7,7 @@ const qualityJs=fs.readFileSync('assets/hw24-quality-center.js','utf8');
 const editorHtml=fs.readFileSync('artikelpflege.html','utf8');
 const editorJs=fs.readFileSync('assets/hw24-article-editor.js','utf8');
 const curated=fs.readFileSync('api/curated.php','utf8');
+const filters=fs.readFileSync('api/hw24-quality-filters.php','utf8');
 for(const id of ['stockFilter','ekFilter','combineFilter','sortOrder','sortStock','sortEk']){
  assert(qualityHtml.includes('id="'+id+'"'), 'Quality filter missing '+id);
  assert(qualityJs.includes("'"+id+"'"), 'Quality filter not wired '+id);
