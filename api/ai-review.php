@@ -119,8 +119,6 @@ if(isset($body['candidates'])){
    'pack_kind'=>$packKind,'pack_units'=>$packUnits,'ean_confirmed'=>$eanConfirmed];
  }
 }
-if($total>=($budget-0.04))answer(429,['ok'=>false,'error'=>'monthly_budget_limit','usd_month'=>$total]);
-if($dailyCalls>=$daily)answer(429,['ok'=>false,'error'=>'daily_request_limit']);
 // Paid calls only start if the immutable review archive is installed and readable.
 $reviewDbPath=dirname(__DIR__,2).'/hw24_private/scanlist-db.php';
 if(!is_file($reviewDbPath))answer(503,['ok'=>false,'error'=>'review_storage_not_ready']);
@@ -140,6 +138,41 @@ try {
  answer(503,['ok'=>false,'error'=>'review_storage_not_ready',
   'hint'=>'first_install_hw24_ai_reviews_v13']);
 }
+// Reuse any prior review of this GTIN for this authenticated account by default.
+// The ledger lock protects against simultaneous paid duplicates from two browser tabs.
+try{
+ $previousStmt=$reviewDb->prepare('SELECT id,model,review_json,input_json,usd_cost,created_at_utc
+  FROM hw24_ai_reviews WHERE actor=? AND ean=? ORDER BY id DESC LIMIT 1');
+ $previousStmt->execute([$actor,$fields['ean']]);
+ $previous=$previousStmt->fetch();
+}catch(Throwable $e){
+ error_log('HW24 AI duplicate lookup unavailable: '.get_class($e));
+ answer(503,['ok'=>false,'error'=>'review_duplicate_check_unavailable']);
+}
+$forceRecheck=(($_SERVER['HTTP_X_HW24_RECHECK']??'')==='confirmed');
+if($forceRecheck){
+ $expectedId=(string)($_SERVER['HTTP_X_HW24_PREVIOUS_REVIEW']??'');
+ if(!$previous||!ctype_digit($expectedId)||$expectedId!==(string)$previous['id'])
+  answer(409,['ok'=>false,'error'=>'review_recheck_conflict',
+   'note'=>'Ein anderer Vorgang hat den KI-Bericht aktualisiert. Keine neue OpenAI-Anfrage ausgelöst.']);
+}
+if($previous&&!$forceRecheck){
+ $oldReview=json_decode((string)$previous['review_json'],true);
+ $oldInput=json_decode((string)$previous['input_json'],true);
+ $currentInput=['article'=>$fields,'amazon_candidates'=>$candidates];
+ $changed=is_array($oldInput)
+    ?($oldInput!=$currentInput):true;
+ answer(200,['ok'=>true,'stored'=>true,'reused'=>true,
+   'review_id'=>(int)$previous['id'],'review'=>is_array($oldReview)?$oldReview:[],
+   'model'=>$previous['model'],'from_archive_utc'=>$previous['created_at_utc'],
+   'input_changed'=>$changed,
+   'usd_call'=>0,'original_usd_cost'=>(float)$previous['usd_cost'],
+   'usd_month'=>round($total,6),'usd_budget'=>$budget,
+   'basis'=>'existing_archived_review','note'=>'Kein neuer OpenAI-Aufruf; Bericht aus MariaDB geladen']);
+}
+// Rechecks are a deliberately separate cost-bearing action with additional user confirmation.
+if($total>=($budget-0.04))answer(429,['ok'=>false,'error'=>'monthly_budget_limit','usd_month'=>$total]);
+if($dailyCalls>=$daily)answer(429,['ok'=>false,'error'=>'daily_request_limit']);
 if(!function_exists('curl_init'))answer(503,['ok'=>false,'error'=>'curl_unavailable']);
 $schema=['type'=>'object','additionalProperties'=>false,
  'required'=>['status','reason','suggestedWarengruppe','asinChecks','productFacts'],

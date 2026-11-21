@@ -23,11 +23,26 @@ if(($_SERVER['HTTPS']??'')!=='on'&&($_SERVER['HTTP_X_FORWARDED_PROTO']??'')!=='h
 $ean=trim((string)($_GET['ean']??''));
 if($ean!==''&&!preg_match('/^[0-9]{8,14}$/D',$ean))
  send(400,['ok'=>false,'error'=>'invalid_ean']);
-$before=filter_var($_GET['before_id']??null,FILTER_VALIDATE_INT);
-if($before===false||($before!==null&&$before<1))
- send(400,['ok'=>false,'error'=>'invalid_cursor']);
+// Missing cursor means first page. filter_var(null, FILTER_VALIDATE_INT) returns false.
+$before=null;
+if(array_key_exists('before_id',$_GET)){
+ $rawBefore=$_GET['before_id'];
+ $before=is_string($rawBefore)&&preg_match('/^[1-9][0-9]{0,17}$/D',$rawBefore)
+   ?filter_var($rawBefore,FILTER_VALIDATE_INT):false;
+ if($before===false||$before<1)send(400,['ok'=>false,'error'=>'invalid_cursor']);
+}
 $limit=filter_var($_GET['limit']??20,FILTER_VALIDATE_INT);
 if(!$limit||$limit<1||$limit>50)$limit=20;
+$isSummary=($_GET['summary']??'')==='1';
+$eans=[];
+if($isSummary){
+ $rawEans=(string)($_GET['eans']??'');
+ $eans=array_values(array_unique(array_filter(explode(',',$rawEans),fn($v)=>$v!=='')));
+ if(!$eans||count($eans)>150)send(400,['ok'=>false,'error'=>'invalid_ean_list']);
+ foreach($eans as $item){
+  if(!preg_match('/^[0-9]{8,14}$/D',$item))send(400,['ok'=>false,'error'=>'invalid_ean_list']);
+ }
+}
 $path=dirname(__DIR__,2).'/hw24_private/scanlist-db.php';
 if(!is_file($path))send(503,['ok'=>false,'error'=>'review_storage_unavailable']);
 try{
@@ -40,7 +55,23 @@ try{
    PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,
    PDO::ATTR_EMULATE_PREPARES=>false,PDO::ATTR_TIMEOUT=>5
   ]);
- $query='SELECT id,ean,article_name,model,ai_status,review_json,input_json,
+ if($isSummary){
+   $marks=implode(',',array_fill(0,count($eans),'?'));
+   $sql="SELECT a.ean,a.id,a.ai_status,a.model,a.created_at_utc,agg.review_count
+    FROM (SELECT ean,MAX(id) AS latest_id,COUNT(*) AS review_count
+      FROM hw24_ai_reviews WHERE actor=? AND ean IN ($marks) GROUP BY ean) agg
+    JOIN hw24_ai_reviews a ON a.id=agg.latest_id";
+   $q=$db->prepare($sql);$q->execute(array_merge([$actor],$eans));
+   $summaries=[];
+   foreach($q->fetchAll() as $row){
+    $summaries[$row['ean']]=['review_id'=>(int)$row['id'],
+       'count'=>(int)$row['review_count'],'status'=>$row['ai_status'],
+       'at_utc'=>$row['created_at_utc'],'model'=>$row['model']];
+   }
+   send(200,['ok'=>true,'stored'=>true,'summary'=>true,
+     'source'=>'hw24_ai_reviews','summaries'=>$summaries]);
+ }
+  $query='SELECT id,ean,article_name,model,ai_status,review_json,input_json,
         usd_cost,tokens_input,tokens_cached,tokens_output,created_at_utc
         FROM hw24_ai_reviews WHERE actor=?';
  $params=[$actor];

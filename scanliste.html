@@ -366,6 +366,7 @@ function renderList(){
    const row=textNode('div',undefined,wrap,'scanRow');
    const b=textNode('button',undefined,row,'item'+(selected?.id===item.id?' active':''));
    b.type='button';b.onclick=()=>selectItem(item.id);
+   b.dataset.ean=item.ean;
    const left=textNode('span',undefined,b);
    textNode('b',item.ean,left);
    textNode('small',(val(item.draft?.Artikelname)||val(item.artikelname)||'Artikelname noch offen')+
@@ -377,6 +378,7 @@ function renderList(){
       item.review_state==='ready'?'Importbereit':statuses[item.resolution]||item.resolution,b,
       'pill '+item.resolution);
    if(item.review_state==='ready')pill.className='pill new_candidate';
+   window.HW24AiMarkers?.decorate(b,item.ean);
    if(item.review_state!=='removed'){
      const actions=textNode('div',undefined,row,'scanRowActions');
      if(Number(item.scan_count)>1){
@@ -443,6 +445,7 @@ function refreshFieldGroups(){
 function selectItem(id){
  const item=state.items.find(x=>x.id===id);if(!item)return;
  state.selected=item;
+ document.dispatchEvent(new CustomEvent('hw24:scan-selected',{detail:{ean:item.ean}}));
  $('editor').hidden=false;
  $('editorStatus').textContent='';
  $('suggestions').replaceChildren();
@@ -845,4 +848,4 @@ catalogStatus();
 if(catalogQueue.length)runCatalog();
 })();
 </script>
-<script src="assets/hw24-scan-autofill.js?v=1"></script><script src="assets/hw24-csv-intake.js?v=1"></script><script src="assets/hw24-ai-history.js?v=1"></script><script src="assets/hw24-ai-cost.js?v=1"></script></body></html>
+<script src="assets/hw24-scan-autofill.js?v=1"></script><script src="assets/hw24-csv-intake.js?v=1"></script><script src="assets/hw24-ai-markers.js?v=1"></script><script src="assets/hw24-ai-history.js?v=1"></script><script src="assets/hw24-ai-cost.js?v=2"></script></body></html>
