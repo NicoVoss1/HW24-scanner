@@ -460,6 +460,7 @@ function selectItem(id){
  const disabled=item.resolution!=='new_candidate';
  const openMain=$('openMainArticle');
  openMain.hidden=item.resolution!=='existing';
+ openMain.style.display=item.resolution==='existing'?'inline-block':'none';
  openMain.href='index.html?ean='+encodeURIComponent(item.ean);
  const notice=$('existingArticleNotice');
  notice.hidden=item.resolution!=='existing';
@@ -771,12 +772,14 @@ window.HW24ScanBridge={
    renderList();return{ok:true,saved:true};
   }catch(e){return{ok:false,error:String(e?.message||'database_unavailable')}}
  },
- async apply(fields,fieldSources,{save=true}={}){
+ async apply(fields,fieldSources,{save=true,confirmedChoice=false}={}){
    const item=state.selected;if(!item)return{ok:false,error:'no_item'};
    const additions={},sources={};
    for(const [field,value] of Object.entries(fields||{})){
      const c=this.control(field);
-     if(!c||c.readOnly||c.disabled||c.dataset.userTouched==='1'||val(c.value)||!val(value))continue;
+     if(!c||c.readOnly||c.disabled||!val(value))continue;
+     const replacing=confirmedChoice&&field==='ASIN'&&val(c.value)!==val(value);
+     if(!replacing&&(c.dataset.userTouched==='1'||val(c.value)))continue;
      c.value=val(value);
      c.dataset.hw24Source=val(fieldSources?.[field]||'HW24 · Quellen');
      additions[field]=val(value);sources[field]=c.dataset.hw24Source;
@@ -789,6 +792,11 @@ window.HW24ScanBridge={
      const out=await post('edit',{batch_id:state.batchId,item_id:item.id,
        expected_revision:Number(item.revision),fields:additions,field_sources:sources,mark_ready:false});
      item.revision=out.revision;item.draft=out.draft;item.review_state=out.review_state;
+     // A confirmed ASIN must survive a page reload in both MariaDB and the input.
+     if(confirmedChoice&&additions.ASIN){
+       const as=$('field_'+schema.indexOf('ASIN'));
+       if(as){as.value=additions.ASIN;as.dataset.userTouched='1';as.dataset.hw24Source=sources.ASIN;}
+     }
      renderList();return{ok:true,fields:additions,saved:true};
    }catch(error){
      $('editorStatus').textContent='Vorbelegung sichtbar, aber nicht gespeichert: '+String(error.message);
