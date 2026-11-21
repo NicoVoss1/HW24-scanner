@@ -5,6 +5,15 @@
 
 > **WICHTIG FÜR DIE FORTSETZUNG:** Beim nächsten Chat, Entwicklerauftrag oder GitHub-Arbeitsschritt **zuerst diese Seite lesen** und die letzten Commits/PRs vergleichen. Keine bereits abgeschlossenen Einrichtungs- und Backup-Schritte von vorn verlangen. Ein Sachstand darf nur aufgrund neuer Befunde geändert werden. Nicht stillschweigend auf `main`, eine andere Version oder einen alten PR zurückspringen.
 
+## AKTUELLER GITHUB-TESTSTAND · PR #25 / OPENAI-FEHLERDIAGNOSE (21.11.2026)
+
+- **PR #25** in `deploy/staging` gemerged, Commit **`2c23e926de791f8055342c724d4345b96fb95b5b`**, [CI #44931041873](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44931041873) grün. Nur `api/ai-review.php` und `assets/hw24-ai-cost.js` geändert; keine SQL-Migration, keine Secrets, keine Live-Änderung.
+- **Auslöser:** Sichtbarer Nutzer-Screenshot vom jüngeren Teststand: Scanliste mit 25 Positionen, 23 Neuanlagekandidaten, zwei bereits in JTL, Wella Color Touch 9/01 mit drei Amazon-ASIN-Kandidaten; erster Kandidat `B079LHL53N` enthält Amazon-Einzelstückattribute. HW24 KI-Anzeige meldete `openai_request_failed`, 0 erfasste monatliche API-Aufrufe.
+- **Technischer Befund:** `api/ai-review.php` gab `upstream_http` zurück, das Browser-Widget ignorierte diesen HTTP-Status. Patch zeigt nun sichere `upstream_http`, streng gefilterte Provider-Fehlercode/-typ/-parameter oder cURL-Fehlernummer. UI erläutert HTTP 400/401/403/404/429/500 und Netzfehler. Kein automatischer neuer API-Call.
+- **Wichtig:** Die reale Ursache hinter `openai_request_failed` ist noch unbekannt. `GET /api/ai-review.php` belegt **nur** die lokale Konfiguration, nicht OpenAI-Authentifizierung/Abrechnung. 0 USD in HW24 ist keine vollständige OpenAI-Rechnung.
+- **Nächster Schritt:** **Nur** Testdomain Plesk `deploy/staging` Pull → Bereitstellen; Seite mit Strg+F5 neu laden und **höchstens eine** ausdrücklich bestätigte KI-Abfrage durchführen. Danach sicheren HTTP-Code und Fehlercode melden, niemals API-Key. Erst bei identifiziertem Status über Projekt-Billing/Modellzugang/API-Format entscheiden.
+- **Bildhinweis:** Ein zusätzlich übermittelter Screenshot zeigt möglicherweise eine ältere Oberfläche mit nur 1 Position, altem „Vorlage Haarfarben einsetzen“-Button und ohne KI-Widget. Das weicht von dem jüngeren 25-Positionen-Screenshot ab. Vor Diagnose sicherstellen, dass tatsächlich die aktuelle Testseite mit dem neuen GitHub-Commit und nicht eine ältere Aufnahme oder Cache-Version geprüft wird.
+
 ## AKTUELLSTER GITHUB-STAND · PR #24 / V4.22 TEST (21.11.2026)
 
 - **GitHub:** [PR #24](https://github.com/NicoVoss1/HW24-scanner/pull/24) gemerged, `deploy/staging` SHA **`41bd862178d23a2e385d253767898318a490fdca`**. CI [#44923871216](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44923871216) grün. **Kein bestätigter Plesk-Pull/Deploy dieses Commits, kein realer JTL-/OpenAI-End-to-End-Test.**
