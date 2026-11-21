@@ -35,7 +35,13 @@ async function showCosts(){
   const response=await fetch('api/ai-review.php',{credentials:'same-origin',cache:'no-store'});
   const x=await response.json();
   if(!response.ok||!x.ok)throw Error(x.error||'nicht erreichbar');
-  ready=Boolean(x.enabled);
+  ready=Boolean(x.enabled)&&x.archive_ready===true;
+  if(x.enabled&&x.archive_ready!==true){
+   label.textContent='🤖 HW24 KI · Archivinstallation erforderlich';
+   detail.textContent=fmt(x.usd_month)+' USD bisher · Monatsbudget '+
+     Number(x.usd_budget).toFixed(2)+' USD. Die neue V13-Archiv-Tabelle muss einmalig installiert werden. Bis dahin keine kostenpflichtige Prüfung.';
+   check.disabled=true;return;
+  }
   if(!ready){
    label.textContent='🤖 HW24 KI · nicht aktiviert';
    detail.textContent='Kein aktiver API-Schlüssel. Keine KI-Abfrage möglich. Es werden hier keine API-Kosten ausgelöst.';
@@ -80,6 +86,10 @@ function article(){
 function explainAiFailure(failure){
  const code=val(failure?.upstream_code),http=Number(failure?.upstream_http);
  const net=Number(failure?.network_errno);
+ if(failure?.error==='review_storage_not_ready')
+  return 'Das MariaDB-KI-Prüfarchiv V13 fehlt oder hat noch keine Rechte. Keine API-Abfrage wurde ausgelöst.';
+ if(failure?.error==='review_storage_write_failed')
+  return 'Ergebnis konnte nach der möglicherweise kostenpflichtigen Anfrage nicht archiviert werden. NICHT erneut auslösen, sondern Archiv und Kostenstatus prüfen.';
  if(failure?.error!=='openai_request_failed')return val(failure?.error||'KI-Prüfung fehlgeschlagen');
  if(http===0)return 'OpenAI-Verbindung nicht aufgebaut (cURL-Fehler '+(Number.isFinite(net)?net:'?')+
    '). Plesk-Netzwerk, DNS und TLS prüfen.';
