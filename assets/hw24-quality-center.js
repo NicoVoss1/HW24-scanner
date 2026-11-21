@@ -4,7 +4,7 @@
 (function(){
 'use strict';
 const $=id=>document.getElementById(id);
-const state={page:1,perPage:25,issue:'all',severity:'all',q:'',seq:0,controller:null,ready:false};
+const state={page:1,perPage:25,issue:'all',severity:'all',stock:'all',ek:'all',combine:'or',sort:'priority',q:'',seq:0,controller:null,ready:false};
 const fmt=new Intl.NumberFormat('de-DE');
 const amount=new Intl.NumberFormat('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const get=x=>String(x??'').trim();
@@ -22,13 +22,13 @@ function setLoading(){
  $('resultSummary').textContent='Aktueller JTL-Spiegel wird ausgewertet …';
  $('resultRows').replaceChildren();
  const tr=el('tr',$('resultRows'));
- const cell=el('td',tr,'Qualitätsdaten werden gelesen …','empty');cell.colSpan=4;
+ const cell=el('td',tr,'Qualitätsdaten werden gelesen …','empty');cell.colSpan=6;
 }
 function showError(message){
  $('sourceStatus').textContent='⚠ JTL-Prüfung derzeit nicht verfügbar';
  const alert=$('snapshotWarning');alert.hidden=false;alert.className='banner error';alert.textContent=message;
  $('resultRows').replaceChildren();
- const tr=el('tr',$('resultRows'));const td=el('td',tr,'Keine verlässliche Gesamtauswertung vorhanden.','empty');td.colSpan=4;
+ const tr=el('tr',$('resultRows'));const td=el('td',tr,'Keine verlässliche Gesamtauswertung vorhanden.','empty');td.colSpan=6;
  $('resultSummary').textContent='Keine belastbaren Zahlen verfügbar';
  ['kpiTotal','kpiWarnings','kpiCritical','kpiEk','kpiManufacturer'].forEach(id=>$(id).textContent='–');
  $('prevPage').disabled=true;$('nextPage').disabled=true;
@@ -74,10 +74,10 @@ function price(value){
 }
 function identifierUrl(row){
  const ean=get(row.ean);
- if(/^\d{8,14}$/.test(ean))return 'index.html?ean='+encodeURIComponent(ean);
+ if(/^\d{8,14}$/.test(ean))return 'artikelpflege.html?ean='+encodeURIComponent(ean);
  const number=get(row.artikelnummer);
  if(/^[\p{L}\p{N}][\p{L}\p{N}._\/-]{1,63}$/u.test(number))
-  return 'index.html?q='+encodeURIComponent(number);
+  return 'artikelpflege.html?q='+encodeURIComponent(number);
  return null;
 }
 function renderItems(data){
@@ -85,7 +85,7 @@ function renderItems(data){
  const articles=Array.isArray(data.items)?data.items:[];
  const catalog=data.rule_catalog||{};
  if(!articles.length){
-  const tr=el('tr',rows);const td=el('td',tr,'Keine Artikel für diesen Filter gefunden.','empty');td.colSpan=4;
+  const tr=el('tr',rows);const td=el('td',tr,'Keine Artikel für diesen Filter gefunden.','empty');td.colSpan=6;
   return;
  }
  for(const a of articles){
@@ -95,10 +95,16 @@ function renderItems(data){
   el('span',identity,'JTL '+(get(a.artikelnummer)||get(a.jtl_article_id)||'unbekannt')+
    ' · EAN '+(get(a.ean)||'fehlt')+' · HAN '+(get(a.han)||'fehlt'),'muted');
   el('span',identity,'Hersteller: '+(get(a.hersteller)||'nicht belegt'),'muted');
-  const cost=el('td',tr);cost.dataset.label='Bestand / Einkaufspreis';
-  el('div',cost,'Bestand: '+humanNumber(a.bestand),'money');
-  el('span',cost,'EK netto: '+price(a.netto_ek)+' · letzter EK: '+price(a.letzter_ek),'muted money');
-  if(get(a.warengruppe))el('span',cost,'Warengruppe: '+a.warengruppe,'muted');
+  if(get(a.warengruppe))el('span',identity,'Warengruppe: '+a.warengruppe,'muted');
+  const stock=el('td',tr);stock.dataset.label='Bestand';
+  el('strong',stock,humanNumber(a.bestand),'money');
+  if(a.bestand!==null&&Number(a.bestand)>0)el('span',stock,'● Auf Lager','stock-positive');
+  const ek=el('td',tr);ek.dataset.label='EK netto';
+  el('strong',ek,price(a.netto_ek),'money');
+  if((a.netto_ek===null||Number(a.netto_ek)<=0)&&Number(a.bestand)>0)
+   el('span',ek,'Netto-EK prüfen','flag warning');
+  const last=el('td',tr);last.dataset.label='Letzter EK';
+  el('span',last,price(a.letzter_ek),'money');
   const issues=el('td',tr);issues.dataset.label='Prüfhinweise';
   if(!a.issues?.length)el('span',issues,'✓ Keine Warnung in diesen Regeln','flag clean');
   else for(const code of a.issues){
@@ -123,6 +129,7 @@ async function load(){
  setLoading();
  const params=new URLSearchParams({
   q:state.q,issue:state.issue,severity:state.severity,
+  stock:state.stock,ek:state.ek,combine:state.combine,sort:state.sort,
   page:String(state.page),per_page:String(state.perPage)
  });
  try{
@@ -163,6 +170,16 @@ $('search').addEventListener('input',()=>{
 $('issueFilter').addEventListener('change',()=>apply({issue:$('issueFilter').value}));
 $('severityFilter').addEventListener('change',()=>apply({severity:$('severityFilter').value}));
 $('pageSize').addEventListener('change',()=>apply({perPage:Number($('pageSize').value)}));
+$('stockFilter').addEventListener('change',()=>apply({stock:$('stockFilter').value}));
+$('ekFilter').addEventListener('change',()=>apply({ek:$('ekFilter').value}));
+$('combineFilter').addEventListener('change',()=>apply({combine:$('combineFilter').value}));
+$('sortOrder').addEventListener('change',()=>apply({sort:$('sortOrder').value}));
+function changeSort(column){
+ const next=state.sort===column+'_desc'?column+'_asc':column+'_desc';
+ state.sort=next;$('sortOrder').value=next;state.page=1;load();
+}
+$('sortStock').onclick=()=>changeSort('stock');
+$('sortEk').onclick=()=>changeSort('ek');
 $('reload').addEventListener('click',load);
 function setFilters(issue,severity){
  state.issue=issue;state.severity=severity;state.page=1;
@@ -170,11 +187,19 @@ function setFilters(issue,severity){
  load();
 }
 $('showAll').onclick=()=>{
- $('search').value='';state.q='';setFilters('all','all');
+ $('search').value='';
+ Object.assign(state,{q:'',issue:'all',severity:'all',stock:'all',ek:'all',combine:'or',sort:'priority',page:1});
+ for(const id of ['issueFilter','severityFilter','stockFilter','ekFilter'])$(id).value='all';
+ $('combineFilter').value='or';$('sortOrder').value='priority';load();
 };
 $('showProblems').onclick=()=>setFilters('all','with_issues');
 $('showCritical').onclick=()=>setFilters('all','critical');
-$('showMissingEk').onclick=()=>setFilters('stock_without_ek','all');
+$('showMissingEk').onclick=()=>{
+ $('stockFilter').value='positive';$('ekFilter').value='missing_both';
+ $('combineFilter').value='and';
+ Object.assign(state,{stock:'positive',ek:'missing_both',combine:'and',issue:'all',severity:'all',page:1});
+ $('issueFilter').value='all';$('severityFilter').value='all';load();
+};
 $('showMissingManufacturer').onclick=()=>setFilters('manufacturer_missing','all');
 $('prevPage').onclick=()=>{if(state.page>1){state.page--;load()}};
 $('nextPage').onclick=()=>{state.page++;load()};
