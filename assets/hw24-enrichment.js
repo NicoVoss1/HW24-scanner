@@ -55,7 +55,7 @@ function classifyPack(name,item={}){
    add(match[1],'Titel: Packungsangabe');
  for(const match of title.matchAll(/\bpack(?:ungsgr[oö]ße)?\s*(?:mit|of)?\s*(\d{1,2})\b/g))
    add(match[1],'Titel: Pack');
- if(/\b(?:doppelpack|duopack|twin[\s-]*pack|2[\s-]?er[\s-]?set)\b/.test(title))add(2,'Titel: Doppelpack');
+ if(/\b(?:doppelpack|zweierpack|duopack|twin[\s-]*pack|2[\s-]?er[\s-]?set)\b/.test(title))add(2,'Titel: Doppelpack');
  if(/\b(?:dreierpack|triple[\s-]*pack|3[\s-]?er[\s-]?set)\b/.test(title))add(3,'Titel: Dreierpack');
  if(/\b(?:einzelpack|einzelst[üu]ck|single[\s-]?pack|single[\s-]?unit)\b/.test(title))add(1,'Titel: Einzelstück');
  for(const key of ['number_of_items','item_package_quantity','package_quantity']){
@@ -241,7 +241,8 @@ function build({ean,match=null,curated=null,history=null,catalog=null,isNew=fals
  let chosen=null;
  const choices=amazonChoices(catalog,ean);
  // Amazon may omit the pack count in the title; never silently assume 1 piece.
- const exactSingles=choices.filter(x=>x.exact&&x.packKind==='single');
+ const exactSingles=choices.filter(x=>x.exact&&x.packKind==='single'&&
+  reviewCandidate(x,{articleName:fields.Artikelname,brand:fields.Hersteller}).status==='compatible');
  if(exactSingles.length===1&&choices.length===1)chosen=exactSingles[0];
  if(chosen){
   put('ASIN',chosen.asin,'Amazon · eindeutige EAN / Einzelpack');
