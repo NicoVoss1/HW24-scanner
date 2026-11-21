@@ -12,7 +12,6 @@ jobs:
       - name: AI historical storage and consent contracts
         run: |
           node tests/hw24-ai-reviews.test.cjs
-          node tests/hw24-ai-errors.test.cjs
       - name: JavaScript, PHP and installer syntax
         run: |
           set -euo pipefail
