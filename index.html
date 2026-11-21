@@ -862,4 +862,15 @@ updateIdentity();
 <script src="assets/hw24-enrichment.js?v=1"></script>
 <script src="assets/hw24-main-enrichment.js?v=1"></script>
 <script src="assets/hw24-amazon-keywords.js?v=1"></script>
-</html>
+<script>
+/* Open an existing JTL article directly from the Scanliste, read-only lookup. */
+window.addEventListener('load',()=>{
+ const ean=new URLSearchParams(window.location.search).get('ean');
+ if(!ean||!/^\d{8,14}$/.test(ean))return;
+ const search=document.getElementById('ean'),button=document.getElementById('scanStart');
+ if(search&&button){
+  search.value=ean;button.click();
+  document.getElementById('scanJtlStatus')?.scrollIntoView?.({block:'nearest'});
+ }
+});
+</script><script src="assets/hw24-ai-cost.js?v=1"></script></html>

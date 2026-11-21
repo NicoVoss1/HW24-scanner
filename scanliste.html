@@ -87,8 +87,13 @@ details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border
 </section>
 <section class="card"><h2>5. Stammdaten und Freigabe</h2>
 <p id="itemInfo">Wähle einen Artikel aus der Scanliste. Bei bestätigten Neuanlagen können die Pflichtfelder ergänzt werden.</p>
-<p id="csvMetaDetail" class="note" hidden></p><div id="editor" hidden>
-<div class="toolbar"><button type="button" class="secondary" id="research">📚 Detaillierte Quellen und Vorschläge prüfen</button></div>
+<p id="csvMetaDetail" class="note" hidden></p>
+<p id="jtlReferenceStatus" class="note" role="status">JTL-Auswahlwerte werden geprüft.</p>
+<div id="editor" hidden>
+<p id="existingArticleNotice" class="note" hidden></p>
+<div class="toolbar"><a id="openMainArticle" href="index.html" class="secondary" hidden
+ style="display:inline-block;margin:4px 8px 4px 0;padding:10px 13px;border:1px solid #a8c7e3;border-radius:7px">✏️ Zur Artikelpflege öffnen</a>
+<button type="button" class="secondary" id="research">📚 Detaillierte Quellen und Vorschläge prüfen</button></div>
 <p class="note" id="researchStatus">Amazon-Katalog wird beim Scannen automatisch abgefragt. Hier kannst Du die Treffer und historische Daten einzeln zur Datenpflege übernehmen.</p>
 <div id="suggestions"></div><div id="amazonChoices" aria-live="polite"></div>
 
@@ -203,13 +208,17 @@ const required=new Set(['Artikelname','Hersteller','Warengruppe','Steuerklasse']
 const full=new Set(['Artikelname','Kurzbeschreibung','Beschreibung','Meta-Description (SEO)','Anmerkung']);
 const multiline=new Set(['Kurzbeschreibung','Beschreibung','Meta-Description (SEO)','Anmerkung']);
 const options={
+ 'Hersteller':[''],'Warengruppe':[''],'Lieferstatus':[''],
+ 'Kategorie Ebene 1':[''],'Kategorie Ebene 2':[''],'Kategorie Ebene 3':[''],
  'Artikel aktiv':['','Y','N'],'Bestandsführung aktiv':['','Y','N'],
  'Überverkäufe möglich':['','N','Y'],'Stückzahl teilbar':['','N','Y'],
  'Top-Artikel':['','N','Y'],'Neu im Sortiment':['','N','Y'],
  'Beschaffungszeit automatisch ermitteln':['','0','1'],
  'Steuerklasse':['','normaler steuersatz','ermäßigter steuersatz','steuerfrei'],
  'Artikeltyp':['','Normaler Artikel','Kartonage','Mehrzweckgutschein'],
- 'Währung':['','EUR']
+ 'Währung':['','EUR'],
+ 'Zusätzliche Bearbeitungszeit':['','1','2','3'],
+ 'Beschaffungszeit manuell setzen':['','1','2','3','4','5']
 };
 const fieldHelp={
  'GTIN':'Gescannte Kennung, schreibgeschützt',
@@ -229,6 +238,40 @@ const fieldHelp={
 };
 const statuses={existing:'In JTL vorhanden',new_candidate:'Neuanlage prüfen',
  multiple:'Mehrdeutige JTL-Treffer',unverified:'JTL ungeprüft'};
+const jtlListKeys=new Set(['Hersteller','Warengruppe','Lieferstatus','Kategorie Ebene 1',
+ 'Kategorie Ebene 2','Kategorie Ebene 3','Zusätzliche Bearbeitungszeit',
+ 'Beschaffungszeit automatisch ermitteln','Beschaffungszeit manuell setzen']);
+const dynamicLists={};
+async function loadJtlReferenceLists(){
+ const indicator=$('jtlReferenceStatus');
+ indicator.textContent='JTL-Auswahlfelder werden aus dem aktuellen Spiegel geladen …';
+ try{
+  const response=await fetch('api/jtl-options.php',{credentials:'same-origin',cache:'no-store'});
+  const data=await response.json();
+  if(!response.ok||!data.ok)throw Error(data?.error||'Referenzdaten nicht erreichbar');
+  if(data.status!=='ready'){
+   indicator.textContent='⚠ JTL-Referenzwerte nicht aktuell. Vorhandene Werte bleiben auswählbar, unbekannte Kategorien werden nicht erfunden.';
+   return;
+  }
+  for(const [name,values] of Object.entries(data.lists||{})){
+   if(!jtlListKeys.has(name)||!Array.isArray(values))continue;
+   dynamicLists[name]=values.filter(v=>typeof v==='string'&&v.trim()).slice(0,250);
+  }
+  const count=Object.values(dynamicLists).reduce((n,v)=>n+v.length,0);
+  indicator.textContent='✓ '+count+' beobachtete JTL-Auswahlwerte aus aktuellem Spiegel · kein vollständiger SQL-Server-Referenzkatalog.';
+  for(const name of Object.keys(dynamicLists)){
+   const ctl=$('field_'+schema.indexOf(name));
+   if(ctl?.tagName!=='SELECT')continue;
+   const was=ctl.value;
+   for(const v of dynamicLists[name])if(!Array.from(ctl.options).some(o=>o.value===v)){
+    const opt=document.createElement('option');opt.value=v;opt.textContent=v;ctl.append(opt);
+   }
+   ctl.value=was;
+  }
+ }catch(error){
+  indicator.textContent='⚠ JTL-Referenzwerte nicht abrufbar; gespeicherte Entwürfe bleiben erhalten.';
+ }
+}
 function status(msg,cls=''){$('status').textContent=msg;$('status').className=cls}
 async function diagnoseScanDb(){
  const box=$('dbSetup'),info=$('dbSetupInfo'),steps=$('dbSetupSteps');
@@ -417,6 +460,14 @@ function selectItem(id){
  +(item.resolution==='existing'?'Vorhandener Artikel: kein Neuanlage-Export. Pflege bitte im Haupt-Artikelmanager.':
  'Daten aus Quellen erst nach Sichtprüfung für Ameise freigeben.');
  const disabled=item.resolution!=='new_candidate';
+ const openMain=$('openMainArticle');
+ openMain.hidden=item.resolution!=='existing';
+ openMain.style.display=item.resolution==='existing'?'inline-block':'none';
+ openMain.href='index.html?ean='+encodeURIComponent(item.ean);
+ const notice=$('existingArticleNotice');
+ notice.hidden=item.resolution!=='existing';
+ notice.textContent=item.resolution==='existing'?
+  'Bestehender JTL-Artikel: Dropdowns sind zum Vergleich geöffnet. Hier keine direkte JTL-Änderung und keine Scanlisten-Neuanlage. Über „Zur Artikelpflege“ kannst Du den Artikel gezielt öffnen.':'';
  const container=$('editorFields');container.replaceChildren();
  const draft=item.draft||{};
  for(let gi=0;gi<formGroups.length;gi++){
@@ -435,17 +486,39 @@ function selectItem(id){
     if(multiline.has(key))control=document.createElement('textarea');
     else if(options[key]){
       control=document.createElement('select');
-      const values=[...new Set([...options[key],...(value&&!options[key].includes(value)?[value]:[])])];
+      const values=[...new Set([...options[key],...(dynamicLists[key]||[]),
+         ...(value&&!options[key].includes(value)?[value]:[])])];
       for(const choice of values){
         const option=document.createElement('option');option.value=choice;
         option.textContent=choice||'Bitte auswählen';control.append(option);
       }
+      if(['Hersteller','Warengruppe','Lieferstatus','Kategorie Ebene 1',
+          'Kategorie Ebene 2','Kategorie Ebene 3'].includes(key)){
+         const other=document.createElement('option');other.value='__manual_hw24__';
+         other.textContent='✍️ Anderen Wert zur Prüfung eingeben …';control.append(other);
+      }
     }else control=document.createElement('input');
-    control.name=key;control.value=value;control.disabled=disabled;
+    control.name=key;control.value=value;
+    // Reference menus remain open for existing articles in non-saving comparison mode.
+    control.disabled=disabled&&control.tagName!=='SELECT';
     control.readOnly=key==='GTIN';
     control.id='field_'+schema.indexOf(key);label.htmlFor=control.id;
     control.dataset.hw24Source='';
     control.addEventListener('change',()=>{
+       if(control.tagName==='SELECT'&&control.value==='__manual_hw24__'){
+          const newValue=window.prompt('Neuen '+key+'-Wert als HW24-Entwurf eintragen (JTL-Zuordnung vor Import prüfen):','');
+          if(!newValue||!newValue.trim()||newValue.trim().length>130){
+            control.value=value||'';return;
+          }
+          const candidate=newValue.trim();
+          if(!Array.from(control.options).some(o=>o.value===candidate)){
+            const custom=document.createElement('option');custom.value=candidate;
+            custom.textContent=candidate+' · manuell (JTL-Zuordnung prüfen)';
+            control.add(custom,control.options.length-1);
+          }
+          control.value=candidate;
+       }
+       if(disabled){$('editorStatus').textContent='Nur Vergleich: Änderungen an bestehenden JTL-Artikeln bitte im Haupt-Artikelmanager als Entwurf prüfen.';return}
        if(key==='Überverkäufe möglich'&&control.value==='Y'){
          if(!window.confirm('Überverkäufe sind standardmäßig deaktiviert. Ausnahme für diesen Artikel bewusst freigeben?')){
            control.value=val(item.draft?.[key])||'N';refreshFieldGroups();return;
@@ -453,7 +526,10 @@ function selectItem(id){
        }
        control.dataset.hw24Source='Manuelle Bearbeitung';control.dataset.userTouched='1';refreshFieldGroups();
     });
-    control.addEventListener('input',()=>{control.dataset.hw24Source='Manuelle Bearbeitung';control.dataset.userTouched='1';refreshFieldGroups()});
+    control.addEventListener('input',()=>{
+      if(disabled)return;
+      control.dataset.hw24Source='Manuelle Bearbeitung';control.dataset.userTouched='1';refreshFieldGroups()
+    });
     box.append(control);
     if(fieldHelp[key]){
       const help=textNode('small',fieldHelp[key],box,'fieldNote');
@@ -716,12 +792,14 @@ window.HW24ScanBridge={
    renderList();return{ok:true,saved:true};
   }catch(e){return{ok:false,error:String(e?.message||'database_unavailable')}}
  },
- async apply(fields,fieldSources,{save=true}={}){
+ async apply(fields,fieldSources,{save=true,confirmedChoice=false}={}){
    const item=state.selected;if(!item)return{ok:false,error:'no_item'};
    const additions={},sources={};
    for(const [field,value] of Object.entries(fields||{})){
      const c=this.control(field);
-     if(!c||c.readOnly||c.disabled||c.dataset.userTouched==='1'||val(c.value)||!val(value))continue;
+     if(!c||c.readOnly||c.disabled||!val(value))continue;
+     const replacing=confirmedChoice&&field==='ASIN'&&val(c.value)!==val(value);
+     if(!replacing&&(c.dataset.userTouched==='1'||val(c.value)))continue;
      c.value=val(value);
      c.dataset.hw24Source=val(fieldSources?.[field]||'HW24 · Quellen');
      additions[field]=val(value);sources[field]=c.dataset.hw24Source;
@@ -734,6 +812,11 @@ window.HW24ScanBridge={
      const out=await post('edit',{batch_id:state.batchId,item_id:item.id,
        expected_revision:Number(item.revision),fields:additions,field_sources:sources,mark_ready:false});
      item.revision=out.revision;item.draft=out.draft;item.review_state=out.review_state;
+     // A confirmed ASIN must survive a page reload in both MariaDB and the input.
+     if(confirmedChoice&&additions.ASIN){
+       const as=$('field_'+schema.indexOf('ASIN'));
+       if(as){as.value=additions.ASIN;as.dataset.userTouched='1';as.dataset.hw24Source=sources.ASIN;}
+     }
      renderList();return{ok:true,fields:additions,saved:true};
    }catch(error){
      $('editorStatus').textContent='Vorbelegung sichtbar, aber nicht gespeichert: '+String(error.message);
@@ -749,7 +832,7 @@ window.HW24ScanBridge={
   refreshFieldGroups();
  }
 };
-loadBatches();diagnoseScanDb();
+loadBatches();diagnoseScanDb();loadJtlReferenceLists();
 $('dbSetupRetry').onclick=diagnoseScanDb;
 if(state.queue.length)status(state.queue.length+' unbestätigte Scanvorgänge aus vorheriger Sitzung. Zum Senden oben „Erneut senden“ wählen.','warn');
 $('clearScan').onclick=()=>{$('scan').value='';$('scan').focus();};
@@ -757,4 +840,4 @@ catalogStatus();
 if(catalogQueue.length)runCatalog();
 })();
 </script>
-<script src="assets/hw24-scan-autofill.js?v=1"></script><script src="assets/hw24-csv-intake.js?v=1"></script></body></html>
+<script src="assets/hw24-scan-autofill.js?v=1"></script><script src="assets/hw24-csv-intake.js?v=1"></script><script src="assets/hw24-ai-cost.js?v=1"></script></body></html>
