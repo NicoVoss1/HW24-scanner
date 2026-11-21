@@ -29,13 +29,9 @@ Diese beiden Dateien beim Fortsetzen eines Chats, beim Öffnen eines PRs und vor
 
 ## Sofortiger nächster Schritt
 
-**Aktueller Testbranch:** `deploy/staging` GitHub-Commit **`6e6e7f7dfd536f4bef42c401321cafe95f855004`** nach [PR #26](https://github.com/NicoVoss1/HW24-scanner/pull/26) und [PR #27](https://github.com/NicoVoss1/HW24-scanner/pull/27). Große historische KI-Auswertungen, EAN-Filter/ASIN-Prüfungen, dokumentierte HW24-Entwurfsfreigaben und serverseitige Aufbewahrung von OpenAI-Reviewdaten mit Tokenkosten. **GitHub-Testcode fertig, Plesk-Deployment und MariaDB-Integrationstest offen.**
+**21.11.2026 · PR #29 (JETZT TEST):** `deploy/staging` SHA **`1618ebac749a6cc1854a8e0673da4725f5bcf984`**. `GET /api/ai-reviews.php` ohne `before_id` wird nicht länger irrtümlich als `invalid_cursor` abgewiesen. Authentifizierte Scanlistenpositionen zeigen nach erfolgreicher, dauerhaft archivierter KI-Analyse `🤖 KI geprüft`; Wiederholungen derselben EAN verwenden den vorhandenen Prüfbericht mit 0 USD neuen API-Kosten, solange nicht bewusst `🔄 Neu prüfen ($)` gewählt wird. Die erneute Prüfung ist zusätzlich revisionsgesichert gegen zwei gleichzeitige Browser-Tabs. [CI #44950463294 erfolgreich](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44950463294). **V13 vom Nutzer bereits erfolgreich installiert, nicht erneut ausführen.** Plesk-Test-Pull/-Deploy und Browser-E2E der neuen Version noch nicht bestätigt. Live-Branch `main` unverändert. [PR #29](https://github.com/NicoVoss1/HW24-scanner/pull/29).
 
-**Nur noch neue Installation:** Plesk **TEST** `deploy/staging` → Pull → Bereitstellen. Danach **einmalig** die neue `hw24_ai_reviews`-V13-Archiv-Tabelle über das gesicherte `ops/HW24_INSTALL_AI_ARCHIVE_TEST.sh` einrichten (einzige neue Tabelle, keine Änderungen an JTL/WMS). Vor dem Archiv bleibt `KI-Prüfung starten` ausdrücklich gesperrt. Danach `GET /api/ai-reviews.php` prüfen und eine einzelne neue KI-Prüfung mit Historie/Reload und Kosten dokumentieren.
-
-**Nicht wiederholen:** V11/V12-Scanlisten-Installation, Backups, bestehende DB-Dateien, SQL-/PuTTY-Basissetup. Die **Live-Domain bleibt auf `main`**, und die erste bereits früher bezahlte KI-Auswertung ist aus dem Kostenledger nicht rekonstruierbar.
-
-[Komplette Anleitung: KI-Archiv und große Analysen](docs/HW24_KI_ARCHIV_UND_ANALYSEN_20261121.md).
+**Jetzt:** Ausschließlich Testdomain in Plesk `deploy/staging` → **Jetzt Pull ausführen** → **Jetzt bereitstellen**. Dann authentifizierte [KI-Archivroute](https://test-artikelmanager.hairworld24.de/api/ai-reviews.php) ohne `invalid_cursor` prüfen und nach genau einer neuen gespeicherten Analyse den Marker `🤖 KI geprüft` sowie das kostenlose Öffnen des Berichts testen. Keine alte SQL-Installation wiederholen, kein Live-Deployment.
 
 ## Vorheriger Schritt (PR #22)
 
