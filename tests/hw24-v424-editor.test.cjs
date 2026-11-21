@@ -21,7 +21,7 @@ assert(js.includes("method:'POST'"),'explicit save uses POST');
 assert(js.includes("'X-HW24-Approval':'confirmed'"),'explicit approval');
 assert(js.includes("expected_revision:state.revision"),'revision-safe save');
 assert(js.includes("Keine Kopie")===false,'no uncontrolled copying within JS');
-assert(js.includes("!val(entry.control.value)"),'template fills empty fields only');
+assert(js.includes("val(entry.control.value)||!val(value)"),'template only fills blank fields with verified values');
 assert(js.includes("!val(value)"),'source template fields must exist');
 assert(js.includes('state.sourceFresh=false'),'stale snapshots may not write');
 assert(js.includes("getMassCode"),'unit mapping uses verified JTL source');
