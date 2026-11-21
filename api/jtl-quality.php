@@ -32,6 +32,16 @@ if($filter!=='all'&&!array_key_exists($filter,$catalog))
 $severity=(string)($_GET['severity']??'all');
 if(!in_array($severity,['all','with_issues','critical','warning','no_detected_issues'],true))
  auditReply(400,['ok'=>false,'error'=>'invalid_severity']);
+// Stock and EK are independent. If both are filtered the operator is explicitly selectable.
+$stock=(string)($_GET['stock']??'all');
+$ek=(string)($_GET['ek']??'all');
+$combine=(string)($_GET['combine']??'or');
+$sort=(string)($_GET['sort']??'priority');
+if(!in_array($stock,['all','positive','zero','negative','missing'],true)||
+   !in_array($ek,['all','positive','missing_both','netto_missing'],true)||
+   !in_array($combine,['or','and'],true)||
+   !in_array($sort,['priority','stock_desc','stock_asc','ek_desc','ek_asc'],true))
+ auditReply(400,['ok'=>false,'error'=>'invalid_stock_ek_sort_filter']);
 $page=filter_var($_GET['page']??1,FILTER_VALIDATE_INT);
 $perPage=filter_var($_GET['per_page']??25,FILTER_VALIDATE_INT);
 if($page===false||$page<1||$page>10000||$perPage===false||
@@ -112,7 +122,28 @@ try{
   if($result['critical_count'])$stats['critical_articles']++;
   foreach($result['issues'] as $code)$stats['issue_counts'][$code]++;
   if(in_array('stock_without_ek',$result['issues'],true))$stats['stock_without_ek']++;
-  if(($filter!=='all'&&!in_array($filter,$result['issues'],true))||
+  $rawStock=$a['bestand'];
+  $stockNumber=$rawStock===null||trim((string)$rawStock)===''?null:(float)$rawStock;
+  $ekNet=$a['netto_ek']===null||trim((string)$a['netto_ek'])===''?null:(float)$a['netto_ek'];
+  $ekLast=$a['letzter_ek']===null||trim((string)$a['letzter_ek'])===''?null:(float)$a['letzter_ek'];
+  $stockMatch=match($stock){
+   'positive'=>$stockNumber!==null&&$stockNumber>0,
+   'zero'=>$stockNumber!==null&&$stockNumber===0.0,
+   'negative'=>$stockNumber!==null&&$stockNumber<0,
+   'missing'=>$stockNumber===null,
+   default=>true
+  };
+  $ekMatch=match($ek){
+   'positive'=>($ekNet!==null&&$ekNet>0)||($ekLast!==null&&$ekLast>0),
+   'missing_both'=>!($ekNet!==null&&$ekNet>0||$ekLast!==null&&$ekLast>0),
+   'netto_missing'=>$ekNet===null||$ekNet<=0,
+   default=>true
+  };
+  $quantityMatches=$stock!=='all'&&$ek!=='all'
+    ?($combine==='or'?($stockMatch||$ekMatch):($stockMatch&&$ekMatch))
+    :($stockMatch&&$ekMatch);
+  if(!$quantityMatches||
+     ($filter!=='all'&&!in_array($filter,$result['issues'],true))||
      ($severity==='with_issues'&&$result['issue_count']===0)||
      ($severity!=='all'&&$severity!=='with_issues'&&$severity!==$result['severity'])||
      !$queryMatches($a,$q))continue;
@@ -137,11 +168,31 @@ try{
  if($seen!==$actual)
   auditReply(503,['ok'=>false,'error'=>'snapshot_changed_during_audit',
    'note'=>'Artikelzahl hat sich während der Prüfung verändert; bitte erneut prüfen']);
- usort($selected,static function(array $a,array $b): int {
-  return $b['critical_count']<=>$a['critical_count']
-   ?: $b['issue_count']<=>$a['issue_count']
-   ?: strnatcasecmp($a['artikelname'],$b['artikelname'])
-   ?: strcmp($a['jtl_article_id'],$b['jtl_article_id']);
+ usort($selected,static function(array $a,array $b) use($sort): int {
+  $stockA=$a['bestand'];$stockB=$b['bestand'];
+  $netA=$a['netto_ek'];$netB=$b['netto_ek'];
+  // Missing monetary/numeric values remain at the bottom in BOTH directions.
+  $num=static function($left,$right,bool $descending): int {
+   if($left===null)return $right===null?0:1;
+   if($right===null)return -1;
+   return $descending?($right<=>$left):($left<=>$right);
+  };
+  $name=static fn()=>strnatcasecmp($a['artikelname'],$b['artikelname'])
+      ?:strcmp($a['jtl_article_id'],$b['jtl_article_id']);
+  if($sort==='stock_desc'||$sort==='stock_asc')
+   return $num($stockA,$stockB,$sort==='stock_desc')
+    ?:($b['critical_count']<=>$a['critical_count'])?:$name();
+  if($sort==='ek_desc'||$sort==='ek_asc')
+   return $num($netA,$netB,$sort==='ek_desc')
+    ?:($num($stockA,$stockB,true))?:$name();
+  // Default: positive stock always BEFORE zero/negative/unrecorded stock.
+  $positiveA=$stockA!==null&&$stockA>0;
+  $positiveB=$stockB!==null&&$stockB>0;
+  return ($positiveB<=>$positiveA)
+   ?:($b['critical_count']<=>$a['critical_count'])
+   ?:($b['issue_count']<=>$a['issue_count'])
+   ?:($num($stockA,$stockB,true))
+   ?:$name();
  });
  $totalFiltered=count($selected);
  $items=array_slice($selected,($page-1)*$perPage,$perPage);
@@ -156,7 +207,9 @@ try{
    'legal_compliance'=>'Nicht durch diese technische Feldprüfung nachgewiesen',
    'supplier_cost_evidence'=>'Kostenbeleg und Kommissionsstatus nicht vollständig in den beiden EK-Spiegelfeldern'
   ],
-  'rule_catalog'=>$catalog,'summary'=>$stats,'total_filtered'=>$totalFiltered,
+  'rule_catalog'=>$catalog,'summary'=>$stats,'filters'=>[
+    'stock'=>$stock,'ek'=>$ek,'combine'=>$combine,'sort'=>$sort
+   ],'total_filtered'=>$totalFiltered,
   'page'=>(int)$page,'per_page'=>(int)$perPage,'total_pages'=>max(1,(int)ceil($totalFiltered/$perPage)),
   'items'=>$items
  ]);
