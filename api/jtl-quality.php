@@ -22,6 +22,7 @@ if($actor===''||strlen($actor)>180)auditReply(403,['ok'=>false,'error'=>'authent
 if(($_SERVER['HTTPS']??'')!=='on'&&($_SERVER['HTTP_X_FORWARDED_PROTO']??'')!=='https')
  auditReply(403,['ok'=>false,'error'=>'https_required']);
 require_once __DIR__.'/hw24-quality-rules.php';
+require_once __DIR__.'/hw24-quality-filters.php';
 $q=(string)($_GET['q']??'');
 if(strlen($q)>100||preg_match('/[\x00-\x1f\x7f]/',$q))auditReply(400,['ok'=>false,'error'=>'invalid_search']);
 $q=trim($q);
@@ -122,26 +123,7 @@ try{
   if($result['critical_count'])$stats['critical_articles']++;
   foreach($result['issues'] as $code)$stats['issue_counts'][$code]++;
   if(in_array('stock_without_ek',$result['issues'],true))$stats['stock_without_ek']++;
-  $rawStock=$a['bestand'];
-  $stockNumber=$rawStock===null||trim((string)$rawStock)===''?null:(float)$rawStock;
-  $ekNet=$a['netto_ek']===null||trim((string)$a['netto_ek'])===''?null:(float)$a['netto_ek'];
-  $ekLast=$a['letzter_ek']===null||trim((string)$a['letzter_ek'])===''?null:(float)$a['letzter_ek'];
-  $stockMatch=match($stock){
-   'positive'=>$stockNumber!==null&&$stockNumber>0,
-   'zero'=>$stockNumber!==null&&$stockNumber===0.0,
-   'negative'=>$stockNumber!==null&&$stockNumber<0,
-   'missing'=>$stockNumber===null,
-   default=>true
-  };
-  $ekMatch=match($ek){
-   'positive'=>($ekNet!==null&&$ekNet>0)||($ekLast!==null&&$ekLast>0),
-   'missing_both'=>!($ekNet!==null&&$ekNet>0||$ekLast!==null&&$ekLast>0),
-   'netto_missing'=>$ekNet===null||$ekNet<=0,
-   default=>true
-  };
-  $quantityMatches=$stock!=='all'&&$ek!=='all'
-    ?($combine==='or'?($stockMatch||$ekMatch):($stockMatch&&$ekMatch))
-    :($stockMatch&&$ekMatch);
+  $quantityMatches=hw24QualityQuantityMatches($a,$stock,$ek,$combine);
   if(!$quantityMatches||
      ($filter!=='all'&&!in_array($filter,$result['issues'],true))||
      ($severity==='with_issues'&&$result['issue_count']===0)||
@@ -168,32 +150,7 @@ try{
  if($seen!==$actual)
   auditReply(503,['ok'=>false,'error'=>'snapshot_changed_during_audit',
    'note'=>'Artikelzahl hat sich während der Prüfung verändert; bitte erneut prüfen']);
- usort($selected,static function(array $a,array $b) use($sort): int {
-  $stockA=$a['bestand'];$stockB=$b['bestand'];
-  $netA=$a['netto_ek'];$netB=$b['netto_ek'];
-  // Missing monetary/numeric values remain at the bottom in BOTH directions.
-  $num=static function($left,$right,bool $descending): int {
-   if($left===null)return $right===null?0:1;
-   if($right===null)return -1;
-   return $descending?($right<=>$left):($left<=>$right);
-  };
-  $name=static fn()=>strnatcasecmp($a['artikelname'],$b['artikelname'])
-      ?:strcmp($a['jtl_article_id'],$b['jtl_article_id']);
-  if($sort==='stock_desc'||$sort==='stock_asc')
-   return $num($stockA,$stockB,$sort==='stock_desc')
-    ?:($b['critical_count']<=>$a['critical_count'])?:$name();
-  if($sort==='ek_desc'||$sort==='ek_asc')
-   return $num($netA,$netB,$sort==='ek_desc')
-    ?:($num($stockA,$stockB,true))?:$name();
-  // Default: positive stock always BEFORE zero/negative/unrecorded stock.
-  $positiveA=$stockA!==null&&$stockA>0;
-  $positiveB=$stockB!==null&&$stockB>0;
-  return ($positiveB<=>$positiveA)
-   ?:($b['critical_count']<=>$a['critical_count'])
-   ?:($b['issue_count']<=>$a['issue_count'])
-   ?:($num($stockA,$stockB,true))
-   ?:$name();
- });
+ usort($selected,static fn(array $a,array $b):int=>hw24QualityCompare($a,$b,$sort));
  $totalFiltered=count($selected);
  $items=array_slice($selected,($page-1)*$perPage,$perPage);
  auditReply(200,[
