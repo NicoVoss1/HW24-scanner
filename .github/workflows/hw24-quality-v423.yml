@@ -1,0 +1,42 @@
+name: HW24 V4.23 TEST JTL Quality Center
+on:
+  push:
+    branches:
+      - feature/hw24-v423-quality-center-20261121
+  pull_request:
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP quality rule tests
+        run: |
+          set -euo pipefail
+          php -l api/jtl-quality.php
+          php -l api/hw24-quality-rules.php
+          php tests/hw24-quality-rules.test.php
+      - name: JS and UI contract tests
+        run: |
+          set -euo pipefail
+          node --check assets/hw24-quality-center.js
+          node tests/hw24-quality-wiring.test.cjs
+      - name: HTML inline syntax and external assets
+        run: |
+          python3 - <<'PY'
+          import pathlib,re,subprocess
+          for path in ('index.html','scanliste.html','qualitaetszentrum.html'):
+            html=pathlib.Path(path).read_text(encoding='utf-8')
+            for script in re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>',html,re.I):
+              if not script.strip():continue
+              run=subprocess.run(['node','--check'],input=script,text=True,capture_output=True)
+              if run.returncode:raise RuntimeError(path+': '+run.stderr)
+            for match in re.findall(r'(?:src|href)=["\'](assets/[^"\']+)',html):
+              asset=match.split('?')[0]
+              if not pathlib.Path(asset).is_file():raise RuntimeError(path+': missing '+asset)
+          print('HTML JavaScript and static asset links: PASS')
+          PY
+      - name: No credentials included in website release
+        run: |
+          test ! -e hw24_private/db.php
+          test ! -e hw24_private/openai-review.php
+          test ! -e hw24_private/scanlist-db.php
