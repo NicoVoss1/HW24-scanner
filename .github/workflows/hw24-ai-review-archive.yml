@@ -1,0 +1,40 @@
+name: HW24 AI archive and analysis dashboard
+on:
+  push:
+    branches:
+      - feature/hw24-persist-ai-reviews-20261121
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: AI historical storage and consent contracts
+        run: |
+          node tests/hw24-ai-reviews.test.cjs
+          node tests/hw24-ai-errors.test.cjs
+      - name: JavaScript, PHP and installer syntax
+        run: |
+          set -euo pipefail
+          for script in api/*.php; do php -l "$script"; done
+          for asset in assets/*.js; do node --check "$asset"; done
+          bash -n ops/HW24_INSTALL_AI_ARCHIVE_TEST.sh
+      - name: Verify inline HTML scripts and dependencies
+        run: |
+          python3 - <<'PY'
+          import pathlib,re,subprocess
+          for filename in ('scanliste.html','index.html'):
+            html=pathlib.Path(filename).read_text(encoding='utf8')
+            for js in re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>',html,re.I):
+              if not js.strip():continue
+              test=subprocess.run(['node','--check'],input=js,capture_output=True,text=True)
+              if test.returncode:raise RuntimeError(filename+' inline script: '+test.stderr)
+            for asset in re.findall(r'(?:src|href)=["\'](assets/[^"\']+)',html):
+              asset=asset.split('?')[0]
+              if not pathlib.Path(asset).is_file():raise RuntimeError('Missing '+asset)
+          print('Browser HTML asset and inline syntax: PASS')
+          PY
+      - name: Ensure no private secrets are committed
+        run: |
+          test ! -e hw24_private/openai-review.php
+          test ! -e hw24_private/scanlist-db.php
