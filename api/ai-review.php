@@ -91,6 +91,25 @@ if(isset($body['candidates'])){
 }
 if($total>=($budget-0.04))answer(429,['ok'=>false,'error'=>'monthly_budget_limit','usd_month'=>$total]);
 if($dailyCalls>=$daily)answer(429,['ok'=>false,'error'=>'daily_request_limit']);
+// Paid calls only start if the immutable review archive is installed and readable.
+$reviewDbPath=dirname(__DIR__,2).'/hw24_private/scanlist-db.php';
+if(!is_file($reviewDbPath))answer(503,['ok'=>false,'error'=>'review_storage_not_ready']);
+try {
+ $reviewCfg=require $reviewDbPath;
+ if(!is_array($reviewCfg)||empty($reviewCfg['user'])||!array_key_exists('password',$reviewCfg))
+  throw new RuntimeException('invalid_review_db_config');
+ $reviewDb=new PDO('mysql:host=127.0.0.1;port=3306;dbname=hw24_artikelmanager;charset=utf8mb4',
+  (string)$reviewCfg['user'],(string)$reviewCfg['password'],[
+  PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,
+  PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,
+  PDO::ATTR_EMULATE_PREPARES=>false,PDO::ATTR_TIMEOUT=>5
+ ]);
+ $reviewDb->query('SELECT id FROM hw24_ai_reviews LIMIT 0');
+}catch(Throwable $e){
+ error_log('HW24 AI review storage preflight failed: '.get_class($e));
+ answer(503,['ok'=>false,'error'=>'review_storage_not_ready',
+  'hint'=>'first_install_hw24_ai_reviews_v13']);
+}
 if(!function_exists('curl_init'))answer(503,['ok'=>false,'error'=>'curl_unavailable']);
 $schema=['type'=>'object','additionalProperties'=>false,'required'=>['status','reason','suggestedWarengruppe','asinChecks'],
  'properties'=>[
@@ -170,6 +189,28 @@ if(fwrite($handle,json_encode($ledger,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR
  answer(503,['ok'=>false,'error'=>'usage_ledger_write_failed']);
 fflush($handle);
 if(!$parsed)answer(502,['ok'=>false,'error'=>'model_output_invalid','usd_charge_estimate'=>round($price,6)]);
-answer(200,['ok'=>true,'review'=>$parsed,'usd_call'=>round($price,6),
+// Append the exact input snapshot, structured result and token-derived cost.
+// Keep historical rows immutable; no JTL/WMS/scan draft mutations occur here.
+$reviewId=null;
+try {
+ $write=$reviewDb->prepare('INSERT INTO hw24_ai_reviews
+  (actor,ean,article_name,model,ai_status,input_json,review_json,
+   usd_cost,tokens_input,tokens_cached,tokens_output,created_at_utc)
+  VALUES (?,?,?,?,?,?,?,?,?,?,?,UTC_TIMESTAMP(6))');
+ $write->execute([$actor,$fields['ean'],$fields['articleName'],$model,
+  (string)($parsed['status']??'review'),
+  json_encode(['article'=>$fields,'amazon_candidates'=>$candidates],
+    JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
+  json_encode($parsed,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
+  round($price,8),$in,$cached,$out]);
+ $reviewId=(int)$reviewDb->lastInsertId();
+}catch(Throwable $e){
+ error_log('HW24 AI archive INSERT failed after billable request: '.get_class($e));
+ answer(503,['ok'=>false,'error'=>'review_storage_write_failed',
+  'usd_charge_estimate'=>round($price,6),
+  'do_not_retry_without_checking_usage'=>true]);
+}
+answer(200,['ok'=>true,'review'=>$parsed,'review_id'=>$reviewId,'stored'=>true,
+ 'usd_call'=>round($price,6),
  'usd_month'=>round((float)$ledger['months'][$month]['usd'],6),
  'usd_budget'=>$budget,'model'=>$model,'basis'=>'api_usage_tokens']);
