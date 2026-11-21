@@ -102,6 +102,19 @@ try {
       $v=$rows[0][$column]??null;
       return ($v===null||!is_scalar($v))?null:(string)$v;
     };
+    // Verified optional values emitted by the Windows JTL sync into raw_json.
+    // No invented gross price: JTL may calculate it using tax zone/class/group prices.
+    // These keys must be populated from a verified Windows SQL mapping.
+    $gross=is_array($raw)?($raw['HW24_VKBrutto']??null):null;
+    $grossSource=is_array($raw)?($raw['HW24_VKBruttoQuelle']??null):null;
+    $article['brutto_vk']=is_scalar($gross)&&preg_match('/^[0-9]{1,10}(?:\\.[0-9]{1,4})?$/D',(string)$gross)
+        &&(float)$gross>0&&is_string($grossSource)&&trim($grossSource)!==''
+      ?(string)$gross:null;
+    $article['brutto_vk_source']=$article['brutto_vk']===null?null:substr(trim($grossSource),0,200);
+    $article['waehrung']=is_array($raw)&&isset($raw['HW24_Waehrung'])&&is_scalar($raw['HW24_Waehrung'])
+       ?trim((string)$raw['HW24_Waehrung']):null;
+    $article['artikeltyp']=is_array($raw)&&isset($raw['HW24_Artikeltyp'])&&is_scalar($raw['HW24_Artikeltyp'])
+       ?trim((string)$raw['HW24_Artikeltyp']):null;
     $article['kosten']=$singleValue('kosten','fArtikelkosten');
     $article['kosten_source']=$article['kosten']!==null?'Artikel.tArtikelkosten.fArtikelkosten':null;
     $article['warengruppe_name']=$singleValue('warengruppe','cName');
