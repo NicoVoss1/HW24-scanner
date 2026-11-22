@@ -1614,3 +1614,11 @@ Bitte Zugangsdaten nur auf dem Server in der privaten Laravel-Konfiguration hint
 - **Noch offen:** GitHub-CI muss für den exakten gepinnten UI-Zielcommit und den Operator-Workflow grün sein; anschließend Betreiber-PuTTY-Update und **erst danach** erneuter Browser-Screenshot der wirklich installierten Filament-Artikelzentrale. Vorheriges LIVE `api/jtl-fields.php` 404 weiterhin getrennte Arbeit und nicht durch reine Layoutoptimierung gelöst. Rollback-/SQLite-Backups des vorherigen Cockpit-Upgrades nicht löschen.
 
 **Journalprinzip:** Entwicklung, CI-Validierung, tatsächliches Serverupdate und Browserabnahme bleiben vier getrennte protokollierte Zustände; bei jedem neuen Schritt Zielversion, Risiko, Prüfergebnis und ggf. Rollback beifügen. Keine Secrets ins Repository oder Arbeitsjournal.
+
+
+### Nachtrag 22.11.2026: CI-Abnahme der Artikelzentrale V2
+
+- Laravel-13-/Filament-5-GitHub-Actions-Test für den finalen separaten Operator-Skriptstand `285b5523c5ccc8faa00f14607cc40f03be55845d`: **SUCCESS**, Workflow `https://github.com/NicoVoss1/HW24-scanner/actions/runs/45067203055`. Bestehende Legacy-Regression ebenfalls **SUCCESS**, Run `45067203031`.
+- Der in der Script-Allowlist fest gepinnte UI-Zielcommit **`d5491f28ac27c5be6bc7aba0f714c7cd83ea24d4`** hat seinen eigenen Framework-CI-Lauf **SUCCESS**, Run `45067093658`. Die neue `ArticleWorkspaceLayoutTest`-Abdeckung wurde dort zusammen mit den vorhandenen Sicherheits-/Funktionstests durchgeführt. Die Tests ersetzen noch **keinen** realen Browser-Screenshot.
+- GitHub-Compare `b679642...d5491f2`: **fast-forward, 6 Commits voraus, 0 zurück, 5 Pfade**: CI-Workflow, zwei Ops-Skripte, `article-lookup.blade.php`, neuer Layout-Featuretest. Das abgeschlossene Operator-Skript ist von `285b5523` aufrufbar, die damit ausgeführte Zielversion ist bewusst `d5491f2` statt des jeweils neueren Remote-HEAD.
+- **Stand nach diesem Eintrag:** Der Betreiber hat dieses neue Artikelzentrum-Upgrade weiterhin **nicht** auf dem Plesk-TEST-Server ausgeführt. Server letzter nachgewiesener HEAD `b679642`. Keine Änderung an LIVE-/JTL-SQL-/Plesk-Webroot oder Shopify/Amazon/eBay-Anbindungen. Bei ausgeführtem Update: neue root-private Datenbank- und Blade-Sicherungen aus tatsächlicher PuTTY-Ausgabe separat protokollieren und Browser mit derselben Referenz-EAN wiederholen.
