@@ -73,6 +73,7 @@
             <summary>Weitere Artikeldaten (nur bei Bedarf)</summary>
             <p class="muted">Steuerklasse, Währung, Kategorie und weitere Einstellungen. Lieferzeiten stehen bereits im Bereich Lieferung und Versand.</p>
             <h4>Steuern, Kategorien und weitere Angaben</h4>
+            <p class="muted">Kategorie Ebene 1 bis 3 bezeichnet die JTL-Kategoriehierarchie, nicht automatisch die Shopify-Produktkategorie. Währung EUR ist nur ein Vorschlag, solange im Spiegel kein eindeutiger Wert vorliegt.</p>
             <div id="advancedFields" class="editor-fields"></div>
           </details>
           <section class="editor-section">
@@ -105,29 +106,29 @@
           <button type="button" class="secondary" id="suggestReference" disabled>Geeignete Leerfelder vorschlagen</button>
           <p class="muted">Nur bestätigte Haarfarben-Artikel erhalten Vorschläge für leere Felder. Lieferstatus und Steuerklasse werden erst nach überprüfter JTL-Feldzuordnung übernommen.</p>
         </section>
-        <section class="sidebar-panel">
-          <h3>🛒 Amazon SP-API</h3>
+        <details class="sidebar-panel intel-panel">
+          <summary class="intel-summary">🛒 Amazon SP-API · Katalogvergleich</summary>
           <p class="muted">Katalogtreffer nach EAN manuell abfragen. Ergebnisse werden auf dem Server archiviert; keine automatische Änderung Deiner JTL-Daten.</p>
           <button type="button" class="secondary" id="amazonSearch">Amazon-Katalog prüfen</button>
           <p class="muted" id="amazonState" role="status">Noch keine Amazon-Abfrage gestartet.</p>
           <div id="amazonResults"></div>
-        </section>
-        <section class="sidebar-panel">
-          <h3>🤖 OpenAI Intelligence</h3>
+        </details>
+        <details class="sidebar-panel intel-panel">
+          <summary class="intel-summary">🤖 OpenAI Intelligence · KI-Berichte</summary>
           <p class="muted">Vorhandene KI-Berichte kostenlos anzeigen. Neue kostenpflichtige Analyse nur nach Deiner ausdrücklichen Bestätigung.</p>
           <button type="button" class="secondary" id="aiReviewRun">KI-Archiv prüfen / Analyse starten</button>
           <button type="button" class="secondary" id="aiRecheck" hidden>Neue KI-Prüfung ($)</button>
           <p class="muted" id="aiReviewState" role="status">KI-Bericht wird beim Öffnen nur lesend geprüft.</p>
           <div id="aiReviewResults"></div>
-        </section>
-        <section class="sidebar-panel">
-          <h3>📥 JTL-Ameise Prüfexport</h3>
+        </details>
+        <details class="sidebar-panel intel-panel">
+          <summary class="intel-summary">📥 JTL-Ameise · geprüfter Export</summary>
           <p class="muted">Nur bestätigte und einzeln ausgewählte Stammdatenänderungen für den vorhandenen Artikel. Leere und unbestätigte Werte werden nicht exportiert.</p>
           <button type="button" class="secondary" id="loadAmeiseDraft">Bestätigte Felder auswählen</button>
           <div id="ameiseDraftFields"></div>
           <button type="button" class="action" id="exportAmeiseDraft" disabled>Prüf-CSV erzeugen</button>
           <p class="muted" id="ameiseDraftState" role="status">Nur JTL-Ameise Testlauf mit „Nur vorhandene aktualisieren“.</p>
-        </section>
+        </details>
         <section class="sidebar-panel">
           <h3>Arbeitsablauf</h3>
           <p class="muted">1. JTL-Werte ansehen. 2. Fehlende oder falsche Felder bearbeiten. 3. Änderungen kontrollieren und bestätigen. 4. Später Ameise-Import vorbereiten.</p>
