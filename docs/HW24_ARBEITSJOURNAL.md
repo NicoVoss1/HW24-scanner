@@ -970,3 +970,22 @@ Die separate `protected_dirs.id=1` für `plesk-stat` auf `domains.id=1` ist **ni
 **GitHub-Draft PR #37:** `feature/hw24-login-alias-scan-ai-20261122`, Head `c2cc4e1dc054da00f01087e7221659cf54a9a482`; Tests/GitHub-CI #44978357305 und #44978360796 grün. Er implementiert `read_aliases` mit beiden Eigentümern als lesbarem Scope; neue Scan-/KI-Ereignisse bleiben unter aktueller Basic-Kennung. **PR nicht gemergt oder deployed**.
 
 **Nächste kontrollierte Phase:** Nur die Testdomain: Vorbereitende Plesk-Git-Repository/Quellcode-Prüfung ohne Änderung von `deploy/staging`, kein Plesk-Test-Webroot-Cutover zu Laravel, kein Test-Basic-Namenswechsel bevor Zwei-Owner-Code und private Zuordnung im berechtigten Test-HTTP-Kontext geprüft wurden. Keine JTL-/WMS-/Shopify-Datenänderung oder KI-POST. Live unangetastet.
+
+
+### 22.11.2026 · GitHub-Diff für sicheren Test-PR37-Rollout geprüft
+
+**Quelle:** GitHub-Connector `compare_commits`: Base `deploy/staging`, Head `feature/hw24-login-alias-scan-ai-20261122`, **12 Commits vor Basis, 0 Commits zurück**, `status=ahead`. Pinned HEAD `c2cc4e1dc054da00f01087e7221659cf54a9a482`. Der Vergleich weist **genau 7** veränderte Dateipfade aus:
+
+1. `.github/workflows/hw24-v425-intelligence-test.yml` (Testworkflow);
+2. `api/ai-review.php` (bestehende KI-Review-Prüfung, historische Deduplikation);
+3. `api/ai-reviews.php` (bestehender KI-Archiv-GET);
+4. `api/hw24-actor-identity.php` (**neu**, private read_aliases);
+5. `api/scanliste.php` (bestehende Scanlisten-API);
+6. `tests/hw24-actor-alias.test.php` (**neu**, Sicherheits-/Bestandstests);
+7. `tests/hw24-v425-article-intelligence.test.cjs` (bestehender Regressionstest).
+
+**Nicht im PR-Diff:** Frontend-`index.html`, `scanliste.html`, JTL-/WMS-/Shopify-Connectoren, Datenbank-DDL, Live-Auth-Konfiguration oder Laravel/Filament-Dateien. Das belegt Codeumfang, **noch nicht** browserseitiges Verhalten. Zwei GitHub-CI-Jobs zum aktuellen HEAD sind grün.
+
+**Direkt bestätigt:** Betreiber erstellte vorher das private Test-Webroot-Tar-Backup `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz` und verifizierte SHA256 `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26`. Es bleibt lokal unter `/root` und ist nicht als Datei in GitHub hochgeladen.
+
+**Nun nächster kontrollierter Schritt:** Nur auf dem manuellen TEST-Plesk-Git-Repository `HW24-scanner.git`: Quellbranch fetchen, aktive Branch-Metadaten gezielt auf gepinnten PR37-Featurebranch umstellen, SHA verifizieren und **KEIN `--deploy`** aufrufen. Schutzgates vorher Backup SHA, aktuelle Branch = `deploy/staging`, Deploymentmode = `manual`. Bei Fehlstand gegebenenfalls Branch-Metadaten zurück auf `deploy/staging`; Live-Repository bleibt unverändert. Erst nach erfolgreichem Pin wird ein getrennt freigegebener kontrollierter TEST-Deploy mit optionaler privater Aliasdatei, HTTP-Regression und Plesk-Backup der Benutzerkonten vorbereitet.
