@@ -14,6 +14,8 @@ final class LegacyReadBridge
 {
     private const PATHS = [
         'jtl.article' => 'api/jtl.php',
+        // Available only AFTER the source-explorer Legacy PR has passed test deployment.
+        'jtl.fields' => 'api/jtl-fields.php',
         'jtl.quality' => 'api/jtl-quality.php',
         'jtl.options' => 'api/jtl-options.php',
         'amazon.catalog' => 'api/amazon.php',
