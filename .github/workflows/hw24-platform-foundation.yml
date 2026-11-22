@@ -30,6 +30,7 @@ jobs:
           bash -n platform/ops/upgrade-private-framework-ffonly.sh
           bash -n platform/ops/migrate-source-catalog-isolated.sh
           bash -n platform/ops/verify-legacy-readbridge-live.sh
+          python3 platform/ops/configure-private-legacy-readbridge.py --self-test
           python3 - <<'PY'
           from pathlib import Path
           raw=Path('platform/ops/verify-legacy-readbridge-live.sh').read_text()
