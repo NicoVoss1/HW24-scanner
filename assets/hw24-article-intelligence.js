@@ -33,6 +33,9 @@ function apiError(data,status){
   private_config_missing:'Amazon-Credentials oder private DB-Konfiguration fehlt.',
   site_authentication_required:'Plesk hat die Anmeldung nicht an PHP weitergereicht.',
   amazon_catalog_request_failed:'Die Amazon-SP-API hat die Katalogabfrage abgelehnt.',
+   asin_not_linked_to_jtl_article:'Diese ASIN ist im aktuellen JTL-Spiegel nicht mit der EAN verknüpft.',
+   jtl_mirror_not_current:'JTL-Spiegel ist nicht aktuell. Keine ASIN-Prüfung mit veralteter Zuordnung.',
+   amazon_auth_unavailable:'Amazon-SP-API-Anmeldung derzeit nicht möglich.',
   amazon_lookup_or_storage_unavailable:'Amazon-Lookup bzw. MariaDB-Archivierung derzeit nicht verfügbar.',
   review_storage_unavailable:'Gespeicherte KI-Auswertungen konnten nicht geladen werden.',
   daily_request_limit:'Das Tageslimit für die OpenAI-Kostenkontrolle ist erreicht.',
@@ -57,7 +60,8 @@ function propose(key,proposed,origin){
 function reset(){
  ++state.seq;state.article=null;state.ean='';state.amazon=[];
  state.aiLatest=null;state.ameise=null;state.ameiseChecks=[];
- for(const id of ['amazonResults','amazonKeywordResults','aiReviewResults','ameiseDraftFields'])$(id)?.replaceChildren();
+ for(const id of ['amazonResults','amazonKeywordResults','aiReviewResults','ameiseDraftFields','amazonAsinDirect'])$(id)?.replaceChildren();
+ $('amazonAsinDirect').hidden=true;
  message('amazonState','Für diesen Artikel ist noch keine Amazon-Katalogabfrage gestartet.');
  message('aiReviewState','KI-Archiv wird nach der Artikelauswahl kostenfrei geprüft.');
  message('ameiseDraftState','Nur bestätigte Änderungen des aktuell gewählten JTL-Artikels exportieren.');
@@ -68,6 +72,7 @@ document.addEventListener('hw24:article-loaded',ev=>{
  reset();state.article=ev.detail?.article||null;state.ean=val(state.article?.ean);
  if(!available())return;
  const seq=state.seq;
+ renderLinkedAsins();
  readAiArchive(seq).catch(()=>{}); // Fail closed when archive is unavailable.
 });
 document.addEventListener('hw24:article-curated-saved',()=>{
@@ -75,6 +80,59 @@ document.addEventListener('hw24:article-curated-saved',()=>{
  $('exportAmeiseDraft').disabled=true;$('ameiseDraftFields').replaceChildren();
  message('ameiseDraftState','HW24-Entwurf wurde geändert. Bitte freigegebene Felder neu laden.');
 });
+// Explicit Catalog Items getCatalogItem for an ASIN linked in the current JTL mirror.
+// Zero EAN search results do NOT invalidate a linked ASIN.
+function renderLinkedAsins(){
+ const box=$('amazonAsinDirect');box.replaceChildren();box.hidden=true;
+ if(!available())return;
+ const codes=new Set();
+ const push=x=>{const s=val(x).toUpperCase();
+  if(/^[A-Z0-9]{10}$/.test(s))codes.add(s);
+ };
+ push(state.article?.asin);
+ if(Array.isArray(state.article?.asin_candidates))
+  for(const candidate of state.article.asin_candidates)push(candidate?.asin);
+ if(!codes.size)return;
+ box.hidden=false;
+ el('strong',box,'Verknüpfte JTL-ASIN direkt bei Amazon.de prüfen');
+ el('p',box,'Auch bei null EAN-Treffern kann eine ASIN vorhanden sein. Die direkte Abfrage startet nur auf Deinen Klick und ändert keine Daten.','muted');
+ const select=el('select',box);
+ select.setAttribute('aria-label','ASIN aus dem JTL-Spiegel');
+ for(const asin of codes){const option=el('option',select,asin);option.value=asin;}
+ const button=el('button',box,'🔎 Ausgewählte ASIN direkt prüfen','secondary');
+ button.type='button';
+ const output=el('div',box,null,'intel-pricing');
+ button.onclick=async()=>{
+  if(!available()||state.amazonBusy)return;
+  const seq=state.seq,ean=state.ean,asin=select.value;
+  button.disabled=true;output.replaceChildren();
+  el('p',output,'Amazon.de wird für ASIN '+asin+' direkt abgefragt. Keine automatische Datenübernahme.','muted');
+  try{
+   const response=await fetch('api/amazon-asin.php?'+new URLSearchParams({ean,asin}),
+    {credentials:'same-origin',cache:'no-store'});
+   const data=await response.json();
+   if(seq!==state.seq)return;
+   if(!response.ok||!data.ok)throw Error(apiError(data,response.status));
+   output.replaceChildren();
+   if(!data.found){
+    el('p',output,'Amazon.de hat diese ASIN nicht im Katalog gefunden. Bestehende JTL-Verknüpfung bleibt unverändert.','muted');
+    return;
+   }
+   el('strong',output,val(data.title)||'Amazon-Katalogartikel ohne Titel');
+   el('p',output,'ASIN '+asin+' · Marke '+(val(data.brand)||'nicht gemeldet'),'muted');
+   const proof=data.ean_evidence==='exact_ean'?
+    '✓ Amazon meldet dieselbe EAN. Farbton, Inhalt und Packung vor Übernahme trotzdem prüfen.':
+    data.ean_evidence==='other_ean'?
+    '⚠ Amazon meldet eine andere EAN. NICHT automatisch übernehmen.':
+    '⚠ Amazon liefert keinen EAN-Nachweis. Nur manuell vergleichen.';
+   el('p',output,proof,'muted');
+   const link=el('a',output,'Artikel auf Amazon.de ansehen','detail-link');
+   link.href='https://www.amazon.de/dp/'+asin;link.target='_blank';link.rel='noopener noreferrer';
+   el('p',output,'Unverbindliche Katalogprüfung, kein Preis- oder JTL-Schreibzugriff.','muted');
+  }catch(error){if(seq===state.seq){output.replaceChildren();el('p',output,'⚠ '+error.message,'muted');}}
+  finally{button.disabled=false;}
+ };
+}
 async function amazonLookup(){
  if(!available()||state.amazonBusy)return;
  const ean=state.ean,seq=state.seq;
@@ -93,7 +151,7 @@ async function amazonLookup(){
    'Live-API-Abruf, serverseitig gespeichert')+' · '+(data.fetched_at_utc||'ohne Datumsangabe')+
     (data.has_next_page?' · weitere Treffer vorhanden':''));
   const root=$('amazonResults');
-  if(!state.amazon.length)el('p',root,'Keine passenden Amazon-Katalogeinträge zurückgegeben.','muted');
+  if(!state.amazon.length)el('p',root,'Die EAN-Suche hat keine Katalogeinträge zurückgegeben. Das widerlegt eine hinterlegte JTL-ASIN nicht. Bitte auch die direkte ASIN-Prüfung nutzen.','muted');
   for(const item of state.amazon.slice(0,12)){
    if(!item||typeof item!=='object')continue;
    const box=el('div',root,null,'intel-result');
