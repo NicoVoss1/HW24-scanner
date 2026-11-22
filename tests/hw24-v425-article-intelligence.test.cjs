@@ -42,6 +42,22 @@ assert(editor.includes("hw24:article-unloaded"),'Disconnect previous source pane
 assert(intel.includes("api/amazon.php?ean="),'Amazon existing SP endpoint');
 assert(intel.includes("api/amazon-pricing.php?asin="),'On-demand Amazon pricing by ASIN');
 assert(intel.includes("api/amazon-keywords.php?q="),'Optional keyword fallback');
+assert(intel.includes('api/amazon-asin.php?'),'Manual linked ASIN Catalog Items endpoint');
+assert(intel.includes('renderLinkedAsins()'),'Linked ASIN lookup only after article load');
+assert(amazonAsin.includes('asin_not_linked_to_jtl_article'),'Server verifies explicit current JTL ASIN mapping');
+assert(amazonAsin.includes('jtl_mirror_not_current'),'No stale JTL-ASIN cross checks');
+assert(amazonAsin.includes('marketplaceIds')&&amazonAsin.includes('get_catalog_item'),'Get Amazon.de item by ASIN');
+assert(!amazonAsin.includes("->prepare('INSERT")&&!amazonAsin.includes("->exec("),'ASIN endpoint must not write SQL data');
+assert(editor.includes('function formatJtlQuantity(input)'),'JTL fill quantity display needs normalization');
+const fn=editor.match(/function formatJtlQuantity\(input\)\{[\s\S]*?\n\}/);
+assert(fn,'Quantity formatter found');
+const formatJtlQuantity=new Function(fn[0]+';return formatJtlQuantity;')();
+assert.equal(formatJtlQuantity('90.00000000000'),'90');
+assert.equal(formatJtlQuantity('2.5000'),'2,5');
+assert.equal(formatJtlQuantity('4,7'),'4,7');
+assert.equal(formatJtlQuantity('n/a'),'n/a');
+assert(editor.includes("'HW24 TEST','HW24 LIVE'"),'LIVE must not be mislabeled TEST');
+
 assert(intel.includes("item.gtins.includes(state.ean)"),'Do not suggest ASIN from keyword search without GTIN evidence');
 assert(amazon.includes("'marketplace_id'")||amazon.includes('marketplace_id'),'Existing Amazon snapshot persistence');
 assert(intel.includes("api/ai-reviews.php?ean="),'Free archive lookup on article load');
