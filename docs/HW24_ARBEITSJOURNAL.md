@@ -415,3 +415,32 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 **Genau nächster Schritt:** Ausschließlich im vorhandenen privaten Laravel-Projekt als Site-Benutzer eine .env aus .env.example (APP_ENV=production, APP_DEBUG=false, APP_URL=https://test-artikelmanager.hairworld24.de, LOG_LEVEL=warning, SESSION_SECURE_COOKIE=true), privaten APP_KEY und SQLite-Datei für Laravel-Systemtabellen erstellen; NUR für SQLite php artisan migrate --database=sqlite --force, Filament-Assets lokal publizieren. Kein JTL-/MariaDB-Schreibvorgang, keine Webroot-Änderung, keine Secrets in GitHub oder Chat.
 
 **Danach:** Tatsächlichen SQLite-Migrationsstatus, Session-Konfiguration und Filament-Login als autorisierten User bestätigen, Legacy-Live-Browser-/API-E2E abschließen und erst dann vorhandene Testdomain auf Laravel platform/public umstellen.
+
+
+### 22.11.2026 · Private Laravel-Erstkonfiguration und SQLite-Migration erfolgreich
+
+**Quelle und Beleg:** Vollständige neue Betreiber-PuTTY-Ausgabe des Blocks `HW24_INIT`. Der am Anfang der Chatnachricht abgeschnittene Text ist nur die eingekopierte Shell-Eingabe; das Terminal bestätigt anschließend den **vollständigen Abschluss** bis `=== HW24 ERSTKONFIGURATION ERFOLGREICH ===`. Alle Schritte fanden in der bestehenden privaten Laravel-App statt; kein Plesk-Testwebroot-Cutover.
+
+| Schritt | Tatsächlicher Befund | Status |
+| --- | --- | --- |
+| 37 · Sicherheitsgates | Vorheriger Block prüfte PHP-Laravel-Autoload und Nichtvorhandensein einer bisherigen privaten `.env`-/SQLite-Datei sowie SQLite-`.gitignore`. Der folgende Ablauf erreichte die Einrichtung | **BESTÄTIGT, Gates durchlaufen** |
+| 38 · Private Laravel-.env | Aus `.env.example` als Site-User mit Modus 0600 angelegt, `APP_ENV=production`, `APP_DEBUG=false`, `APP_URL=https://test-artikelmanager.hairworld24.de`, `LOG_LEVEL=warning`, `SESSION_SECURE_COOKIE=true`, `SESSION_SAME_SITE=lax` | **BESTÄTIGT durch Skript-Erfolg**; Werte nicht erneut ausgelesen |
+| 39 · Neuer privater Laravel-Anwendungsschlüssel | `artisan key:generate --force --no-interaction` meldete `Application key set successfully` | **BESTÄTIGT**; Schlüssel **nicht** im GitHub/Chat dokumentieren |
+| 40 · Private Laravel-SQLite-Datenbank | `database/database.sqlite` als Site-User mit Modus 0600 erstellt; keine bestehende JTL-/MariaDB-Datenbank als Ziel | **BESTÄTIGT** |
+| 41 · Konfigurationscache | `artisan config:clear` meldete `Configuration cache cleared successfully` | **BESTÄTIGT** |
+| 42 · SQLite-Systemmigration vorbereiten | `artisan migrate --database=sqlite --force --no-interaction`, Migrationstabelle erfolgreich erstellt | **BESTÄTIGT** |
+| 43 · Laravel-Systemtabellen | `0001_01_01_000000_create_users_table` [1] Ran | **BESTÄTIGT** |
+| 44 · Laravel Cache | `0001_01_01_000001_create_cache_table` [1] Ran | **BESTÄTIGT** |
+| 45 · Laravel Queues/Jobs | `0001_01_01_000002_create_jobs_table` [1] Ran | **BESTÄTIGT** |
+| 46 · Preisquellen-Beobachtungen | `2026_11_22_000001_create_channel_price_observations_table` [1] Ran | **BESTÄTIGT**, nur **leere interne Plattformtabelle**, keine JTL-Preismigration |
+| 47 · Filament-Assets | `artisan filament:assets` publizierte JS, CSS und Font-Assets, meldete `Successfully published assets!` | **BESTÄTIGT** |
+| 48 · SQLite-Migrationsstatus | Vier Migrationen in Batch [1], jeweils `Ran` | **BESTÄTIGT, erfolgreich** |
+| 49 · Skriptabschluss / Isolation | `=== HW24 ERSTKONFIGURATION ERFOLGREICH ===`, `Testdomain und JTL-Datenbank unverändert`, Rückkehr an Root-PuTTY-Prompt | **BESTÄTIGT für ausgeführten Befehl** |
+
+**Status nach dieser Phase:** Laravel 13.43.0/Filament 5.12.0 mit erfolgreichem CLI-Boot, vier Admin-Routen, private .env/APP_KEY/SQLite und Filament-Assets. Legacy-V4.25 auf Live hat erwarteten Plesk-Branch/Commit und vier Datei-BLOB-Hashes. Neue Laravel-App **noch nicht im Browser veröffentlicht**. 
+
+**Wichtige offene Punkte, nicht als erledigt melden:** Filament-Administrator muss erst erstellt und seine E-Mail in privater `HW24_ADMIN_EMAIL`-Allowlist hinterlegt werden; private HTTP-Basic-Credentials für GET-only Live-Legacy-Bridge noch nicht eingerichtet; Authentifizierter Browser-/API-E2E auf Legacy-Live steht aus; Plesk-Test-Dokumentenstamm ist unverändert; serverlokal erzeugtes Composer-Lockfile noch nicht versioniert.
+
+**Exakt nächster Schritt:** Ohne Offenlegung von E-Mail/Passwort im Chat **interaktiv** nur im privaten Laravel-Projekt `HW24_ADMIN_EMAIL` setzen und `artisan make:filament-user` als Site-User starten, Nutzerpasswort verdeckt am PuTTY-Terminal eingeben. Nur erlaubter User soll das Panel betreten. Nicht `env` oder `APP_KEY` ausgeben, keine lokale/öffentliche Datenbankreset-Migration, keine Veröffentlichung des `platform/`-Gesamtverzeichnisses. Danach verantwortungsvoll die vorhandene Legacy-Live-Domain angemeldet im Browser abnehmen; Testdomain erst danach auf `platform/public` umschalten.
+
+**Chronologie-Regel:** Jeder nächste Terminal-/Browser-Befund und jede Anpassung an GitHub-Featurebranch oder Infrastruktur wird unmittelbar hier als eigener Folgeeintrag dokumentiert.
