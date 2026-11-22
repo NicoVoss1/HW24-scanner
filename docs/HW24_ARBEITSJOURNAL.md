@@ -224,6 +224,13 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - **Bevor 15-Minuten-Sync implementiert wird:** Source-Contract pro Tabelle, konsistenter Initial-Snapshot, Watermark/Long-running-Transactions, Resync nach Fehlern, Tombstones, Schemaänderungen und Rechte/PII-Beschränkung festlegen.
 - **Vor LIVE:** echte Browser-Tests und alle Draft-PR-Abhängigkeiten prüfen; keine stillen JTL- oder Amazon-API-Aktionen.
 
+### S028 | GitHub: JTL-Quellvertrag v1 als maschinenlesbare Konfiguration | **Code erstellt, TEST/LIVE nicht verändert**
+- Neue `platform/config/hw24_jtl_source_contract.php` mit ausschließlich aus Betreiber-Metadaten bestätigten PK-/Unique-Schlüsselspalten und Auswahl nachgewiesener FK-Beziehungen.
+- Tabellen mit `bRowversion` als reine `rowversion_candidate` deklariert. Amazon-/SCX-Tabellen ohne belegte rowversion als `full_reconcile_candidate`, **noch nicht implementiert**. Bestellungstabellen `restricted_order/not_approved`.
+- `enabled=false`, keine SQL-Server-Verbindung, kein Datenexport, keine Scheduler-Freischaltung, kein Marketplace-POST, keine Änderungen an JTL.
+- Zusätzlicher Test `platform/tests/Unit/JtlSourceContractTest.php`: Sperren, zusammengesetzte PKs und plausible Delta-Kandidaten. CI-Resultat für neuen HEAD separat prüfen; Tests ohne CI-Resultat **nicht** als erfolgreich behaupten.
+- **Nächster Operator-Schritt:** Read-only-Phase-4-Abfragen `platform/ops/jtl-heidisql-phase4-mapping-readonly.sql` (SQL 0–5) für JTL-Preisarten, Klartext-Status, Artikeltypen und konto-/shopbezogene Referenzen. Keine Plesk-/PuTTY-Aktionen.
+
 ## Fachlich beschlossene Zielarchitektur
 
 1. **JTL eazybusiness** bleibt maßgebliche SQL-Server-Datenbank; zunächst nur Leseinventur, DB-Backup/Wiederherstellung als getrennte Aufgabe prüfen.
