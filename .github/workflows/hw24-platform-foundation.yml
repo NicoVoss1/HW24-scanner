@@ -27,6 +27,21 @@ jobs:
           php -l platform/ops/verify-admin-routes-json.php
           bash -n platform/ops/upgrade-test-legacy-workflows-ffonly.sh
           bash -n platform/ops/upgrade-native-ai-amazon-scan-ffonly.sh
+          bash -n platform/ops/upgrade-wms-priceboard-ffonly.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('platform/ops/upgrade-wms-priceboard-ffonly.sh').read_text()
+          assert "target='0d8bb9baf85365d4c07a1c17450ec0674bac3989'" in s
+          assert 'merge --ff-only "$target"' in s
+          assert 'VACUUM INTO ?' in s
+          assert 'reset --hard "$old"' in s
+          assert 'verify-admin-routes-json.php' in s
+          assert 'admin/lager-preise' in s and 'admin/scanliste' in s
+          assert 'api/amazon-archive.php' in s
+          assert 'artisan migrate' not in s
+          assert 'plesk bin subdomain --update' not in s
+          assert "'no-store'" not in s or 'curl' in s
+          PY
           printf '%s\n' '[{"uri":"admin/scanliste"},{"uri": "admin/intelligence"},{"uri" : "admin/lager-preise"}]' | php platform/ops/verify-admin-routes-json.php admin/scanliste admin/intelligence admin/lager-preise
           if printf '%s\n' '[{"uri": "admin/scanliste"}]' | php platform/ops/verify-admin-routes-json.php admin/lager-preise 2>/dev/null; then echo 'SECURITY FAIL: missing route accepted'; exit 2; fi
           php -l api/amazon-archive.php
