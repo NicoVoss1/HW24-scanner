@@ -22,10 +22,13 @@ function gtinValid(string $ean): bool {
   for($i=strlen($ean)-2;$i>=0;$i--) { $sum+=(int)$ean[$i]*$weight; $weight=($weight===3?1:3); }
   return (10-$sum%10)%10===(int)$ean[strlen($ean)-1];
 }
-function getBatch(PDO $db, int $id, string $actor, bool $lock=false): array {
-  $sql='SELECT id,label,closed_at_utc FROM hw24_scan_batches WHERE id=? AND created_by=?';
+function getBatch(PDO $db, int $id, array $readOwners, bool $lock=false): array {
+  if(!$readOwners || count($readOwners)>6)
+    respond(403,['ok'=>false,'error'=>'owner_scope_unavailable']);
+  $marks=implode(',',array_fill(0,count($readOwners),'?'));
+  $sql="SELECT id,label,closed_at_utc FROM hw24_scan_batches WHERE id=? AND created_by IN ($marks)";
   if($lock) $sql.=' FOR UPDATE';
-  $s=$db->prepare($sql);$s->execute([$id,$actor]);$r=$s->fetch();
+  $s=$db->prepare($sql);$s->execute(array_merge([$id],$readOwners));$r=$s->fetch();
   if(!$r)respond(404,['ok'=>false,'error'=>'batch_not_found']);
   if($r['closed_at_utc']!==null)respond(409,['ok'=>false,'error'=>'batch_closed']);
   return $r;
@@ -75,7 +78,7 @@ if(($_SERVER['HTTPS']??'')!=='on' && ($_SERVER['HTTP_X_FORWARDED_PROTO']??'')!==
   respond(403,['ok'=>false,'error'=>'https_required']);
 if(strlen($actor)>180)respond(403,['ok'=>false,'error'=>'actor_invalid']);
 require_once __DIR__.'/hw24-actor-identity.php';
-$actor=hw24StoredActor($actor);
+$readOwners=hw24ReadableOwners($actor);
 $method=$_SERVER['REQUEST_METHOD']??'GET';
 if(!in_array($method,['GET','POST'],true))respond(405,['ok'=>false,'error'=>'method_not_allowed']);
 $body=[];
@@ -105,14 +108,15 @@ try {
       PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,
       PDO::ATTR_EMULATE_PREPARES=>false,PDO::ATTR_TIMEOUT=>5]);
   if($op==='batches'&&$method==='GET'){
-    $s=$pdo->prepare('SELECT id,label,created_at_utc,updated_at_utc FROM hw24_scan_batches
-                       WHERE created_by=? AND closed_at_utc IS NULL ORDER BY id DESC LIMIT 50');
-    $s->execute([$actor]);respond(200,['ok'=>true,'batches'=>$s->fetchAll()]);
+    $marks=implode(',',array_fill(0,count($readOwners),'?'));
+    $s=$pdo->prepare("SELECT id,label,created_at_utc,updated_at_utc FROM hw24_scan_batches
+                       WHERE created_by IN ($marks) AND closed_at_utc IS NULL ORDER BY id DESC LIMIT 50");
+    $s->execute($readOwners);respond(200,['ok'=>true,'batches'=>$s->fetchAll()]);
   }
   if($op==='items'&&$method==='GET'){
     $id=filter_var($_GET['batch_id']??null,FILTER_VALIDATE_INT);
     if(!$id||$id<1)respond(400,['ok'=>false,'error'=>'batch_id_required']);
-    getBatch($pdo,$id,$actor);
+    getBatch($pdo,$id,$readOwners);
     $s=$pdo->prepare('SELECT id,batch_id,ean,scan_count,resolution,jtl_article_id,
                        artikelnummer,artikelname,review_state,draft_json,source_json,revision,
                        snapshot_at_utc,first_scanned_utc,last_scanned_utc,updated_at_utc
@@ -122,7 +126,7 @@ try {
   if($op==='export'&&$method==='GET'){
     $id=filter_var($_GET['batch_id']??null,FILTER_VALIDATE_INT);
     if(!$id||$id<1)respond(400,['ok'=>false,'error'=>'batch_id_required']);
-    getBatch($pdo,$id,$actor);
+    getBatch($pdo,$id,$readOwners);
     $s=$pdo->prepare("SELECT ean,draft_json,artikelnummer,resolution,review_state FROM hw24_scan_items
                       WHERE batch_id=? AND review_state='ready' ORDER BY id LIMIT 201");
     $s->execute([$id]);$all=$s->fetchAll();
@@ -177,7 +181,7 @@ try {
     if(!$id||$id<1||!gtinValid($ean)||
        !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/D',$eventKey))
       respond(400,['ok'=>false,'error'=>'invalid_batch_gtin_or_event_key']);
-    $pdo->beginTransaction();getBatch($pdo,$id,$actor,true);
+    $pdo->beginTransaction();getBatch($pdo,$id,$readOwners,true);
     $seen=$pdo->prepare('SELECT batch_id,ean FROM hw24_scan_events WHERE client_event_key=?');
     $seen->execute([$eventKey]);$prior=$seen->fetch();
     if($prior && ((int)$prior['batch_id']!==$id || $prior['ean']!==$ean)){
@@ -222,7 +226,7 @@ try {
     if(!$batch||$batch<1||!$item||$item<1||!is_int($expected)||$expected<0||
       !in_array($action,['reduce','remove'],true))
       respond(400,['ok'=>false,'error'=>'invalid_adjust_request']);
-    $pdo->beginTransaction();getBatch($pdo,$batch,$actor,true);
+    $pdo->beginTransaction();getBatch($pdo,$batch,$readOwners,true);
     $q=$pdo->prepare('SELECT id,ean,scan_count,review_state,draft_json,revision
        FROM hw24_scan_items WHERE batch_id=? AND id=? FOR UPDATE');
     $q->execute([$batch,$item]);$old=$q->fetch();
@@ -278,7 +282,7 @@ try {
       if(isset($unique[$ean]))continue; // Duplicate source lines are not physical repeat scans.
       $unique[$ean]=true;$validated[]=['ean'=>$ean,'meta'=>$meta];
     }
-    $pdo->beginTransaction();getBatch($pdo,$batch,$actor,true);
+    $pdo->beginTransaction();getBatch($pdo,$batch,$readOwners,true);
     $find=$pdo->prepare('SELECT id,revision,review_state,source_json,draft_json,scan_count
       FROM hw24_scan_items WHERE batch_id=? AND ean=? FOR UPDATE');
     $insert=$pdo->prepare('INSERT INTO hw24_scan_items
@@ -387,7 +391,7 @@ try {
         respond(400,['ok'=>false,'error'=>'invalid_days','field'=>$k]);
       $clean[$k]=$v;
     }
-    $pdo->beginTransaction();getBatch($pdo,$batch,$actor,true);
+    $pdo->beginTransaction();getBatch($pdo,$batch,$readOwners,true);
     $s=$pdo->prepare('SELECT * FROM hw24_scan_items WHERE id=? AND batch_id=? FOR UPDATE');
     $s->execute([$item,$batch]);$old=$s->fetch();
     if(!$old){$pdo->rollBack();respond(404,['ok'=>false,'error'=>'item_not_found']);}
