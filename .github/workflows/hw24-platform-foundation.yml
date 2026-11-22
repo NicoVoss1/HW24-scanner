@@ -28,6 +28,17 @@ jobs:
           bash -n platform/ops/verify-filament-loopback-http.sh
           bash -n platform/ops/verify-testdomain-cutover-readonly.sh
           bash -n platform/ops/upgrade-private-framework-ffonly.sh
+          bash -n platform/ops/upgrade-private-framework-cockpit-ffonly.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('platform/ops/upgrade-private-framework-cockpit-ffonly.sh').read_text()
+          assert 'merge --ff-only "$target"' in s
+          assert 'view:clear' in s and 'artisan migrate' not in s
+          assert 'plesk bin subdomain --update' not in s
+          assert 'APP_KEY=' not in s and 'chmod -R' not in s
+          assert 'VACUUM INTO ?' in s
+          assert "target='b679642212ac1daace71af7abcc65fe69dc293bb'" in s
+          PY
           bash -n platform/ops/migrate-source-catalog-isolated.sh
           bash -n platform/ops/verify-legacy-readbridge-live.sh
           bash -n platform/ops/verify-filament-https-release-gates-readonly.sh
