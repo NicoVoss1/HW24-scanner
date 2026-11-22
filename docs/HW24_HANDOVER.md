@@ -1,3 +1,23 @@
+## ABGESCHLOSSEN · 22.11.2026 · HISTORISCHE LIVE-DATEN UNTER `nvoss` VERFÜGBAR
+
+**TATSÄCHLICHER BETREIBER-PuTTY-NACHWEIS (NICHT NUR TEST):** `HW24_LIVE_HISTORY_FIX` lief auf `https://artikelmanager.hairworld24.de` vollständig und erfolgreich. Vor Deploy wurde die private Actor-Delegation `nvoss=>[nvoss,hw24-test]` geprüft; bisherige drei LIVE-PHP-Datei-Git-Blobs und Test-Quell-Blobs sowie anonymer HTTPS-Schutz kontrolliert. LIVE-BACKUP ERSTELLT: `/root/hw24-backups/live-history-AJZy3nZS` mit den drei bisherigen PHP-Dateien. Genau **vier** geprüfte PHP-Dateien auf LIVE-Webroot bereitgestellt: `api/scanliste.php`, `api/ai-reviews.php`, `api/ai-review.php`, `api/hw24-actor-identity.php`; nachher erwartete 4 Git-Blob-Hashes vollständig bestätigt, anonym weiterhin HTTP 401. **Authentifizierte HTTPS-GETs unter LIVE-`nvoss` ergaben `LIVE KI-Berichte: 3` und `LIVE offene Scanlisten-Stapel: 2`; Abschluss `LIVE-HISTORIE ERFOLGREICH AKTIVIERT`, `Keine Artikel- oder Datenbankaenderungen`.** Historische Eigentümerdaten nicht umgeschrieben. Das ist die Erfüllung des eigentlichen Nutzerziels.
+
+**Vier verifizierte LIVE-API-Dateistände:**
+- `api/scanliste.php`: `1a19331fc030ef473d05cc0b94fee92fd2d436ea`
+- `api/ai-reviews.php`: `41bfe53eba6f4392e4f0f48e92828fa004ffe311`
+- `api/ai-review.php`: `aba03b6146a34698bae71fe622671945019d2db5`
+- `api/hw24-actor-identity.php`: `cb2722952bd0cad9680d919630e4b2a06ba367fc`
+
+**Ebenfalls erledigte Test-Authentifizierung:** Verwaister `hw24-test`-Eintrag wurde aus tatsächlicher TEST-`pd/d..httpdocs`-Datei gezielt per `htpasswd -D` mit privater Sicherung `/root/hw24-backups/test-pd-cleanup-4lfU4lrd/d..httpdocs.before` entfernt; **alter Testuser HTTP 401, neuer `nvoss` HTTP 200**. Keine Live-Plesk-Basic-Änderung.
+
+**OFFEN, BETRIEBSKRITISCH:** LIVE wurde mittels **kontrollierter DIREKTER Dateikopie** aktualisiert, GitHub-`deploy/staging` dabei **NICHT geändert**. Ein späterer manueller Plesk-LIVE-Git-Deploy von diesem Branch könnte die vier geprüften Live-Dateien wieder auf Alt zurücksetzen. Die vier Dateiinhalte sind bereits im PR37-Featurebranch `feature/hw24-login-alias-scan-ai-20261122`, Draft PR #37 `c2cc4e1dc054da00f01087e7221659cf54a9a482`; nur die vier Datei-BLOBs nach kontrolliertem Diff und Branch-HEAD-Abgleich dauerhaft auf `deploy/staging` übernehmen, **keinen pauschalen PR37-Merge/Live-Deploy** ohne vorherige Prüfung. Keine weiteren Plesk-/SQL-Schreibvorgänge erforderlich, um den Erfolg zu sichern, bis der Git-Branch gezielt gepflegt wird.
+
+**UI optional:** `https://artikelmanager.hairworld24.de` → `📂 Auswertungen` → `Alle letzten Prüfungen` (ohne EAN-Filter). Backend-Live nachweislich 3/3 Reports, 2/2 offene Scan-Stapel; Browser-E2E noch nicht unabhängig verifiziert. Der User war zu Recht verärgert, dass der Fokus zuvor ausschließlich Test war; zukünftige Schritte auf das **LIVE**-Ziel richten.
+
+[Quelljournal](./HW24_ARBEITSJOURNAL.md), Commit `ddc083aecd658891fbdf526db3e6e14b4b87f410`.
+
+---
+
 ### 22.11.2026 · TEST-LOGIN SICHERHEITSPROBLEM BEHOBEN: ALT 401, NVOSS 200
 
 **Direkter PuTTY-Nachweis des Nutzers:** `HW24_FIX_OLD_LOGIN` lief vollständig erfolgreich. Preflight: Plesk-DB für Test-Schutz-ID 9 `hw24-test=0`, `nvoss=1`; tatsächliche Test-Passwortdatei enthielt zuvor beide Benutzernamen. Der echte Datei-Stand wurde nach `/root/hw24-backups/test-pd-cleanup-4lfU4lrd/d..httpdocs.before` privat gesichert, dann gezielt **nur** `hw24-test` mittels `htpasswd -D /var/www/vhosts/system/test-artikelmanager.hairworld24.de/pd/d..httpdocs hw24-test` entfernt. Dateiinhaber/Modus anhand Sicherung erhalten und nur `nvoss` nachgewiesen. Anschließender tatsächlicher HTTPS-Basic-Negativtest: **`hw24-test: HTTP 401`**; Positivtest: **`nvoss: HTTP 200`**. Schlussmeldung `TESTANMELDUNG ERFOLGREICH BEREINIGT`, `Alt: gesperrt | Neu: funktionsfaehig`, `Live, Datenbank und Artikeldaten unveraendert`. KEIN Apache/nginx Restart, keine Auth-Passworthashes geteilt.
