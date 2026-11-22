@@ -640,3 +640,24 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 - [Runbook](./HW24_PREFLIGHT_FILAMENT_TESTDOMAIN_20261122.md) enthält nun das **noch nicht ausgeführte** konservative ACL-Skript für ausschließlich `public/css`, `public/js`, `public/fonts`, mit vorheriger Sicherung und automatischer Fehler-Rücknahme. Runbook-Commit `f8dc3fb875fcc0c6534713f47bb65fcf98e8a607`.
 - [Cross-Chat-Übergabe](./HW24_HANDOVER.md) und [Projektstand](./HW24_PROJEKTSTAND_AKTUELL.md) fortgeschrieben. Keine weitere Serveroperation durch die GitHub-Dokumentationsänderungen.
 - Nächster Servernachweis: Betreiberausgabe von `HW24_PUBLIC_ACL` samt expliziter Positivprobe CSS/JS und Negativprobe `.env`/SQLite/`index.php`; dann noch angemeldete Legacy-Live-Abnahme und abgesichertes Plesk-Cutover mit Rollback.
+
+
+### 22.11.2026 02:22:45 UTC · Öffentliche Filament-Asset-ACL erfolgreich freigegeben, private Daten weiterhin gesperrt
+
+**Quelle:** Betreiberausgabe aus PuTTY des vollständigen `HW24_PUBLIC_ACL`-Scripts. Der Block endete ausdrücklich mit `=== PUBLIC-ACL ERFOLGREICH ===`; das im Eingabe-Echo verrutschte Here-Document hat die tatsächliche Ausführung nicht verhindert. Der Skriptabschluss bestätigt die erfolgreichen Positiv- und Negativprüfungen.
+
+| Schritt | Beobachtetes Ergebnis | Status |
+| --- | --- | --- |
+| 95 · Verzeichnis-/Dateischutzgates | Verzeichnisstruktur `repo/platform/public/{css,js,fonts}` und Dateien geprüft; Symlink-Gates durchlaufen | **BESTÄTIGT** |
+| 96 · Root-private Rechte-Sicherung | Vor ACL-Änderung `getfacl -p` und `getfacl -R -p` der exakt betroffenen Pfade in neuem Root-Backup mit Zeitstempel `20261122T022245Z` erstellt; Backup-Dateiname wurde dem Betreiber im Terminal angezeigt, bleibt privat | **BESTÄTIGT** |
+| 97 · Minimale Durchquerungs-ACLs | `setfacl -m u:nginx:--x,u:www-data:--x` nur auf notwendigen Elternverzeichnissen `hw24-console-private`, `repo`, `platform` und `public` | **BESTÄTIGT** |
+| 98 · Öffentliche Asset-ACLs | `setfacl -R -m u:nginx:rX,u:www-data:rX` ausschließlich auf `public/css`, `public/js`, `public/fonts` | **BESTÄTIGT** |
+| 99 · Nginx-Positiv-/Negativprüfung | Ausgabe `nginx: ASSETS LESBAR, PRIVATE DATEIEN GESPERRT`, geprüft Filament CSS/JS, `.env`, SQLite und `public/index.php` | **BESTÄTIGT** |
+| 100 · Apache-Positiv-/Negativprüfung | Ausgabe `www-data: ASSETS LESBAR, PRIVATE DATEIEN GESPERRT`, identische Proben | **BESTÄTIGT** |
+| 101 · Abschluss | `=== PUBLIC-ACL ERFOLGREICH ===`, `Websites und Datenbanken unveraendert`, Root-Prompt zurück | **BESTÄTIGT** |
+
+**Sicherheitslage nach dem Schritt:** Die FPM-App läuft weiterhin als `nicovoss:psacln`. Die HTTP-Worker `nginx`/`www-data` können ausgewählte öffentliche CSS-/JS-Dateien lesen, aber **nicht** den Laravel-`.env`-Inhalt, den privaten SQLite-Inhalt oder den Frontcontroller als Quelltext. Die Rechteprüfung wurde bereits unter den tatsächlichen Unix-Identitäten ausgeführt. Die neuen ACLs sind **keine Default-ACLs**: Erneut publizierte oder neu hinzugefügte Assets könnten eine zusätzliche Rechteprüfung benötigen. Root-private Sicherung **nicht löschen**; für eine spätere Wiederherstellung den vom Betreiber ausgegebenen exakten Pfad und `setfacl --restore=<backup>` benutzen (nicht ohne Anlass ausführen).
+
+**Grenzen des Nachweises:** Keine Domain-/DocumentRoot-Umstellung, kein Auth-Browser-Test, kein Nginx-HTTP-Asset-Test und kein JTL/Amazon/OpenAI-Live-API-E2E. Die alte Plesk-Test-Git-Bereitstellung verweist weiterhin manuell auf den Legacy-Test-Webroot. Der schon bestätigte Laravel-Admin bleibt privat und noch nicht im Browser erreichbar. Kein zusätzlicher vHost und keine neue MariaDB.
+
+**Nächster vorgeschalteter Freigabeschritt:** Authentifizierten Live-Legacy-Browser-E2E auf `https://artikelmanager.hairworld24.de/artikelpflege.html?ean=3474630337398` durchführen: korrekten JTL-Artikel prüfen, eine ausdrücklich manuelle Amazon-Katalog-GET-Suche, bestehendes OpenAI-KI-Archiv GET (kein kostenpflichtiger KI-POST), und möglichst Scanlisten-/Qualitätszentrum-Erreichbarkeit. Ergebnisse samt Fehlertext dokumentieren, ohne Credentials/Sessions in Chat/GitHub. Anschließend einen **reversiblen** Plesk-Testdomain-DocumentRoot-Cutover mit altem Git-Deploymentziel, Webroot-/SSL-/Basic-Auth-/FPM-Verhalten und Rückfallplan separat planen. **Nicht sofort deployen oder das alte Git-Repository im privaten Laravel-Verzeichnis ausrollen.**
