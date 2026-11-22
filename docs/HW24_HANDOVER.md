@@ -1,3 +1,15 @@
+## AKTUELLSTER BENUTZERWUNSCH · Passwortschutz-Login für HW24 Test umbenennen (22.11.2026)
+
+**Betreiber hat eine konkrete neue Benutzerkennung für „HW-24 Test“ vorgegeben.** Aus Datenschutz-/Sicherheitsgründen wird der Login-String **nicht** im öffentlichen Repository notiert, sondern nur im aktuellen Betreiberdialog verwendet. **Die Änderung ist NOCH NICHT AUF PLESK AUSGEFÜHRT.** Kein Plugin-Zugriff auf SSH/Plesk vorhanden; die eigentliche Anmeldekonto-Umbenennung muss nach Auth-Quellenprüfung durch den Betreiber auf Plesk erfolgen. Laut [Plesk-Obsidian-Dokumentation](https://docs.plesk.com/en-US/obsidian/cli-linux/using-command-line-utilities/protdir-site-directories-protection.39417/) kann eine vorhandene Plesk-passwortgeschützte Verzeichniskennung mit `plesk bin protdir -u <VERZEICHNIS> -domain <DOMAIN> -update_user <ALT> -user_name <NEU>` geändert werden, aber **nur**, wenn Plesk den tatsächlich betroffenen Basic-Auth-Zugang verwaltet und Verzeichnis / bisherige Benutzerkennung genau geprüft wurden. Nicht blind auf der Live-Domain ausführen.
+
+**WICHTIG:** Drei historische KI-Review-Zeilen in MariaDB gehören bereits nachgewiesen zu einer *anderen* Actor-Kennung als der beim bisherigen Live-Login eingetippten. Das Ändern des Test-Logins benennt `hw24_ai_reviews.actor` **nicht** um; **keine** irreversible Massenaktualisierung der Historie! Das Betreiber-Gesamtarchiv kann stattdessen mit ausdrücklich privater, serverseitiger Berechtigung angeboten werden.
+
+**Getrennte Codearbeit noch NICHT fertig / nicht ausgerollt:** Isolierter Branch `feature/hw24-ai-archive-admin-scope-20261122` hat erste zwei Codeänderungen an Legacy-Archiv-API und UI erhalten, noch ohne Tests, ohne PR und ohne Deployment. Nicht mit Accountumbenennung verwechseln.
+
+[Einzelprotokoll der Account-Umstellungsentscheidung](./HW24_ARBEITSJOURNAL.md), Dokumentationscommit `ce0ed402f51db308c88ac15e3f48e7212f498412`.
+
+---
+
 ## VERIFIZIERTE ARCHIV-DATEN · 22.11.2026 · ALLE 3 BERICHTE EXISTIEREN
 
 **PuTTY-MariaDB-`SELECT` erfolgreich:** `hw24_ai_reviews` enthält **3** Berichte unter **1** Benutzerzuordnung für **3** verschiedene EANs. **Review ID 1 / EAN 8027483835211 vorhanden: JA**. Jüngster Review UTC `2026-11-22 01:31:34.913848`. **Kein gelöschtes/leeres Datenbankarchiv!** Live-Browser `/index.html` zeigt dennoch `0`.
