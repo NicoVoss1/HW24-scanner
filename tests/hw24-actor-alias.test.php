@@ -1,56 +1,67 @@
 <?php
 declare(strict_types=1);
+require __DIR__.'/../api/hw24-actor-identity.php';
 
-require __DIR__ . '/../api/hw24-actor-identity.php';
-
-function verify(bool $actual, string $message): void {
-    if (!$actual) {
-        fwrite(STDERR, 'FAIL: ' . $message . PHP_EOL);
-        exit(1);
-    }
+function expect(bool $ok, string $why): void {
+ if(!$ok){fwrite(STDERR, 'FAIL '.$why.PHP_EOL);exit(1);}
 }
 
-$aliases = [
-    'new-user' => 'old-user',
-    'another-user' => 'historical-owner',
-    'invalid' => '../../secrets',
-];
+$cfg=['nvoss'=>['hw24-test'], 'another'=>['old-other']];
+expect(hw24ReadOwnersFromAliases('nvoss',$cfg)===['nvoss','hw24-test'],
+ 'new login must read BOTH owner histories');
+expect(hw24ReadOwnersFromAliases('hw24-test',$cfg)===['hw24-test'],
+ 'old login must not access nvoss data');
+expect(hw24ReadOwnersFromAliases('unrelated',$cfg)===['unrelated'],
+ 'unmapped user must not access foreign history');
+expect(hw24ReadOwnersFromAliases('another',$cfg)===['another','old-other'],
+ 'delegations are per authenticated identity');
+expect(hw24ReadOwnersFromAliases('nvoss',['nvoss'=>['hw24-test','hw24-test']])
+ ===['nvoss','hw24-test'], 'duplicate keys removed');
+expect(hw24ReadOwnersFromAliases('nvoss',['nvoss'=>'hw24-test'])===['nvoss'],
+ 'malformed config fails closed');
+expect(hw24ReadOwnersFromAliases('nvoss',['nvoss'=>['../secret']])===['nvoss'],
+ 'unsafe value fails closed');
+expect(hw24ReadOwnersFromAliases('nvoss',['nvoss'=>['hw24-test','../secret']])
+ ===['nvoss'], 'partially invalid list fails closed');
+expect(hw24ReadOwnersFromAliases('nvoss',['nvoss'=>array_fill(0,6,'other')])
+ ===['nvoss'], 'oversized alias list fails closed');
+expect(hw24ReadOwnersFromAliases('',['nvoss'=>['hw24-test']])===[],
+ 'missing server auth never permits access');
 
-verify(hw24ActorFromAliases('new-user', $aliases) === 'old-user',
-    'renamed Basic login must retain stable ownership key');
-verify(hw24ActorFromAliases('old-user', $aliases) === 'old-user',
-    'historical login must retain historical owner');
-verify(hw24ActorFromAliases('unrelated', $aliases) === 'unrelated',
-    'other users must never inherit historical owner');
-verify(hw24ActorFromAliases('another-user', $aliases) === 'historical-owner',
-    'each mapping is explicit');
-verify(hw24ActorFromAliases('invalid', $aliases) === 'invalid',
-    'unsafe identity target must not be used');
-verify(hw24ActorFromAliases('  new-user  ', $aliases) === 'old-user',
-    'server login normalization preserves existing behavior');
-verify(hw24ActorFromAliases('', $aliases) === '',
-    'empty login must not acquire an identity');
-verify(hw24ActorFromAliases(str_repeat('x',181), $aliases) === str_repeat('x',181),
-    'oversized login must not resolve an alias');
+$scan=file_get_contents(__DIR__.'/../api/scanliste.php');
+$reviews=file_get_contents(__DIR__.'/../api/ai-reviews.php');
+$paid=file_get_contents(__DIR__.'/../api/ai-review.php');
+$helper=file_get_contents(__DIR__.'/../api/hw24-actor-identity.php');
 
-$scan = file_get_contents(__DIR__.'/../api/scanliste.php');
-$archive = file_get_contents(__DIR__.'/../api/ai-reviews.php');
-$review = file_get_contents(__DIR__.'/../api/ai-review.php');
-foreach (['scanliste' => $scan, 'ai archive' => $archive, 'paid AI' => $review] as $name => $code) {
-    verify(is_string($code) && str_contains($code, 'hw24StoredActor($actor)'),
-        $name.' must normalize the authenticated owner');
-    verify(str_contains($code, "require_once __DIR__.'/hw24-actor-identity.php'"),
-        $name.' must load centralized private alias');
+foreach(['scanliste'=>$scan,'AI-Archiv'=>$reviews,'AI-Kosten'=>$paid] as $label=>$file){
+ expect(is_string($file)&&str_contains($file,'hw24ReadableOwners($actor)'),
+  $label.' must use server-only owner scope');
+ expect(str_contains($file,"require_once __DIR__.'/hw24-actor-identity.php'"),
+  $label.' must use shared private mapping');
 }
-verify(str_contains($scan, 'created_by=?'),
-    'Scan batches remain owned by stable historical actor');
-verify(str_contains($archive, 'WHERE actor=?'),
-    'Normal AI archive listing remains actor-scoped');
-verify(str_contains($review, 'WHERE actor=? AND ean=?'),
-    'Existing paid AI review deduplication remains actor-scoped');
-verify(!str_contains(file_get_contents(__DIR__.'/../api/hw24-actor-identity.php'), '$_GET'),
-    'Never accept identity alias from a browser GET parameter');
-verify(!str_contains(file_get_contents(__DIR__.'/../api/hw24-actor-identity.php'), '$_POST'),
-    'Never accept identity alias from a browser POST parameter');
+expect(str_contains($scan,'created_by IN ($marks)'),
+ 'scan list and batch access include both actor IDs');
+expect(str_contains($scan,'$s->execute($readOwners)'),
+ 'batch list uses bound actor values');
+expect(str_contains($scan,'$s->execute([$label,$actor])'),
+ 'NEW batches are always owned by current Basic login');
+expect(str_contains($scan,'getBatch($pdo,$batch,$readOwners,true)'),
+ 'edits/CSV imports must be checked against authorized owners');
+expect(str_contains($scan,'VALUES (?,?,?,?)')&&str_contains($scan,'$event->execute([$id,$ean,$eventKey,$actor])'),
+ 'new scan events keep the current authenticated actor');
+expect(str_contains($scan,'$audit->execute([$item,$expected+1,$actor'),
+ 'new scan audit entries record current Basic login');
+expect(str_contains($reviews,'actor IN ($actorMarks)'),
+ 'archive summary spans authorized historic/current owners');
+expect(str_contains($reviews,"FROM hw24_ai_reviews WHERE actor IN ('.implode"),
+ 'archive list spans authorized historic/current owners');
+expect(str_contains($paid,"FROM hw24_ai_reviews WHERE actor IN ('.implode"),
+ 'paid AI reuse searches across both scopes');
+expect(str_contains($paid,'$write->execute([$actor,'),
+ 'new paid AI records still assigned to CURRENT Basic login');
+expect(!str_contains($helper,'$_GET')&&!str_contains($helper,'$_POST'),
+ 'untrusted query/body inputs cannot alter owner scope');
+expect(!str_contains($helper,'UPDATE hw24_'),
+ 'never rewrite historical actor values');
 
-echo "PASS: Private Basic-login aliases preserve Scanliste and KI ownership without DB rewrites".PHP_EOL;
+echo "PASS: Old+new scan batches and KI reports remain visible to delegated Basic user; writes stay new owner".PHP_EOL;
