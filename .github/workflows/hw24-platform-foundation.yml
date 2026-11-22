@@ -34,6 +34,19 @@ jobs:
           bash -n platform/ops/upgrade-private-framework-cockpit-ffonly.sh
           bash -n platform/ops/upgrade-test-article-layout-ffonly.sh
           bash -n platform/ops/upgrade-test-legacy-workflows-ffonly.sh
+          bash -n platform/ops/upgrade-native-ai-amazon-scan-ffonly.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('platform/ops/upgrade-native-ai-amazon-scan-ffonly.sh').read_text()
+          assert "target='aa13ff0c7b2416f547835d7badcf29a645c01b5b'" in s
+          assert 'merge --ff-only "$target"' in s
+          assert 'VACUUM INTO ?' in s
+          assert 'reset --hard "$old"' in s
+          assert 'plesk bin subdomain --update' not in s
+          assert 'artisan migrate' not in s
+          assert 'api/amazon-archive.php' in s
+          assert 'scanliste' in s and 'intelligence' in s
+          PY
           python3 - <<'PY'
           from pathlib import Path
           p=Path('platform/ops/upgrade-test-legacy-workflows-ffonly.sh').read_text()
