@@ -1,3 +1,17 @@
+## LATEST 22.11.2026 · TEST GIT-BRANCH-ROLLBACK VERIFIZIERT, KORRIGIERTER SELECT-BLOCK VERFÜGBAR
+
+**Neue PuTTY-Ausgabe bestätigt** nach dem von falscher Commit-Ausgabeform ausgelösten Abbruch: Plesk-Test-Git `HW24-scanner.git` ist **erfolgreich wieder auf `deploy/staging`** (Deployment mode `manual`, Deployment path `/test-artikelmanager.HAIRWORLD24.de`) zurückgestellt. Die tatsächlichen Test-Webroot-Blob-SHAs sind unverändert: `api/scanliste.php=e9fb8075c4f532d7a76adf81e760acf81cab4528`, `api/ai-reviews.php=00fb61c9d636434cdc6562edf169811a717c0911`, `api/ai-review.php=2eabde207434b8c62162dc553354cd052c6ec98f`. `api/hw24-actor-identity.php` fehlt. Damit **kein PR37-Deploy erfolgt, kein Alias auf Plesk aktiviert**. Weder Login/DB noch Live wurden geändert.
+
+**GitHub-Kontext frisch verifiziert:** [Draft PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37), HEAD `c2cc4e1dc054da00f01087e7221659cf54a9a482`, Base `deploy/staging`, CI #44978360796 und #44978357305 success. Vorliegendes privates Backup `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz` mit SHA256 `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26` bleibt intakt.
+
+**EXAKT NÄCHSTER EINZELBEFEHL:** **NEUER** `HW24_PR37_SELECT`-Block **ganz oben** in [Runbook](./HW24_LOGIN_IDENTITAETSWECHSEL_20261122.md), Commit `5ab2e944be27e6eca4e51df34f2492e90d622ac9`. Er prüft das existierende Backup, erwartete alte Test-PHP-Dateihashes, manuelle Plesk-Git-Branchkonfiguration, setzt **NUR auf TEST** die Git-Metadaten auf den exakt gepinnten PR37-Featurebranch, extrahiert aus der **mehrzeiligen** Plesk-Commitinfo mithilfe von `sed -nE 's/^commit[[:space:]]+([0-9a-f]{40}).*/\1/p'` ausschließlich SHA und verifiziert erneut die **unveränderten** Webdateien. **Kein Deploy** im Block, keine Plesk-Basic-Umbenennung. Das vorherige falsche `HW24_PR37_BRANCH_ONLY` weiter unten im Runbook nicht wiederverwenden.
+
+**Geschäftsdaten sicher erhalten:** 3 KI-Archivberichte unter `hw24-test`, Scanliste 2 Stapel geteilt 1 `hw24-test` und 1 `nvoss`. Der neue PR37-Code erlaubt bei **privat konfigurierter** Betreiberdelegation beiden Ownern Einsicht, verwendet den aktuell angemeldeten Benutzernamen für alle neuen Änderungen. Aktuell noch **nicht auf dem Server**.
+
+[Neuer chronologischer Eintrag](./HW24_ARBEITSJOURNAL.md), Commit `6382a2816283aa8f0380c70d7d63977e4199b147`.
+
+---
+
 ## NÄCHSTE EINZELAKTION · 22.11.2026 · Plesk PR37-Git-SHA richtig, Status nach fehlerhaftem Parser OFFEN
 
 **PuTTY-Evidenz:** Backup SHA erfolgreich kontrolliert; Plesk TEST-Git-Repository `HW24-scanner.git` zunächst `deploy/staging` / manuell. `plesk ext git --fetch` und `plesk ext git --update -active-branch feature/hw24-login-alias-scan-ai-20261122` liefen ohne sichtbaren Fehler. Danach Abbruch `STOP: Unerwarteter Commit` **NUR WEGEN FEHLERHAFTEM AUSGABEPARSER**: `--get-last-commit` zeigt einen vollständigen mehrzeiligen `commit c2cc4e1dc054da00f01087e7221659cf54a9a482\nAuthor ...\nDate ...\nmessage`-Block, nicht eine nackte SHA. **Die ausgegebene Commit-ID entspricht dem erwarteten PR37-HEAD**.
