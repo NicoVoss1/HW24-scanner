@@ -114,6 +114,10 @@ final class WarehouseAndPriceBoardTest extends TestCase
 
     public function test_confirmed_active_seller_price_requires_actual_source_account_and_freshness(): void
     {
+        // Laravel tests use a separate in-memory SQLite connection. Run only
+        // the isolated PLATFORM price-observation migration inside this test.
+        $priceMigration = require database_path('migrations/2026_11_22_000001_create_channel_price_observations_table.php');
+        $priceMigration->up();
         $now=now('UTC');
         DB::table('channel_price_observations')->insert([
             [
