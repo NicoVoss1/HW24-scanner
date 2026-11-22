@@ -81,6 +81,47 @@
             </div>
         </section>
 
+        <section class="hw24-card">
+            <div class="hw24-card-head"><h3>02 · Neue Stapel anlegen und EANs direkt in Filament scannen</h3></div>
+            <div class="hw24-card-body">
+                <p class="hw24-description">Die Daten landen in den bestehenden HW24-MariaDB-Tabellen. Kein neuer Datenbestand, keine Wawi-Buchung. Der Schreibzugang ist zusätzlich durch eine private Serverfreigabe geschützt.</p>
+                @if(!$this->canWriteScan())
+                    <p class="hw24-note hw24-note-warn">Die private Freigabe für Scan-Schreibaktionen ist noch deaktiviert. Bestehende Scan-Stapel können weiterhin gelesen werden. Du kannst bis zur Freigabe die bisherige Scanner-Oberfläche nutzen.</p>
+                @endif
+                <div class="hw24-action" style="margin:10px 0">
+                    <label for="hw24-newbatch" style="font-size:12px;font-weight:750;flex:1 1 230px">
+                        Neuen Scan-Stapel benennen
+                        <input class="hw24-btn" style="display:block;width:100%;text-align:left;margin-top:5px" id="hw24-newbatch" type="text" maxlength="160" wire:model="newBatchLabel" placeholder="z. B. Warenlieferung 22.11.2026">
+                    </label>
+                    <button type="button" class="hw24-btn" wire:click="createBatch"
+                            wire:confirm="Neuen Scan-Stapel in der vorhandenen HW24-MariaDB anlegen?"
+                            wire:loading.attr="disabled" wire:target="createBatch"
+                            @disabled(!$this->canWriteScan() || !$confirmScanWrite)>Neuen Stapel speichern</button>
+                </div>
+                <div class="hw24-action" style="margin:10px 0">
+                    <label for="hw24-scan-ean" style="font-size:12px;font-weight:750;flex:1 1 230px">
+                        EAN / GTIN im gewählten Stapel erfassen
+                        <input class="hw24-btn" style="display:block;width:100%;text-align:left;margin-top:5px" id="hw24-scan-ean" type="search" maxlength="14" inputmode="numeric" autocomplete="off"
+                            wire:model="scanEan" placeholder="Barcode scannen oder eintippen">
+                    </label>
+                    <button type="button" class="hw24-btn" wire:click="scanEanIntoBatch"
+                            wire:confirm="Diese EAN jetzt verbindlich in den ausgewählten HW24-Scan-Stapel schreiben? Keine JTL-Buchung."
+                            wire:loading.attr="disabled" wire:target="scanEanIntoBatch"
+                            @disabled(!$this->canWriteScan() || !$confirmScanWrite || $selectedBatchId === null)>EAN speichern</button>
+                </div>
+                <label style="font-size:12px;line-height:1.6;display:flex;gap:9px;align-items:center;margin-top:10px">
+                    <input type="checkbox" wire:model.live="confirmScanWrite">
+                    <span>Ich bestätige ausdrücklich das Speichern in der bestehenden Scanliste. Keine Lager-/Bestandsbuchung.</span>
+                </label>
+                @if($actionState !== [])
+                    <p class="hw24-note {{ ($actionState['ok']??false) ? '' : 'hw24-note-warn' }}" role="status">
+                        {{ $actionState['message'] }}
+                        @if(($actionState['http']??null)!==null) · HTTP {{ $actionState['http'] }} @endif
+                    </p>
+                @endif
+            </div>
+        </section>
+
         @if($selectedBatchId !== null)
             <section class="hw24-card">
                 <div class="hw24-card-head"><h3>02 · Gespeicherte Positionen aus Stapel {{ $selectedBatchId }}</h3></div>
@@ -110,6 +151,27 @@
                 </div>
             </section>
         @endif
+
+        <section class="hw24-card">
+            <div class="hw24-card-head"><h3>04 · JTL-Ameise-Prüfexport direkt in Filament</h3></div>
+            <div class="hw24-card-body">
+                <p class="hw24-description">Die bestehende Scanlisten-API prüft vor dem CSV-Export den aktuellen JTL-Snapshot, freigegebene Neuanlagen, doppelte Artikelnummern und Pflichtfelder. Maximal 200 freigegebene Positionen. Nur ein Prüfexport, kein JTL-Direktimport.</p>
+                <div class="hw24-action">
+                    <button type="button" class="hw24-btn" wire:click="prepareAmeiseExport" wire:loading.attr="disabled" wire:target="prepareAmeiseExport" @disabled($selectedBatchId === null)>Freigegebene Positionen prüfen</button>
+                    @if(($exportState['ok']??false)===true)
+                        <button type="button" class="hw24-btn" wire:click="downloadAmeiseCsv"
+                                wire:confirm="Ameise-Prüf-CSV für {{ $exportState['count'] }} bestätigte Neuanlagen herunterladen? Dies ist KEIN Import in JTL-Wawi."
+                                wire:loading.attr="disabled" wire:target="downloadAmeiseCsv">CSV-Prüfexport herunterladen</button>
+                    @endif
+                </div>
+                @if($exportState !== [])
+                    <p class="hw24-note {{ ($exportState['ok']??false) ? '' : 'hw24-note-warn' }}" role="status">{{ $exportState['message'] }}
+                        @if(($exportState['count']??null)!==null) · {{ $exportState['count'] }} freigegebene Positionen @endif
+                    </p>
+                @endif
+                <p class="hw24-note hw24-note-warn">Vor einem echten JTL-Ameise-Import: Feldzuordnung, Preistypen, Steuersätze und Artikelnummern prüfen, JTL-Datenbank sichern und einen Import-Trockenlauf durchführen. Niemals einen automatischen Import in Wawi auslösen.</p>
+            </div>
+        </section>
 
         <section class="hw24-card">
             <div class="hw24-card-head"><h3>03 · Alle vorhandenen Scan-Funktionen weiter nutzen</h3></div>
