@@ -185,8 +185,16 @@ function createField(target,definition){
  control.disabled=!state.sourceFresh||!gtinGood(val(state.article?.ean));
  const hint=el('small',box,null,'source');
  const origin=val(old);
- const provenance=approved!==null?'HW24 freigegebener Entwurf · JTL: '+(origin||'leer'):
+ let provenance=approved!==null?'HW24 freigegebener Entwurf · JTL: '+(origin||'leer'):
    (origin?'Aus JTL-Spiegel':'In JTL nicht belegt');
+ if(key==='Brutto-VK'&&approved===null)
+   provenance=origin?'JTL-Brutto-VK · '+(state.article?.brutto_vk_source||'verifizierte Quelle'):
+     'Brutto-VK: verifizierte JTL-Preisquelle noch nicht im Spiegel zugeordnet. Kein errechneter Wert.';
+ if(key==='Artikeltyp'&&approved===null&&!origin)
+   provenance='Artikeltyp in der aktuellen JTL-Synchronisation noch nicht eindeutig aufgelöst.';
+ if(key==='Lieferstatus'&&approved===null&&!origin)
+   provenance='Lieferstatus-ID '+(val(state.article?.jtl_source_fields?.kLieferStatus)||'unbekannt')+
+    ' · Klartextzuordnung fehlt im derzeitigen JTL-Spiegel.';
  hint.textContent=provenance;
  if(approved!==null)hint.classList.add('edited');
  if(!current)hint.classList.add('missing-label');
@@ -245,6 +253,7 @@ function render(){
 }
 async function loadArticle(query){
  const request=++state.latestRequest;
+ document.dispatchEvent(new CustomEvent('hw24:article-unloaded'));
  $('confirmHaircolor').checked=false;
  $('productView').hidden=true;
  state.article=null;state.sourceFresh=false;
@@ -282,6 +291,9 @@ async function loadArticle(query){
   $('identifier').value=query;
   $('productView').hidden=false;render();
   status('✓ Aktueller JTL-Snapshot und HW24-Entwurf geöffnet. Nur bestätigte Änderungsfelder werden gespeichert.','success');
+  document.dispatchEvent(new CustomEvent('hw24:article-loaded',{detail:{
+    article,revision:state.revision,approved:state.approved,snapshotAt:data.snapshot_at
+  }}));
   if(query===referenceEan)document.getElementById('referenceStatus').textContent='Diese EAN ist die Haarfarben-Referenz. Einstellungen werden rechts verglichen.';
  }catch(e){if(request===state.latestRequest)status(e.message,'error')}
 }
@@ -413,7 +425,7 @@ $('lookupForm').addEventListener('submit',e=>{
  }
  loadArticle(id);
 });
-$('clearArticle').onclick=()=>{state.latestRequest++;$('identifier').value='';$('productView').hidden=true;state.article=null;status('Artikelwahl zurückgesetzt.');$('identifier').focus()};
+$('clearArticle').onclick=()=>{document.dispatchEvent(new CustomEvent('hw24:article-unloaded'));state.latestRequest++;$('identifier').value='';$('productView').hidden=true;state.article=null;status('Artikelwahl zurückgesetzt.');$('identifier').focus()};
 $('discardChanges').onclick=()=>{
  for(const [k,entry] of state.controls)entry.control.value=state.initial.get(k);
  renderChanges();status('Nicht gespeicherte Änderungen verworfen.');
@@ -444,6 +456,9 @@ $('editForm').addEventListener('submit',async e=>{
   render();
   status('✓ '+keys.length+' Feldänderungen in HW24 gespeichert (Rev. '+state.revision+
    '). JTL-Wawi und Shopify sind unverändert.','success');
+  document.dispatchEvent(new CustomEvent('hw24:article-curated-saved',{detail:{
+    ean:state.article.ean,revision:state.revision,approved:state.approved
+  }}));
  }catch(error){status('Speicherung abgebrochen: '+error.message,'error')}
  finally{state.saving=false;renderChanges();}
 });
