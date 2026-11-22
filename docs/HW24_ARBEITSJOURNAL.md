@@ -352,3 +352,23 @@
 **OFFEN (nicht als abgeschlossen melden):** Repo-HEAD-Prüfung als Site-Benutzer, Composer-/Vendor-Installation, private Laravel-Konfiguration, separate Laravel-SQLite, Live-Webroot-Hash-/Browser-E2E, Umschaltung der Testdomain auf `platform/public`, echte JTL-/Amazon-/OpenAI-API-End-to-End-Abnahme.
 
 **Nächste Betreiberaktion:** Schon vorhandenen privaten Klon als Besitzer `nicovoss` auf erwarteten Head `980bcce75a0a3516b7b6364fae5a0fa6aab8d112` prüfen. Nur dann Composer im privaten `repo/platform` mit PHP 8.4 als `nicovoss` installieren, niemals als Root und ohne neue Git-Klone. Kommende PuTTY-Ausgabe unmittelbar hier dokumentieren.
+
+
+### 22.11.2026 · Installationsversuch: Plesk-Composer-Wrapper identifiziert
+
+**BESTÄTIGT (Nutzer, PuTTY):** In separater Bash-Subshell mit `set -euo pipefail` wurde der vorhandene private Git-Klon mit `runuser -u nicovoss -- git -C "$repo" rev-parse HEAD` erfolgreich gelesen. Tatsächlicher Repo-HEAD exakt `980bcce75a0a3516b7b6364fae5a0fa6aab8d112`. Der vorherige `dubious ownership`-Fehler ist dadurch **ohne globale Safe-Directory-Ausnahme** überwunden.
+
+**FEHLVERSUCH:** `runuser -u nicovoss -- /opt/plesk/php/8.4/bin/php "$(command -v composer)" --working-dir=... install ...` gab den **Text** des Plesk-Shell-Wrappers aus:
+```text
+# Copyright 1999-2020. Plesk International GmbH. All Rights Reserved.
+COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
+...
+"$COMPOSER_BIN" "$@"
+```
+**Ursache:** `command -v composer` zeigt auf einen **Shell-Wrapper**, nicht direkt auf ein PHP-PHAR. Wenn `php` den Shell-Wrapper statt des PHAR interpretiert, gibt es dessen Shell-Text aus und **führt Composer nicht aus**. Da anschließend der `vendor/autoload.php`-Existenztest fehlschlug, endete die separate Subshell, und PuTTY blieb offen. **Kein Nachweis einer durchgeführten Composer-Installation oder erstellten Vendor-Ordnerstruktur.**
+
+**KORREKTUR, noch nicht durch den Nutzer ausgeführt:** `/opt/plesk/php/8.4/bin/php /opt/psa/var/modules/composer/composer.phar install --working-dir="$platform" ...` unter `runuser -u nicovoss --`. PHAR zunächst auf Existenz prüfen und Composer-Version mit explizitem PHP-8.4-Binary anzeigen. Danach Composer-Install nur im bestehenden privaten `repo/platform`, ohne neuen Clone, ohne Änderung von Plesk-Domains, MariaDB oder JTL, und als eigene Bash-Subshell. Falls `composer.lock` fehlt, löst `composer install` Pakete neu auf; das für reproduzierbare Builds anschließend prüfen/dokumentieren.
+
+**Bisher abgeschlossen:** Privater Klon mit korrektem HEAD. **Offen:** Composer erfolgreich installiert, `platform/vendor/autoload.php` vorhanden, Package-/Runtime-Tests, private Laravel-Umgebung, Live-V4.25-Webroot-/Browserabnahme und Test-Webroot-Umschaltung.
+
+**Dokumentationspflicht:** Dieser Fehler ist chronologisch protokolliert, nicht verschwiegen oder rückwirkend als Erfolg umgedeutet. Exakt nächste Aktion: PHAR-basierten PHP-8.4-Composer-Aufruf durchführen und Ausgabe vollständig prüfen.
