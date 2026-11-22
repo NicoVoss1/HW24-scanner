@@ -1,3 +1,13 @@
+## Aktuelle Ergänzung zum geplanten Basic-Loginwechsel · 22.11.2026
+
+**Betreiber hat bestätigt, dass keine separate Passwortrücksetzung für den beabsichtigten Benutzernamenwechsel benötigt wird.** Aus Sicherheitsgründen werden Einzelheiten vorhandener Anmeldegeheimnisse **nicht** in diesem öffentlichen Repository protokolliert oder angezeigt. Ein Passwort ist kein Eigentümerschlüssel: Gespeicherte KI-Berichte bleiben an `actor`, Scanlisten-Stapel an `created_by` gebunden.
+
+**Nachgewiesen:** 3 bestehende KI-Reviews unter der bisherigen HTTP-Basic-Kennung; 2 Scanlisten-Stapel, davon 1 unter der bisherigen, 1 bereits unter der zukünftigen Kennung. **Draft [PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37)** implementiert eine opt-in, serverseitig private Mehr-Owner-Lesezuordnung und erhält die Urheberschaft neuer Vorgänge. Beide aktuellen GitHub-CI-Läufe `44978357305` und `44978360796` grün; **kein** Plesk-Deploy/Benutzerwechsel ausgeführt.
+
+**Unverändert nächster Schritt:** Read-only Plesk-Schema/Authentifizierungsquelle mit `HW24_PLESK_SCHEMA` aus [Login-Rolloutanleitung](./HW24_LOGIN_IDENTITAETSWECHSEL_20261122.md) klären, danach Backup/Rollback und getrennte Plesk-Loginprüfung. Kein Passwort in PuTTY-Ausgabe/Chat/GitHub teilen. Im Rahmen der Sicherheitsabnahme altes, nicht mehr benötigtes Login später deaktivieren und neue Anmeldegeheimnisse eigenständig halten.
+
+---
+
 ## NEUESTER ARBEITSSTAND · 22.11.2026 · HTTP-Basic-Loginwechsel betrifft Scanliste UND KI-Archiv
 
 **Korrigierter Betreiberwunsch:** Die bestehende HTTP-Basic-Benutzerkennung soll für den Artikelmanager und die Scanliste auf einen neuen gewünschten Namen umgestellt werden. Im vorherigen Chat wurde der alte Loginname mit einer Bereichsbeschriftung verwechselt; **älteres Plesk-Rename-Skript nicht ausführen**. Die beiden konkreten Benutzernamen bleiben im aktuellen Betreiberdialog und werden nicht im öffentlichen GitHub-Kontext gespeichert.
