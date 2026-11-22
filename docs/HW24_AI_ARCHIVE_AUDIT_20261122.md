@@ -117,3 +117,78 @@ HW24_AI_ARCHIVE_AUDIT
 - **Abnahme:** Mindestens den früher nachgewiesenen Bericht ID 1 / EAN 8027483835211 **mit passender Berechtigung** erneut sichtbar machen; Archivliste vollständig paginieren; keine ungeprüften ASIN-Identitäten; 403/keine fremden Berichte für nicht berechtigte Nutzer; Null neue OpenAI-Kosten; manuelle Plesk-Bereitstellung und Rollback erst nach bestandenen Tests.
 
 **Status:** Der vollständige aktuelle Datenbankbestand wurde in dieser ChatGPT-Sitzung nicht direkt ausgelesen. Es wird **kein** Zugriff auf die private Plesk-MariaDB behauptet. Der Betreiber kann das Script direkt per PuTTY ausführen, danach kann die genaue Korrektur auf einem isolierten GitHub-Branch implementiert und geprüft werden.
+
+
+## 22.11.2026 · Tatsächliche SQL-Bestandsaufnahme erfolgreich, Live-Actor-Filter als nächste Ursache eingrenzen
+
+**Vom Betreiber per PuTTY bestätigt, read-only:** Die bereits bestehende MariaDB `hw24_artikelmanager` ist mit der bestehenden privaten Konfiguration erreichbar. `hw24_ai_reviews` enthält **3 gespeicherte Berichte**, **1 unterschiedliche Actor-Zuordnung** und **3 unterschiedliche EANs**. Der historische Bericht ID **1** / EAN **8027483835211** ist **vorhanden**. Jüngster Datensatz `2026-11-22 01:31:34.913848` UTC. Damit ist die Archive-Datenbank **nicht leer**. Die Live-Browseransicht zeigte dennoch **0**. [Einzelnachweis](./HW24_ARBEITSJOURNAL.md), Commit `0186b16f11b05be120cc988aae2fdc12ac26d4be`.
+
+Der vorrangige Verdacht ist jetzt der **`WHERE actor=?`-Benutzerfilter**. Bevor Adminrechte eingeführt oder Code verändert wird, nur den aktuell verwendeten HTTP-Basic-Nutzernamen gegen die unveränderte MariaDB-Benutzerzuordnung vergleichen.
+
+### Nächster nur lesender Test: aktuelle Live-Basic-Benutzerkennung mit Archiv-Actor vergleichen
+
+**Achtung:** Bitte bei der Aufforderung **ausschließlich den Benutzernamen der Browser-HTTP-Basic-Anmeldung für `artikelmanager.hairworld24.de` eingeben, niemals das Passwort oder die Laravel-Admin-E-Mail, falls diese nicht der HTTP-Basic-Anmeldung entspricht.** Der eingegebene Name wird verdeckt am Terminal aufgenommen und nur über STDIN an die PHP-CLI übergeben; er wird nicht im Shell-Commandline-Argument oder Terminalergebnis angezeigt. Es gibt **keinen** Plesk-, SQL- oder Archiv-Schreibzugriff.
+
+```bash
+bash <<'HW24_ACTOR_MATCH'
+set -euo pipefail
+
+echo "=== HW24 ARCHIV-BENUTZERZUORDNUNG ==="
+echo "Gib NUR den Browser-Basic-Auth-Benutzernamen der Live-Artikelmanager-Domain ein."
+IFS= read -r -s -p "Live-Basic-Benutzername (Eingabe verdeckt): " actor </dev/tty
+echo
+test -n "$actor" || { echo "STOP: Kein Benutzername eingegeben"; exit 1; }
+
+printf '%s' "$actor" | runuser -u nicovoss --   /opt/plesk/php/8.5/bin/php -r '
+$actor = stream_get_contents(STDIN);
+if (!is_string($actor) || $actor === "") {
+    echo "STOP: Kein Login-Kontext\n";
+    exit(2);
+}
+$path="/var/www/vhosts/hairworld24.de/hw24_private/scanlist-db.php";
+if (!is_readable($path)) {
+    echo "STOP: Private DB-Konfiguration nicht lesbar\n";
+    exit(2);
+}
+try {
+    $cfg=require $path;
+    if (!is_array($cfg) || empty($cfg["user"]) ||
+        !array_key_exists("password",$cfg)) {
+        echo "STOP: DB-Konfiguration unvollstaendig\n";
+        exit(2);
+    }
+    $db=new PDO(
+        "mysql:host=127.0.0.1;port=3306;dbname=hw24_artikelmanager;charset=utf8mb4",
+        (string)$cfg["user"],
+        (string)$cfg["password"],
+        [
+          PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,
+          PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,
+          PDO::ATTR_EMULATE_PREPARES=>false,
+          PDO::ATTR_TIMEOUT=>5
+        ]
+    );
+    $all=(int)$db->query("SELECT COUNT(*) FROM hw24_ai_reviews")->fetchColumn();
+    $stmt=$db->prepare("SELECT COUNT(*) FROM hw24_ai_reviews WHERE actor=?");
+    $stmt->execute([$actor]);
+    $own=(int)$stmt->fetchColumn();
+    echo "Archiv gesamt: ".$all."\n";
+    echo "Berichte fuer eingegebene Live-Basic-Kennung: ".$own."\n";
+    echo "Davon fuer andere Kennung(en): ".($all-$own)."\n";
+    echo "READ-ONLY-BENUTZERABGLEICH ERFOLGREICH\n";
+} catch(Throwable $e) {
+    echo "FEHLER: ".get_class($e)." / ".$e->getCode()."\n";
+    exit(2);
+}
+'
+unset actor
+echo "=== BENUTZERZUORDNUNGSPRUEFUNG ABGESCHLOSSEN ==="
+HW24_ACTOR_MATCH
+```
+
+**Auswertung:** 
+- `Archiv gesamt: 3` / `Berichte fuer eingegebene Live-Basic-Kennung: 0` = **Actor-Mismatch für diese eingegebene Kennung nachgewiesen**. Die Berichte sind in der DB erhalten; sichere Betreiber-Gesamtarchivberechtigung einrichten, statt einen globalen Public-Endpoint zu öffnen.
+- `Archiv gesamt: 3` / `...: 3` = die eingegebene Login-Kennung entspricht dem einzigen historischen Actor. Dann **nur** den echten HTTP-PHP-Actor-Kontext, Frontend-EAN-Filter/Request und Response im angemeldeten Browser prüfen. Nicht einfach den Scope entfernen.
+- `0` in der DB, 503/Abfragefehler oder anderer Gesamtwert = Zustand neu bewerten und **nicht** als früheres Ergebnis wiederholen.
+
+**Ziel nach Ergebnis:** Sicherer Admin-Gesamtarchivzugriff **nur für einen serverseitig ausdrücklich autorisierten Operator**, reguläre User-Archive weiterhin actor-gebunden. Drei Original-MariaDB-Einträge unangetastet und kostenfrei abrufbar; vollständiger EAN-/Titel-/Datumsfilter und Pagination in der neuen Intelligence Console erst nach Zugriffsabnahme. Keine neue kostenpflichtige OpenAI-Prüfung, keine ungesicherten Datenexporte.
