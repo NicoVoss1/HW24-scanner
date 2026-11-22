@@ -875,3 +875,19 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 - Draft PR #37 mit Dual-Owner-Lesen und aktuellen Write-/Audit-Namen, zwei grüne GitHub-CI-Läufe; **noch nicht auf dem Server angewendet**.
 - Kurz-Übergabe durch Dokumentations-Commit `b3fcd10e44bf00e37e5aa31869954bb4fb9ea990` aktualisiert, ohne Geheimnisse zu nennen.
 - Nächster technischer Schritt bleibt unverändert die **nur lesende** `HW24_PLESK_SCHEMA`-Abfrage, damit die zuvor gescheiterte Spaltenannahme `pd.name` korrigiert und die tatsächliche Passwortschutzkonfiguration vor einer Kontenumstellung inventarisiert werden kann.
+
+
+### 22.11.2026 · Plesk-Passwortschutzschema über information_schema read-only verifiziert
+
+**Beleg:** Neue Betreiber-PuTTY-Ausgabe des vollständigen Blocks `HW24_PLESK_SCHEMA`. Der vorherige `HW24_LOGIN_CHECK` hat bei der Plesk-Abfrage wegen falscher Spalte `protected_dirs.name` den Fehler 1054 ausgelöst, aber die MariaDB-Bestandszählung separat erfolgreich beendet. Die neue, reine Schema-Abfrage war erfolgreich.
+
+| Schritt | Ermitteltes Schema | Status |
+| --- | --- | --- |
+| 151 · `domains` | Existent; relevante Felder `id`, `name`, `parentDomainId` u. a. | **VERIFIZIERT** |
+| 152 · `pd_users` | Existent; Felder `id`, `login`, `account_id`, `pd_id` | **VERIFIZIERT** |
+| 153 · `protected_dirs` | Existent; Felder `id`, `non_ssl`, `ssl`, `realm`, **`path`**, `dom_id`, `dom_type`, `cgi_bin`; **keine** Spalte `name` | **VERIFIZIERT** |
+| 154 · Abschluss | `PRUEFUNG ABGESCHLOSSEN`, SSH-Prompt wieder da | **BESTÄTIGT, keine Plesk-/DB-Änderung** |
+
+**Konsequenz:** Künftiger nur lesender Login-Inventur-SQL muss `pd.path` verwenden und Benutzer über `pu.pd_id=pd.id`, Subdomain über `pd.dom_id=d.id` verknüpfen. `realm` ist nur eine Bezeichnung, nicht der Login. Die tatsächliche Plesk-Accountverwaltung und Schutzpfade sind weiterhin **nicht nachgewiesen**, bis diese korrigierte `SELECT`-Abfrage ausgeführt wurde. Die zuvor bestätigten DB-Werte bleiben unverändert: KI-Archiv 3 Zeilen unter historischem Login, Scanliste 2 Stapel (je 1 unter historischer/neuer Kennung). **Es wurde weder ein Konto umbenannt noch eine Aliasdatei serverseitig angelegt noch ein Code-Branch deployed.**
+
+**Nächster Befehl:** Korrigierte Plesk-Leseabfrage mit `pd.path`, `pd.realm`, `pu.login` für exakt bestehende Live- und Testdomain sowie bisherige/geplante Login-Kennungen. Keine Passwort-Hashes, keine privaten Dateien, kein SQL-UPDATE. Wenn keine Treffer, Nginx/Apache-/htpasswd-Authquelle separat nur lesend ermitteln. **PR #37** enthält die auf tatsächliche Bestandslage korrigierte Zwei-Owner-Unterstützung und zwei erfolgreich absolvierte CI-Runs, bleibt **Draft und nicht deployed**.
