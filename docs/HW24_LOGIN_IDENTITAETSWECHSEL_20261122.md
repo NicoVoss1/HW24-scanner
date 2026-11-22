@@ -1,3 +1,52 @@
+## DOMAIN-ZUORDNUNG ENDGÜLTIG BESTÄTIGT · 22.11.2026
+
+**PuTTY-Beleg:** `domains.id=9` ist **LIVE** `artikelmanager.hairworld24.de`, `protected_dirs.id=8`, bestehender Haupt-Basic-Benutzer; `domains.id=10` ist **TEST** `test-artikelmanager.hairworld24.de`, `protected_dirs.id=9`, bisheriger Test-Basic-Benutzer. Beide Schutzpfade sind Root (DB-Feld `path` leer), `dom_type=domain`, Plesk Hostingtyp `vrt_hst`. Gemeinsamer `parentDomainId=5`. `plesk-stat` auf `dom_id=1` völlig ausklammern.
+
+**Passendes Original-Dateninventar:** Drei KI-Reviews unter historischer Testkennung, zwei Scanlisten-Stapel je einer unter altem Test- und neuem Login. Das Problem ist **nicht** ein fehlendes Archiv, sondern ein Besitzer-Filter. Der bereits vorhandene `nvoss`-Stapel darf nicht verschwinden. Die zwei-Owner-PHP-Korrektur liegt in [Draft PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37), aktuell CI grün, aber **nicht deployed**.
+
+**Offiziell dokumentiert:** `plesk bin protdir -u <dir> -domain <domain> -update_user <alt> -user_name <neu>` ist der von Plesk vorgesehene Kontenumbenennungsweg, siehe [Plesk Obsidian CLI protdir](https://docs.plesk.com/en-US/obsidian/cli-linux/using-command-line-utilities/protdir-site-directories-protection.39417/). Für Root gilt im Plesk-UI das Verzeichnis `/` laut [Plesk-Support](https://support.plesk.com/hc/en-us/articles/12377592309527-How-to-configure-a-password-protected-directory-in-Plesk). Die exakte Server-CLI-Syntax für die konkrete Root-Protection ist **noch vor mutierender Operation zu prüfen**, nicht blind zu raten.
+
+### GENAU NÄCHSTER SERVERBLOCK · deployed Git-Metadaten und Legacy-API-Dateien, nur lesen
+
+```bash
+bash <<'HW24_AUTH_DEPLOY_PREFLIGHT'
+set -euo pipefail
+
+base='/var/www/vhosts/hairworld24.de'
+echo "=== HW24 AUTH UND DEPLOY-VORPRUEFUNG ==="
+
+for spec in   "artikelmanager.HAIRWORLD24.de|HW24-scanner"   "test-artikelmanager.HAIRWORLD24.de|HW24-scanner.git"; do
+  domain="${spec%%|*}"
+  repo="${spec#*|}"
+  echo "=== Plesk Git-Metadaten: $domain ==="
+  plesk ext git --info -domain "$domain" -name "$repo" 2>&1 |
+    grep -Ei 'branch|deploy|deployment|repository name|local path' |
+    grep -Evi 'password|token|remote|url|secret' || true
+
+  webroot="$base/$domain"
+  echo "=== Legacy-API-Dateistand: $domain ==="
+  for file in api/scanliste.php api/ai-reviews.php api/ai-review.php api/hw24-actor-identity.php; do
+    if [ -f "$webroot/$file" ]; then
+      printf '%s: ' "$file"
+      git hash-object "$webroot/$file"
+    else
+      echo "$file: NICHT VORHANDEN"
+    fi
+  done
+done
+
+echo "=== PRECHECK ABGESCHLOSSEN: KEIN DEPLOY, KEIN RENAME, KEINE DATENAENDERUNG ==="
+HW24_AUTH_DEPLOY_PREFLIGHT
+```
+
+**Bitte nur Metadaten und Git-Blob-Hashes teilen, keine Git-Remote-URLs oder API-Ausgaben.** Mit dem Ergebnis wird für **jedes** tatsächliche Webroot die kontrollierte Bereitstellung der drei geänderten PHP-Routen plus neuer Helferdatei vorbereitet. Live und Test verwenden separate Plesk-Git-Installationen, die nicht blind auf einen neuen Branch umgestellt werden dürfen. Vor jedem Deploy ein rootprivates, wiederherstellbares Webroot-Backup erstellen, zuletzt bestätigte `deploy/staging`-Basis und echte Änderungen abgleichen.
+
+**Reihenfolge:** Private `read_aliases`-Mappingdatei erst gezielt nach Backup/Code-Sicherung einsetzen; Feature-PHP-Code nur mit getestetem Rollback bereitstellen; im Browser auf normaler Anmeldung und im neu autorisierten Kontext prüfen, dass drei KI-Reviews und beide Scanlisten-Stapel lesbar sind. **Erst danach** TEST-HTTP-Basic-Benutzer umbenennen. Live-HTTP-Basic-Konto **nicht** ändern, Statistikzugang unangetastet. Separater Laravel-Filament-DocumentRoot-Cutover bleibt später.
+
+[Arbeitsjournalbeleg](./HW24_ARBEITSJOURNAL.md), Commit `009d1589aa49180041ca6e14d0ea9bbc46240bfc`.
+
+---
+
 ## NEUESTER PLESK-NACHWEIS · Root-Passwortschutz auf zwei getrennten Domain-IDs (22.11.2026)
 
 **Benutzer hat die korrigierte `HW24_PLESK_AUTH_READ`-Prüfung ausgeführt.** Der Schutz für den bisherigen Test-Basic-Namen ist als `protected_dirs.id=9` / `dom_id=10` / `dom_type=domain` / leerer `path` / `realm=hw24-test` verzeichnet. Der geplante einheitliche Basic-Name existiert in `protected_dirs.id=8` / `dom_id=9` / `dom_type=domain` / leerer `path` / `realm=HW24 Artikelmanager`. Derselbe geplante Basic-Name steht separat in `protected_dirs.id=1` / `dom_id=1` für `plesk-stat` / `Domainstatistiken`; **Statistikschutz nicht ändern**.
