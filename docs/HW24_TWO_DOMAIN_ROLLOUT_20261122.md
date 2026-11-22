@@ -107,3 +107,37 @@ done
 ```
 
 Die Dateiexistenz liefert noch keinen Versions-/Laufzeitnachweis. Den Git-Branch und die deployte Versionskennung anschließend vergleichen, bevor die Legacy-Seite migriert wird.
+
+## Bestätigte Git-Branches und Webdateien auf Plesk (22.11.2026)
+
+**Plesk Live** `artikelmanager.HAIRWORLD24.de`: Repository `HW24-scanner`, manueller Deploy, Branch `main`, Deploypfad `/artikelmanager.HAIRWORLD24.de`. `index.html` und `api/jtl.php` vorhanden; `artikelpflege.html`, `qualitaetszentrum.html`, `scanliste.html`, `api/amazon.php` und `api/ai-reviews.php` fehlen. **Damit ist die Live-Installation älter und unvollständig gegenüber V4.25**, ein reales Versions- oder API-Hosting-Audit bleibt ausstehend.
+
+**Plesk Test** `test-artikelmanager.HAIRWORLD24.de`: Repository `HW24-scanner.git`, manueller Deploy, Branch `deploy/staging`, Deploypfad `/test-artikelmanager.HAIRWORLD24.de`. Alle sieben abgefragten Site-Dateien vorhanden. **Das belegt Dateiexistenz, nicht ob der letzte V4.25-Commit `444453471b0fd27c73dcc7929f5e17f1d9239c52` wirklich deployed wurde.**
+
+### Ab jetzt: gezielter Abgleich, kein erneutes allgemeines Setup
+
+Vor Live-Deployment aktuellen Plesk-Testcode anhand Git-Blob-SHAs gegen GitHub-`deploy/staging` vergleichen:
+
+```bash
+testroot=/var/www/vhosts/hairworld24.de/test-artikelmanager.HAIRWORLD24.de
+for spec in \
+  'index.html|96d18f937df2ca99bb76fa5754a01451fb4b4e3e' \
+  'artikelpflege.html|c146471c1900b51a905e6675ee83381d0221342f' \
+  'qualitaetszentrum.html|6b65b5d02764c832a7385d5b13eb916aced40477' \
+  'scanliste.html|4b82f66b12e856e4fff83460f8dad3683634f9b5'; do
+  file="${spec%%|*}"; expected="${spec##*|}"
+  actual=$(git hash-object "$testroot/$file" 2>/dev/null || echo MISSING)
+  if [ "$actual" = "$expected" ]; then echo "OK: $file"; else echo "ABWEICHUNG: $file"; fi
+done
+printf '\nPlesk Git letzter bekannter Commit (nicht zwingend deployter Commit):\n'
+plesk ext git --get-last-commit -domain artikelmanager.HAIRWORLD24.de -name HW24-scanner
+plesk ext git --get-last-commit -domain test-artikelmanager.HAIRWORLD24.de -name HW24-scanner.git
+```
+
+**Freigabeschranke:** Wenn ein Hash abweicht, nicht blind von Test nach Live kopieren oder Plesk-Test überschreiben. Zuerst tatsächliche Abweichung abgleichen.
+
+Anschließend unmittelbar vor dem Cutover ein lokales, nur administrativ lesbares **frisches** Snapshot-Backup der beiden Webroots (ergänzend zu früheren Backups) und eventueller externer Abhängigkeiten anlegen und Restorebarkeit prüfen. Das vorhandene öffentliche Live-Frontend kann eine **andere** HTTP-Authentifizierung oder private Konfiguration als Test haben. Das Kopieren der V4.25-Dateien darf nicht zu unautorisiertem Zugriff auf JTL-, Amazon- oder OpenAI-Endpunkte führen.
+
+**Erst nach Freigabe** Plesk-Live-Pull-Repository `HW24-scanner` von `main` auf `deploy/staging` umstellen und manuell deployen; die dokumentierten CLI-Operationen lauten `plesk ext git --fetch`, `--update -active-branch`, `--deploy`. Weder Test-Branch noch GitHub-`main` direkt verändern. Die neue Laravel-Domain erst umschalten, wenn die Legacy-API auf Live erfolgreich und sicher erreichbar ist.
+
+Dokumentation zu CLI: https://docs.plesk.com/en-US/obsidian/cli-linux/using-command-line-utilities/git-git-repositories.75956/
