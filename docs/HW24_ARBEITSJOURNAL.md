@@ -122,6 +122,54 @@ Befehl ausgeführt UTC `2026-11-22T23:11:35Z`, Shell-User `root`.
 - **Ausführung auf HeidiSQL und PuTTY noch offen; Ergebnis nicht voraussetzen.** Besonders SQL-B-Größe und Change-Tracking-Status sind als Nächstes zwingend. Keine JTL-Tabellenfreigaben, SQL-Rechte, CDC, CT oder Snapshots aktivieren.
 - PR #46 ist weiterhin **Draft** und noch nicht auf TEST/LIVE installiert. Offen: Entwurfsprüfung, bestätigter Browser-E2E-Test, Abnahme der 15-Minuten-Deltastrategie, Schutz sensibler Quellen.
 
+## Betreiberergebnisse Phase 2: HeidiSQL (2026-11-23)
+
+### S016 | SQL Server Speicherauslastung | **Belegt: reine SELECT-Ausgaben**
+- Bestätigte Datenbank weiterhin `eazybusiness` auf SQL Server 2017 Express.
+- SQL-Datendatei **ROWS 1 Datei, 2.500 MB zugewiesen, 1.154 MB belegte Seiten** (ca. 46,2 % der zugewiesenen Daten-Datei).
+- SQL-Transaktionslog **LOG 1 Datei, 800 MB zugewiesen**. Zwei Ausführungen zeigen ca. **3,4 MB** und später **5,4 MB belegte Seiten**; keine feste unveränderliche Loggröße daraus ableiten.
+- Die Express-Grenze von 10 GB bezieht sich auf relationale Datenbankgröße, **nicht auf die bloße Summe einschließlich LOG**. Der aktuelle belegte Datenumfang ist ca. 1,13 GiB, der zugewiesene ROWS-Speicher ca. 2,44 GiB. Keine unmittelbare Kapazitätsnot allein aus diesen Zahlen, aber Backup/Wachstum/Platz auf dem Datenträger noch unbekannt.
+- **Kein** Vollbackup-/Restoretest, keine Disk-Auslastung, kein tatsächliches Kopierprotokoll belegt.
+
+### S017 | Änderungsprotokollierung | **Belegt**
+- `sys.change_tracking_databases` bestätigt `change_tracking_aktiv=0`.
+- `sys.change_tracking_tables` bestätigt `anzahl_ct_tabellen=0`.
+- Zuvor bereits `is_cdc_enabled=False` und Snapshot Isolation `OFF` bestätigt.
+- **Weder CDC noch Change Tracking aktivieren**, bevor JTL-Verträglichkeit/Recovery und DBA-Abnahme vorliegen.
+- **Alternativer Delta-Kandidat:** `dbo.tArtikel.bRowversion`, `dbo.tlagerbestandProLagerLagerartikel.bRowversion`, `dbo.tWarenLagerPlatzArtikel.bRowversion` sind als SQL-Typ `timestamp` (SQL Server rowversion, **keine Uhrzeit**) in der Betreiber-Metadatenliste nachgewiesen. Diese Spalten können Insert-/Update-Änderungen abbilden, **nicht** Löschungen. Eine korrekte Replikation muss noch konsistenten Wasserzeichenmechanismus, laufende Transaktionen und Delete-Reconciliation entwickeln; Microsoft rät für Transaktionssicherheit zu `MIN_ACTIVE_ROWVERSION()` statt nur `@@DBTS`: https://learn.microsoft.com/en-us/sql/t-sql/functions/min-active-rowversion-transact-sql?view=sql-server-ver15 .
+- Es ist **nicht** belegt, dass `SCX.tOffer`, `SCX.tOfferPrice` oder `dbo.pf_amazon_angebot` ein `rowversion` besitzen. Hier zunächst Index-, Änderungszeitstempel- und Schlüsselinventur erforderlich.
+
+### S018 | Priorisierte JTL-Tabellen, Primärschlüssel | **Belegt**
+In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
+- `dbo.pf_amazon_angebot`: 21 Spalten; `dbo.pf_amazon_angebot_ext`: 54; `dbo.tArtikel`: 91; `dbo.tArtikelHistory`: 27; `dbo.tArtikelShop`: 7; `dbo.tlagerbestandProLagerLagerartikel`: 6; `dbo.tWarenLagerPlatzArtikel`: 5.
+- `SCX.tOffer`: 23; `SCX.tOfferPrice`: 5; `SCX.tVerkaufskanalArtikelData`: 6.
+- `Verkauf.tAuftragPosition`: 31; `Verkauf.tAuftragPositionEckdaten`: 18.
+- Gefundene WMS-Tabellen: `WMS.tAutomatikLagerConfig` 8, `WMS.tPermanentInventurWarenLagerPlatzType` 2, `WMS.tPicklisteVorlageStartZielLager` 5, `WMS.tWarenLagerEingangHistorieSerialnumber` 6.
+- **Achtung:** Das Vorhandensein irgendeines PK beweist **noch nicht** dessen Schlüsselspalten. Darum Phase-3-PK-/Index-/FK-Abfrage. Diese Namensfilter sind keine vollständige 1.176-Tabellen-Inventur.
+
+### S019 | Datenfeld-Quellenbeleg Artikel | **Belegt: Metadaten, nicht Werte**
+`dbo.tArtikel`, 91 Felder. Wichtigste originale Quellen:
+- Identität: `kArtikel` int identity, `cArtNr`, `cBarcode`, `cHAN`, `cASIN`, `kHersteller`.
+- JTL-Preise: `fVKNetto`, `fEKNetto`, `fLetzterEK`, `fUVP`, `fAmazonVK`, `fEbayPreis`. **fAmazonVK/fEbayPreis nicht automatisch als live bestätigte veröffentlichte Marktplatzpreise ausgeben**.
+- Steuer-/Status-Referenzen: `kSteuerklasse`, `kLieferStatus`, `cAktiv`, `nDelete`, `nNichtBestellbar`, `nSonderTyp`. Klartexte, gültige Steuersätze, Preisarten und Artikeltyp-Zuordnung weiter über verifizierte Referenztabellen ermitteln, nicht raten.
+- Bestand/Logistik: `nLagerbestand`, `nZulaufVerfuegbarMenge`, `dZulaufVerfuegbarAm`, `nPuffer`, `nPufferTyp`, `kMassEinheit`, `fMassMenge`, `kGrundPreisEinheit`, `fGrundpreisMenge`, `kWarenlager` **nicht** als Artikelspalte belegt, sondern in anderem Lagerkontext. Grundmenge 90 vs. 90000 nur mit bestätigter Maßeinheit/Skalierung normalisieren.
+- Änderungsinformationen: `dMod` datetime2, `dErstelldatum` datetime2, `bRowversion` timestamp, `kBenutzerLetzteAenderung`. `nMHD` ist als tinyint-Feldtyp belegt, **kein** tatsächliches Ablaufdatum.
+
+### S020 | Amazon, Verkaufskanal und Lagerquellen | **Belegt: Metadaten, keine Angebotsstände**
+- `dbo.pf_amazon_angebot` enthält `cSellerSKU`, `kUser`, `nPlattform`, `fPrice`, `nQuantity`, `cListingId`, `cASIN1..3`, `dOpenDate`, `cFulfillmentChannel`, `nChangedPrice`. **Wahrscheinliche eigene JTL-Amazon-Angebotsquelle**, Konto-/Marketplace-/Aktivstatus-Zuordnung aber erst durch geprüfte Schlüssel und Datenbeispiele bestätigen. **Keine nachgewiesene Konkurrenz-Preishistorie**.
+- `SCX.tOffer` enthält `kOffer`, `kArtikel`, `kShop`, `nIsListed`, `nStatus`, `cChannelOfferId`, `dPriceUpdatedUtc`, `dStatusReceivedUtc`, `fZuletztHochgeladenerPreis`, `dLetzterUpload`, `dBeendet`. Quellbezug und Preisart müssen verifiziert werden. Letzter Upload-Preis ist **keine** vollständige Händlerpreishistorie.
+- `SCX.tOfferPrice` besitzt `kOfferPrice`, `kOffer`, `kChannelPriceType`, `fLastPrice`, `fQuantity`; **kein Zeitstempel in den fünf gelieferten Spalten**, daher hieraus allein keine Zeitreihe ableiten.
+- `dbo.tlagerbestandProLagerLagerartikel`: `kArtikel`, `kWarenlager`, `fBestand`, `fVerfuegbarGesperrt`, `fAuslieferungGesperrt`, `bRowversion`. **Nicht** unbestätigt mit `fVerfuegbar` oder Auftragsbestand gleichsetzen.
+- `dbo.tWarenLagerPlatzArtikel`: `kWarenLagerPlatz`, `kArtikel`, zwei Kommentarspalten, `bRowversion`; **keine Menge in dieser Tabelle belegt**. WMS-Lagerplatzmenge über bestätigte andere Quellen beziehen.
+- Keine dieser Metadaten-Erhebungen hat Artikel, Angebote, Lager oder JTL verändert.
+
+### S021 | Nächste SQL-Abfragen und Release-Zustand | **Code vorbereitet, Ausführung offen**
+- Neuer Quellcode `platform/ops/jtl-heidisql-phase3-keys-delta-readonly.sql` im isolierten Draft-Branch erstellt.
+- Queries (a) DB-Name bestätigen; (b) tatsächliche PK-/Unique-Schlüsselspalten inklusive Reihenfolge; (c) FK-Beziehungen; (d) alle rowversion- und Änderungszeitspalten der priorisierten Quelltabellen; (e) bestehende Indizes zur Delta-Eignung. **Nur** SELECT aus sys-Katalogen.
+- Nächster Betreiber-Schritt: Queries separat in HeidiSQL ausführen, Ergebnisse ohne echte Geschäftsdatensätze teilen. PuTTY ist für diesen Schritt **nicht notwendig**, bereits bestätigter TEST-HEAD `5eae5be...` bleibt unangetastet.
+- Anschließend SQL-Mapping/JTL-View, Account-Zuordnung, Delta-Semantik und Löschbehandlung definieren, dann privaten sicheren Test-Sync entwickeln. Keine Live-Preisarchive aktivieren.
+- **Kein** Merge, kein Plesk-/LIVE-/JTL-Deploy dieser Sitzung; neue Informationen und Code nur auf GitHub im Draft-PR.
+
 ## Fachlich beschlossene Zielarchitektur
 
 1. **JTL eazybusiness** bleibt maßgebliche SQL-Server-Datenbank; zunächst nur Leseinventur, DB-Backup/Wiederherstellung als getrennte Aufgabe prüfen.
@@ -138,4 +186,4 @@ Befehl ausgeführt UTC `2026-11-22T23:11:35Z`, Shell-User `root`.
 - **C** Ergebnisse, Abweichungen und Risiken im Journal festhalten; gegebenenfalls Versionsvergleich des Test-/Live-Codes.
 - **D** Nur kleine, rollbackfähige Änderungen isoliert vorbereiten, GitHub CI + Browser-E2E prüfen und Betreiberfreigabe für Deployment einholen.
 
-**Nächster Nachweis:** Betreiber-Ausgabe von Phase-2-HeidiSQL: Dateigrößen, Change-Tracking-Status, Quellschlüssel und Spalten-Metadaten. Keine produktive Replikation oder Server-Änderung.
+**Nächster Nachweis:** HeidiSQL Phase-3-Ausgabe: PK-/Unique-Schlüsselspalten, FK-Beziehungen, rowversion/Änderungszeitspalten und relevante Indizes. Noch kein produktiver Sync oder Server-Deploy.
