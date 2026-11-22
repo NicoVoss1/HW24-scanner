@@ -17,6 +17,7 @@ final class LegacyReadBridge
         // Available only AFTER the source-explorer Legacy PR has passed test deployment.
         'jtl.fields' => 'api/jtl-fields.php',
         'jtl.quality' => 'api/jtl-quality.php',
+        'jtl.wms.history' => 'api/jtl-wms-history.php', // GET-only movements mirror, not current available bins
         'jtl.options' => 'api/jtl-options.php',
         'amazon.catalog' => 'api/amazon.php',
         'amazon.archive' => 'api/amazon-archive.php', // Requires separate LIVE read-only API release
