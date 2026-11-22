@@ -52,6 +52,7 @@ return new class extends Migration {
             $table->json('account_context')->nullable();
             $table->timestamps();
             $table->index(['channel','external_account_id'],'idx_hw24_external_account');
+            $table->unique(['channel','account_label'],'uq_hw24_channel_account_label');
         });
     }
 
