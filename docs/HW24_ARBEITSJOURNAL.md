@@ -1331,3 +1331,24 @@ Amazon HTTP: None
 **Sichere nächste Testvorbereitung:** auf dem gestapelten PR41 (Featurebranch, kein Merge) das Test-only-Skript `ops/hw24-stage-amazon-asin-single-file.sh` vorbereitet. Es lädt die freigegebene PHP-Datei **aus festem PR39-Commit** `87ad1c38534fd5a59e7332e63bd9e666919ea8b5`, verifiziert Git-Blob-SHA `617e2162f20dd012ed8c4fe8cc73d12b5e0d2373`, PHP8.5-Syntax und die zwei bestehenden V4.25-API-Dateihashes. Es erstellt die neue Datei **nur auf der bestehenden Testdomain**, überschreibt nie eine bestehende Datei, prüft anonymen HTTP 401/403 und entfernt den Neuzugang bei unerwarteter öffentlicher Erreichbarkeit. Keine Änderung an Live-Webroot, Datenbanken, Plesk-DocumentRoot oder aktiven Verkaufskanälen. **Nur vorbereitet, nicht vom Betreiber ausgeführt.** Shell-Syntaxprüfung in CI. Danach den Endpunkt mit `nvoss` und EAN/ASIN gezielt über HTTPS GET einmal manuell testen, Ergebnisse `found/title/brand/ean_evidence` protokollieren; Marktplatz-EAN-Nachweis nicht automatisch als Preis-/ASIN-Änderung übernehmen.
 
 **Framework-Gate:** Laravel/Filament private CLI- und Assetberechtigungen bereits durch vorherigen Betreiber-Preflight erfolgreich; ein Testdomain-DocumentRoot-Cutover darf **erst** nach abschließendem Legacy- und Filament-HTTP-/Rollback-Plan erfolgen. Live funktional gesichert lassen.
+
+
+## 22.11.2026 · ASIN-GET auf TEST erfolgreich: ASIN B091J3HV6B gefunden, EAN-Abweichung
+
+**Betreiber-Prüfnachweis** zur eng begrenzten Staging-Datei `api/amazon-asin.php` (fixierter PR39-BLOB `617e2162f20dd012ed8c4fe8cc73d12b5e0d2373`):
+- PuTTY-Skript `ops/hw24-stage-amazon-asin-single-file.sh` ausgeführt: PHP-Syntax `No syntax errors`; neue PHP-Datei ausschließlich unter `test-artikelmanager.HAIRWORLD24.de/api/` hinzugefügt; anonymer HTTPS-GET weiterhin `401`; Abschluss `TEST-API BEREIT. LIVE UNVERAENDERT.`.
+- Danach echter, authentifizierter TEST-HTTPS-GET via `--user nvoss` auf `api/amazon-asin.php?ean=3474630337398&asin=B091J3HV6B`:
+```text
+ok: True
+found: True
+asin: B091J3HV6B
+title: 6C
+brand: Matrix
+ean_evidence: other_ean
+error: None
+stage: None
+upstream_status: None
+```
+- **Befund:** Amazon.de hat das ASIN-Produkt gefunden, obwohl die frühere EAN-Katalogsuche auf LIVE `0` Treffer lieferte. **Kritische fachliche Abweichung:** Amazon hat mindestens eine andere EAN gemeldet und **nicht** die JTL-EAN `3474630337398`. Das beweist weder Produktgleichheit noch zwingend Ungleichheit; Verpackung/Varianten/Regionen sind separat manuell zu prüfen. Diese Antwort darf **keine automatische neue ASIN- oder Preiszuordnung** auslösen.
+- Der eigentliche HTTP-JSON-Payload enthält bereits `ean_identifiers` (maximal 12 Amazon-EANs), aber die bisherige PuTTY-Ausgabe hat diese nicht angezeigt. Nächster gezielter Schritt: nur `ean_identifiers` lesen und JTL-EAN dagegen vergleichen; keine vollständigen Katalog-/Secret-Payloads in Chat/GitHub.
+- **Noch nicht:** HTML/Frontend von PR39 auf Test oder Live ausgerollt, keine Framework-DocumentRoot-Änderung, kein Laravel/Filament-HTTPS-Browser-Login. Neuer Endpoint wurde manuell nur in TEST hinterlegt; bei späterem Plesk-Deploy beachten, da Git `deploy/staging` diese Datei noch nicht enthält.
