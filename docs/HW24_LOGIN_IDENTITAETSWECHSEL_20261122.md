@@ -1,3 +1,119 @@
+## AKTUELLSTER BELEG · 22.11.2026 · Plesk-Test-Basic-Backup erfolgreich, gezielter Rename als nächster Gate
+
+**PuTTY `HW24_PLESK_BASIC_BACKUP` vollständig erfolgreich:**
+- Privates Test-Basic-Sicherungsverzeichnis `/root/hw24-backups/test-plesk-auth-yideOvRf`.
+- `plesk-protected-dir-metadata.tsv` **vorhanden**, `plesk-pd.tar.gz` **lesbar**.
+- `plesk-pd.tar.gz` SHA-256 `a7aacc096055021c0447d4fd1ca20eeeec459dd0cdb3d72f8fc012ff692d107f`.
+- Plesk protected dir 9, domain 10, alter Test-Basic `hw24-test` vor Backup genau 1 Treffer.
+- `TEST-PASSWORTSCHUTZ ERFOLGREICH GESICHERT`, `Keine Benutzer oder Daten veraendert`.
+- Älteres privates Test-Webroot-Backup ebenfalls geprüft unter `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz`, SHA `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26`.
+
+**Außerdem bereits funktionsgetestet:** Test-PR37-Code (vier PHP-Blob-Hashes OK), 4 PHP-Syntaxchecks, anonyme drei API-HTTPS-401, authentifiziert mit Test-Basic alt: 3 KI-Berichte + 1 offener Scan-Stapel. Separate private `read_aliases`-Datei `0600` wurde angelegt und als `nicovoss` erfolgreich getestet: `nvoss` liest eigene und historische `hw24-test`-Owner. Keine bisherige SQL-Korrektur, keine Preis-/Lager-/JTL-Änderung, keine KI-Aufrufkosten.
+
+### JETZT gezielt nur TEST-Plesk-Basic-Username von alt nach nvoss ändern
+
+Die [offizielle Plesk Obsidian protdir-CLI-Dokumentation](https://docs.plesk.com/en-US/obsidian/cli-linux/using-command-line-utilities/protdir-site-directories-protection.39417/) beschreibt `-u <directory> -domain <domain> -update_user <alter Name> -user_name <neuer Name>`; [Plesk-Support](https://support.plesk.com/hc/en-us/articles/12377592309527-How-to-configure-a-password-protected-directory-in-Plesk) verwendet `/` zum Schutz der gesamten Website. `-u '/'` ist eine **aus beiden Quellen abgeleitete Root-CLI-Parametrisierung**, nicht bereits am konkreten Server verifiziert. Wenn Plesk sie ablehnt, keine anderen Varianten blind probieren.
+
+**EIN EINZELNER PuTTY-BLOCK:**
+
+```bash
+bash <<'HW24_PLESK_RENAME_TEST'
+set -euo pipefail
+
+domain="test-artikelmanager.hairworld24.de"
+auth_backup="/root/hw24-backups/test-plesk-auth-yideOvRf/plesk-pd.tar.gz"
+auth_sha="a7aacc096055021c0447d4fd1ca20eeeec459dd0cdb3d72f8fc012ff692d107f"
+web_backup="/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz"
+web_sha="679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26"
+php="/opt/plesk/php/8.5/bin/php"
+helper="/var/www/vhosts/hairworld24.de/test-artikelmanager.HAIRWORLD24.de/api/hw24-actor-identity.php"
+
+echo "=== HW24 NUR TEST-BASIC BENUTZER UMBENENNEN ==="
+
+printf '%s  %s\n' "$auth_sha" "$auth_backup" | sha256sum -c --status
+printf '%s  %s\n' "$web_sha" "$web_backup" | sha256sum -c --status
+echo "Beide Sicherungen unveraendert: OK"
+
+original="$(plesk db -Ne "
+SELECT pu.account_id FROM pd_users pu
+JOIN protected_dirs pd ON pd.id=pu.pd_id
+WHERE pd.id=9 AND pd.dom_id=10 AND pd.dom_type='domain'
+AND pu.login='hw24-test';
+")"
+test -n "$original" || { echo "STOP: Original-Basic-Konto fehlt"; exit 1; }
+
+test "$(plesk db -Ne "
+SELECT COUNT(*) FROM pd_users pu
+JOIN protected_dirs pd ON pd.id=pu.pd_id
+WHERE pd.id=9 AND pd.dom_id=10 AND pd.dom_type='domain'
+AND pu.login='hw24-test';
+")" = "1" || { echo "STOP: Unerwartete Alt-Zuordnung"; exit 1; }
+
+test "$(plesk db -Ne "
+SELECT COUNT(*) FROM pd_users pu
+JOIN protected_dirs pd ON pd.id=pu.pd_id
+WHERE pd.id=9 AND pd.dom_id=10 AND pd.dom_type='domain'
+AND pu.login='nvoss';
+")" = "0" || { echo "STOP: nvoss auf TEST bereits vorhanden"; exit 1; }
+
+runuser -u nicovoss -- "$php" -r '
+ require "/var/www/vhosts/hairworld24.de/test-artikelmanager.HAIRWORLD24.de/api/hw24-actor-identity.php";
+ if(hw24ReadableOwners("nvoss")!==["nvoss","hw24-test"])
+   exit(1);
+'
+test "$(curl -sS --max-time 15 -o /dev/null -w '%{http_code}' \
+  "https://$domain/api/ai-reviews.php")" = "401" ||
+  { echo "STOP: Test-Basic-Schutz vor Rename nicht wirksam"; exit 1; }
+
+echo "Vorpruefung: OK. Nur TEST-Basic-Name wird geaendert."
+
+# Offizielle Plesk-Oberflaechenverwaltung, keine SQL-UPDATEs.
+if ! plesk bin protdir -u "/" -domain "$domain" \
+  -update_user hw24-test -user_name nvoss; then
+  echo "STOP: Plesk-CLI lehnte Root-Rename ab oder meldete Fehler."
+  echo "Kein Alternativkommando und kein SQL-UPDATE versuchen."
+  exit 1
+fi
+
+result="$(plesk db -Ne "
+SELECT pu.account_id FROM pd_users pu
+JOIN protected_dirs pd ON pd.id=pu.pd_id
+WHERE pd.id=9 AND pd.dom_id=10 AND pd.dom_type='domain'
+AND pu.login='nvoss';
+")"
+if [ "$result" != "$original" ]; then
+  echo "STOP: Nach Rename unerwartete Passwort-Account-Referenz."
+  exit 1
+fi
+test "$(plesk db -Ne "
+SELECT COUNT(*) FROM pd_users pu
+JOIN protected_dirs pd ON pd.id=pu.pd_id
+WHERE pd.id=9 AND pd.dom_id=10 AND pd.dom_type='domain'
+AND pu.login='hw24-test';
+")" = "0" || { echo "STOP: Alter Test-Benutzer noch vorhanden"; exit 1; }
+
+status="$(curl -sS --max-time 15 -o /dev/null -w '%{http_code}' \
+  "https://$domain/api/ai-reviews.php")"
+if [ "$status" != "401" ]; then
+  echo "STOP: Test-Passwortschutz nach Rename unplausibel: HTTP $status"
+  exit 1
+fi
+
+echo "=== TEST-BASIC-USERNAME ERFOLGREICH AUF nvoss UMGESTELLT ==="
+echo "Passwort-Konto-Referenz unveraendert; anonymer HTTPS-Zugriff HTTP 401"
+echo "Keine Live-, Statistik-, SQL-Daten- oder Artikel-Aenderung"
+echo "Als naechstes authentifizierten GET mit nvoss pruefen."
+HW24_PLESK_RENAME_TEST
+```
+
+**Kein Passwort eingeben oder posten.** Der Plesk-Rename ist die einzige beabsichtigte Änderung. Das Skript führt **keinen** automatischen Rücktausch durch, weil ein abgelehnter CLI-Aufruf nicht beweist, dass Plesk nichts an der Account-Datei geändert hat; bei Fehlstatus zuerst genau den Zustand erneut lesen. In der offiziellen Doku ist die entsprechende Rückoperation als `plesk bin protdir -u '/' -domain test-artikelmanager.hairworld24.de -update_user nvoss -user_name hw24-test` herleitbar, aber nur **nach** konkreter Statusdiagnose verwenden. Niemals `plesk db UPDATE` und niemals Test-Webroot mit Auth-PD-TAR blind überschreiben.
+
+**Danach extra Schritt:** `curl --basic --user nvoss` auf TEST, Passwort interaktiv und verdeckt; nur API-Zählwerte 3 KI-Berichte und Scanliste erwartete bis zu 2 offene Stapel (SQL zeigt insgesamt 2, der alte ist definitiv offen, Status des zweiten offen/geschlossen noch nicht geprüft), anonymer Zugriff 401. Das lokale PHP-Alias-Gate allein ist **kein** Nachweis der HTTPS-Funktion nach Rename. Noch kein LIVE-Code-Deploy, kein Laravel-Filament-Webroot-Cutover.
+
+[Arbeitsjournal-Sicherungsbeleg](./HW24_ARBEITSJOURNAL.md), Commit `b48acdb8a1f14e1a7a1735780fb835fa675ab8f4`.
+
+---
+
 ## MEILENSTEIN · PRIVATE OWNER-DELEGATION ANGELEGT UND GEPRÜFT (22.11.2026)
 
 **Direkte PuTTY-Ausgabe des Betreibers:** `HW24_PRIVATE_READ_ALIASES` erfolgreich mit `Private Datei sicher erstellt`, `Dateirechte: 600`, `nvoss: beide Datenzuordnungen freigegeben`, `hw24-test: bisherige Berechtigung erhalten`, `Fremdbenutzer: kein zusaetzlicher Zugriff`, `BENUTZERZUORDNUNG ERFOLGREICH` und `Plesk-Logins und Datenbank unveraendert`. Private `/var/www/vhosts/hairworld24.de/hw24_private/actor-aliases.php` wurde nur einmal angelegt, Owner `nicovoss:psacln`, Modus `0600`, PHP-CLI-Funktionsprüfung bestanden. Nicht in GitHub committen, nicht öffentlich machen.
