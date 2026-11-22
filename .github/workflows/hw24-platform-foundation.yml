@@ -28,6 +28,21 @@ jobs:
           bash -n platform/ops/upgrade-test-legacy-workflows-ffonly.sh
           bash -n platform/ops/upgrade-native-ai-amazon-scan-ffonly.sh
           bash -n platform/ops/upgrade-wms-priceboard-ffonly.sh
+          bash -n platform/ops/upgrade-reused-evidence-ffonly.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path('platform/ops/upgrade-reused-evidence-ffonly.sh').read_text()
+          assert "target='543cd6bab36886ba4255c6747f2014d7806a02c6'" in text
+          assert '0d8bb9baf85365d4c07a1c17450ec0674bac3989' in text
+          assert 'merge --ff-only "$target"' in text
+          assert 'VACUUM INTO ?' in text
+          assert 'reset --hard "$old"' in text
+          assert 'verify-admin-routes-json.php' in text
+          assert 'platform/app/Domain/Amazon/OfferEvidence.php' in text
+          assert 'platform/app/Domain/Jtl/RelatedSourceEvidence.php' in text
+          assert 'artisan migrate' not in text
+          assert 'plesk bin subdomain --update' not in text
+          PY
           python3 - <<'PY'
           from pathlib import Path
           s=Path('platform/ops/upgrade-wms-priceboard-ffonly.sh').read_text()
