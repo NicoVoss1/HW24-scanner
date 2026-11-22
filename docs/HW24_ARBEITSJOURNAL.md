@@ -1040,3 +1040,19 @@ Die separate `protected_dirs.id=1` für `plesk-stat` auf `domains.id=1` ist **ni
 - `api/hw24-actor-identity.php` (neu) → `cb2722952bd0cad9680d919630e4b2a06ba367fc`.
 
 **Nun sicherster nächster Test-Schritt:** Plesk-Git-TEST-Repositorium **einmal manuell deployen** nach erneuter SHA-/Branch-/Backup-/Basisdatei-Prüfung und danach alle **vier** Git-BLOBs mit diesen gepinnten SHA-Werten vergleichen. Keinen Plesk-LIVE-Deploy, keine private Aliasdatei oder Test-Accountumbenennung im selben Befehl. Falls Plesk-Deploy fehlschlägt oder Dateihashes abweichen, **STOP** und Zustand lesen; nicht blind ein automatisches Git- oder TAR-Rollback über teilweise deployte Dateien durchführen. Das geprüfte Test-TAR `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz` mit SHA256 `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26` bleibt Rückfalloption.
+
+
+### 22.11.2026 · PR37 auf TEST erfolgreich deployed, vier PHP-Git-Blob-Hashes verifiziert (kein Basic-Rename, keine DB-Änderung)
+
+**Direkter Betreiber-PuTTY-Beleg:** Der Block `HW24_PR37_TEST_DEPLOY` lief bis zur Abschlussmeldung durch. Vor Deploy waren `Backup, Branch und Commit: OK`. Danach wurde **nur für die Testdomain** ein manueller Plesk-Git-Deploy ausgeführt und `git hash-object` meldete viermal `OK`:
+- `api/scanliste.php` → `1a19331fc030ef473d05cc0b94fee92fd2d436ea`
+- `api/ai-reviews.php` → `41bfe53eba6f4392e4f0f48e92828fa004ffe311`
+- `api/ai-review.php` → `aba03b6146a34698bae71fe622671945019d2db5`
+- `api/hw24-actor-identity.php` → `cb2722952bd0cad9680d919630e4b2a06ba367fc`
+- Abschluss `PR37 TEST-DEPLOYMENT ERFOLGREICH`, `Alle vier PHP-Dateien stimmen mit GitHub ueberein`, `Plesk-Benutzer und Datenbank unveraendert`.
+
+**Bewertung:** Test-Legacy-Webroot hat die PR37-Dual-Owner-Implementierung als **Code** erhalten. Dieses Ergebnis ist **noch kein authentifizierter HTTP-/Browser-E2E**; die private `hw24_private/actor-aliases.php` wurde noch nicht eingerichtet, deshalb noch **keine** zusätzliche Owner-Berechtigung aktiviert. Das Test-Basic-Konto heißt weiterhin `hw24-test`; der Live-Basic-Zugang `nvoss` bleibt unverändert. Kein KI-Modellaufruf und keine historische Datenmigration.
+
+**Sicherheits-/Rollback-Referenz:** Getestetes privates Test-Webroot-TAR `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz`, SHA256 `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26`. Dieses TAR enthält Webdateien, **nicht** separat die Plesk-HTTP-Basic-Kontenkonfiguration.
+
+**Genau nächstes Gate:** Plesk-PHP 8.5 `php -l` aller vier API-Dateien aus dem Test-Webroot und anonyme HTTPS-GET-Statusprüfung von `api/ai-reviews.php`, `api/scanliste.php` und `api/jtl.php` ausschließlich über Statuscode, **ohne Body-Inhalte und ohne API-POST**. Erwartet wird jeweils HTTP **401** (äußerer Plesk-Basic-Schutz). Falls Status anders oder PHP-Syntaxfehler, **STOP**, keine private Aliasdatei und keine Login-Umbenennung. Danach authentifizierten GET für den bisherigen Test-Basic-Benutzer prüfen (erwartet 3 KI-Reviews / 1 Scan-Stapel), private Mappingfreigabe (neue Kennung liest Alt+Neu) separat und mit passenden Rechten einrichten, HTTP-Basic-Konto vorher separat absichern, erst danach gezielt TEST umbenennen. Live-Webroot wird nicht geändert.
