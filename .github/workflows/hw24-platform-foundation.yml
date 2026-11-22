@@ -29,6 +29,15 @@ jobs:
           bash -n platform/ops/verify-testdomain-cutover-readonly.sh
           bash -n platform/ops/upgrade-private-framework-ffonly.sh
           bash -n platform/ops/migrate-source-catalog-isolated.sh
+          bash -n platform/ops/verify-legacy-readbridge-live.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          raw=Path('platform/ops/verify-legacy-readbridge-live.sh').read_text()
+          start=raw.index("code='\n")+len("code='\n")
+          end=raw.index("\n'\nrunuser",start)
+          Path('/tmp/hw24-readbridge-smoke.php').write_text('<?php\n'+raw[start:end]+'\n')
+          PY
+          php -l /tmp/hw24-readbridge-smoke.php
           python3 - <<'PY'
           from pathlib import Path
           raw=Path('platform/ops/migrate-source-catalog-isolated.sh').read_text()
