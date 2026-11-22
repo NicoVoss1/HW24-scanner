@@ -506,3 +506,12 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 **Nächster Schritt:** Read-only Prüfbefehle für Test-PHP-FPM-Benutzer und PHP-Version/-Erweiterungen, private Verzeichnis-Traversierung und mögliche DocumentRoot-Zielpfade; dazu auf der Legacy-Live-Domain angemeldeten JTL-/Amazon-/KI-Funktionstest bestätigen. Erst danach **separaten** rollback-fähigen Testdomain-Cutoverplan mit PHP-8.4-Handler und eindeutig nur `platform/public` als Webroot ausführen.
 
 **Aktueller Gesamtfortschritt:** Laravel/Filament und alle vier SQLite-Migrationen installiert; Admin-Account und `canAccessPanel` bestätigt; Live-V4.25-Git-SHA und vier Datei-Hashes bestätigt; Test-Web-Plesk-Konfiguration jetzt read-only inventarisiert. Laravel-Login via Browser und Legacy-API-E2E noch nicht bestätigt.
+
+
+### 22.11.2026 · Vorabprüfung für Filament-Testdomain schriftlich vorbereitet
+
+- **VERIFIZIERT GitHub:** [Read-only Preflight-Rolloutanleitung](./HW24_PREFLIGHT_FILAMENT_TESTDOMAIN_20261122.md) in `main` angelegt, Commit `dd8410488564defcfae8a8a74769700aec2c9711`.
+- **Warum:** Test-vHost verwendet Plesk PHP-8.5-FPM; installierte PHP-Pakete wurden über PHP 8.4 aufgelöst; Laravel 13 unterstützt laut offiziellen Release Notes PHP 8.3 bis 8.5, aber exakte PHP-8.5-Composer-Plattformanforderungen und FPM-/Dateipfad-/Asset-Rechte noch nicht verifiziert. `public/index.php` ist derzeit 0600, was im Webkontext erst überprüft werden muss. Plesk-Git deployt manuell in den alten Legacy-Test-Webroot.
+- **Prüfinhalt:** PHP-8.5-Version und Composer-`check-platform-reqs`, Laravel-Version und Filament-Routen unter PHP 8.5 als Site-User, `namei -l` auf Laravel-public/index.php und Filament-CSS; **nur lesen**, kein Domain-/Datenbankwechsel.
+- **OFFEN, nicht als erledigt werten:** Betreiber muss den Preflight in PuTTY ausführen und das Ergebnis senden; angemeldeter Legacy-Live-JTL/Amazon/KI-Funktionstest ist weiterhin Voraussetzung vor der Testdomain-Umstellung.
+- **Keine** eigenen Serveraktionen durch GitHub-Dokumentationsarbeit. Kein API-Token/APP_KEY/Passwort offen gelegt.
