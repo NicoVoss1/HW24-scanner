@@ -33,6 +33,17 @@ jobs:
           bash -n platform/ops/verify-filament-https-release-gates-readonly.sh
           bash -n platform/ops/verify-plesk-cutover-mechanics-readonly.sh
           bash -n platform/ops/cutover-testdomain-filament-with-rollback.sh
+          bash -n platform/ops/fix-filament-public-frontcontroller-acl.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('platform/ops/fix-filament-public-frontcontroller-acl.sh').read_text()
+          assert 'setfacl -m u:nginx:r,u:www-data:r -- "$f1"' in p
+          assert 'setfacl -m u:nginx:r,u:www-data:r -- "$f2"' in p
+          assert 'getfacl -p -- "$f1" "$f2"' in p
+          assert 'setfacl --restore="$backup"' in p
+          assert 'plesk bin subdomain --update' not in p
+          assert 'chmod -R' not in p and 'chown -R' not in p
+          PY
           python3 -m py_compile platform/ops/diagnose-filament-testdomain-403-readonly.py
           python3 - <<'PY'
           from pathlib import Path
