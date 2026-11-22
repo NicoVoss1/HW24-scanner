@@ -141,3 +141,20 @@ Anschließend unmittelbar vor dem Cutover ein lokales, nur administrativ lesbare
 **Erst nach Freigabe** Plesk-Live-Pull-Repository `HW24-scanner` von `main` auf `deploy/staging` umstellen und manuell deployen; die dokumentierten CLI-Operationen lauten `plesk ext git --fetch`, `--update -active-branch`, `--deploy`. Weder Test-Branch noch GitHub-`main` direkt verändern. Die neue Laravel-Domain erst umschalten, wenn die Legacy-API auf Live erfolgreich und sicher erreichbar ist.
 
 Dokumentation zu CLI: https://docs.plesk.com/en-US/obsidian/cli-linux/using-command-line-utilities/git-git-repositories.75956/
+
+## Deployment-Gate nach echtem Server-Hashabgleich (22.11.2026)
+
+**Vom Betreiber bestätigt:**
+- Plesk `artikelmanager.HAIRWORLD24.de` Branch `main`, letzter Repository-Commit `1c274f605c58f652273c294a9dd559d85518bbc5`.
+- Plesk `test-artikelmanager.HAIRWORLD24.de` Branch `deploy/staging`, letzter Repository-Commit `f51ab67240bd1bf0e5be25498269049a24748b85` = V4.24.
+- 7 von 7 erwartete Dateien auf Test vorhanden. Exakte V4.25-Git-BLOB-Hashes `index.html`, `qualitaetszentrum.html`, `scanliste.html`, `api/amazon.php`, `api/ai-reviews.php` sind OK. `artikelpflege.html` und `api/jtl.php` sind abweichend.
+- GitHub-Vergleich `f51ab672...44445347`: **17 Commits voraus**, **0 zurück**, acht geänderte Dateien inklusive genau dieser beiden, `assets/hw24-article-intelligence.js`, `assets/hw24-article-editor.js` etc. Die Abweichungen sind mit einem noch nicht deployten V4.25-Update vereinbar; kein belegter Verlust lokaler Änderungen.
+- **Entscheidung:** Erst bestehende Testsite auf exakt V4.25 `444453471b0fd27c73dcc7929f5e17f1d9239c52` bringen und Browser/API smoke-testen. Danach auf Live migrieren, erst dann die bisherige Testsite für Laravel umstellen. Draft-Framework PR #36 bleibt gesperrt und wird nicht in den Legacy-Deploybranch gemerged.
+
+### Nächster Schritt: Testsite-Deployment mit SHA-Gate und privatem Snapshot
+
+- Nur Plesk-Git-Repository `HW24-scanner.git` der **Testdomain**; keine Änderungen an Live, GitHub-Branches oder JTL-Datenbanken.
+- Vor Bereitstellung der aktuellen V4.25-Website einen frischen, privaten Webroot-Snapshot nur für diesen konkreten Cutover unter `/root/hw24-backups/` erstellen (Dateimodus 0600). Kein Archiv im öffentlichen Webroot.
+- `plesk ext git --fetch`, danach `--get-last-commit` muss **exakt** `444453471b0fd27c73dcc7929f5e17f1d9239c52` ergeben. Bei Abweichung **STOP** ohne Deployment.
+- `plesk ext git --deploy` manuell ausführen und danach kritische Git-Blob-Dateihashes erneut vergleichen; die letzte tatsächliche Live-Abnahme erfolgt erst durch Browser/API-Checks.
+- Kein `git reset --hard`, kein Plesk-Live-Deploy, keine SQL-Migration, keine Offenlegung privater `.env`-/API-Dateien.
