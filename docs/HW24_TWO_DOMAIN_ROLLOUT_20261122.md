@@ -46,3 +46,30 @@ Nach der Ausgabe gezielt die **beiden konkreten** Plesk-Domainkonfigurationen un
 - Framework-Pilot DRAFT, nicht mergen: https://github.com/NicoVoss1/HW24-scanner/pull/36
 - Laravel Deployment: https://laravel.com/framework/docs/13.x/deployment
 - Plesk Laravel Toolkit: https://docs.plesk.com/en-US/obsidian/administrator-guide/website-management/laravel-toolkit.80010/
+
+## Plesk Readiness bestätigt (PuTTY-Ausgabe, 22.11.2026)
+
+**Verifiziert (Nutzer):** Auf dem Server sind `artikelmanager.HAIRWORLD24.de`, `test-artikelmanager.HAIRWORLD24.de` und `HAIRWORLD24.de` in Plesk gelistet. Eine doppelte Anzeige in `site --list` und `subdomain --list` bedeutet nicht sechs voneinander getrennte Websites. **HAIRWORLD24.de ist eine eigenständige Shopdomain und ausdrücklich nicht Ziel dieses Rollouts.**
+
+- `plesk-php84-fpm` und `plesk-php84-fpm-dedicated` sind aktiviert, jeweils PHP **8.4.28**.
+- PHP-8.4-Module **pdo_mysql, pdo_sqlite, sqlite3, intl, zip**: alle vorhanden.
+- Keine neue Subdomain oder neue MariaDB erforderlich für Vorbereitungen.
+- Plesk-Hostingkonfigurationen, Webroots, tatsächliche Git-Deploypfade/Branches, PHP-Zuordnung je Domain, Auth und benötigte Website-Bindings sind **noch nicht verifiziert**. Keine Website wurde bisher umgestellt, Framework noch nicht installiert.
+
+### Unmittelbar nächste Nur-Lese-Abfrage
+
+```bash
+printf '\n=== ARTIKELMANAGER LIVE: Hosting ===\n'
+plesk bin site --info artikelmanager.HAIRWORLD24.de | grep -Ei 'domain name|hosting|document root|www.root|www_root|php|ssl|webspace' || true
+printf '\n=== ARTIKELMANAGER TEST: Hosting ===\n'
+plesk bin site --info test-artikelmanager.HAIRWORLD24.de | grep -Ei 'domain name|hosting|document root|www.root|www_root|php|ssl|webspace' || true
+printf '\n=== DOKUMENTROOT + SYSTEMUSER (Plesk DB nur SELECT) ===\n'
+plesk db -Ne "SELECT d.name, s.login, h.www_root FROM domains d JOIN hosting h ON d.id=h.dom_id JOIN sys_users s ON h.sys_user_id=s.id WHERE d.name IN ('artikelmanager.HAIRWORLD24.de','test-artikelmanager.HAIRWORLD24.de') ORDER BY d.name" 
+for domain in artikelmanager.HAIRWORLD24.de test-artikelmanager.HAIRWORLD24.de; do
+  printf '\n=== Git Repositories: %s ===\n' "$domain"
+  plesk ext git --list -domain "$domain" 2>&1 | head -n 30
+done
+printf '\n=== Nur lesend abgeschlossen ===\n'
+```
+
+**Wichtig:** Ausgabe darf bei Veröffentlichung um private Benutzer-/Pfadkomponenten gekürzt werden; keine `.env`-/Basic-Auth-/DB-Config-Dateien lesen, keine Deploybefehle. Bei Git-Repositories mit hinterlegten Remote-URLs auf etwaige Zugangstoken achten und URL-Querys vor dem Teilen schwärzen.
