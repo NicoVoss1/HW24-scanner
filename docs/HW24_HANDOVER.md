@@ -1,3 +1,5 @@
+**WICHTIGE PRÄZISIERUNG DER NÄCHSTEN PLESK-AUTH-ABFRAGE:** `protected_dirs` besitzt `dom_type` und `dom_id`. Plesk-Subdomains können gesondert verwaltet sein; daher **erst** `pd_users` mit `protected_dirs` über `pd_id=id` für genau die zwei bekannten Basic-Namen prüfen, ohne voreiligen Join auf `domains`. Exakter geprüfter **read-only** Block `HW24_PLESK_AUTH_READ` steht **ganz oben** im [Login-Runbook](./HW24_LOGIN_IDENTITAETSWECHSEL_20261122.md), Commit `0c2b5d29abaed7487ae508c696a54d31d30eac1d`. Benutzername, `pd.id/dom_type/dom_id/path/realm` ausgeben, aber **keine** Passwörter oder Hashes. Danach erst Domain und Umbenennung planen. Keine Konten-/Git-/DB-Änderung geschehen.
+
 ## JETZT BESTÄTIGT · Plesk-Schema mit `protected_dirs.path` (22.11.2026)
 
 **PuTTY-Read-only-Beleg:** `protected_dirs` enthält die Felder `id, non_ssl, ssl, realm, path, dom_id, dom_type, cgi_bin`; **kein** Feld `name`. `pd_users` hat `id,login,account_id,pd_id`, `domains` enthält `id,name,parentDomainId`. Die zuvor fehlgeschlagene Passwortschutz-Abfrage verwendete `pd.name` und muss zwingend durch `pd.path` ersetzt werden. **Keine Plesk-Einstellung geändert.**
