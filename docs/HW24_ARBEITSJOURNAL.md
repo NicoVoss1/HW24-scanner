@@ -279,6 +279,47 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - Neu `platform/tests/Unit/JtlReferenceDictionaryTest.php`: Kontrolltests für deaktivierte Freigabe, exakte Shop-Spalten-Whitelist und nicht erfundene Artikeltypen/Brutto-Preisfelder. **Kein** automatischer Import oder neue API.
 - Aktueller GitHub Draft-PR #46: https://github.com/NicoVoss1/HW24-scanner/pull/46. Neues CI-Ergebnis vor Rollout abwarten und im Journal vermerken. Keine Plesk-/TEST-/LIVE-Datenbankänderung.
 
+## Betreiberergebnisse Phase 5: verifizierte Referenzwerte und erster realer Basisexport (2026-11-23)
+
+### S036 | Datenbank und Klartext Lieferstatus | **belegt**
+- `DB_NAME()=eazybusiness`.
+- `dbo.tLieferStatus`: `kLieferStatus=1`, `kSprache=1`, `cName='2-4 Werktage'`. Nur für Sprache 1 als bewiesener Klartext verwenden; nicht unbesehen allen Sprach-IDs zuweisen.
+
+### S037 | Steuern und Einheiten | **belegt, Kontext teilweise offen**
+- `dbo.tSteuerklasse`: ID 1 Normaler Steuersatz (`nStandard=1`, `nTyp=4`); ID 2 Ermäßigter Steuersatz (`nStandard=0`, `nTyp=3`).
+- `dbo.tSteuersatz`: (Satz-ID 5, Klasse 1, Zone 3, **19 %**), (7,1,4,**19 %**), (6,2,3,**7 %**), (8,2,4,**0 %**); `nPrio` NULL in allen gelieferten Zeilen. Noch **keine** Namen/Länder für Zonen 3/4; **keine** pauschale Brutto- oder Land-Zuordnung.
+- `dbo.tMassEinheit`: 31 Referenzwerte vollständig geliefert. Wichtige ID 16 `mL` Anzeige `ml`, Bezugs-ID 15 `L`, `fBezugsMassEinheitFaktor=0.001`; ID 21 `Stk`. **Nie automatisch** `fMassMenge=90000` als 90 ml interpretieren; Artikelwert und Einheiten-/Skalierungslogik müssen am konkreten JTL-Artikel geprüft werden.
+- Alle 31 Einheitencodes/Umrechnungsfaktoren und vier Steuersatzkontexte als reiner Quellnachweis: `platform/docs/HW24_JTL_PHASE5_VERIFIED_REFERENCE_VALUES.md`.
+
+### S038 | Sieben eigene Shops und zwölf SCX-Preisarten | **belegt**
+- `dbo.tShop`, aktiv: **kShop 1 Kaufland/Friseurbedarf24.shop**, **3 Shopify Fb24**, **4 Amazon.de**, **5 Amazon.fr**, **6 Amazon.it**, **7 Amazon.es**, **8 Amazon.co.uk**. `nTyp=1` für Shopify, `nTyp=6` sonst; Firma in allen gelieferten Zeilen 1.
+- `SCX.tChannelPriceType`: 12 konkrete Referenzzeilen. Kaufland kShop1: ID 1 `B2CMin` (Mindestpreis), ID 2 `B2C`; Amazon DE kShop4: ID 3 `B2B` und 4 `B2C`; FR kShop5: 5/6; IT kShop6: 7/8; ES kShop7: 9/10; UK kShop8: 11/12. Getrennte Kundengruppen gemäß Originalausgabe, dokumentiert in oben verlinkter Referenzdatei.
+- Beschreibung `B2CMin` erwähnt historische `real.de`-Bezeichnung; **nicht** als nachgewiesener aktiver Repricer werten.
+- `SCX.tOffer` nach `kShop`: 1 **3205/1159**, 4 **2735/2294**, 5 **2662/1118**, 6 **2658/1275**, 7 **2658/1279**, 8 **2131/788** (jeweils alle / intern `nIsListed=1`). Summe **16049 / 7913**.
+- Für `kShop=3` kein Gruppeneintrag in der SCX-Ausgabe, **nicht** gleichbedeutend mit leerem Shopify-Katalog oder bestätigtem Live-Marketplace-Angebot.
+- **Keine** seller-ID-/Marketplace-Kontozugänge, API-/Passwortwerte oder echten Kunden-/Auftragsdatensätze abgefragt/gespeichert.
+
+### S039 | Weitere Preis- und Shopstruktur | **belegt**
+- `dbo.tPreisDetail` Spalten: `kPreis`, `nAnzahlAb`, `fNettoPreis`, `fProzent`, `bRowversion`. `dbo.tPreis` enthält den `kArtikel`-, Shop-, Kundengruppen- und ggf. Kundenkontext. Ein Preisbetrag steht demnach **in Detail**, nicht allein in `tPreis`. Keine verkaufsfertige Bruttopreis-Zuordnung ohne Zone/Kundengruppe/Währung/Quelle.
+- `dbo.tShopWaehrung` weist `kWebShop` und `kWaehrung` zu; `dbo.tWaehrung` entdeckt, dessen Spalten/Werte noch unbekannt.
+- `dbo.tSteuerzone` weist `cName`, `cLandISO`, `kFirma` zu; Werte fehlen.
+- `dbo.tKundenGruppe` hat `nNettoPreise`, `fRabatt`; Preise sind kundengruppen-/shopabhängig. Keine Kundendaten exportieren.
+- `dbo.tShopScx` hat `cSellerId`, das als operativ sensibel **nicht** in GitHub/öffentliche Logs oder unklassifizierten Spiegel gehört.
+- `SCX.tChannel` hat `cCurrency`; `cJson` als potenziell geheime Konfiguration **nicht abfragen**.
+
+### S040 | Erste echte Artikel-Basisextraktion vorbereitet | **GitHub-Code erstellt, Datenexport noch NICHT ausgeführt**
+- `platform/ops/jtl-heidisql-phase6-article-export-readonly.sql`: SQL 0 prüft Datenbank, SQL 1 zeigt max. 15 konkrete Artikel, SQL 2 erlaubt den vollständigen **explizit spaltenbegrenzten** Basisartikel-SELECT zum privaten lokalen HeidiSQL-CSV-Export, SQL 3 prüft Aggregatzahlen, SQL 4 zeigt max. 25 JTL-Preisdetail-Kontexte ohne Kundennummern, SQL 5 zeigt Steuertzonenbezeichnungen, SQL 6 fragt nur Währungs-Schemametadaten, SQL 7 zeigt max. 25 SCX-Angebotspreise ohne Verkäufer-IDs/Secrets.
+- Der Artikel-SELECT enthält originale Artikelidentität, Rohpreise, Status, Referenzlabels, Rohmenge/Einheit, Artikellagerbestand, `dMod` und hex-kodierte `bRowversion`.
+- **Kein** `SELECT *`, keine PII, kein Brutto-/Marktplatz-Livepreis als errechnete Tatsache ausgegeben.
+- Die CSV darf **nur lokal/privat** gespeichert werden. **Nicht** 2.692 Zeilen in Chat oder öffentliches GitHub übertragen. Eine spätere sichere Importstrecke braucht eigene Integritäts-/Rechte-/Schema-/Snapshot-Prüfungen; getrennte Abfragen sind **kein atomarer Gesamtsnapshot**.
+- **HeidiSQL-Ausführung steht noch aus.** Kein Windows-/PuTTY-/TEST-/LIVE-Deployment oder laufender Sync implementiert.
+
+### S041 | Maschinenlesbare Referenzbeobachtungen und Tests | **GitHub erstellt**
+- `platform/config/hw24_jtl_reference_observations.php`: verifizierte, **statische Momentaufnahme** von Lieferstatus, Steuern, Maßeinheitsbeispielen, allen sieben Shops, allen zwölf SCX-Preisarten und den aggregierten SCX-Angebotszahlen. `enabled_for_runtime_data=false`, `tax_zone_geography_confirmed=false`, `shopify_catalog_empty_confirmed=false`, keine API-IDs/Secrets.
+- `platform/tests/Unit/JtlReferenceObservationsTest.php`: sichert `2-4 Werktage`, steuerliche Unklarheiten, alle zwölf Preisarten und die getrennten Angebotszahlen 16049/7913 ab.
+- Vollständige Werte und methodische Grenzen in `platform/docs/HW24_JTL_PHASE5_VERIFIED_REFERENCE_VALUES.md`.
+- Code liegt ausschließlich auf Draft-PR #46. **CI des neuesten HEAD muss erneut geprüft werden.**
+
 ## Fachlich beschlossene Zielarchitektur
 
 1. **JTL eazybusiness** bleibt maßgebliche SQL-Server-Datenbank; zunächst nur Leseinventur, DB-Backup/Wiederherstellung als getrennte Aufgabe prüfen.
@@ -295,4 +336,4 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - **C** Ergebnisse, Abweichungen und Risiken im Journal festhalten; gegebenenfalls Versionsvergleich des Test-/Live-Codes.
 - **D** Nur kleine, rollbackfähige Änderungen isoliert vorbereiten, GitHub CI + Browser-E2E prüfen und Betreiberfreigabe für Deployment einholen.
 
-**Nächster Nachweis:** HeidiSQL Phase 5, bestätigte Klartextwerte für Lieferstatus, Steuern, Einheiten und Verkaufskanalpreise sowie Schema von Preisdetails/Währungen. Danach erster sicherer Mirror-Prototyp, vor Freigabe getestet. Noch kein Produktiv-Sync.
+**Nächster Nachweis:** Betreiber prüft Phase-6-HeidiSQL SQL 0 und SQL 1 (max. 15 echte Artikel) sowie SQL 3/5/6 (Aggregat/Steuerzone/Währungsschema), danach SQL 2 als **privaten lokalen** Artikel-Basisexport. Kein LIVE-Deploy oder automatischer Sync.
