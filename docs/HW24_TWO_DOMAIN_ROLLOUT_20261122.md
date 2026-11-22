@@ -73,3 +73,37 @@ printf '\n=== Nur lesend abgeschlossen ===\n'
 ```
 
 **Wichtig:** Ausgabe darf bei Veröffentlichung um private Benutzer-/Pfadkomponenten gekürzt werden; keine `.env`-/Basic-Auth-/DB-Config-Dateien lesen, keine Deploybefehle. Bei Git-Repositories mit hinterlegten Remote-URLs auf etwaige Zugangstoken achten und URL-Querys vor dem Teilen schwärzen.
+
+## Bestätigte Webroots und Plesk-Git-Einträge (PuTTY, 22.11.2026)
+
+**Live Artikelmanager**: `artikelmanager.hairworld24.de`. Separater Plesk-Webroot, SSL/TLS eingeschaltet, PHP-Unterstützung vorhanden, Plesk-Git-Repository `HW24-scanner` vom Typ pull.
+
+**Test Artikelmanager**: `test-artikelmanager.hairworld24.de`. Anderer separater Plesk-Webroot, SSL/TLS eingeschaltet, PHP-Unterstützung vorhanden, Plesk-Git-Repository `HW24-scanner.git` vom Typ pull.
+
+Beide Sites laufen unter demselben Plesk-Subscription-Systembenutzer. **Ob die Deploy-Branches/Modi/Quellstände korrekt sind, ist noch nicht belegt.** Weder die produktive Live-Domain noch der Webroot der Testdomain wurden im Rahmen dieser Prüfung verändert.
+
+**Architekturkritischer Fund:** `platform/app/Services/LegacyReadBridge.php` in Framework-Draft-PR #36 ist derzeit ausdrücklich auf Host `test-artikelmanager.hairworld24.de` fixiert. **Vor der Umstellung** der Testdomain auf Laravel muss die Bridge nach erfolgreichem Legacy-V4.25-Cutover kontrolliert auf `artikelmanager.hairworld24.de` umkonfiguriert werden, einschließlich Auth-/Quellprüfung; andernfalls würde Laravel seine eigenen bisherigen Legacy-PHP-Endpunkte ansprechen und die Integration scheitern. Die Änderung gehört ausschließlich auf den isolierten Framework-Featurebranch und benötigt Tests gegen Redirects und Host-Freigaben.
+
+### Nächste risikoarme Domain-/Git-Inventur
+
+Nur lesen; keine `--fetch`, `--deploy`, `--update`, `git reset` oder Datenbankmigration.
+
+```bash
+for spec in "artikelmanager.HAIRWORLD24.de|HW24-scanner" "test-artikelmanager.HAIRWORLD24.de|HW24-scanner.git"; do
+  domain="${spec%%|*}"
+  repo="${spec#*|}"
+  printf '\n=== PLESK GIT: %s ===\n' "$domain"
+  plesk ext git --info -domain "$domain" -name "$repo" 2>&1 |
+    grep -Ei 'branch|deploy|path|mode|commit|status' |
+    grep -Eiv 'remote|url|token|password|credential' || true
+done
+for domain in artikelmanager.HAIRWORLD24.de test-artikelmanager.HAIRWORLD24.de; do
+  root="/var/www/vhosts/hairworld24.de/$domain"
+  printf '\n=== Vorhandene WEB-Dateien: %s ===\n' "$domain"
+  for f in index.html artikelpflege.html qualitaetszentrum.html scanliste.html api/jtl.php api/amazon.php api/ai-reviews.php; do
+    if [ -f "$root/$f" ]; then printf 'VORHANDEN: %s\n' "$f"; else printf 'FEHLT: %s\n' "$f"; fi
+  done
+done
+```
+
+Die Dateiexistenz liefert noch keinen Versions-/Laufzeitnachweis. Den Git-Branch und die deployte Versionskennung anschließend vergleichen, bevor die Legacy-Seite migriert wird.
