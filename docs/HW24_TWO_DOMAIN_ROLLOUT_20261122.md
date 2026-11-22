@@ -223,3 +223,10 @@ Featurebranch-Commit `980bcce75a0a3516b7b6364fae5a0fa6aab8d112`: Filament-Panel,
 - Nach Live-Hash-/Browserabnahme Laravel mit privaten Auth-/Umgebungsdaten und eigenem SQLite für Login installieren. **Test-Plesk-Webroot noch nicht verändern, keine neue Domain/verwaltete MariaDB, kein PR #36 Legacy-Merge.**
 
 [Neueste Kurz-Übergabe und Einzelprotokoll](./HW24_HANDOVER.md) | [Chronologisches Arbeitsjournal](./HW24_ARBEITSJOURNAL.md)
+
+
+### Aktualisierung 22.11.2026: Composer-Shell-Wrapper erkannt
+
+Die nächste PuTTY-Ausgabe bestätigte `runuser -u nicovoss -- git ... rev-parse HEAD` auf dem bestehenden privaten Klon mit **exaktem SHA `980bcce75a0a3516b7b6364fae5a0fa6aab8d112`**. Anschließender Composer-Installationsversuch schlug fehl, weil `command -v composer` auf ein **Plesk-Shell-Skript** statt PHAR verweist und versehentlich `php "$wrapper"` ausgeführt wurde. Nur Skripttext ausgegeben, **Composer noch nicht installiert, Webroots unverändert**. Tatsächliches Composer-PHAR laut Wrapper: `/opt/psa/var/modules/composer/composer.phar`. Nächster Schritt PHP-8.4-Aufruf direkt auf die PHAR als `nicovoss` (isolierte Subshell), danach Vendor-Prüfung; kein erneuter Git-Klon.
+
+[Alle Einzelheiten und Belege im Arbeitsjournal](./HW24_ARBEITSJOURNAL.md).
