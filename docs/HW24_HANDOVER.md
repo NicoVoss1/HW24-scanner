@@ -1,3 +1,15 @@
+## LETZTER BESTÄTIGTER SERVERSTAND · Live/Test gleiche Legacy-API-Dateien (22.11.2026)
+
+**PuTTY-Prüfung `HW24_AUTH_DEPLOY_PREFLIGHT` erfolgreich:** Live `artikelmanager.HAIRWORLD24.de`, Plesk-Git `HW24-scanner`, und Test `test-artikelmanager.HAIRWORLD24.de`, Plesk-Git `HW24-scanner.git`, stehen BEIDE auf `deploy/staging` mit **manuellem** Deployment und deaktivierten Post-Actions. Die drei Dateien `api/scanliste.php`, `api/ai-reviews.php`, `api/ai-review.php` haben auf **beiden** Domains exakt dieselben Legacy-Git-Blob-SHAs `e9fb8075c4f532d7a76adf81e760acf81cab4528`, `00fb61c9d636434cdc6562edf169811a717c0911`, `2eabde207434b8c62162dc553354cd052c6ec98f`; neuer Helfer `api/hw24-actor-identity.php` **fehlt auf beiden Domains**.
+
+**Noch keine Änderung auf Plesk.** Draft [PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37), Head `c2cc4e1dc054da00f01087e7221659cf54a9a482`, CI zweimal grün, implementiert optional private Dual-Owner-Lesezuordnung. Live-Basic hat schon `nvoss`, Test-Basic noch `hw24-test`; 3 KI-Berichte gehören der bisherigen Kennung, Scanliste 2 Stapel 1/1 unter beiden. **Ein bloßes Umbenennen ohne GitHub-Code und private Mappingdatei würde alte Daten unsichtbar machen.**
+
+**EIN NÄCHSTER SCHRITT:** Vor jedem Test-Git-Deploy oder Test-Basic-Namenswechsel ein **frisches, privates Test-Webroot-Rollback-Backup** unter `/root/hw24-backups` anlegen und Wiederlesbarkeit prüfen, ohne Website zu verändern. Anschließend getrennt bestehende Plesk-Git-Testdomain auf präzise Featurebranch-Bereitstellung vorbereiten und nur die TEST-Seite ändern; LIVE, `plesk-stat`, JTL, SQL, Amazon, OpenAI, private Laravel-App und Filament-Webroot unverändert lassen. Vor Testnamen-Umbenennung die Plesk-Root-Basic-Verzeichniskonfiguration separat mit Wiederherstellungsplan sichern.
+
+[Chronologischer PuTTY-Nachweis](./HW24_ARBEITSJOURNAL.md), Commit `4cc22b45c84babb69407d0bbac69b93f8e66ca8f`.
+
+---
+
 ## NEUESTER SICHERER STAND · 22.11.2026 · PLESK TEST/LIVE EXAKT ZUGEORDNET
 
 **Vom Betreiber durch PuTTY-SQL bestätigt:**
