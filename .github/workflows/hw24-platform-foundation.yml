@@ -29,6 +29,15 @@ jobs:
           bash -n platform/ops/verify-testdomain-cutover-readonly.sh
           bash -n platform/ops/upgrade-private-framework-ffonly.sh
           bash -n platform/ops/migrate-source-catalog-isolated.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          raw=Path('platform/ops/migrate-source-catalog-isolated.sh').read_text()
+          start=raw.index("inspect='\n")+len("inspect='\n")
+          end=raw.index("\n'\n# Stop before backup",start)
+          Path('/tmp/hw24-sqlite-inspect.php').write_text('<?php\n'+raw[start:end]+'\n')
+          PY
+          php -l /tmp/hw24-sqlite-inspect.php
+          php -r '$db=new PDO("sqlite::memory:",null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);$out=tempnam(sys_get_temp_dir(),"hw24-vacuum-");try{$db->prepare("VACUUM INTO ?")->execute([$out]);$copy=new PDO("sqlite:".$out);if($copy->query("PRAGMA integrity_check")->fetchColumn()!=="ok")exit(2);}finally{unlink($out);}echo "SQLite VACUUM INTO backup smoke PASS\n";'
           find platform/app platform/config platform/database platform/routes -name '*.php' -print0 | xargs -0 -n 1 php -l
       - name: Validate composer manifest and no secrets
         working-directory: platform
