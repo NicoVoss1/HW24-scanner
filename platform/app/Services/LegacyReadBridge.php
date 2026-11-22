@@ -19,6 +19,7 @@ final class LegacyReadBridge
         'jtl.quality' => 'api/jtl-quality.php',
         'jtl.options' => 'api/jtl-options.php',
         'amazon.catalog' => 'api/amazon.php',
+        'amazon.archive' => 'api/amazon-archive.php', // Requires separate LIVE read-only API release
         'amazon.keywords' => 'api/amazon-keywords.php',
         'amazon.pricing' => 'api/amazon-pricing.php',
         'ai.history' => 'api/ai-reviews.php',
