@@ -866,3 +866,12 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 **Sicherheitsstatus:** Die Live-Website, vorhandene Testdomain, HTTP-Basic-Anmeldung, Plesk-Passwortschutzdateien, originalen KI-Berichte und Scan-Stapel sind **unverändert**. Eine private `hw24_private/actor-aliases.php` wurde noch **nicht** auf dem Server angelegt. Die neue Freigabe erlaubt ausdrücklich Zugriff auf historisch autorisierte Stapel auch für die bestehenden POST-Editieroperationen, nicht nur reines Lesen; `changed_by`/Scan-Audits verwenden dabei den aktuell eingeloggten Benutzer. Eine unautorisierte oder öffentlich konfigurierbare Alias-Freigabe ist nicht zulässig.
 
 **Nächste einzige PuTTY-Aktion:** Das im Runbook dokumentierte `HW24_PLESK_SCHEMA` nur lesend ausführen. Es liefert nur Namen der Spalten in `protected_dirs`, `pd_users` und `domains`, **keine Passwort- oder Kontoinhalte**. Daraus wird erst eine gültige read-only Plesk-Auth-Inventur entwickelt. Kein Login-Umbenennen und kein Code-Deploy, bevor Backup/Rollback und passende Auth-Zielkonfiguration bestätigt sind.
+
+
+### 22.11.2026 · Passwort- und Kontenwechsel klar getrennt
+
+- Betreiber hat zusätzliche Anmeldeinformation für die beiden bestehenden HTTP-Basic-Konten geliefert. Aus Sicherheitsgründen **keine Beschreibung, Wiederholung oder Speicherung der konkreten Passwortbeziehung im öffentlichen Repository**. Für die gewünschte Umbenennung wird **keine Passwortoffenlegung und kein automatischer Passwortreset** benötigt.
+- **Unverändert nachgewiesen:** Unterschiedliche Basic-Anmeldenamen sind unterschiedliche Identitäten für `hw24_ai_reviews.actor` und `hw24_scan_batches.created_by`, selbst wenn das Passwort kein Unterscheidungsmerkmal ist. Die Zahl **3 KI-Reviews unter alt, 0 unter neu; je 1 Scan-Stapel unter beiden** erfordert explizite Dual-Owner-Berechtigung.
+- Draft PR #37 mit Dual-Owner-Lesen und aktuellen Write-/Audit-Namen, zwei grüne GitHub-CI-Läufe; **noch nicht auf dem Server angewendet**.
+- Kurz-Übergabe durch Dokumentations-Commit `b3fcd10e44bf00e37e5aa31869954bb4fb9ea990` aktualisiert, ohne Geheimnisse zu nennen.
+- Nächster technischer Schritt bleibt unverändert die **nur lesende** `HW24_PLESK_SCHEMA`-Abfrage, damit die zuvor gescheiterte Spaltenannahme `pd.name` korrigiert und die tatsächliche Passwortschutzkonfiguration vor einer Kontenumstellung inventarisiert werden kann.
