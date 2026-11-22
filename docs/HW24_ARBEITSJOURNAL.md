@@ -372,3 +372,26 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 **Bisher abgeschlossen:** Privater Klon mit korrektem HEAD. **Offen:** Composer erfolgreich installiert, `platform/vendor/autoload.php` vorhanden, Package-/Runtime-Tests, private Laravel-Umgebung, Live-V4.25-Webroot-/Browserabnahme und Test-Webroot-Umschaltung.
 
 **Dokumentationspflicht:** Dieser Fehler ist chronologisch protokolliert, nicht verschwiegen oder rückwirkend als Erfolg umgedeutet. Exakt nächste Aktion: PHAR-basierten PHP-8.4-Composer-Aufruf durchführen und Ausgabe vollständig prüfen.
+
+
+### 22.11.2026 · PHP 8.4 Composer/Filament auf Plesk erfolgreich installiert
+
+**BELEG:** Vollständige Betreiber-PuTTY-Ausgabe (448 Zeilen) des korrigierten Isolationsskripts `HW24_COMPOSER`, nach dem zuvor fehlgeschlagenen Plesk-Shell-Wrapper-Aufruf. Keine Secrets im Protokoll.
+
+| Einzelakt | Bestätigtes Ergebnis | Status |
+| --- | --- | --- |
+| 22 · Composer-PHAR explizit unter PHP 8.4 prüfen | `Composer 2.11.2`, `PHP 8.4.28`, ausführbar als Site-Benutzer | **BESTÄTIGT, erfolgreich** |
+| 23 · Composer-Auflösung im isolierten privaten Laravel-`platform/` | Ohne vorhandene `composer.lock` wurde der Versionssatz neu aufgelöst; Lockdatei auf dem Server geschrieben, **145 Paketversionen gesperrt** | **BESTÄTIGT** |
+| 24 · Prod-PHP-Abhängigkeiten installieren | `composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader` hat **112 Pakete** heruntergeladen/extrahiert. Kein Paketinstallationsfehler im Log | **BESTÄTIGT, erfolgreich** |
+| 25 · Reale Framework-Versionen prüfen | `laravel/framework v13.43.0`, `filament/filament v5.12.0`, `livewire/livewire v4.4.9` laut Composerauflösung/-Installation | **BESTÄTIGT** |
+| 26 · Laravel-Paketerkennung | `@php artisan package:discover` erfolgreich: Filament, Livewire, Laravel-Komponenten und Pakete mit Status `DONE` | **BESTÄTIGT, erfolgreich** |
+| 27 · Composer Post-Update-Skript | `artisan vendor:publish --tag=laravel-assets --force`: `No publishable resources`, **kein Fehler** | **BESTÄTIGT** |
+| 28 · Composer-Endgate | Das Bash-Skript prüfte `test -f "$platform/vendor/autoload.php"` mit `set -e`, danach tatsächlich `=== INSTALLATION ERFOLGREICH ===`, `Laravel-/Filament-Pakete vorhanden.`, Rückkehr zur PuTTY-Shell | **BESTÄTIGT, erfolgreich** |
+| 29 · Auswirkungen auf Legacy-/Datenbankbereich | Dieser Installer rief ausschließlich Composer im privaten `platform/` auf; keine Plesk-Vhost-Änderung oder JTL-Migration im Log erkennbar | **BESTÄTIGT für ausgeführten Block**, keine globale Systemprüfung |
+| 30 · Reproduzierbarkeit | `platform/composer.lock` wurde **auf Server erzeugt**, befindet sich nicht automatisch im GitHub-Featurebranch. Vor späteren Deployments Versionsstand reproduzierbar committen, ggf. auf Secret-Freiheit prüfen | **OFFEN: Lockfile noch nicht im Repo** |
+
+**Damit KORRIGIERT gegenüber alten Notizen:** Composer und Laravel/Filament sind **installiert**. **Nicht** fälschlich „Laravel im Browser eingerichtet“ behaupten: Es gibt bislang noch kein privates `.env`-/APP_KEY-/SQLite-Initialisierungsprotokoll, keine bestätigte Administratoranlage, kein gesichertes `/admin`-HTTP-Ergebnis und keine Plesk-Test-Webroot-Umschaltung.
+
+**Exakt nächste technisch sinnvolle Aktion (read-only):** Laravel-/Filament-Artefakte per `php artisan --version` und `php artisan route:list --path=admin` als Site-Benutzer prüfen, vorhandene Live-V4.25-Dateihashes abgleichen. Erst danach ausschließlich Laravel-eigene `.env` und isolierte SQLite-Datenhaltung initialisieren. Legacy V4.25 vor Umschaltung von Test im authentifizierten Browser prüfen. **Kein** erneuter Composer-Install und **kein** Repository-Reclone nötig.
+
+**Dokumentationsregel:** Jede neue PuTTY-Ausgabe sofort chronologisch ergänzen und Kurz-Übergabe/Projektstatus fortschreiben; öffentliches GitHub enthält keine Authentifizierungsschlüssel.
