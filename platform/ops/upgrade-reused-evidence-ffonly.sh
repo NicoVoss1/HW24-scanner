@@ -9,7 +9,7 @@ app="$repo/platform"
 site='test-artikelmanager.hairworld24.de'
 owner='nicovoss'
 php='/opt/plesk/php/8.5/bin/php'
-target='543cd6bab36886ba4255c6747f2014d7806a02c6'
+target='5eae5be7e8dc05298dba56ed37267cfc76622d20'
 branch='feature/hw24-reuse-wms-amazon-evidence-20261122'
 old=''
 backup=''
@@ -125,6 +125,7 @@ while IFS="$(printf '\t')" read -r status path;do
   platform/app/Filament/Pages/ScanWorkbench.php|\
   platform/app/Filament/Pages/WarehousePriceWorkbench.php|\
   platform/app/Services/LegacyReadBridge.php|\
+  platform/ops/upgrade-reused-evidence-ffonly.sh|\
   platform/ops/upgrade-wms-priceboard-ffonly.sh|\
   platform/resources/views/filament/pages/article-lookup.blade.php|\
   platform/resources/views/filament/pages/intelligence-workbench.blade.php|\
