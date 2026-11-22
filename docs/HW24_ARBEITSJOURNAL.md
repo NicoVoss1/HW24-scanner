@@ -568,3 +568,13 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 **Nächster Schritt:** **Nur lesende** Zuordnung der Testdomain zum Plesk-FPM-Pool (Pool-Prozess-/Konfigurationsmetadaten ohne Secrets), der Unix-Gruppen von `nginx`, `www-data`, `nicovoss`, sowie effektiver `test -x/-r`-Zugriffe. Erst dann eine **eng begrenzte** Berechtigungs-/Trennungsstrategie für `platform/public` und das im PHP-FPM benötigte private Laravel-Backend entwerfen. Vor jeglichem Domain-Cutover außerdem **angemeldeten Live-V4.25-JTL-/Amazon-/OpenAI-Browser-E2E** nachweisen und Legacy-Testdomain-Git-Ziel/rollback-sicheres Bereitstellungsverfahren bestimmen.
 
 **Noch NICHT** Plesk-DocumentRoot geändert, PHP-FPM-Handler umgestellt, PHP- oder Webserver-Rechte verändert, Admin neu angelegt oder Migrationen wiederholt. Live/Legacy bleiben unverändert.
+
+
+### 22.11.2026 · Dokumentations- und Preflight-Nachbereitung nach Webserver-Rechteprüfung
+
+- **GitHub-Ereignis:** Nach Betreiber-Nachweis der verweigerten nginx-/www-data-Asset-Leserechte ist der ausführliche Einzeleintrag in diesem Journal gespeichert, Commit `caf206b3ceef57a2c5bbb0d633dcf00bca4ea4d3`.
+- **Runbook:** [HW24_PREFLIGHT_FILAMENT_TESTDOMAIN_20261122.md](./HW24_PREFLIGHT_FILAMENT_TESTDOMAIN_20261122.md) dokumentiert den Befund und enthält einen **noch nicht ausgeführten** read-only `HW24_POOL_READ`-Block für Plesk-FPM-Poolidentität, Unix-Gruppen und ausgewählte Rechte-Metadaten. Commit `867e34d5f860ce637e7a91bc846413767731b605`.
+- **Cross-Chat-Übergabe:** [HW24_HANDOVER.md](./HW24_HANDOVER.md) auf letzten Stand gebracht, Commit `dc6a94865d4d9c15a9f6b845bad9e60c3e485f01`.
+- **Projektstatus:** [HW24_PROJEKTSTAND_AKTUELL.md](./HW24_PROJEKTSTAND_AKTUELL.md) aktualisiert, Commit `ab23ade6fa1ee63591c1d61ad51b29b65812adcf`.
+- **Nicht ausgeführt:** Plesk-Konfiguration, chmod/ACL, Git-Deploy, Webroot-Verlagerung, PHP-FPM-Neustart, API-Zugriff oder Datenbankmigration.
+- **Nächster echter Betreiber-Schritt:** `HW24_POOL_READ` ausführen und Terminalausgabe übermitteln; außerdem authentifizierten Legacy-Live JTL/Amazon/KI-Test bestätigen. Danach präzisen Sicherheits- und Rollbackplan für Asset-Zugriff und Test-Webroot prüfen.
