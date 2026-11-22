@@ -55,6 +55,7 @@ final class SourceSnapshot
             'snapshot_at'=>self::limited($payload['snapshot_at']??null,40),
             'field_count'=>max(0,(int)($payload['field_count']??0)),
             'offset'=>max(0,(int)($payload['offset']??0)),
+            'returned_count'=>max(0,min(100,(int)($payload['returned_count']??count($raw)))),
             'has_more'=>($payload['has_more']??false)===true,
             'fields'=>$rows,
             'prices'=>$priceRows,
