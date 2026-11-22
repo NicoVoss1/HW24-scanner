@@ -1,3 +1,34 @@
+## Präzisierung: Plesk-Basic-Namen zuerst ohne Annahme über Subdomain-Joins auflisten
+
+Plesk-`protected_dirs` besitzt ausdrücklich `dom_type` zusätzlich zu `dom_id`. Deshalb kann eine direkte Verbindung `domains.id = protected_dirs.dom_id` bei über die Plesk-Subdomaintabelle verwalteten Schutzverzeichnissen unvollständig sein. Die **erste** Ausführung sollte die von der Benutzer-SQL-Schemaausgabe nachgewiesenen Tabellen `pd_users` und `protected_dirs` **ohne voreilige Domain-Zuordnung** nutzen. Diese eng begrenzte Bestandsabfrage listet nur die zwei vom Betreiber vorgegebenen Basic-Nutzernamen.
+
+```bash
+bash <<'HW24_PLESK_AUTH_READ'
+set -euo pipefail
+
+echo "=== HW24 PLESK: GESCHUETZTE BENUTZER ==="
+plesk db -Ne "
+SELECT pu.login,
+       pd.id AS protected_dir_id,
+       pd.dom_id,
+       pd.dom_type,
+       pd.path,
+       pd.realm
+FROM pd_users pu
+JOIN protected_dirs pd ON pd.id = pu.pd_id
+WHERE pu.login IN ('hw24-test','nvoss')
+ORDER BY pu.login, pd.dom_type, pd.dom_id, pd.id;
+"
+echo "=== NUR-LESE-PRUEFUNG ABGESCHLOSSEN ==="
+HW24_PLESK_AUTH_READ
+```
+
+Diese Abfrage lässt bestehende Konten und deren Zuordnung unverändert. **Wenn keine Zeilen kommen:** Der Schutz könnte z. B. durch eine Webserver-`.htpasswd`-Konfiguration außerhalb von Plesk-`pd_users` erfolgen. Das muss dann separat überprüft werden; keine Account-Umbenennung oder KI-/Scanlisten-Update auf Verdacht. Die konkreten Domänenzuordnungen werden anschließend anhand der im Ergebnis gezeigten `dom_type`-/`dom_id`-Werte korrekt und ausschließlich lesend geprüft.
+
+**Achtung:** Diese Präzisierung hat gegenüber dem weiter unten archivierten früheren SQL-Beispiel mit dem bedingungslosen `domains`-Join Vorrang. Bis zum tatsächlichen Servernachweis ist keinerlei Konto umbenannt.
+
+---
+
 ## PLESK-TABELLENSCHEMA VERIFIZIERT · 22.11.2026 · nächster korrekter Nur-Lese-Befehl
 
 Der Betreiber hat `information_schema.COLUMNS` erfolgreich ausgeführt. In Plesk ist `protected_dirs.path` vorhanden, **`protected_dirs.name` existiert nicht**. `pd_users` hat `pd_id`, `login` und `account_id`; `domains` hat `id`, `name` und `parentDomainId`. Zuvor gescheiterte Abfragen mit `pd.name` **nicht** wiederholen.
