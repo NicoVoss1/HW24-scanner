@@ -203,3 +203,11 @@ GitHub-`deploy/staging` wurde erneut überprüft und zeigt unverändert auf `444
 **Unverändert: Die Legacy-V4.25-Übertragung auf die Live-Artikelmanager-Domain ist im Gespräch nicht mit einer anschließenden PuTTY-/Browserausgabe belegt.** Der Wechsel des bestehenden Plesk-Test-Webroots zu `platform/public` bleibt deshalb gesperrt, bis die Live-Hashes und API-Smoke-Tests erfolgreich sind.
 
 **Nächster Schritt:** auf Live nur-lesend Dateien `artikelpflege.html`, `api/jtl.php`, `index.html`, `scanliste.html` gegen V4.25 Git-Blob-SHAs abgleichen und den Plesk-Git-Branch `deploy/staging` bestätigen. Dann getrennten privaten Laravel-Quellcode außerhalb beider DocumentRoots installieren, SQLite ausschließlich für Laravel-Login/Metadaten, Filament-Assets aus Composer; den alten Plesk-Git-Pull **niemals** direkt mit der neuen Branch-Root in den Webroot deployen.
+
+### Freigabe der ersten Console-Basis (22.11.2026)
+
+Featurebranch-Commit `980bcce75a0a3516b7b6364fae5a0fa6aab8d112`: Filament-Panel, Dashboard, Artikel-/Amazon-/OpenAI-GET-Ansicht und Schutztests. **Erfolgreiche GitHub-Actions** für genau diesen Commit:
+- HW24 Laravel/Filament Foundation: https://github.com/NicoVoss1/HW24-scanner/actions/runs/44972633923 (`success`).
+- HW24 V4.25 Legacy-Regression: https://github.com/NicoVoss1/HW24-scanner/actions/runs/44972633843 (`success`).
+
+**Freigabe gilt ausschließlich für Quellcode-/CI-Tests**, nicht für installierte Plesk-Runtime oder vertrauliche Live-Datenverbindungen. Die bestehende Testdomain darf weiterhin erst umgestellt werden, wenn der V4.25-Live-Cutover als abgeschlossen nachgewiesen wurde.
