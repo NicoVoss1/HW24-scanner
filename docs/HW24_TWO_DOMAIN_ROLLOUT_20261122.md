@@ -211,3 +211,15 @@ Featurebranch-Commit `980bcce75a0a3516b7b6364fae5a0fa6aab8d112`: Filament-Panel,
 - HW24 V4.25 Legacy-Regression: https://github.com/NicoVoss1/HW24-scanner/actions/runs/44972633843 (`success`).
 
 **Freigabe gilt ausschließlich für Quellcode-/CI-Tests**, nicht für installierte Plesk-Runtime oder vertrauliche Live-Datenverbindungen. Die bestehende Testdomain darf weiterhin erst umgestellt werden, wenn der V4.25-Live-Cutover als abgeschlossen nachgewiesen wurde.
+
+
+## Nachweis 22.11.2026 01:46 UTC: Live-Git nun auf V4.25, Serverinstallation teilweise
+
+**Wichtige Fortschreibung gegenüber älteren Planpassagen:**
+- Betreiber bestätigt über Plesk-PuTTY `Active branch: deploy/staging` und `--get-last-commit = 444453471b0fd27c73dcc7929f5e17f1d9239c52` für **Live**. Damit ist die früher offene Git-Branchumstellung erfolgt. **Tatsächliche Webroot-Dateihashes und authentifizierter Live-Browser-/API-E2E** sind noch nicht belegt.
+- Früher bereits bestätigt: **Test** wurde auf V4.25 deployed, kritische Dateihashes OK, private Test-V4.24-Sicherung lesbar, sechs anonyme HTTPS-Statusprüfungen auf Live/Test jeweils HTTP 401.
+- Betreiber bestätigt, dass das private **Laravel-Repository bereits geklont** wurde. Die ursprüngliche Root-Session scheiterte anschließend an `git rev-parse` mit `fatal: detected dubious ownership`; `nicovoss` ist Eigentümer des Repo-Pfads. `vendor/` wurde noch nicht erstellt. **Nicht neu klonen und keine Root-`safe.directory`-Ausnahme einrichten.**
+- Erst als Site-Eigentümer den geklonten Git-HEAD gegen `980bcce75a0a3516b7b6364fae5a0fa6aab8d112` prüfen, dann Composer mit Plesk PHP 8.4 im isolierten `repo/platform`; lange Skripte mit `set -euo pipefail` nur in eigener Subshell.
+- Nach Live-Hash-/Browserabnahme Laravel mit privaten Auth-/Umgebungsdaten und eigenem SQLite für Login installieren. **Test-Plesk-Webroot noch nicht verändern, keine neue Domain/verwaltete MariaDB, kein PR #36 Legacy-Merge.**
+
+[Neueste Kurz-Übergabe und Einzelprotokoll](./HW24_HANDOVER.md) | [Chronologisches Arbeitsjournal](./HW24_ARBEITSJOURNAL.md)
