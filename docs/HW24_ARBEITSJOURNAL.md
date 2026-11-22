@@ -953,3 +953,20 @@ Die separate `protected_dirs.id=1` für `plesk-stat` auf `domains.id=1` ist **ni
 **Code und Tests:** [Draft PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37) auf `feature/hw24-login-alias-scan-ai-20261122`, Head `c2cc4e1dc054da00f01087e7221659cf54a9a482`; CI [#44978357305](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44978357305) und [#44978360796](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44978360796) erfolgreich. Gewolltes Verhalten: `nvoss` liest mit privater und expliziter `read_aliases`-Freigabe historische `hw24-test`-Berichte und beide Scanlisten-Stapel; neue Vorgänge werden unter der aktuellen Basic-Kennung protokolliert; unveränderter Bestand; **kein automatischer KI-POST**.
 
 **Nächste sichere Operation:** Ein *frisches privates, überprüfbares Test-Webroot-Rollback-Backup* erstellen, dessen Pfad nur unter `/root/hw24-backups` liegt, vor jedem manuellen Plesk-Git-Deploy / Account-Rename. Danach die bestehende **TEST**-Plesk-Git-Konfiguration und beabsichtigten Feature-Branch-Rollout genau absichern; **LIVE Plesk-Git-Branch nicht automatisch mitziehen**. Test-HTTP-Login `hw24-test` erst nach erfolgreichem Dual-Owner-Code-Test und privater Alias-Freigabe gezielt auf `nvoss` ändern. Separaten späteren Laravel/Filament-Webroot-Cutover nicht mit diesem Vorgang vermischen.
+
+
+### 22.11.2026 · Frisches privates Test-Webroot-Backup ERFOLGREICH bestätigt (vor PR #37)
+
+**Direkter Betreiber-PuTTY-Nachweis:** `HW24_TEST_BACKUP` vollständig erfolgreich ausgeführt. Das Skript prüfte die Existenz des Test-Webroots und der drei Legacy-PHP-APIs, legte mit `umask 077` ein neues privates Verzeichnis in `/root/hw24-backups/` an, archivierte nur `test-artikelmanager.HAIRWORLD24.de` mittels `tar --one-file-system` und bestätigte über `tar -tzf` den enthaltenen Pfad `test-artikelmanager.HAIRWORLD24.de/api/ai-reviews.php`. **Keine Website oder Benutzerkonten geändert.**
+
+- **Sicherungsdatei auf Plesk:** `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz`
+- **Archivtest:** `Archivinhalt geprueft: JA`
+- **SHA-256:** `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26`
+- **Abschluss:** `SICHERUNG ERFOLGREICH`, `Live, Test und Benutzerkonten unveraendert`, PuTTY-Prompt wiederhergestellt
+- **Geltungsbereich:** Das ist eine private Sicherung der **Test-Webdateien**, keine eigenständige Sicherung der Plesk-Passwortschutz-Einträge, der produktiven MariaDB-Tabellen oder der Live-Webseite. Vor einem Konten-Rename zusätzlich den Test-Basic-Schutz separat sichern und dessen Rückfallweg prüfen; **keine Wiederherstellung durchgeführt**.
+
+**Vorher bestätigt:** Beide Plesk-Webroots haben auf Branch `deploy/staging` im manuellen Deployment identische drei Legacy-API-Git-Blob-Hashes `e9fb8075...`, `00fb61c9...`, `2eabde20...`; `api/hw24-actor-identity.php` fehlt noch auf beiden Domains. Live Plesk-Basic-Kennung `nvoss`, Test `hw24-test`. SQL-Inventar: 3 KI-Berichte unter altem Actor, Scan-Stapel 1+1 unter alt/neu.
+
+**GitHub-Draft PR #37:** `feature/hw24-login-alias-scan-ai-20261122`, Head `c2cc4e1dc054da00f01087e7221659cf54a9a482`; Tests/GitHub-CI #44978357305 und #44978360796 grün. Er implementiert `read_aliases` mit beiden Eigentümern als lesbarem Scope; neue Scan-/KI-Ereignisse bleiben unter aktueller Basic-Kennung. **PR nicht gemergt oder deployed**.
+
+**Nächste kontrollierte Phase:** Nur die Testdomain: Vorbereitende Plesk-Git-Repository/Quellcode-Prüfung ohne Änderung von `deploy/staging`, kein Plesk-Test-Webroot-Cutover zu Laravel, kein Test-Basic-Namenswechsel bevor Zwei-Owner-Code und private Zuordnung im berechtigten Test-HTTP-Kontext geprüft wurden. Keine JTL-/WMS-/Shopify-Datenänderung oder KI-POST. Live unangetastet.
