@@ -32,10 +32,10 @@ echo '2. Privater Framework-Git-Stand'
 if [ -d "$repo/.git" ] && id nicovoss >/dev/null 2>&1; then
  head="$(runuser -u nicovoss -- git -C "$repo" rev-parse HEAD 2>/dev/null)" || head=''
  echo "Aktueller privater HEAD: $head"
- echo 'Neuester dokumentierter PR36 HEAD: 1eb7e21ba8c9bfee9b0172adbc8afb5a147d04f3'
- if [ "$head" = '1eb7e21ba8c9bfee9b0172adbc8afb5a147d04f3' ]; then
-  ok 'Framework-Klon auf neuestem PR36-Stand'
- else warn 'Framework-Klon abweichend (kein blindes Git-Pull, keine Sicherungsdateien loeschen)'
+ if [ -n "$head" ] && runuser -u nicovoss -- git -C "$repo" ls-tree -r --name-only HEAD -- platform/app/Domain/Jtl/SourceSnapshot.php | grep -qx 'platform/app/Domain/Jtl/SourceSnapshot.php'; then
+  ok 'Framework-Klon enthaelt die neuere JTL-Quellansicht'
+ else
+  warn 'Framework-Klon enthaelt noch nicht die neuere JTL-Quellansicht aus PR36 (kein blindes Git-Pull)'
  fi
  if runuser -u nicovoss -- git -C "$repo" diff --quiet --exit-code &&
     runuser -u nicovoss -- git -C "$repo" diff --cached --quiet --exit-code; then
