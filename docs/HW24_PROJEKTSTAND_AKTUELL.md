@@ -296,3 +296,14 @@
 Die nächste PuTTY-Ausgabe bestätigte `runuser -u nicovoss -- git ... rev-parse HEAD` auf dem bestehenden privaten Klon mit **exaktem SHA `980bcce75a0a3516b7b6364fae5a0fa6aab8d112`**. Anschließender Composer-Installationsversuch schlug fehl, weil `command -v composer` auf ein **Plesk-Shell-Skript** statt PHAR verweist und versehentlich `php "$wrapper"` ausgeführt wurde. Nur Skripttext ausgegeben, **Composer noch nicht installiert, Webroots unverändert**. Tatsächliches Composer-PHAR laut Wrapper: `/opt/psa/var/modules/composer/composer.phar`. Nächster Schritt PHP-8.4-Aufruf direkt auf die PHAR als `nicovoss` (isolierte Subshell), danach Vendor-Prüfung; kein erneuter Git-Klon.
 
 [Alle Einzelheiten und Belege im Arbeitsjournal](./HW24_ARBEITSJOURNAL.md).
+
+
+### 22.11.2026 · UPDATE: Laravel 13 und Filament 5 tatsächlich als PHP-Pakete installiert
+
+**Neue Betreiber-Ausgabe:** Korrigierter Plesk-PHAR-Aufruf unter PHP 8.4 und dem Site-Systembenutzer hat erfolgreich **Composer 2.11.2**, **Laravel 13.43.0**, **Filament 5.12.0**, **Livewire 4.4.9** aufgelöst und im privaten Framework-Klon installiert. Die **145 gesperrten Paketversionen** stehen in einer **serverlokalen** neu geschriebenen `composer.lock`, **112 PHP-Pakete** wurden mit `--no-dev` installiert. Laravel `artisan package:discover` `DONE`, `vendor/autoload.php` bestätigt, Ausgabetext `=== INSTALLATION ERFOLGREICH ===`.
+
+**Der vorherige Composer-Wrapper-Fehlversuch ist damit behoben.** Kein neuer Git-Klon erforderlich. **Nicht verwechseln** mit einem bereits konfigurierten/öffentlich erreichbaren Laravel-Adminpanel: `.env`, App-Key, private SQLite-Migration, Admin-Zugang, Filament-Assets und Test-Webroot-Umschaltung noch **OFFEN**. Auch Live-V4.25-Webroot-Hash-/authentifizierter Browsernachweis noch offen. Bestandsdatenbanken/API-Credentials nicht angerührt.
+
+**Nächste Aktion:** Auf Plesk unter Site-Benutzer read-only `artisan --version`, `artisan route:list --path=admin` und Live-Artikelmanager V4.25-Webroot-Hashes prüfen. Keine neuen Domains/Datenbanken und keine erneute Composer-Installation. Danach private Laravel-Konfiguration.
+
+[Vollständiger chronologischer Einzelbeleg](./HW24_ARBEITSJOURNAL.md) (Commit `006fbf833d06b9dd89d5a663f653d75afd3444ee`).
