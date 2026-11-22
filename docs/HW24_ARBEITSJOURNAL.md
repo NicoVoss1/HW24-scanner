@@ -1450,3 +1450,17 @@ Bitte Zugangsdaten nur auf dem Server in der privaten Laravel-Konfiguration hint
 - Test führte **keinen Amazon-Aufruf, keinen OpenAI-POST, keine Plattform- oder JTL-DB-Schreibaktion** durch. Legacy-Live- und Test-Webroots sowie der Plesk-Git-Testdeploymentpfad bleiben unverändert.
 
 **Fortsetzung als sicherer Release-Gate statt voreiliger öffentlicher Freischaltung:** Im Draft PR36 entsteht `platform/ops/verify-filament-https-release-gates-readonly.sh`. Dieses führt nur Plesk-/Git-Info-SELECTs, maskierte Laravel-Konfigurations-Booleans, SQLite-/Adminexistenz-Checks, Dateirechte und anonyme HTTPS-401-Checks durch. Besondere Risiken vor Plesk-Test-vHost-Umstellung: ursprüngliche Git-Auslieferung auf Legacy-Root statt Filament, `APP_DEBUG=false`, `APP_URL=https://test-artikelmanager.hairworld24.de`, `SESSION_SECURE_COOKIE=true`, admin-only Auth, und die Tatsache, dass der 401-Schutz des **alten** DocumentRoots nicht automatisch auf den neuen `platform/public` übertragen werden muss. **Noch kein Plesk-Cutover**, anschließend separater Rückfallplan und echter HTTPS-FPM-/Session-Browser-Test.
+
+
+## 22.11.2026 · Filament-HTTPS-Sicherheitsgates auf Plesk: 0 Warnungen
+
+**Direkte Betreiber-PuTTY-Ausgabe** des zunächst nur lesenden `platform/ops/verify-filament-https-release-gates-readonly.sh` vom **22.11.2026 19:08:35 UTC**:
+- Alte Testdomain bleibt auf Legacy-Webroot; archivierter/ergänzter TEST-ASIN-Endpunkt unverändert.
+- Plesk-Git `HW24-scanner.git` meldet **Modus manual**. Eine manuelle Plesk-Bereitstellung ist weiterhin zu vermeiden, bis Plesk-Git-Zielpfad und tatsächlicher DocumentRoot getrennt dokumentiert sind.
+- Privater Framework-Klon entspricht gepinntem Commit `a26a64d09597e41523e224c557bb1d4e39bdf052`; keine lokalen getrackten Git-Änderungen.
+- Laravel-Konfiguration (ohne Secrets ausgegeben): **APP_ENV=production**, **APP_DEBUG=false**, **APP_URL=https://test-artikelmanager.hairworld24.de**, **DB=private SQLite**, geschützte LIVE-HTTPS-Lesebrücke konfiguriert, Filament-Admin-E-Mail gesetzt und Benutzer in privater SQLite vorhanden, Session-Treiber geeignet, Host-only-Cookie, **SESSION_SECURE_COOKIE=true**.
+- `nginx` und `www-data` dürfen CSS/JS lesen, ohne `.env` und SQLite lesen zu dürfen; PHP-Site-User darf Laravel-`public/index.php` lesen.
+- Bisherige LIVE-/TEST-JTL-APIs antworten anonym **HTTP 401** unter HTTPS. **Wichtig:** Nur Schutz des *alten* Test-Webroots nachgewiesen. Beim Wechsel des DocumentRoots muss Authentifizierung für `/admin/login`, PHP-FPM, open_basedir, Laravel-Session, CSS/JS und den tatsächlichen Browser separat getestet werden.
+- Abschluss `READ-ONLY RELEASE-GATES ABGESCHLOSSEN, SHELL-WARNUNGEN: 0`; kein Change am Server.
+
+**Offener letzter Mechanik-Gate, separat vorbereitet und noch NICHT auf Plesk ausgeführt:** `platform/ops/verify-plesk-cutover-mechanics-readonly.sh` im PR36. Prüft Plesk CLI-Typ (Subdomain oder Domain), exakten alten DocumentRoot, ob Basic-Auth an der alten `.htaccess` oder vHost-Konfiguration hängt (ohne Passwort/Configs zu drucken), Plesk-Git-Manualmodus **und** mögliches separates Deploymentziel sowie 401 an drei alten HTTPS-Test-URLs. Die Plesk-Dokumentation bestätigt, dass `-www-root` bei Domain wie Subdomain relativ zur Subscription interpretiert wird; konkrete Befehlsform hängt vom nachgewiesenen Plesk-Typ ab. **Noch KEIN Domain-Cutover** oder Rollback-Befehl ausgeführt. Diese Mechanikprüfung soll falschen CLI-Aufruf, verlorenen Basic-Auth-Schutz und versehentliche Veröffentlichung privater Anwendungsdateien verhindern.
