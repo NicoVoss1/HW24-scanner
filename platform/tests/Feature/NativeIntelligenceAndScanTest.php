@@ -101,6 +101,50 @@ final class NativeIntelligenceAndScanTest extends TestCase
             && str_contains($r->url(),'/api/amazon.php'));
     }
 
+    public function test_historical_amazon_snapshots_read_only_with_explicit_get(): void
+    {
+        Http::fake(function($r){
+            if(str_contains($r->url(),'/api/jtl.php'))return Http::response(self::jtlResponse(),200);
+            if(str_contains($r->url(),'/api/amazon-archive.php'))return Http::response([
+                'ok'=>true,'scope'=>'catalog_ean_not_seller_account','count'=>2,
+                'snapshots'=>[
+                    ['id'=>220,'fetched_at_utc'=>'2026-11-22 18:10:00','count'=>1],
+                    ['id'=>219,'fetched_at_utc'=>'2026-11-22 17:25:00','count'=>0],
+                ],
+            ],200);
+            return Http::response(['ok'=>false],404);
+        });
+        Http::preventStrayRequests();
+        Livewire::test(IntelligenceWorkbench::class)
+            ->set('identifier','3474630337398')
+            ->call('findArticle')
+            ->call('loadAmazonArchive')
+            ->assertSet('catalogArchive.ok',true)
+            ->assertSet('catalogArchive.snapshots.0.id',220)
+            ->assertSee('Amazon-Katalogarchiv #220');
+        Http::assertSentCount(2);
+        Http::assertSent(fn($r)=>$r->method()==='GET'
+            && str_contains($r->url(),'/api/amazon-archive.php')
+            && str_contains($r->url(),'ean=3474630337398'));
+        Http::assertNotSent(fn($r)=>$r->method()==='POST');
+    }
+
+    public function test_missing_new_archive_endpoint_is_reported_without_sp_api_or_writes(): void
+    {
+        Http::fake(function($r){
+            if(str_contains($r->url(),'/api/jtl.php'))return Http::response(self::jtlResponse(),200);
+            return Http::response(['ok'=>false,'error'=>'not_deployed'],404);
+        });
+        Http::preventStrayRequests();
+        Livewire::test(IntelligenceWorkbench::class)
+            ->set('identifier','3474630337398')
+            ->call('findArticle')
+            ->call('loadAmazonArchive')
+            ->assertSet('catalogArchive.ok',false)
+            ->assertSee('noch nicht gesondert bereitgestellt');
+        Http::assertSentCount(2);
+    }
+
     public function test_paid_ai_cannot_call_upstream_without_private_flag_and_confirmation(): void
     {
         Http::fake(function($r){
