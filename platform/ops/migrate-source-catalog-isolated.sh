@@ -85,23 +85,35 @@ if [ "$inspect_rc" = 10 ]; then
 fi
 [ "$inspect_rc" = 0 ] || { echo 'STOP: Plattform-SQLite-Konfiguration nicht freigegeben';exit 2; }
 
-echo '1. Root-privates konsistentes SQLite-Backup erstellen ...'
+echo '1. Konsistentes SQLite-Backup als Site-User erstellen ...'
 install -d -m 700 "$backup_dir"
 backup="$(mktemp "$backup_dir/hw24-platform-before-source-catalog-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXXXX.sqlite")"
 chmod 600 "$backup"
-# VACUUM INTO creates a consistent SQLite snapshot without corrupting an
-# active journal/WAL. Root can write to root-private backup path.
-"$php" -r '
+# Site-User opens his own DB, preventing a root-owned SQLite WAL/SHM file.
+# VACUUM INTO creates a consistent snapshot into a private untracked file.
+local_snapshot="$(runuser -u "$owner" -- mktemp "$app/database/.hw24-platform-safe-backup-XXXXXXXX.sqlite")"
+cleanup_snapshot(){ [ -z "${local_snapshot:-}" ] || rm -f -- "$local_snapshot"; }
+trap cleanup_snapshot EXIT
+runuser -u "$owner" -- "$php" -r '
 $db=new PDO("sqlite:".$argv[1],null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
 $db->exec("PRAGMA busy_timeout=5000");
 $st=$db->prepare("VACUUM INTO ?");
 $st->execute([$argv[2]]);
 $copy=new PDO("sqlite:".$argv[2],null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
 if($copy->query("PRAGMA integrity_check")->fetchColumn()!=="ok"){
- fwrite(STDERR,"STOP: SQLite-Backup Integritaetscheck fehlgeschlagen\n");exit(2);
+ fwrite(STDERR,"STOP: SQLite-Snapshot-Integritaetscheck fehlgeschlagen\n");exit(2);
 }
-echo "SQLite-Backup: Integritaet OK\n";
-' "$db" "$backup"
+echo "SQLite-Snapshot: Integritaet OK\n";
+' "$db" "$local_snapshot"
+install -m 600 "$local_snapshot" "$backup"
+cleanup_snapshot
+local_snapshot=''
+# Root only reads the private snapshot; it never connects to the original DB.
+"$php" -r '
+$db=new PDO("sqlite:".$argv[1],null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+if($db->query("PRAGMA integrity_check")->fetchColumn()!=="ok")exit(2);
+echo "Root-privates SQLite-Backup: Integritaet OK\n";
+' "$backup"
 echo "Gegen Rueckfall gesichert: $backup"
 
 echo '2. Nur die eine Plattform-Migration ausfuehren, niemals alle ...'
