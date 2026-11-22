@@ -28,6 +28,9 @@ const help=node('p',panel,'Alle gespeicherten KI-Prüfungen bleiben zur spätere
 const controls=node('div',panel,null,'display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:10px');
 const allBtn=node('button',controls,'Alle letzten Prüfungen','padding:8px 12px');
 const currentBtn=node('button',controls,'Aktuelle EAN','padding:8px 12px');
+const adminBtn=node('button',controls,'Alle Archive (Admin)','padding:8px 12px;background:#e6f1fc;color:#15466d');
+adminBtn.hidden=true;
+adminBtn.title='Nur fuer den serverseitig freigegebenen Betreiber, ohne neue KI-Kosten';
 const reloadBtn=node('button',controls,'↻ Aktualisieren','padding:8px 12px');
 const moreBtn=node('button',controls,'Ältere laden','padding:8px 12px');
 moreBtn.hidden=true;
@@ -39,7 +42,7 @@ const detail=node('div',layout,null,'min-height:230px;border:1px solid #dbe6ee;b
 const css=node('style',panel);
 css.textContent='@media(max-width:730px){#hw24AiHistory .hw24-ai-layout{grid-template-columns:1fr!important;max-height:none!important}#hw24AiHistory .hw24-ai-list{max-height:28vh!important}}';
 layout.className='hw24-ai-layout';list.className='hw24-ai-list';
-let items=[],onlyEan='',selectedId=null,lastFocus=null,nextBefore=null;
+let items=[],onlyEan='',selectedId=null,lastFocus=null,nextBefore=null,adminScope=false;
 function activeEan(){
  const selected=root.HW24ScanBridge?.selected();
  return v(selected?.ean||root.hw24SourceState?.()?.record?.GTIN||document.getElementById('ean')?.value);
@@ -126,7 +129,9 @@ function showDetail(review){
 }
 function renderList(){
  list.replaceChildren();
- if(!items.length){text(list,'Noch keine KI-Prüfungen für diesen Filter gespeichert.');return}
+ if(!items.length){text(list,adminScope?
+  'Keine KI-Prüfungen im freigegebenen Gesamtarchiv gefunden.':
+  'Keine KI-Prüfungen für diese Anmeldung und diesen Filter gefunden.');return}
  for(const item of items){
   const b=node('button',list,null,
    'display:block;width:100%;text-align:left;padding:11px;margin-bottom:7px;border-radius:8px;cursor:pointer;border:1px solid '+
@@ -140,20 +145,27 @@ function renderList(){
 async function load(preferredId){
  notify('Gespeicherte KI-Ergebnisse werden aus MariaDB geladen …');
  const query=new URLSearchParams({limit:'30'});
+ if(adminScope)query.set('scope','all');
  if(onlyEan)query.set('ean',onlyEan);
  try{
   const res=await fetch('api/ai-reviews.php?'+query.toString(),
    {credentials:'same-origin',cache:'no-store'});
   const data=await res.json();
   if(!res.ok||!data.ok)throw Error(data.error||'Abfrage fehlgeschlagen');
+  adminBtn.hidden=data.admin_all_available!==true;
+  if(adminScope&&data.scope!=='administrator_all')throw Error('Admin-Archiv nicht freigegeben');
   items=Array.isArray(data.reviews)?data.reviews:[];
   nextBefore=data.next_before_id||null;moreBtn.hidden=!nextBefore;
-  notify(items.length+' gespeicherte KI-Analysen'+(onlyEan?' für EAN '+onlyEan:'')+
+  notify(items.length+' gespeicherte KI-Analysen'+
+   (adminScope?' im freigegebenen Gesamtarchiv':' für diese Anmeldung')+
+   (onlyEan?' für EAN '+onlyEan:'')+
    ' · neueste zuerst. Anzeige ohne erneute KI-Kosten.');
   renderList();
   const chosen=items.find(x=>x.id===preferredId)||items.find(x=>x.id===selectedId)||items[0];
   if(chosen)showDetail(chosen);
-  else{selectedId=null;detail.replaceChildren();text(detail,'Noch keine dauerhaften KI-Ergebnisse.')}
+  else{selectedId=null;detail.replaceChildren();text(detail,adminScope?
+    'Keine archivierten Berichte in diesem Betreiberfilter.':
+    'Für diese Anmeldung und diesen Filter sind keine KI-Berichte zugeordnet.')}
  }catch(e){items=[];nextBefore=null;moreBtn.hidden=true;
   list.replaceChildren();detail.replaceChildren();
   notify('KI-Archiv nicht erreichbar: '+v(e.message)+
@@ -167,12 +179,14 @@ function closeModal(){layer.style.display='none';lastFocus?.focus?.()}
 close.onclick=closeModal;
 layer.addEventListener('click',e=>{if(e.target===layer)closeModal()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&layer.style.display==='flex')closeModal()});
-allBtn.onclick=()=>{onlyEan='';selectedId=null;load()};
-currentBtn.onclick=()=>{onlyEan=activeEan();selectedId=null;load()};
+allBtn.onclick=()=>{adminScope=false;onlyEan='';selectedId=null;load()};
+adminBtn.onclick=()=>{adminScope=true;onlyEan='';selectedId=null;load()};
+currentBtn.onclick=()=>{adminScope=false;onlyEan=activeEan();selectedId=null;load()};
 reloadBtn.onclick=()=>load(selectedId);
 moreBtn.onclick=async()=>{
  if(!nextBefore)return;
  const query=new URLSearchParams({limit:'30',before_id:String(nextBefore)});
+ if(adminScope)query.set('scope','all');
  if(onlyEan)query.set('ean',onlyEan);
  moreBtn.disabled=true;
  try{
@@ -180,6 +194,7 @@ moreBtn.onclick=async()=>{
    {credentials:'same-origin',cache:'no-store'});
   const data=await response.json();
   if(!response.ok||!data.ok)throw Error(data.error||'Laden fehlgeschlagen');
+  if(adminScope&&data.scope!=='administrator_all')throw Error('Admin-Archiv nicht freigegeben');
   const older=Array.isArray(data.reviews)?data.reviews:[];
   const known=new Set(items.map(x=>x.id));
   items.push(...older.filter(x=>!known.has(x.id)));
