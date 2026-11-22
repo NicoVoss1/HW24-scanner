@@ -907,3 +907,23 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 **Bestandsschutz:** Drei unveränderte `hw24_ai_reviews` gehören dem historischen `hw24-test`; zwei unveränderte `hw24_scan_batches` gehören getrennt je `hw24-test` und `nvoss`. Das separate noch nicht ausgerollte **Draft [PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37)** unterstützt serverseitig explizit erlaubten Lesezugriff auf beide Owner bei neuer aktueller Bearbeiterkennung. CI-Prüfungen #44978357305/#44978360796 bestanden. Eine Plesk-Login-Umbenennung **vor** gesicherter Zwei-Owner-Brücke würde Archiv/Stapel weiterhin ausblenden. Kein Live-/Test-Deploy, keine Accountmutation und kein SQL-UPDATE wurden im aktuellen Schritt ausgeführt.
 
 **Nächster Read-only-Operatorblock:** `HW24_PLESK_DOMAINS` nur `domains`-ID/Name/Typ für 9 und 10, optional `protected_dirs`-id, dom_id, realm und passende `pd_users`-Namen ausgeben. **Keine Passwörter, keine Hashes, keine Accountänderung.** Erst nach exakter Zuordnung sowie Plesk-Backup-/Rollbackplanung gezieltes Umbenennen am korrekt ermittelten Test-Schutzbereich vorbereiten. Plesk-Statistikbereich `id=1` dabei ausdrücklich ausklammern.
+
+
+### 22.11.2026 · Plesk Domain-IDs 9/10 und korrekte HTTP-Basic-Schutzkonten vollständig zugeordnet
+
+**Quelle:** Neue Betreiber-PuTTY-Ausgabe `HW24_PLESK_DOMAINS` mit erfolgreichem SQL-`SELECT`, `PRUEFUNG ABGESCHLOSSEN`; keine Konto- oder Website-Änderung.
+
+| Plesk-Domain-ID | Echte Domain | htype | parentDomainId | protected_dirs.id | Root-Pfad | Realm | Site-Basic-Konto |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| **9** | `artikelmanager.hairworld24.de` (**LIVE**) | `vrt_hst` | `5` | **8** | leer = Root | `HW24 Artikelmanager` | bestehende künftig einheitliche Kennung |
+| **10** | `test-artikelmanager.hairworld24.de` (**TEST**) | `vrt_hst` | `5` | **9** | leer = Root | `hw24-test` | bisherige Testkennung |
+
+Die separate `protected_dirs.id=1` für `plesk-stat` auf `domains.id=1` ist **nicht** Teil dieses Vorhabens. Die erfolgreiche Abfrage belegt, dass Live und Test getrennte Plesk-passwortgeschützte Root-Verzeichnisse haben und **nur der Testzugang** umbenannt werden soll.
+
+**Datenerhalt aus vorherigem PuTTY, unverändert:** 3 bestehende archivierte KI-Berichte unter altem Test-Basic-Actor, 0 unter neuem; 2 vorhandene Scanlisten-Stapel, jeweils einer unter altem und neuem Login. Daher **nicht** einfach jetzt den Test-Basic-Benutzer umbenennen, da die Legacy-APIs noch auf `WHERE actor=?` und `WHERE created_by=?` filtern; alte Berichte/Stapel würden für den neuen Login sonst unsichtbar. Originalzeilen unverändert lassen.
+
+**GitHub-Korrektur dafür bereit:** [Draft PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37), HEAD `c2cc4e1dc054da00f01087e7221659cf54a9a482`, CI `44978357305` und `44978360796` erfolgreich, bietet künftig per privater `read_aliases`-Allowlist beide Eigentümer zum Lesen/Bearbeiten frei, neue Writes und Audit stets aktuelle Kennung. **PR noch nicht ausgerollt oder gemergt**, private Aliasdatei **noch nicht** erzeugt.
+
+**Offizielle Plesk-CLI verifiziert:** [Plesk Obsidian `protdir`-Referenz](https://docs.plesk.com/en-US/obsidian/cli-linux/using-command-line-utilities/protdir-site-directories-protection.39417/) bestätigt `-u <Verzeichnis> -domain <Domain> -update_user <Alt> -user_name <Neu>`. Die vorliegende Schutzzeile hat leeren DB-Pfad für Site-Root, während die [Plesk-Root-Schutz-Dokumentation](https://support.plesk.com/hc/en-us/articles/12377592309527-How-to-configure-a-password-protected-directory-in-Plesk) im UI `/` verwendet. **Konkrete CLI-Root-Parametrisierung vor einem mutierenden Kommando noch nicht auf dem Server geprüft; kein Blindversuch auf Live oder Test.**
+
+**Sicherer nächster Gate:** Vor dem Auth-Rename die aktuell tatsächlich ausgerollten `api/scanliste.php`, `api/ai-reviews.php`, `api/ai-review.php` und die bestehenden Plesk-Git-Deployziele der **Test**- und **Live**-Site ausschließlich lesen; einen privaten Backup-/Rollbackpfad festlegen; anschließend den Dual-Owner-Code aus PR #37 **kontrolliert zuerst auf Test** bereitstellen und testen. Erst wenn beide Owner und 3 Reviews browserseitig sichtbar sind, den Test-Schutz-Account mit dem offiziellen Plesk-Tool gezielt umbenennen. **Die Testdomain bleibt vorläufig Legacy; Laravel/Filament-Webroot-Cutover ist ein anderes, späteres kontrolliertes Gate.**
