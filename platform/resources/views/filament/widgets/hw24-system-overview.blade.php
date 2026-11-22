@@ -79,7 +79,7 @@
                         @if($jtl['ok'])
                             <div class="hw24-row"><span>Artikel</span><strong>{{ $jtl['article'] ?: 'Nicht angegeben' }}</strong></div>
                             <div class="hw24-row"><span>Bestand</span><strong>{{ $jtl['stock'] ?? 'unbekannt' }}</strong></div>
-                            <div class="hw24-row"><span>VK netto</span><strong>{{ $jtl['net_price'] !== null ? number_format((float) $jtl['net_price'], 2, ',', '.') . ' EUR' : 'nicht belegt' }}</strong></div>
+                            <div class="hw24-row"><span>VK netto</span><strong>{{ $jtl['net_price'] !== null ? number_format((float) $jtl['net_price'], 2, ',', '.') . ' (Währung unbestätigt)' : 'nicht belegt' }}</strong></div>
                         @else
                             <p class="hw24-note">Keine eindeutige aktuelle Artikelprobe. Quelle und Synchronisation prüfen.</p>
                         @endif
@@ -95,7 +95,7 @@
                     </span>
                 </div>
                 <p class="hw24-status">
-                    {{ ($archive['ok'] ?? false) ? ($archive['count'] . ' gespeicherte Einträge') : 'Bestehende Analysen abrufen' }}
+                    {{ ($archive['ok'] ?? false) ? ($archive['count'] . ' Archivtreffer (max. 5)') : 'Bestehende Analysen abrufen' }}
                 </p>
                 <p class="hw24-note">Es werden nur bereits gespeicherte Auswertungen zur Referenz-EAN gelesen. Maximal fünf Treffer, keine neue KI-Analyse.</p>
                 <div class="hw24-actions">
