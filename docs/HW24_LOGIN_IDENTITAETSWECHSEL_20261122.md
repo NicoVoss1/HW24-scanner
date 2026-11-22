@@ -37,6 +37,15 @@ bash <<'HW24_LOGIN_READONLY'
 set -euo pipefail
 
 echo "=== HW24 LOGIN-SCOPE PRECHECK ==="
+read -r -p "Bisheriger Basic-Benutzername: " old
+read -r -p "Neuer Basic-Benutzername: " new
+
+for name in "$old" "$new"; do
+  [[ "$name" =~ ^[A-Za-z0-9._-]{2,64}$ ]] || {
+    echo "STOP: Benutzername nur mit Buchstaben, Ziffern, Punkt, Unterstrich oder Bindestrich"
+    exit 1
+  }
+done
 
 echo "1. Plesk passwortgeschuetzte Verzeichnisse mit relevanten Benutzern:"
 plesk db -Ne "
@@ -47,12 +56,12 @@ JOIN pd_users pu ON pu.pd_id=pd.id
 WHERE LOWER(d.name) IN (
   'artikelmanager.hairworld24.de',
   'test-artikelmanager.hairworld24.de'
-) AND pu.login IN ('hw24-test','nvoss')
+) AND pu.login IN ('$old','$new')
 ORDER BY d.name, pd.name, pu.login;
 " || echo "Plesk-Tabellenabfrage fehlgeschlagen, bitte Schema pruefen"
 
 echo "2. MariaDB nur lesen (keine Actor-Namen ausgeben):"
-runuser -u nicovoss -- /opt/plesk/php/8.5/bin/php <<'PHP'
+runuser -u nicovoss -- env HW24_OLD_USER="$old" HW24_NEW_USER="$new" /opt/plesk/php/8.5/bin/php <<'PHP'
 <?php
 declare(strict_types=1);
 $path='/var/www/vhosts/hairworld24.de/hw24_private/scanlist-db.php';
@@ -63,6 +72,8 @@ try {
      (string)$cfg['user'],(string)$cfg['password'],
      [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,
       PDO::ATTR_EMULATE_PREPARES=>false,PDO::ATTR_TIMEOUT=>5]);
+  $old=getenv('HW24_OLD_USER');
+  $new=getenv('HW24_NEW_USER');
   foreach(['KI-Berichte'=>['hw24_ai_reviews','actor'],
            'Scanlisten-Stapel'=>['hw24_scan_batches','created_by']] as $name=>$spec){
     [$table,$col]=$spec;
@@ -71,7 +82,7 @@ try {
                  COALESCE(SUM($col=?),0) AS new_count
           FROM $table";
     $stmt=$db->prepare($sql);
-    $stmt->execute(['hw24-test','nvoss']);
+    $stmt->execute([$old,$new]);
     $r=$stmt->fetch(PDO::FETCH_ASSOC);
     echo $name.": Gesamt ".(int)$r['total'].
          ", unter ALT ".(int)$r['old_count'].
@@ -84,6 +95,7 @@ try {
 }
 PHP
 
+unset old new
 echo "=== READONLY ABGESCHLOSSEN; KEINE KONTEN ODER DATEN GEAENDERT ==="
 HW24_LOGIN_READONLY
 ```
