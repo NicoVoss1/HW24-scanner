@@ -1004,3 +1004,24 @@ Die separate `protected_dirs.id=1` für `plesk-stat` auf `domains.id=1` ist **ni
 - Das Problem betrifft **nur** die Prüfung des ausgegebenen Plesk-Commitformats. Der GitHub-Draft PR #37 bleibt unverändert und GitHub-CI blieb zuvor grün. Noch **kein** Passwort-/Aliasdatei-/SQL-/Laravel-/Live-Deploy.
 
 **Nächster EINZELNER Schritt:** Nur lesende `HW24_PR37_STATUS`-Abfrage für Test-Plesk-Git `HW24-scanner.git`: `Active branch`, `Deployment mode`, `Deployment path` anzeigen und `git hash-object` der drei Test-Webroot-PHP-Routen plus Existenz des neuen Helfers vergleichen. **Keine `--fetch`, `--update` oder `--deploy`**, bevor der Zustand sichtbar ist. Anschließend den Commitvergleich im Runbook unbedingt so reparieren, dass **nur die erste valide 40-stellige SHA nach `commit\s+`** extrahiert wird und nicht der gesamte Commitblock.
+
+
+### 22.11.2026 · PR37 Git-Branch-Rollback jetzt tatsächlich bestätigt: Test weiterhin Legacy, keine neue PHP-Datei
+
+**Quelle:** Nutzer-PuTTY-Ausgabe von `HW24_PR37_STATUS`, ausdrücklich nach dem fehlerhaften Commit-Parser-Alarm. Befehl nur lesend, beendet mit `STATUSPRUEFUNG ABGESCHLOSSEN`.
+
+| Test-Plesk-Metadaten / Datei | Tatsächlich ausgegeben | Bewertung |
+| --- | --- | --- |
+| `Deployment path` | `/test-artikelmanager.HAIRWORLD24.de` | **BESTÄTIGT**, kein Laravel-Cutover |
+| `Deployment mode` | `manual` | **BESTÄTIGT** |
+| `Active branch` | `deploy/staging` | **BESTÄTIGT: Branch-Rollback erfolgreich** |
+| `api/scanliste.php` | Git-Blob `e9fb8075c4f532d7a76adf81e760acf81cab4528` | **BESTÄTIGT: unverändert** |
+| `api/ai-reviews.php` | Git-Blob `00fb61c9d636434cdc6562edf169811a717c0911` | **BESTÄTIGT: unverändert** |
+| `api/ai-review.php` | Git-Blob `2eabde207434b8c62162dc553354cd052c6ec98f` | **BESTÄTIGT: unverändert** |
+| `api/hw24-actor-identity.php` | `NICHT VORHANDEN` | **BESTÄTIGT: PR37 noch nicht deployed** |
+
+**Konsequenz:** Die vorherige Plesk-SHA-Prüfung scheiterte durch einen falschen Vergleich der **mehrzeiligen** `--get-last-commit`-Ausgabe, obwohl der darin enthaltene HEAD `c2cc4e1dc054da00f01087e7221659cf54a9a482` korrekt war. Der automatische **Metadaten-Branch-Rollback** hat wie gewünscht funktioniert. Bitte das alte `HW24_PR37_BRANCH_ONLY`-Skript **nicht** erneut nutzen.
+
+**GitHub neu verifiziert:** [Draft PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37) weiter exakt HEAD `c2cc4e1dc054da00f01087e7221659cf54a9a482`, Base `deploy/staging`, Draft. Die zwei zu diesem SHA gehörenden GitHub-CI-Läufe [#44978360796](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44978360796) und [#44978357305](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44978357305) weiterhin **success**.
+
+**Nächster Schritt:** Nur TEST-Plesk-Git-Branch erneut auf gepinnten PR37-Head setzen, diesmal Commit-ID ausschließlich aus der `^commit <40 HEX>`-Zeile mittels `sed -nE` extrahieren, vorab Backup-SHA und bisherige drei Legacy-Webroot-Blob-Hashes prüfen und nach Branchwechsel nachweisen, dass der Test-Webroot nicht verändert wurde. **Kein** `plesk ext git --deploy`, **kein** Plesk-HTTP-Basic-Rename, **keine** Datenbank- oder Live-Änderung. Bei Fehler selektiv Branch-Metadaten zurück auf `deploy/staging` und tatsächlichen Status melden, keinen unbelegten Erfolg behaupten.
