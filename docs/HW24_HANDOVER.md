@@ -1,3 +1,23 @@
+## LETZTER SERVERERFOLG · 22.11.2026 · TEST-GIT PR37 GEWÄHLT, WEBROOT NOCH UNVERÄNDERT
+
+**Nutzer-PuTTY-Beleg:** Test-Plesk-Git-Repository `HW24-scanner.git` wurde auf `feature/hw24-login-alias-scan-ai-20261122` gesetzt. `plesk ext git --get-last-commit` korrekt zu Git-HEAD `c2cc4e1dc054da00f01087e7221659cf54a9a482` geparst, Backup SHA256 und bestehende drei Legacy-Webroot-PHP-Dateien geprüft. Ausgabe `Webdateien unveraendert: JA`, `Kein Deployment ausgefuehrt`, `PR37 BRANCH ERFOLGREICH VORBEREITET`. **Test-Git-BRANCH jetzt umgestellt, Test-Webdateien noch Altstand; kein Konto-/DB-/Live-Eingriff!**
+
+**Privates Test-Backup:** `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz`, SHA256 `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26` (Betreiber per `tar -tzf` und `sha256sum` erfolgreich verifiziert).
+
+**GitHub PR #37:** Draft, HEAD `c2cc4e1d...`, zwei erfolgreiche GitHub-CI-Runs; im PR sind die drei bestehenden Legacy-PHP-APIs und die neue `api/hw24-actor-identity.php` für optionale **privat autorisierte** Zwei-Owner-Ansicht enthalten. Exakte Git-Blob-SHAs des PR-HEAD (über den GitHub-Connector geprüft):
+- `api/scanliste.php` `1a19331fc030ef473d05cc0b94fee92fd2d436ea`
+- `api/ai-reviews.php` `41bfe53eba6f4392e4f0f48e92828fa004ffe311`
+- `api/ai-review.php` `aba03b6146a34698bae71fe622671945019d2db5`
+- `api/hw24-actor-identity.php` `cb2722952bd0cad9680d919630e4b2a06ba367fc`.
+
+**GENAU NÄCHSTE EINZELAKTION:** Aus [Login-Runbook](./HW24_LOGIN_IDENTITAETSWECHSEL_20261122.md) den **neuen** Block `HW24_PR37_TEST_DEPLOY` ausführen, Commit `b3668eab179a32718379dc0291d162e68e3f035e`. Er prüft erneut Backup-SHA, manuelles Test-Git, aktuellen Featurebranch-Commit, die bisherigen drei Webroot-Datei-BLOBs, führt dann **einmal** `plesk ext git --deploy -domain test-artikelmanager.HAIRWORLD24.de -name HW24-scanner.git` aus und überprüft exakt die **vier** geänderten PHP-Dateien. **Keine weitere Branchumschaltung, kein automatischer Rollback, keine private Konfiguration und keine Benutzernamen-Änderung in diesem Block.** Bei Fehler STOP, Log privat im Root-Backup, aktuelle Test-Webroot-Dateien prüfen, kein pauschaler TAR-Restore.
+
+**Historischer DB-Bestand bleibt unangetastet:** 3 KI-Berichte unter `hw24-test`; zwei Scanlisten-Stapel je einer unter `hw24-test` und `nvoss`. **Test-HTTP-Basic-Login bleibt NOCH `hw24-test`.** Erst nach erfolgreichem Test-Code-Deploy und altem Login-GET-Test die private Mappingdatei für `nvoss` und sicheren Plesk-Basic-Rename vorbereiten. Live-Artikelmanager und `plesk-stat` unverändert, Laravel/Filament-Testdomain-Cutover separat.
+
+[Chronologisches Journal](./HW24_ARBEITSJOURNAL.md), Commit `b48c6a1b36fb7fe3b24e1939c94a767b2d120c86`.
+
+---
+
 ## LATEST 22.11.2026 · TEST GIT-BRANCH-ROLLBACK VERIFIZIERT, KORRIGIERTER SELECT-BLOCK VERFÜGBAR
 
 **Neue PuTTY-Ausgabe bestätigt** nach dem von falscher Commit-Ausgabeform ausgelösten Abbruch: Plesk-Test-Git `HW24-scanner.git` ist **erfolgreich wieder auf `deploy/staging`** (Deployment mode `manual`, Deployment path `/test-artikelmanager.HAIRWORLD24.de`) zurückgestellt. Die tatsächlichen Test-Webroot-Blob-SHAs sind unverändert: `api/scanliste.php=e9fb8075c4f532d7a76adf81e760acf81cab4528`, `api/ai-reviews.php=00fb61c9d636434cdc6562edf169811a717c0911`, `api/ai-review.php=2eabde207434b8c62162dc553354cd052c6ec98f`. `api/hw24-actor-identity.php` fehlt. Damit **kein PR37-Deploy erfolgt, kein Alias auf Plesk aktiviert**. Weder Login/DB noch Live wurden geändert.
