@@ -74,6 +74,8 @@ if($actor==='')respond(403,['ok'=>false,'error'=>'authentication_required']);
 if(($_SERVER['HTTPS']??'')!=='on' && ($_SERVER['HTTP_X_FORWARDED_PROTO']??'')!=='https')
   respond(403,['ok'=>false,'error'=>'https_required']);
 if(strlen($actor)>180)respond(403,['ok'=>false,'error'=>'actor_invalid']);
+require_once __DIR__.'/hw24-actor-identity.php';
+$actor=hw24StoredActor($actor);
 $method=$_SERVER['REQUEST_METHOD']??'GET';
 if(!in_array($method,['GET','POST'],true))respond(405,['ok'=>false,'error'=>'method_not_allowed']);
 $body=[];
