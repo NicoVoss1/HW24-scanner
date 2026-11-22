@@ -538,3 +538,10 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 **Exakt nächster Schritt:** Ausschließlich read-only (a) effektive Nginx-/Apache-Worker-Nutzergruppe und PHP-FPM-vHost-Betriebsbenutzer ermitteln, (b) Lesbarkeit von `platform/public/index.php` und CSS unter Webserveridentität mit `runuser ... -- test -r` prüfen, (c) ACL-/Mode-Vererbung und das bestehende Plesk-Git-Deployziel erfassen. Keine Secret-Dateien oder deren Inhalt auslesen, keine pauschalen Berechtigungsänderungen. Parallel Legacy-Live angemeldet testen; erst dann einen reversiblen Testdomain-Cutover durchführen.
 
 **Dokumentationsregel:** Jeder einzelne Folgebefund in GitHub fortschreiben; persönlichen Admin, Access-Tokens und private Laravel-`.env` nicht veröffentlichen.
+
+
+### 22.11.2026 · GitHub-Runbook und Kurz-Übergabe nach erfolgreich ausgeführtem PHP-8.5-Preflight nachgeführt
+
+- GitHub-`main` [`HW24_PREFLIGHT_FILAMENT_TESTDOMAIN_20261122.md`](./HW24_PREFLIGHT_FILAMENT_TESTDOMAIN_20261122.md) um **tatsächlich bestätigte** PHP-8.5.13-Kompatibilität, vier Admin-Routen und die beobachteten 0700/0600-Pfadrechte ergänzt. Commit `f4b3dc47d82e5d431a67e211f9d67a8e28b41ea7`.
+- Neuer, **noch nicht ausgeführter** read-only `HW24_WEB_ACCESS`-Block prüft aktive Nginx-/Apache-/FPM-Worker-Benutzer sowie effektive Lesbarkeit ausgewählter öffentlicher CSS-/JS-Dateien als App-User und www-data, ohne Geheimnisse auszulesen und ohne Datei-/Webserver-/Domain-/DB-Änderung.
+- [Kurz-Übergabe](./HW24_HANDOVER.md) und [Projektstatus](./HW24_PROJEKTSTAND_AKTUELL.md) an die Spitze auf diesen tatsächlich zuletzt bestätigten Zustand aktualisiert. **Exakt nächster Betreiber-Schritt:** nur diesen Worker-/Rechtecheck ausführen, daneben alten Live-V4.25-JTL-/Amazon-/KI-Browser-E2E bestätigen, dann gezielte Asset-Berechtigungen/Rollback planen.
