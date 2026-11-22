@@ -114,6 +114,20 @@ html.dark .hw24-warehouse{--edge:#334155;--bg:#182638;--soft:#233249;--ink:#f1f5
    <p class="note">Zuerst einen JTL-Artikel über die Suche laden.</p>
   @endif
   <div class="divider">
+   <h4 style="font-weight:800;font-size:13px">Eigene aktive Angebote aus verifizierten Kontenquellen</h4>
+   <p class="small">Es werden nur höchstens 24 Stunden alte, ausdrücklich als aktiv und geprüft gekennzeichnete Shopify-, Amazon- oder eBay-Beobachtungen aus der privaten Preisquellentabelle gelesen. Kontoname und tatsächliche Quelle bleiben sichtbar.</p>
+   <button class="btn sec" type="button" wire:click="loadVerifiedOwnOffers" wire:loading.attr="disabled" wire:target="loadVerifiedOwnOffers" @disabled($product===[])>Eigene Kanalpreise überprüfen</button>
+   @if($ownOffersStatus!==[])
+    <p class="note {{ ($ownOffersStatus['ok']??false) ? 'ok' : '' }}" role="status">{{ $ownOffersStatus['message'] }}</p>
+    @foreach($ownOffers as $offer)
+     <div class="price-row" style="margin-top:9px" wire:key="offer-{{ $loop->index }}">
+      <div><h4>{{ strtoupper($offer['channel']) }} · {{ $offer['type'] }}</h4><span class="tag">Aktive Quelle geprüft</span><div class="meta">Konto {{ $offer['account'] }} · Markt {{ $offer['marketplace'] ?: 'offen' }}</div></div>
+      <div><div class="value">{{ number_format((float)$offer['amount'],2,',','.') }} {{ $offer['currency'] }}</div><div class="meta">Stand {{ $offer['date'] }} UTC · {{ $offer['source'] }} @if($offer['offer_id']) · Angebots-ID {{ $offer['offer_id'] }} @endif</div></div>
+     </div>
+    @endforeach
+   @endif
+  </div>
+  <div class="divider">
    <h4 style="font-weight:800;font-size:13px">Amazon-Wettbewerbspreise separat prüfen</h4>
    <p class="small">Der Katalog-GET kann den HW24-Cache nutzen oder eine echte Amazon-SP-API-Recherche starten. Ein Preisabruf folgt nur nach Auswahl eines im Ergebnis zurückgegebenen ASIN-Kandidaten.</p>
    <button class="btn sec" type="button" wire:click="loadAmazonCandidates" wire:loading.attr="disabled" wire:target="loadAmazonCandidates" @disabled($product===[])>Amazon-Katalogkandidaten abrufen</button>
@@ -173,7 +187,7 @@ html.dark .hw24-warehouse{--edge:#334155;--bg:#182638;--soft:#233249;--ink:#f1f5
     </table>
    </div>
   @endif
-  <p class="note">Für **aktuelle** WMS-Lagerplätze mit freiem Bestand, gesperrten Mengen und Reservierungen benötigen wir eine eigene verifizierte Snapshot-Abfrage aus JTL-WMS. Aus Bewegungen allein wird kein aktueller Lagerbestand errechnet.</p>
+  <p class="note">Für <strong>aktuelle</strong> WMS-Lagerplätze mit freiem Bestand, gesperrten Mengen und Reservierungen benötigen wir eine eigene verifizierte Snapshot-Abfrage aus JTL-WMS. Aus Bewegungen allein wird kein aktueller Lagerbestand errechnet.</p>
  </div>
 </section>
 </div>
