@@ -170,6 +170,60 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - Anschließend SQL-Mapping/JTL-View, Account-Zuordnung, Delta-Semantik und Löschbehandlung definieren, dann privaten sicheren Test-Sync entwickeln. Keine Live-Preisarchive aktivieren.
 - **Kein** Merge, kein Plesk-/LIVE-/JTL-Deploy dieser Sitzung; neue Informationen und Code nur auf GitHub im Draft-PR.
 
+## Betreiberergebnisse Phase 3: Primärschlüssel, Fremdschlüssel, rowversion, Indizes (2026-11-23)
+
+### S022 | HeidiSQL Phase 3 – Datenbankidentität | **belegt**
+- `DB_NAME()=eazybusiness`. Metadata-SELECTs auf der beabsichtigten SQL-Server-Datenbank ausgeführt. Keine DDL/DML/DB-Konfiguration ausgelöst.
+
+### S023 | SQL-Schlüssel und eindeutige Indizes | **belegt**
+- `dbo.tArtikel`: PK `kArtikel`; Unique `cArtNr`.
+- `dbo.tArtikelHistory`: PK `kArtikelHistory`.
+- `dbo.tArtikelShop`: zusammengesetzter PK (`kArtikel`, `kShop`).
+- `dbo.tlagerbestandProLagerLagerartikel`: zusammengesetzter PK (`kArtikel`, `kWarenlager`).
+- `dbo.tWarenLagerPlatzArtikel`: zusammengesetzter PK (`kWarenLagerPlatz`, `kArtikel`).
+- `dbo.pf_amazon_angebot` und `dbo.pf_amazon_angebot_ext`: jeweils zusammengesetzter PK (`cSellerSKU`, `kUser`, `nPlattform`). **Eindeutigkeit ist konto- UND plattformbezogen**, nicht nur SellerSKU.
+- `SCX.tOffer`: PK `kOffer`; Unique (`kArtikel`, `kShop`).
+- `SCX.tOfferPrice`: PK `kOfferPrice`.
+- `SCX.tVerkaufskanalArtikelData`: PK `kVerkaufskanalArtikelData`, Unique (`kArtikel`, `kShopScx`).
+- `Verkauf.tAuftragPosition` und `Verkauf.tAuftragPositionEckdaten`: PK `kAuftragPosition`.
+- Alle zurückgemeldeten PK-/Unique-Indizes sind `is_disabled=False`. **Kein Datenabgleich oder Schlüsselkollisions-Test erforderlich**, solange die Quelle ihre eigenen Constraints erhält; Spiegel muss gleiche Schlüssel-Zusammensetzungen übernehmen.
+
+### S024 | Bestätigte SQL-Fremdschlüssel und Grenzen | **belegt**
+- `SCX.tOfferPrice.kOffer` → `SCX.tOffer.kOffer`.
+- `SCX.tOfferPrice.kChannelPriceType` → `SCX.tChannelPriceType.kChannelPriceType`.
+- `SCX.tVerkaufskanalArtikelData.kArtikel` → `dbo.tArtikel.kArtikel`.
+- `SCX.tOffer` hat zwar `kArtikel` und `kShop` im Unique-Index, aber in **dieser FK-Ergebnismenge keinen belegten FK direkt nach dbo.tArtikel**; Join per Schlüssel muss fachlich/technisch validiert werden.
+- `dbo.tPreis.kArtikel` → `dbo.tArtikel.kArtikel`; eigenständige Preisarten/Kundengruppen anhand der tatsächlichen Spalten/Referenztabellen ermitteln.
+- `Artikel.tArtikelType.kArtikel`, `Artikel.tArtikelAsin.kArtikel`, `Artikel.tArtikelkosten.kArtikel` → `dbo.tArtikel.kArtikel`. Aus FK allein folgt **keine Klartext-Zuordnung** für Artikeltyp.
+- Viele weitere Beziehungen zu `dbo.tArtikel`: `tliefartikel`, `tArtikelAttribut`, `tArtikelbildPlattform`, `tExterneReservierung`, `SCX.tArtikelVerkaufskanalFeldWert`, WMS-Tabellen `tPackageContentItem`, `tSerialNumber`.
+- Für `dbo.pf_amazon_angebot` ist in der gemeldeten FK-Menge **keine direkte FK-Beziehung nach tArtikel nachgewiesen**. Artikelzuordnung über SellerSKU/ASIN daher **nicht erfinden**; gesondert bestätigen.
+- Der FK-Bericht umfasst nur ausgewählte Filter; Fehlen einer Zeile beweist außerhalb dieses Suchbereichs keine generelle Beziehungslosigkeit.
+
+### S025 | Änderungsspalten / Delta-Möglichkeiten | **belegt und Grenzen**
+- `bRowversion` (SQL `timestamp`, 8-Byte-Zähler, keine Zeitangabe): `dbo.tArtikel`, `dbo.tArtikelHistory`, `dbo.tArtikelShop`, `dbo.tlagerbestandProLagerLagerartikel`, `dbo.tWarenLagerPlatzArtikel`.
+- Keine `bRowversion` in ausgewiesenen `dbo.pf_amazon_angebot`, `dbo.pf_amazon_angebot_ext`, `SCX.tOffer`, `SCX.tOfferPrice`, `SCX.tVerkaufskanalArtikelData` durch die SQL-Phase-3-Metadaten bestätigt. Bei Tabellen ohne rowversion müssen separate Delta-Strategien oder abgestimmte komplette Reconciliation möglich sein.
+- `SCX.tOffer`: u. a. `dQuantityUpdatedAt`, `dPriceUpdatedUtc`, `dStatusReceivedUtc`, `dLetzterUpload`, `dBeendet`. Deren Bedeutung für **jede** Änderung vor Delta-Verwendung durch Verhaltenstest prüfen.
+- `SCX.tOfferPrice`: **keine** datetime/rowversion-Spalte. Eine Filterung nach `SCX.tOffer.dPriceUpdatedUtc` muss erst beweisen, dass Änderungen von `tOfferPrice` den Parent aktualisieren; sonst Preisänderungen übersehen.
+- `dbo.pf_amazon_angebot_ext`: zahlreiche Ereigniszeitpunkte, einschließlich `dLetztePreisAenderung`, `dLetzteBestandAenderung`, `dDeaktiviertUtc`; **kein Nachweis**, dass Änderungen an `pf_amazon_angebot` zuverlässig solche Felder aktualisieren.
+- `dbo.tArtikelHistory.dGebucht`, `dMHD` sind Datumsspalten; tatsächliche Ereignisart, Bedeutung und Abdeckung sind noch offen.
+- `rowversion` erkennt **keine Löschungen** und erfordert transaktionssicheren Wasserzeichenschnitt. Siehe Microsoft: https://learn.microsoft.com/en-us/sql/t-sql/functions/min-active-rowversion-transact-sql?view=sql-server-ver15
+- Quelle `eazybusiness` läuft mit `READ_COMMITTED_SNAPSHOT=OFF` und `SNAPSHOT_ISOLATION=OFF`. Keine Aktivierung zur Replikation ohne JTL-/DBA-Prüfung.
+
+### S026 | Indizes und Performance | **belegt, weiterer Test nötig**
+- `dbo.tArtikel`: vorhandene Indizes auf `cBarcode`, `cHAN`, `cASIN`, `cAktiv`-Kombination, `kArtikel`, `kHersteller`, `fEKNetto`, außerdem PK und cArtNr-Unique.
+- `dbo.tlagerbestandProLagerLagerartikel`: Indizes auf `kWarenlager`, (`kArtikel`,`kWarenlager`) sowie PK.
+- `dbo.tWarenLagerPlatzArtikel`: Index `kArtikel` und zusammengesetzter PK.
+- `SCX.tOffer`: `cChannelOfferId`-Index, PK `kOffer` und Unique (`kArtikel`,`kShop`).
+- `SCX.tOfferPrice`: in erfasster Ausgabe nur PK `kOfferPrice`.
+- In den gelieferten Indexzeilen **kein rowversion-Schlüsselindex nachgewiesen**; daher kein effizienter Seek auf rowversion voraussetzen. Query in Phase 4 prüft das ausdrücklich. Keinesfalls ungeprüft zusätzliche Indizes in JTL anlegen.
+- Getrennte technische Empfehlung: kleine Tabellen mit vollem PK-Abgleich ermöglichen, größere Quellen möglichst delta-orientiert, Löschungen via periodischen Hash-/PK-Abgleich.
+
+### S027 | Geplanter nächster Abfragesatz | **GitHub erstellt, HeidiSQL-Ausführung offen**
+- `platform/ops/jtl-heidisql-phase4-mapping-readonly.sql` vorbereitet: Quelle für `Artikel.tArtikelType`, `Artikel.tArtikelAsin`, `dbo.tPreis`, `SCX.tChannelPriceType`, Shop-/Steuer-/Lieferstatus-/Mengeneinheiten-Mapping inventarisieren. Zusätzliche Abfrage belegt, ob rowversion ein Index-Key ist, und findet weitere Kandidatentabellen.
+- Ausschließlich Systemkatalog-SELECTs; keine Artikel-, Preis-, Bestell- oder Kundendaten abfragen, keine SQL-Rechte ändern.
+- **Bevor 15-Minuten-Sync implementiert wird:** Source-Contract pro Tabelle, konsistenter Initial-Snapshot, Watermark/Long-running-Transactions, Resync nach Fehlern, Tombstones, Schemaänderungen und Rechte/PII-Beschränkung festlegen.
+- **Vor LIVE:** echte Browser-Tests und alle Draft-PR-Abhängigkeiten prüfen; keine stillen JTL- oder Amazon-API-Aktionen.
+
 ## Fachlich beschlossene Zielarchitektur
 
 1. **JTL eazybusiness** bleibt maßgebliche SQL-Server-Datenbank; zunächst nur Leseinventur, DB-Backup/Wiederherstellung als getrennte Aufgabe prüfen.
@@ -186,4 +240,4 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - **C** Ergebnisse, Abweichungen und Risiken im Journal festhalten; gegebenenfalls Versionsvergleich des Test-/Live-Codes.
 - **D** Nur kleine, rollbackfähige Änderungen isoliert vorbereiten, GitHub CI + Browser-E2E prüfen und Betreiberfreigabe für Deployment einholen.
 
-**Nächster Nachweis:** HeidiSQL Phase-3-Ausgabe: PK-/Unique-Schlüsselspalten, FK-Beziehungen, rowversion/Änderungszeitspalten und relevante Indizes. Noch kein produktiver Sync oder Server-Deploy.
+**Nächster Nachweis:** Phase-4-Mapping für Artikeltyp, Brutto-/Nettopreis, Steuer, Lieferstatus, Shop-/ChannelPriceType und rowversion-Indizierung. SQL nur lesend; noch kein Produktiv-Sync.
