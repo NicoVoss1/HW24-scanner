@@ -8,6 +8,23 @@
 const $=id=>document.getElementById(id);
 const val=x=>String(x??'').trim();
 const referenceEan='3474630337398';
+// Visual-only environment marker. Does not alter Plesk, JTL or credentials.
+if(location.hostname.toLowerCase()==='artikelmanager.hairworld24.de'){
+ const marker=document.querySelector('.brand small');
+ if(marker)marker.textContent='INTELLIGENCE · LIVE';
+ const footer=document.querySelector('footer');
+ if(footer)footer.textContent=footer.textContent.replace('HW24 TEST','HW24 LIVE');
+}
+// Display JTL decimal quantities without meaningless trailing zeroes.
+// The raw SQL value remains untouched; it is not an Ameise conversion.
+function formatJtlQuantity(input){
+ const raw=String(input??'').trim();
+ if(!/^\d+(?:[.,]\d+)?$/.test(raw))return raw;
+ const [whole,fraction='']=raw.replace(',','.').split('.');
+ const cleanWhole=whole.replace(/^0+(?=\d)/,'');
+ const cleanFraction=fraction.replace(/0+$/,'');
+ return cleanWhole+(cleanFraction?','+cleanFraction:'');
+}
 const fieldSets={
  identity:[
   ['Artikelname','Artikelbezeichnung','text','wide'],
@@ -55,6 +72,14 @@ const editable=new Set(Object.values(fieldSets).flatMap(group=>group.map(f=>f[0]
 const state={jtl:null,article:null,approved:{},revision:0,controls:new Map(),
  initial:new Map(),reference:null,latestRequest:0,saving:false,sourceFresh:false,
  options:{articleTypeValues:['Normaler Artikel'],shippingValues:[],taxValues:[],currencyValues:['EUR']}};
+// Default proposals are UI-only and deliberately NOT represented as JTL source values.
+// They become a curated HW24 draft only after explicit user review and confirmation.
+function standardProposal(key,old,approved){
+ if(approved!==null||val(old))return '';
+ if(key==='Artikeltyp')return 'Normaler Artikel';
+ if(key==='Währung')return 'EUR';
+ return '';
+}
 const money=x=>x===null||x===undefined||val(x)===''?'Nicht belegt':
  Number.isFinite(Number(x))?Number(x).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €':'Nicht lesbar';
 const gtinGood=ean=>{
@@ -80,7 +105,7 @@ function original(key,a){
   'Warengruppe':a.warengruppe_name,
   'Kurzbeschreibung':a.kurzbeschreibung,'Beschreibung':a.beschreibung,
   'Netto-EK':a.netto_ek,'Netto-VK':a.netto_vk,'Brutto-VK':a.brutto_vk,'Kosten':a.kosten,
-  'Inhalt/Menge':f.fMassMenge,'Artikeltyp':a.artikeltyp,
+  'Inhalt/Menge':formatJtlQuantity(f.fMassMenge),'Artikeltyp':a.artikeltyp,
   'ASIN':a.asin,'Maßeinheit':getMassCode(a),
   'Versandklasse':a.versandklasse_name,'Steuerklasse':a.steuerklasse_name,'Währung':a.waehrung,
   'Lieferstatus':verifiedRelatedValue(a,'lieferstatus','cName'),
@@ -135,7 +160,8 @@ function createField(target,definition){
  const old=original(key,state.article);
  const approved=Object.prototype.hasOwnProperty.call(state.approved,key)?
    val(state.approved[key]):null;
- const current=approved!==null?approved:val(old);
+ const proposed=standardProposal(key,old,approved);
+ const current=approved!==null?approved:(val(old)||proposed);
  const box=el('div',target,null,'editor-field'+(layout==='wide'?' wide':'')+(current?'':' missing'));
  const tag=el('label',box,label);
  const id='field_'+key.replace(/[^a-zA-Z0-9]/g,'_');
@@ -196,10 +222,19 @@ function createField(target,definition){
    provenance='Lieferstatus-ID '+(val(state.article?.jtl_source_fields?.kLieferStatus)||'unbekannt')+
     ' · Klartextzuordnung fehlt im derzeitigen JTL-Spiegel.';
  hint.textContent=provenance;
+ if(proposed){
+  provenance=key==='Währung'
+   ?'HW24-Vorschlag: EUR für den deutschen Shop. Nicht als JTL-Originalwert nachgewiesen. Bitte prüfen und bestätigen.'
+   :'HW24-Vorschlag: Normaler Artikel. Nicht als JTL-Originalwert nachgewiesen. Bitte prüfen und bestätigen.';
+  hint.textContent=provenance;
+  box.classList.add('proposal');
+ }
  if(approved!==null)hint.classList.add('edited');
  if(!current)hint.classList.add('missing-label');
  state.controls.set(key,{control,box,hint,old:origin});
- state.initial.set(key,current);
+ // Compare against the REAL source baseline, not the suggested display value.
+ // Otherwise proposed values would not appear in the review diff.
+ state.initial.set(key,approved!==null?approved:val(old));
  control.addEventListener('input',()=>{box.classList.toggle('missing',!val(control.value));renderChanges()});
  control.addEventListener('change',renderChanges);
 }
