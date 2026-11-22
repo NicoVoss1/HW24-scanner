@@ -56,7 +56,6 @@ try {
       'SELECT COUNT(*) AS total_rows,
               COUNT(DISTINCT actor) AS actor_count,
               COUNT(DISTINCT ean) AS ean_count,
-              COALESCE(SUM(id=1 AND ean="8027483835211"),0) AS historic_one,
               MAX(created_at_utc) AS last_report
          FROM hw24_ai_reviews'
     )->fetch();
@@ -65,8 +64,12 @@ try {
     echo "Gespeicherte Berichte gesamt: ".(int)$all['total_rows']."\n";
     echo "Unterschiedliche Benutzerzuordnungen: ".(int)$all['actor_count']."\n";
     echo "Unterschiedliche EANs: ".(int)$all['ean_count']."\n";
+    $historic=$db->prepare(
+      'SELECT COUNT(*) FROM hw24_ai_reviews WHERE id=? AND ean=?'
+    );
+    $historic->execute([1, '8027483835211']);
     echo "Historischer Bericht ID 1 / EAN 8027483835211 vorhanden: ".
-      ((int)$all['historic_one']>0?'JA':'NEIN')."\n";
+      ((int)$historic->fetchColumn()>0?'JA':'NEIN')."\n";
     echo "Letzte erfolgreiche Archivspeicherung UTC: ".
       ($all['last_report']??'KEINE')."\n";
 
