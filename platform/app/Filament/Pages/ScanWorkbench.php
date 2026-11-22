@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Services\LegacyReadBridge;
+use App\Services\LegacyApprovedActionBridge;
+use Illuminate\Support\Str;
 use Filament\Pages\Page;
 use Livewire\Attributes\Locked;
 
@@ -20,6 +22,13 @@ final class ScanWorkbench extends Page
     protected static ?int $navigationSort = 3;
     protected string $view = 'filament.pages.scan-workbench';
 
+    public string $newBatchLabel = '';
+    public string $scanEan = '';
+    public bool $confirmScanWrite = false;
+
+    #[Locked] public array $actionState = [];
+    #[Locked] public array $exportState = [];
+
     #[Locked]
     public array $batches = [];
 
@@ -34,7 +43,7 @@ final class ScanWorkbench extends Page
 
     public function loadBatches(LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'batches', 'selectedBatchId', 'diagnostic']);
+        $this->reset(['items', 'batches', 'selectedBatchId', 'diagnostic', 'exportState']);
 
         $result = $bridge->fetch('scan.batches', ['op' => 'batches']);
         $raw = is_array($result['data'] ?? null) ? $result['data'] : [];
@@ -75,7 +84,7 @@ final class ScanWorkbench extends Page
 
     public function loadBatch(int $batchId, LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'selectedBatchId']);
+        $this->reset(['items', 'selectedBatchId', 'exportState']);
         // Never let the browser request arbitrary batch IDs.
         $allowed = array_column($this->batches, 'id');
         if (!in_array($batchId, $allowed, true)) {
@@ -117,4 +126,149 @@ final class ScanWorkbench extends Page
             'message' => 'Gespeicherte Scan-Positionen nur gelesen. Erfassen, Entwurf, Import und Export verbleiben vorerst im bisherigen HW24-Arbeitsbereich.',
         ];
     }
+
+    public function canWriteScan(): bool
+    {
+        return config('hw24_legacy.scan_writes_enabled') === true;
+    }
+
+    /** A new scan batch is created only on an operator click and double opt-in. */
+    public function createBatch(LegacyApprovedActionBridge $bridge, LegacyReadBridge $read): void
+    {
+        $this->actionState = [];
+        if (!$this->canWriteScan() || !$this->confirmScanWrite) {
+            $this->actionState=['ok'=>false,'message'=>'Private Scanner-Freigabe und ausdrückliche Bestätigung erforderlich. Keine Änderung durchgeführt.'];
+            return;
+        }
+        $label=trim($this->newBatchLabel);
+        if ($label==='' || mb_strlen($label)>160) {
+            $this->actionState=['ok'=>false,'message'=>'Stapelname muss zwischen 1 und 160 Zeichen enthalten.'];
+            return;
+        }
+        $r=$bridge->post('scan.create',['op'=>'create','label'=>$label]);
+        if (($r['ok']??false)!==true) {
+            $this->actionState=['ok'=>false,'message'=>'Stapelanlage nicht eindeutig bestätigt. Bitte vor Wiederholung vorhandene Stapel lesen.',
+                'http'=>$r['http_status']??null];
+            return;
+        }
+        $this->newBatchLabel='';
+        $this->confirmScanWrite=false;
+        $this->loadBatches($read);
+        $this->actionState=['ok'=>true,'message'=>'Scan-Stapel in bestehender HW24-MariaDB erstellt; Stapelliste aktualisiert.'];
+    }
+
+    /** Idempotent scan-event-key recognized by the existing legacy API. */
+    public function scanEanIntoBatch(LegacyApprovedActionBridge $bridge, LegacyReadBridge $read): void
+    {
+        $this->actionState = [];
+        $batch=$this->selectedBatchId;
+        $allowed=array_column($this->batches,'id');
+        $ean=trim($this->scanEan);
+        if (!$this->canWriteScan() || !$this->confirmScanWrite ||
+            $batch===null || !in_array($batch,$allowed,true) || !self::validGtin($ean)) {
+            $this->actionState=['ok'=>false,
+                'message'=>'Aktiven eigenen Stapel, gültige GTIN und ausdrückliche Scanner-Freigabe prüfen. Kein Scan gespeichert.'];
+            return;
+        }
+        $payload=['op'=>'scan','batch_id'=>$batch,'ean'=>$ean,'event_key'=>(string)Str::uuid()];
+        $r=$bridge->post('scan.scan',$payload);
+        if (($r['ok']??false)!==true) {
+            $this->actionState=['ok'=>false,'http'=>$r['http_status']??null,
+                'message'=>'Speicherantwort nicht eindeutig. Bitte Liste aktualisieren, BEVOR ein Scan erneut erfasst wird.'];
+            return;
+        }
+        $this->scanEan='';
+        $this->confirmScanWrite=false;
+        $this->loadBatch($batch,$read);
+        $this->actionState=['ok'=>true,'message'=>'EAN in der bestehenden Scanliste gespeichert. Keine JTL-Lagerbuchung durchgeführt.'];
+    }
+
+    private static function validGtin(string $ean): bool
+    {
+        if (!preg_match('/^(?:[0-9]{8}|[0-9]{12}|[0-9]{13}|[0-9]{14})$/D',$ean)
+            || preg_match('/^0+$/D',$ean)) return false;
+        $sum=0; $factor=3;
+        for ($i=strlen($ean)-2; $i>=0; $i--) {
+            $sum+=(int)$ean[$i]*$factor;
+            $factor=$factor===3?1:3;
+        }
+        return (10-$sum%10)%10===(int)$ean[strlen($ean)-1];
+    }
+
+    private function exportRows(LegacyReadBridge $bridge): ?array
+    {
+        $batch=$this->selectedBatchId;
+        if ($batch===null || !in_array($batch,array_column($this->batches,'id'),true)) return null;
+        $r=$bridge->fetch('scan.export',['op'=>'export','batch_id'=>$batch]);
+        $raw=is_array($r['data']??null)?$r['data']:[];
+        if (($r['ok']??false)!==true || !is_array($raw['fields']??null) ||
+            count($raw['fields'])<1 || count($raw['fields'])>200 ||
+            count($raw['fields'])!==(int)($raw['count']??-1)) return null;
+        foreach($raw['fields'] as $entry) {
+            if (!is_array($entry) || !self::validGtin((string)($entry['GTIN']??'')))return null;
+        }
+        return $raw['fields'];
+    }
+
+    /** Check readiness; the legacy API enforces snapshot freshness and duplicates. */
+    public function prepareAmeiseExport(LegacyReadBridge $bridge): void
+    {
+        $this->exportState=[];
+        $rows=$this->exportRows($bridge);
+        if ($rows===null) {
+            $this->exportState=['ok'=>false,
+                'message'=>'Ameise-Sammelimport noch nicht freigegeben. Nur neue, eindeutig bestätigte Artikel mit frischem JTL-Snapshot und vollständig geprüften Pflichtfeldern sind zulässig.'];
+            return;
+        }
+        $this->exportState=['ok'=>true,'count'=>count($rows),'batch_id'=>$this->selectedBatchId,
+            'message'=>'Serverseitige Ameise-Prüfung bestanden. Nur ein CSV-Prüfexport, kein direkter JTL-Import.'];
+    }
+
+    /** Re-check upstream approval at download time; no persistence or JTL write. */
+    public function downloadAmeiseCsv(LegacyReadBridge $bridge)
+    {
+        $batch=$this->selectedBatchId;
+        if (($this->exportState['ok']??false)!==true ||
+            ($this->exportState['batch_id']??null)!==$batch) return;
+        $rows=$this->exportRows($bridge);
+        if ($rows===null)return;
+        // Only known original import fields are allowed into a local CSV draft.
+        $whitelist=[
+            'Artikelnummer','GTIN','HAN','Artikelname','Hersteller','Warengruppe','Steuerklasse',
+            'Kosten','Netto-VK','Brutto-VK','Inhalt/Menge','Maßeinheit','Kurzbeschreibung','Beschreibung',
+            'Artikel aktiv','Bestandsführung aktiv',
+        ];
+        $columns=[];
+        foreach ($whitelist as $field) {
+            if ($field==='Artikelnummer'||$field==='GTIN'||
+                array_any($rows,static fn($r) => array_key_exists($field,$r) && trim((string)$r[$field])!=='')) {
+                $columns[]=$field;
+            }
+        }
+        if (!in_array('Artikelname',$columns,true) || !in_array('Steuerklasse',$columns,true))return;
+        $lines=[];
+        $esc=static function($v): string {
+            $v=trim(preg_replace('/[\r\n\x00-\x1f\x7f]/u',' ',(string)($v??''))??'');
+            if ($v!=='' && preg_match('/^[=+\-@]/u',$v)) {
+                // Do not silently prefix/modify import values; refuse spreadsheet formulas.
+                throw new \UnexpectedValueException('Potential CSV formula');
+            }
+            return '"'.str_replace('"','""',$v).'"';
+        };
+        try {
+            $lines[]=implode(';',array_map($esc,$columns));
+            foreach($rows as $row){
+                $lines[]=implode(';',array_map(static fn($col)=>$esc($row[$col]??''),$columns));
+            }
+        } catch (\UnexpectedValueException) {
+            $this->exportState=['ok'=>false,'message'=>'Unsicherer Tabellenkalkulationswert in einem bestätigten Feld. Export verweigert.'];
+            return;
+        }
+        $csv="\xEF\xBB\xBF".implode("\r\n",$lines)."\r\n";
+        $this->exportState=[];
+        return response()->streamDownload(static function()use($csv):void { echo $csv; },
+            'HW24_Ameise_ScanStapel_'.$batch.'_PRUEFEXPORT.csv',
+            ['Content-Type'=>'text/csv; charset=UTF-8','Cache-Control'=>'private, no-store']);
+    }
+
 }
