@@ -20,6 +20,9 @@ return new class extends Migration {
             $table->char('currency',3);
             $table->decimal('gross',14,4)->nullable();
             $table->decimal('net',14,4)->nullable();
+            // Marketplace price without verified tax-inclusion is not automatically gross/net.
+            $table->decimal('displayed_amount',14,4)->nullable();
+            $table->boolean('tax_included')->nullable();
             $table->string('status',20); // verified, derived, unverified, unavailable
             $table->string('source',255)->nullable();
             $table->string('source_reference',255)->nullable();
