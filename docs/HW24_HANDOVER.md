@@ -1,3 +1,17 @@
+## JETZT BESTÄTIGT · 22.11.2026 · AUTHENTIFIZIERTER TEST LESBAR, PRIVATE ALIASDATEI NÄCHSTER SCHRITT
+
+**Neuer tatsächlicher PuTTY-Erfolg:** Mit dem existierenden Plesk-Test-Basic-Namen `hw24-test` liefen zwei HTTPS-GET-only-Abfragen auf dem bereits ausgerollten und lint-geprüften PR37-Code vollständig durch. `/api/ai-reviews.php?limit=50` lieferte exakt **3 historische KI-Berichte**, `/api/scanliste.php?op=batches` lieferte **1 offenen Scan-Stapel** unter historischer Kennung. Ausgabe `AUTHENTIFIZIERTER GET-TEST ERFOLGREICH`, `Keine Daten veraendert`. Passwörter interaktiv verborgen, JSON-Datensätze nicht in Terminal oder Chat ausgegeben. Vorher PHP8.5-Syntax viermal korrekt, unauthentifizierter Basic-HTTP-Schutz dreimal 401. Damit altes Test-Archiv real nutzbar, nicht bloß in MariaDB vorhanden.
+
+**Bisherige Daten:** 3 `hw24_ai_reviews` unter `hw24-test`; `hw24_scan_batches` 1 unter `hw24-test` und 1 bereits unter `nvoss`. Die bestehende Live-Domain hat HTTP-Basic-`nvoss`; die Testdomain noch `hw24-test`. Kein Account-Rename, SQL-Update oder API-Daten-POST.
+
+**NÄCHSTER EINZEL-PuTTY-BLOCK:** `HW24_PRIVATE_READ_ALIASES` **am Anfang** von [Loginwechsel-Runbook](./HW24_LOGIN_IDENTITAETSWECHSEL_20261122.md), Commit `620633c0216e76f28b99a67c48cb45cece922a43`. Ziel ist die streng private PHP-Datei `/var/www/vhosts/hairworld24.de/hw24_private/actor-aliases.php` mit nur `read_aliases => nvoss : [hw24-test]`, Besitzer `nicovoss:psacln`, Rechte 0600. Guard: private DB-Konfiguration unter bestehendem FPM-Dienstbenutzer lesbar, Symlinkschutz, niemals existierende Aliasdatei überschreiben; atomarer Hardlink-Create. Danach den Deployed-PHP-Helfer als `nicovoss` im PHP8.5-CLI ausführen und exakt die erlaubten Listen verifizieren: `nvoss=>[nvoss,hw24-test]`, `hw24-test=>[hw24-test]`, fremder Actor=>[fremd]`. Der Schritt richtet nur eine lokale **Berechtigungs-Lesekonfiguration**, nicht den Plesk-Basic-Account ein; noch keine authentifizierte `nvoss`-HTTP-Abfrage auf Test.
+
+**Achtung:** Vor der späteren Plesk-Test-Basic-Konto-Umbenennung (protected_dir ID 9, domain ID 10) die Root-Passwortschutzkonfiguration separat mit Rollback sichern; Statistikschutz-ID 1 und Live-protected_dir ID 8 unbedingt unangetastet. Test-Webroot-TAR mit SHA256 `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26` weiterhin als Code-Rückfallstand vorhanden.
+
+[Journal-Beleg](./HW24_ARBEITSJOURNAL.md), Commit `3a9c1848c937424aa2f99f13156b3e8abd0e3812`. [PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37) ist Draft mit grünem CI und wurde bisher nur auf Test bereitgestellt.
+
+---
+
 ## NEUESTER ERFOLGREICHER BETREIBERTEST · 22.11.2026 · PR37-Testcode und äußerer Auth-Schutz sicher
 
 **PuTTY `HW24_PR37_SECURITY` durchgelaufen:** Die vier auf Test deployten PHP-Dateien `api/scanliste.php`, `api/ai-reviews.php`, `api/ai-review.php`, `api/hw24-actor-identity.php` haben unter `/opt/plesk/php/8.5/bin/php -l` **keine Syntaxfehler**. Anonyme HTTPS-GETs der Testdomain liefern jeweils **HTTP 401** für `api/scanliste.php`, `api/ai-reviews.php` und `api/jtl.php`. Abschluss `SICHERHEITSPRUEFUNG ERFOLGREICH`. Keine Plesk-Basic-Änderung und keine SQL-Änderung. **Das belegt äußeren Basic-Schutz, nicht die authentifizierte API-/Datenfunktion.**
