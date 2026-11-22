@@ -376,6 +376,28 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - Der CI-Lauf erfolgte auf dem GitHub-Runner, **nicht** auf dem Betreiber-Server. Lokale Anwendung, private JTL-Datenbank und API-Freigaben sind davon unberührt. Die neuen PHP-Stagingtests laufen als Teil der getesteten Laravel-Konfiguration, die Job-Prüfungen wurden erfolgreich abgeschlossen.
 - **Nächster Schritt bleibt:** Phase-7-HeidiSQL Rowversion/Bestandsdiagnose; sichere private Dateiübertragung und TEST-Pilot-Ausführung mit Bedienerfreigabe. Keine Merge-/Deployfreigabe aus CI-Erfolg allein ableiten.
 
+### S050 | HeidiSQL Rowversion-Diagnose durch Betreiber | **fünf Rohdatensätze bestätigt**
+- Neuer Betreiber-SELECT über `eazybusiness.dbo.tArtikel`: `kArtikel` 3, 4, 6, 7, 8; `DATALENGTH(bRowversion)=8` in allen fünf Fällen.
+- Vollständige originale Hexwerte: ID 3 `0x0000000004C0BE42`, ID 4 `0x0000000004C0BE32`, ID 6 `0x0000000006122DA5`, ID 7 `0x0000000006122DA6`, ID 8 `0x0000000006122DA7`. Style-2-Ausgabe jeweils 16 Hexzeichen ohne `0x`. Keine Anzeichen fehlender physischer Rowversion in diesen fünf Zeilen.
+- **Verifizierter Fix:** `CONVERT(varchar(18), CONVERT(varbinary(8), bRowversion), 1)` liefert die Werte; die ursprüngliche `CONVERT(varchar(18), bRowversion, 1)` lieferte in der Phase-6-CSV bei allen 2.692 Zeilen leere Textwerte.
+- Wichtig: **Nur diese fünf Zeilen direkt nachgeprüft.** Die neue Export-Formatierung ist bestätigt, aber kein aktueller vollständiger 2.692-Rowversion-Datensatz, kein Commit-sicherer Sync-Watermark und keine JTL-Löschhistorie vorhanden. Die ältere private SQLite-Pilotdatei besitzt weiterhin leere Rowversion-Spalten. Keine Datenbankänderungen am JTL.
+
+### S051 | GitHub: korrigierter vollständiger Basisexport | **Code korrigiert, Daten neuer CSV noch nicht erzeugt**
+- `platform/ops/jtl-heidisql-phase6-article-export-readonly.sql`, sowohl SQL 1 (TOP-15) als auch SQL 2 (alle Artikel), verwenden jetzt `CONVERT(varchar(18), CONVERT(varbinary(8), a.bRowversion), 1) AS jtl_rowversion_hex`; korrigierter SQL-Code ist GitHub-gespeichert.
+- Neue Regressionstests `platform/tests/Unit/JtlRowversionExportSqlTest.php` prüfen, dass beide SELECTs explizit in `varbinary(8)` casten und kein altes Muster mehr enthalten. **CI-Status für neueste Änderung muss geprüft werden.**
+- Vorherige Rohartikel-, EAN- und Preisfelder sowie alle Joins bleiben **unverändert**. Keine Änderung an APIs, SQL Server, Shopify/Amazon/eBay, bestehenden TEST-/LIVE-Daten.
+- Der neue vollwertige Artikel-Export muss separat durch Betreiber per HeidiSQL ausgeführt und privat abgelegt werden. **Keine** neuen Rowversions aus späterer Zeit unbesehen zu älteren Artikelwerten hinzufügen.
+
+### S052 | GitHub: lesende Phase-8-Vollständigkeits- und Watermark-Diagnose | **Code erstellt, Ausführung offen**
+- Neue `platform/ops/jtl-heidisql-phase8-rowversion-verified-readonly.sql`: SQL 0 DB-Kontext; SQL 1 Stichprobe korrekter Hexwerte; SQL 2 Anzahl 8-Byte-Rowversion aller Artikel; SQL 3 Kardinalität der Artikelreferenz-Joins; SQL 4 lesende Anzeige von `@@DBTS` und `MIN_ACTIVE_ROWVERSION()`.
+- **Noch keine** Aussage, dass Rowversion-Delta für jede Tabelle oder Transaktionssicherheit fertig implementiert ist. Schon bekannt: Rowversion ist auf untersuchten Tabellen nicht als Indexschlüssel vorhanden. Performance, Transaktionen, Deletes und Schema-Drift bleiben vor 15-Minuten-Takt zu prüfen.
+- Phase-7-Bestandsdiagnose SQL 5 + Null-/0-Qualität SQL 6 können unabhängig von dieser Formatkorrektur ausgeführt werden.
+
+### S053 | Dokumentation/Datenschutz für bestehende Pilotdatei | **dokumentiert**
+- `platform/docs/HW24_JTL_PHASE6_ARTICLE_EXPORT_QA.md` um verifizierten 5-Zeilen-Hexnachweis und klare Einschränkungen ergänzt.
+- Die ältere private SQLite-Pilotdatei vom 23.11. bleibt **unverändert**, weiterhin keine brauchbaren Rowversion-Werte. Kein Rollout und keine Synchronisation.
+- GitHub-Publikation enthält nur SQL-Struktur, fünf technische Hex-Testwerte, Code und aggregierte Qualitätsbefunde, nicht vollständige Artikel-/Preisdaten, Kontodaten, Logins oder Credentials.
+
 ## Fachlich beschlossene Zielarchitektur
 
 1. **JTL eazybusiness** bleibt maßgebliche SQL-Server-Datenbank; zunächst nur Leseinventur, DB-Backup/Wiederherstellung als getrennte Aufgabe prüfen.
@@ -392,4 +414,4 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - **C** Ergebnisse, Abweichungen und Risiken im Journal festhalten; gegebenenfalls Versionsvergleich des Test-/Live-Codes.
 - **D** Nur kleine, rollbackfähige Änderungen isoliert vorbereiten, GitHub CI + Browser-E2E prüfen und Betreiberfreigabe für Deployment einholen.
 
-**Nächster Nachweis:** Phase-7-HeidiSQL Ausgabe zu bRowversion/Qualitätsaggregaten und GitHub CI für isolierten Staging-Prototyp; erst danach nur privater CSV-Dry-Run, keine Live-/JTL-Änderungen.
+**Nächster Nachweis:** Phase-8-HeidiSQL Aggregatprüfung (8-Byte-Rowversion für alle Artikel + Join-Eindeutigkeit), Phase-7 SQL 5 Bestandsvergleich; optional erneuter vollständiger Phase-6-SQL-2-CSV-Export mit korrigiertem Rowversionformat. CI danach überprüfen. Keine LIVE-/JTL-Schreibaktion.
