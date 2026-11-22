@@ -1422,3 +1422,19 @@ upstream_status: None
 - **Weder Seed-Daten noch Benutzer-Neuanlage noch Test-/Live-Webroot-Änderungen**, keine JTL-/Legacy-MariaDB-Updates, kein Plesk- oder Shopify-Deploy. `migrate:fresh`/`migrate:rollback` nicht erforderlich und ohne Freigabe verboten.
 
 **Nächster Gate vorbereiteter, noch nicht durch Betreiber ausgeführter Read-only-Test:** `platform/ops/verify-legacy-readbridge-live.sh` (PR36). Prüft tatsächliche private SQLite plus 3 neue Tabellen, erfordert gepinnten privaten Git-HEAD `a26a64d09597e41523e224c557bb1d4e39bdf052`, prüft serverseitig und ohne Passwortausgabe die HTTPS-Lesebrücken-Konfiguration und testet exakt einen authentifizierten JTL-Artikel-GET (`q=3474630337398`, erwartete JTL-ID 1428) und einen GET des bestehenden AI-Archivs für dieselbe EAN. Ein optionaler `jtl.fields`-GET zeigt nur Diagnose/404, da `api/jtl-fields.php` **noch nicht** in Legacy-LIVE ausgerollt ist. **Keine Amazon-/OpenAI-POSTs, kein neuer Preis-/Bestandsschreibzugriff oder Datenbank-Seed.** Öffentlicher Filament-HTTPS-Test und Plesk-Testdomain-Cutover folgen erst nach separater Sicherung/Freigabe.
+
+
+## 22.11.2026 · Laravel-GET-Lesebrücke gestoppt: private Basic-Auth-Konfiguration fehlt
+
+**Betreiber-PuTTY-E2E-Ausgabe** nach erfolgreich nachgewiesener isolierter SQLite-Quellkatalogmigration:
+
+```text
+=== HW24 LARAVEL ZU LIVE-LEGACY READ-BRIDGE: NUR GET ===
+OK: Private Laravel-SQLite und alle drei Quellkatalog-Tabellen
+STOP: Live-Lesebruecke nicht konfiguriert (URL oder Basic-Auth fehlt).
+Bitte Zugangsdaten nur auf dem Server in der privaten Laravel-Konfiguration hinterlegen.
+```
+
+**Diagnose:** Kein Netzwerk- oder JTL-SQL-Fehler nachgewiesen. Die private Laravel-Konfiguration `config('hw24_legacy.base_url')`, `.user` oder `.password` ist mindestens an einer Stelle leer/falsch; `LegacyReadBridge` wurde vor dem ersten HTTPS-Abruf sicher gestoppt. `api/jtl.php` am LIVE-Host ist unter Basic-User `nvoss` zuvor authentifiziert funktionstüchtig nachgewiesen, ebenso KI-Archiv, und die drei Plattform-SQLite-Tabellen sind vorhanden. **Niemals Passwort in Chat, GitHub oder Shell-Befehl notieren.**
+
+**Nächster vorbereiteter Schritt, auf Plesk noch nicht durchgeführt:** Interaktives Python-Skript `platform/ops/configure-private-legacy-readbridge.py` im isolierten Draft PR36. Verlangt root-PuTTY-TTY, festgelegten privaten Git-HEAD `a26a64d09597e41523e224c557bb1d4e39bdf052`, private `.env` im Besitz `nicovoss`, Modus 0600, keine getrackten Veränderungen. Passwort verdeckt per `getpass` abfragen, mit genau einem HTTPS GET und Umleitungssperre gegen existierenden LIVE-JTL-Endpunkt prüfen, nur drei `HW24_LEGACY_*`-Variablen in vorhandener `.env` gezielt und atomar speichern, root-private Rückfallsicherung vor Änderungen, optionalen Config-Cache gezielt leeren/bei Fehler wiederherstellen, Laravel-eigene Config-Auswertung mit Passwortwert aus isoliertem STDIN ohne Anzeige vergleichen. Keine Änderung an APP_KEY, Admin-E-Mail, DB_CONNECTION, SQLite, JTL/Legacy-MariaDB, Webroot oder Plesk-Git. Die nachfolgende `verify-legacy-readbridge-live.sh` wird erst nach erfolgreicher privater Konfiguration manuell wiederholt.
