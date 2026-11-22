@@ -32,6 +32,17 @@ jobs:
           bash -n platform/ops/verify-legacy-readbridge-live.sh
           bash -n platform/ops/verify-filament-https-release-gates-readonly.sh
           bash -n platform/ops/verify-plesk-cutover-mechanics-readonly.sh
+          bash -n platform/ops/cutover-testdomain-filament-with-rollback.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path('platform/ops/cutover-testdomain-filament-with-rollback.sh').read_text()
+          start=text.index("python3 - \"$app\" \"$site\" <<'PY'\n")+len("python3 - \"$app\" \"$site\" <<'PY'\n")
+          end=text.index("\nPY\nswitched=0",start)
+          Path('/tmp/hw24-guarded-cutover-smoke.py').write_text(text[start:end]+'\n')
+          assert "switched=1" in text and "trap restore EXIT" in text
+          assert 'AuthType' not in text or '401' in text
+          PY
+          python3 -m py_compile /tmp/hw24-guarded-cutover-smoke.py
           python3 - <<'PY'
           from pathlib import Path
           raw=Path('platform/ops/verify-filament-https-release-gates-readonly.sh').read_text()
