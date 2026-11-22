@@ -927,3 +927,29 @@ Die separate `protected_dirs.id=1` für `plesk-stat` auf `domains.id=1` ist **ni
 **Offizielle Plesk-CLI verifiziert:** [Plesk Obsidian `protdir`-Referenz](https://docs.plesk.com/en-US/obsidian/cli-linux/using-command-line-utilities/protdir-site-directories-protection.39417/) bestätigt `-u <Verzeichnis> -domain <Domain> -update_user <Alt> -user_name <Neu>`. Die vorliegende Schutzzeile hat leeren DB-Pfad für Site-Root, während die [Plesk-Root-Schutz-Dokumentation](https://support.plesk.com/hc/en-us/articles/12377592309527-How-to-configure-a-password-protected-directory-in-Plesk) im UI `/` verwendet. **Konkrete CLI-Root-Parametrisierung vor einem mutierenden Kommando noch nicht auf dem Server geprüft; kein Blindversuch auf Live oder Test.**
 
 **Sicherer nächster Gate:** Vor dem Auth-Rename die aktuell tatsächlich ausgerollten `api/scanliste.php`, `api/ai-reviews.php`, `api/ai-review.php` und die bestehenden Plesk-Git-Deployziele der **Test**- und **Live**-Site ausschließlich lesen; einen privaten Backup-/Rollbackpfad festlegen; anschließend den Dual-Owner-Code aus PR #37 **kontrolliert zuerst auf Test** bereitstellen und testen. Erst wenn beide Owner und 3 Reviews browserseitig sichtbar sind, den Test-Schutz-Account mit dem offiziellen Plesk-Tool gezielt umbenennen. **Die Testdomain bleibt vorläufig Legacy; Laravel/Filament-Webroot-Cutover ist ein anderes, späteres kontrolliertes Gate.**
+
+
+### 22.11.2026 · Live- und Test-vHosts: Legacy-API-HASHES IDENTISCH, beide Plesk-Git-Deployments manuell auf `deploy/staging`
+
+**Quelle:** Neue tatsächliche Betreiber-PuTTY-Ausgabe des Blocks `HW24_AUTH_DEPLOY_PREFLIGHT`; erfolgreiche Abschlussmeldung `Keine Dateien oder Benutzer veraendert`. Kein Deployment, kein Rename.
+
+| Gegenstand | Live `artikelmanager.HAIRWORLD24.de` | Test `test-artikelmanager.HAIRWORLD24.de` |
+| --- | --- | --- |
+| Plesk-Git-Repository | `HW24-scanner` | `HW24-scanner.git` |
+| Deployment path | `/artikelmanager.HAIRWORLD24.de` | `/test-artikelmanager.HAIRWORLD24.de` |
+| Active branch | `deploy/staging` | `deploy/staging` |
+| Deployment mode / Post-actions | `manual` / `disabled` | `manual` / `disabled` |
+| `api/scanliste.php` Git-Blob | `e9fb8075c4f532d7a76adf81e760acf81cab4528` | **identisch** |
+| `api/ai-reviews.php` Git-Blob | `00fb61c9d636434cdc6562edf169811a717c0911` | **identisch** |
+| `api/ai-review.php` Git-Blob | `2eabde207434b8c62162dc553354cd052c6ec98f` | **identisch** |
+| `api/hw24-actor-identity.php` | **NICHT VORHANDEN** | **NICHT VORHANDEN** |
+
+**Interpretation:** Beide Webroots liefern in den vier abgefragten API-Dateien den bisherigen Stand aus, der der Basis des geprüften GitHub-Draft-PR #37 entspricht. Der neue Dual-Owner-Helfer ist **nirgends deployed**. Aus `git hash-object` folgt ein lokaler Dateiinhaltsnachweis, kein separater kompletter HTTP-E2E-Test oder Nachweis sämtlicher Codeversionen.
+
+**Plesk-Auth zuvor exakt identifiziert:** Live-Domain-ID 9, Root-Schutz-ID 8 mit Basic-Login `nvoss`; Testdomain-ID 10, Root-Schutz-ID 9 mit Basic-Login `hw24-test`. Separate Statistik-ID 1 **nicht anfassen**.
+
+**Echter Legacy-MariaDB-Bestand:** `hw24_ai_reviews` 3 historische Berichte unter `hw24-test`, keine unter `nvoss`; `hw24_scan_batches` 2 Stapel, je 1 unter `hw24-test` und `nvoss`.
+
+**Code und Tests:** [Draft PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37) auf `feature/hw24-login-alias-scan-ai-20261122`, Head `c2cc4e1dc054da00f01087e7221659cf54a9a482`; CI [#44978357305](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44978357305) und [#44978360796](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44978360796) erfolgreich. Gewolltes Verhalten: `nvoss` liest mit privater und expliziter `read_aliases`-Freigabe historische `hw24-test`-Berichte und beide Scanlisten-Stapel; neue Vorgänge werden unter der aktuellen Basic-Kennung protokolliert; unveränderter Bestand; **kein automatischer KI-POST**.
+
+**Nächste sichere Operation:** Ein *frisches privates, überprüfbares Test-Webroot-Rollback-Backup* erstellen, dessen Pfad nur unter `/root/hw24-backups` liegt, vor jedem manuellen Plesk-Git-Deploy / Account-Rename. Danach die bestehende **TEST**-Plesk-Git-Konfiguration und beabsichtigten Feature-Branch-Rollout genau absichern; **LIVE Plesk-Git-Branch nicht automatisch mitziehen**. Test-HTTP-Login `hw24-test` erst nach erfolgreichem Dual-Owner-Code-Test und privater Alias-Freigabe gezielt auf `nvoss` ändern. Separaten späteren Laravel/Filament-Webroot-Cutover nicht mit diesem Vorgang vermischen.
