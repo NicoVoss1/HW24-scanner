@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Domain\Jtl\ArticleCard;
+use App\Domain\Amazon\OfferEvidence;
 use App\Services\LegacyApprovedActionBridge;
 use App\Services\LegacyReadBridge;
 use Filament\Pages\Page;
@@ -209,10 +210,30 @@ final class IntelligenceWorkbench extends Page
                 ];
             }
         }
-        $this->pricing=['ok'=>($r['ok']??false)===true,'http'=>$r['http_status']??null,
+        $names=[];
+        if(($r['ok']??false)===true){
+            $ids=OfferEvidence::sellerIds($raw);
+            if($ids!==[]){
+                $namesResponse=$bridge->fetch('amazon.sellers',['ids'=>implode(',',$ids)]);
+                $namesRaw=is_array($namesResponse['data']??null)?$namesResponse['data']:[];
+                if(($namesResponse['ok']??false)===true && is_array($namesRaw['names']??null)){
+                    $names=$namesRaw['names'];
+                }
+            }
+        }
+        $offerBoard=OfferEvidence::present($raw,$names);
+        $this->pricing=[
+            'ok'=>($r['ok']??false)===true,'http'=>$r['http_status']??null,
             'asin'=>$asin,'offers'=>is_numeric($raw['total_offer_count']??null)
                 ?(int)$raw['total_offer_count']:null,'prices'=>$prices,
-            'message'=>'Öffentliche Amazon-Angebotswerte sind keine verifizierten eigenen Verkäuferangebote.'];
+            'retrieved_at'=>$offerBoard['retrieved_at'],
+            'returned'=>$offerBoard['returned'],
+            'buy_box'=>$offerBoard['buy_box'],
+            'lowest_summary'=>$offerBoard['lowest_summary'],
+            'lowest_visible'=>$offerBoard['lowest_visible'],
+            'sellers'=>$offerBoard['offers'],
+            'winner_count'=>$offerBoard['winners'],
+            'message'=>'Amazon-Angebotsdaten mit Buy Box, günstigstem sichtbarem Gesamtpreis und Seller-Feedback. Keine automatische Lieferanten- oder eigene Angebotsidentität.'];
     }
 
     public function loadAiArchive(LegacyReadBridge $bridge): void

@@ -153,6 +153,52 @@
                 </div>
             </section>
 
+            @if(count($lookup['matches'] ?? [])===1 && ($lookup['jtl_status']??'')==='current_snapshot')
+            <section class="hw24-panel" aria-labelledby="hw24-evidence-heading">
+             <div class="hw24-panel-head">
+              <h3 id="hw24-evidence-heading">Gespeicherte Daten und Lagerstatus auf einen Blick</h3>
+              <span class="hw24-chip">Nur bereits vorhandene Quellen · keine neue KI</span>
+             </div>
+             <div class="hw24-panel-body">
+              <div class="hw24-price-grid">
+               <div class="hw24-price-box">
+                <small>📦 JTL verfügbar</small>
+                <strong>{{ ($articleRelated['stock']['available']??null)!==null ? number_format((float)$articleRelated['stock']['available'],0,',','.') : 'Nicht synchronisiert' }}</strong>
+                <p>In Aufträgen: {{ ($articleRelated['stock']['in_orders']??null)!==null ? number_format((float)$articleRelated['stock']['in_orders'],0,',','.') : 'nicht belegt' }} · Zulauf: {{ ($articleRelated['stock']['incoming']??null)!==null ? number_format((float)$articleRelated['stock']['incoming'],0,',','.') : 'nicht belegt' }}</p>
+               </div>
+               <div class="hw24-price-box">
+                <small>🏬 WMS-Fächer</small>
+                <strong>{{ ($articleRelated['wms']['confirmed']??false)===true ? ($articleRelated['wms']['count']??0).' Lagerplätze' : 'Spiegel nicht bestätigt' }}</strong>
+                <p>Gesperrte Fächer: {{ ($articleRelated['wms']['confirmed']??false)===true ? ($articleRelated['wms']['locked_bins']??0) : 'unbekannt' }} · Fachdetails im WMS-Bereich</p>
+               </div>
+               <div class="hw24-price-box">
+                <small>🧠 OpenAI KI-Archiv · benutzerbezogen</small>
+                @if(($existingEvidence['ai']['verified']??false)===true)
+                 <strong>{{ ($existingEvidence['ai']['found']??false)===true ? '✅ Schon geprüft' : 'Noch kein Bericht' }}</strong>
+                 <p>{{ ($existingEvidence['ai']['found']??false)===true ? ($existingEvidence['ai']['count'].' Berichte · zuletzt '.$existingEvidence['ai']['at'].' UTC · '.$existingEvidence['ai']['model']) : 'Kein gespeicherter Bericht für dieses Konto und diese EAN' }}</p>
+                @else
+                 <strong>⚠ Archivstatus unbekannt</strong><p>Verbindung oder Zuordnung konnte nicht bestätigt werden.</p>
+                @endif
+               </div>
+               <div class="hw24-price-box">
+                <small>📚 Amazon-Katalogarchiv · EAN</small>
+                @if(($existingEvidence['amazon']['verified']??false)===true)
+                 <strong>{{ ($existingEvidence['amazon']['found']??false)===true ? '✅ Schon recherchiert' : 'Kein Katalogsnapshot' }}</strong>
+                 <p>{{ ($existingEvidence['amazon']['found']??false)===true ? 'Snapshot #'.$existingEvidence['amazon']['snapshot_id'].' · '.$existingEvidence['amazon']['at'].' UTC · '.$existingEvidence['amazon']['count'].' Katalogtreffer' : 'Keine gespeicherte Recherche zur EAN vorhanden' }}</p>
+                @else
+                 <strong>⚠ Archivquelle noch nicht bereit</strong><p>Keine automatische neue Amazon-Katalogabfrage. Live-Preise und Buy Box separat abrufen.</p>
+                @endif
+               </div>
+              </div>
+              <div class="hw24-toolbar">
+               <a class="hw24-link" style="background:#e1effa;color:#184b76" href="{{ url('/admin/lager-preise') }}?ean={{ urlencode($lookup['ean']) }}">📦 WMS, Lagerplätze und Preise</a>
+               <a class="hw24-link" style="background:#e1effa;color:#184b76" href="{{ url('/admin/intelligence') }}?ean={{ urlencode($lookup['ean']) }}">🧠 KI-Archiv und Amazon-Händler</a>
+              </div>
+              <p class="hw24-subtle" style="margin-top:10px">Die KI-Statusprüfung liest ausschließlich das vorhandene benutzergebundene Archiv. Die Amazon-Statusprüfung liest nur gespeicherte Katalog-Snapshots. Händlerpreise und Buy Box werden nicht dauerhaft als aktuelle Werte angenommen.</p>
+             </div>
+            </section>
+            @endif
+
             @if(count($lookup['matches'] ?? []) === 1)
                 @php
                     $item = $lookup['matches'][0];

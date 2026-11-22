@@ -128,10 +128,25 @@
                 <div class="hw24-card-body">
                     <p class="hw24-description">Maximal 3.000 Positionen aus der vorhandenen MariaDB. Diese Ansicht zeigt keine bearbeitbaren Entwürfe und löst keine Lagerbuchung oder Artikelanlage aus.</p>
                     <span class="hw24-stat">{{ count($items) }} Positionen geladen</span>
+                    <div class="hw24-action" style="margin:12px 0">
+                        <button type="button" class="hw24-btn" wire:click="loadBatchAiMarkers" wire:loading.attr="disabled" wire:target="loadBatchAiMarkers">
+                            🧠 Bereits geprüfte KI-Artikel anzeigen
+                        </button>
+                        <span class="hw24-sub">Ein kostenloser Archiv-GET für maximal 150 EANs, keine neue KI-Abfrage</span>
+                    </div>
+                    @if($batchAiStatus!==[])
+                        <p class="hw24-note {{ ($batchAiStatus['ok']??false)?'':'hw24-note-warn' }}" role="status">
+                            {{ $batchAiStatus['message'] }}
+                            @if(($batchAiStatus['ok']??false)===true)
+                                · {{ $batchAiStatus['found']??0 }} zuvor analysiert
+                                @if($batchAiStatus['partial']) · Die Marker-Liste ist auf 150 EANs begrenzt @endif
+                            @endif
+                        </p>
+                    @endif
                     @if($items !== [])
                         <div class="hw24-table-wrap" style="margin-top:14px">
                             <table>
-                                <thead><tr><th>EAN</th><th>Artikel</th><th>Scans</th><th>JTL-Abgleich</th><th>Prüfstatus</th></tr></thead>
+                                <thead><tr><th>EAN</th><th>Artikel</th><th>Scans</th><th>JTL-Abgleich</th><th>Prüfstatus</th><th>KI-Archiv</th></tr></thead>
                                 <tbody>
                                     @foreach($items as $i => $item)
                                         <tr wire:key="hw24-scan-item-{{ $selectedBatchId }}-{{ $i }}">
@@ -140,6 +155,16 @@
                                             <td>{{ $item['scans'] }}</td>
                                             <td>{{ $item['resolution'] }}</td>
                                             <td>{{ $item['review'] }}</td>
+                                            <td>
+                                                @if(($batchAiMarkers[$item['ean']]['found']??false)===true)
+                                                    <span class="hw24-stat">🧠 Bereits geprüft</span>
+                                                    <div class="hw24-sub">{{ $batchAiMarkers[$item['ean']]['count'] }} Bericht(e) · zuletzt {{ $batchAiMarkers[$item['ean']]['at'] }} UTC</div>
+                                                @elseif(isset($batchAiMarkers[$item['ean']]))
+                                                    <span class="hw24-sub">Kein bestätigter Archivtreffer in der geprüften Teilmenge</span>
+                                                @else
+                                                    <span class="hw24-sub">Noch nicht geprüft</span>
+                                                @endif
+                                            </td>
                                         </tr>
                                     @endforeach
                                 </tbody>

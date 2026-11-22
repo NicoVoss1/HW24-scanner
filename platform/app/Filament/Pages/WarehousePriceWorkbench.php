@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Domain\Jtl\ArticleCard;
+use App\Domain\Jtl\RelatedSourceEvidence;
+use App\Domain\Amazon\OfferEvidence;
 use App\Services\LegacyReadBridge;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +34,7 @@ final class WarehousePriceWorkbench extends Page
     #[Locked] public int $wmsOffset=0;
     #[Locked] public array $amazonCatalog=[];
     #[Locked] public array $amazonMarket=[];
+    #[Locked] public array $related=[];
     #[Locked] public array $ownOffers=[];
     #[Locked] public array $ownOffersStatus=[];
 
@@ -44,7 +47,7 @@ final class WarehousePriceWorkbench extends Page
 
     public function findArticle(LegacyReadBridge $bridge): void
     {
-        $this->reset(['product','status','wms','movements','wmsOffset','amazonCatalog','amazonMarket','ownOffers','ownOffersStatus']);
+        $this->reset(['product','status','wms','movements','wmsOffset','amazonCatalog','amazonMarket','ownOffers','ownOffersStatus','related']);
         $identifier=trim($this->identifier);
         if(!preg_match('/^[\pL\pN][\pL\pN._\/-]{1,63}$/uD',$identifier)){
             $this->status=['ok'=>false,'message'=>'Bitte gültige EAN, HAN oder Artikelnummer eingeben.'];
@@ -61,6 +64,7 @@ final class WarehousePriceWorkbench extends Page
         }
 
         $row=$matches[0];
+        $this->related=RelatedSourceEvidence::present($row);
         $article=ArticleCard::fromMatch($row);
         $id=(string)($article['jtl_article_id']??'');
         if(!preg_match('/^[1-9][0-9]{0,11}$/D',$id)){
@@ -286,11 +290,32 @@ final class WarehousePriceWorkbench extends Page
                 ];
             }
         }
+        $names=[];
+        if(($res['ok']??false)===true){
+            // Existing verified seller-name archive, GET only. No Amazon SP call.
+            $ids=OfferEvidence::sellerIds($raw);
+            if($ids!==[]){
+                $namesRes=$bridge->fetch('amazon.sellers',['ids'=>implode(',',$ids)]);
+                $namesRaw=is_array($namesRes['data']??null)?$namesRes['data']:[];
+                if(($namesRes['ok']??false)===true && is_array($namesRaw['names']??null)){
+                    $names=$namesRaw['names'];
+                }
+            }
+        }
+        $offers=OfferEvidence::present($raw,$names);
         $this->amazonMarket=[
             'ok'=>($res['ok']??false)===true,'http'=>$res['http_status']??null,
             'asin'=>$asin,'offers'=>is_numeric($raw['total_offer_count']??null)?(int)$raw['total_offer_count']:null,
             'prices'=>$rows,
-            'message'=>'Amazon-Marktpreise für einen Katalogkandidaten, keine aktiven eigenen Seller-Angebote.',
+            'source'=>$offers['source'],
+            'retrieved_at'=>$offers['retrieved_at'],
+            'returned'=>$offers['returned'],
+            'winner_count'=>$offers['winners'],
+            'buy_box'=>$offers['buy_box'],
+            'lowest_summary'=>$offers['lowest_summary'],
+            'lowest_visible'=>$offers['lowest_visible'],
+            'sellers'=>$offers['offers'],
+            'message'=>'Buy Box, günstigstes Angebot und Verkäufer werden getrennt gezeigt. Das sind Amazon-Angebote, keine belegten eigenen Seller-Angebote und keine Großhandelslieferanten.',
         ];
     }
 }

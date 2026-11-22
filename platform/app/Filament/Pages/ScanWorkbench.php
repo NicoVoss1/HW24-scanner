@@ -28,6 +28,8 @@ final class ScanWorkbench extends Page
 
     #[Locked] public array $actionState = [];
     #[Locked] public array $exportState = [];
+    #[Locked] public array $batchAiMarkers = [];
+    #[Locked] public array $batchAiStatus = [];
 
     #[Locked]
     public array $batches = [];
@@ -43,7 +45,7 @@ final class ScanWorkbench extends Page
 
     public function loadBatches(LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'batches', 'selectedBatchId', 'diagnostic', 'exportState']);
+        $this->reset(['items', 'batches', 'selectedBatchId', 'diagnostic', 'exportState', 'batchAiMarkers', 'batchAiStatus']);
 
         $result = $bridge->fetch('scan.batches', ['op' => 'batches']);
         $raw = is_array($result['data'] ?? null) ? $result['data'] : [];
@@ -84,7 +86,7 @@ final class ScanWorkbench extends Page
 
     public function loadBatch(int $batchId, LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'selectedBatchId', 'exportState']);
+        $this->reset(['items', 'selectedBatchId', 'exportState', 'batchAiMarkers', 'batchAiStatus']);
         // Never let the browser request arbitrary batch IDs.
         $allowed = array_column($this->batches, 'id');
         if (!in_array($batchId, $allowed, true)) {
@@ -125,6 +127,61 @@ final class ScanWorkbench extends Page
             'http' => $result['http_status'] ?? null,
             'message' => 'Gespeicherte Scan-Positionen nur gelesen. Erfassen, Entwurf, Import und Export verbleiben vorerst im bisherigen HW24-Arbeitsbereich.',
         ];
+    }
+
+    /**
+     * Reuse the original legacy scanlist's actor-scoped batch AI markers.
+     * Explicit single historical GET for max. 150 EANs, no OpenAI call.
+     */
+    public function loadBatchAiMarkers(LegacyReadBridge $bridge): void
+    {
+        $this->reset(['batchAiMarkers','batchAiStatus']);
+        if($this->selectedBatchId===null || !in_array($this->selectedBatchId,array_column($this->batches,'id'),true)) {
+            $this->batchAiStatus=['ok'=>false,'message'=>'Bitte zuerst einen eigenen Scan-Stapel auswählen.'];
+            return;
+        }
+        $eans=[];
+        foreach($this->items as $item){
+            $ean=(string)($item['ean']??'');
+            if(preg_match('/^(?:[0-9]{8}|[0-9]{12}|[0-9]{13}|[0-9]{14})$/D',$ean))
+                $eans[$ean]=true;
+            if(count($eans)>=150)break;
+        }
+        if($eans===[]){
+            $this->batchAiStatus=['ok'=>false,'message'=>'Keine gültigen EANs zum Prüfen geladen.'];
+            return;
+        }
+        $r=$bridge->fetch('ai.summary',['summary'=>1,'eans'=>implode(',',array_keys($eans))]);
+        $raw=is_array($r['data']??null)?$r['data']:[];
+        $summaries=is_array($raw['summaries']??null)?$raw['summaries']:[];
+        if(($r['ok']??false)!==true || ($raw['summary']??false)!==true){
+            $this->batchAiStatus=['ok'=>false,'message'=>'Vorhandener benutzerbezogener KI-Archivstatus konnte nicht bestätigt werden.'];
+            return;
+        }
+        foreach($summaries as $ean=>$summary){
+            if(!isset($eans[$ean])||!is_array($summary))continue;
+            $id=filter_var($summary['review_id']??null,FILTER_VALIDATE_INT);
+            if($id===false||$id<1)continue;
+            $this->batchAiMarkers[$ean]=[
+                'found'=>true,
+                'id'=>$id,
+                'count'=>max(1,(int)($summary['count']??1)),
+                'at'=>mb_substr((string)($summary['at_utc']??''),0,40),
+            ];
+        }
+        $found=count($this->batchAiMarkers);
+        foreach(array_keys($eans) as $checkedEan){
+            if(!isset($this->batchAiMarkers[$checkedEan])){
+                $this->batchAiMarkers[$checkedEan]=[
+                    'found'=>false,'id'=>null,'count'=>0,'at'=>null,
+                ];
+            }
+        }
+        $this->batchAiStatus=['ok'=>true,'checked'=>count($eans),
+            'found'=>$found,
+            'checked_eans'=>array_keys($eans),
+            'partial'=>count($this->items)>150,
+            'message'=>'Vorhandenes KI-Archiv kostenlos geprüft. Keine neue KI-Analyse ausgelöst.'];
     }
 
     public function canWriteScan(): bool
