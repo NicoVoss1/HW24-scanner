@@ -192,11 +192,17 @@ runuser -u "$owner" -- /bin/bash -c '
  "$2" artisan route:list --path=admin --except-vendor --json > /dev/null
 ' hw24-native "$app" "$php"
 routes="$(runuser -u "$owner" -- "$php" "$app/artisan" route:list --path=admin --except-vendor --json)"
-for target_route in 'admin/intelligence' 'admin/scanliste' 'admin/werkzeuge' 'admin/artikel';do
- grep -F "\"uri\":\"$target_route\"" <<<"$routes" >/dev/null || {
-  echo "STOP: Erwartete Filament-Route fehlt: $target_route";exit 2;
- }
-done
+# Parse Laravel JSON semantically: route:list may insert whitespace after colons.
+printf '%s' "$routes" | "$php" -r '
+$rows=json_decode(stream_get_contents(STDIN),true,512,JSON_THROW_ON_ERROR);
+if(!is_array($rows))exit(2);
+foreach(array_slice($argv,1) as $uri){
+ $found=false;
+ foreach($rows as $row)if(is_array($row)&&($row["uri"]??null)===$uri) {$found=true;break;}
+ if(!$found){fwrite(STDERR,"STOP: Filament-Route fehlt: ".$uri.PHP_EOL);exit(2);}
+}
+echo "OK: Alle Filament-Routen im JSON bestaetigt".PHP_EOL;
+' 'admin/intelligence' 'admin/scanliste' 'admin/werkzeuge' 'admin/artikel'
 for f in "$app/.env" "$app/database/database.sqlite";do
  for u in nginx www-data;do
   if runuser -u "$u" -- test -r "$f";then
