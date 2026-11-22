@@ -9,6 +9,10 @@ return [
     'user'=>env('HW24_LEGACY_BASIC_USER'),
     'password'=>env('HW24_LEGACY_BASIC_PASSWORD'),
     'writes_enabled'=>false,
+    // Operator-owned private toggles. Default false: no paid OpenAI or write to
+    // existing HW24 scanlist MariaDB until separate explicit enablement.
+    'scan_writes_enabled'=>env('HW24_SCAN_WRITES_ENABLED', false) === true || env('HW24_SCAN_WRITES_ENABLED') === 'true',
+    'ai_paid_enabled'=>env('HW24_AI_PAID_ENABLED', false) === true || env('HW24_AI_PAID_ENABLED') === 'true',
     'openai_auto_calls'=>false,
     'amazon_auto_calls'=>false,
     'jtl_read_only'=>true,
