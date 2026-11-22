@@ -395,3 +395,23 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 **Exakt nächste technisch sinnvolle Aktion (read-only):** Laravel-/Filament-Artefakte per `php artisan --version` und `php artisan route:list --path=admin` als Site-Benutzer prüfen, vorhandene Live-V4.25-Dateihashes abgleichen. Erst danach ausschließlich Laravel-eigene `.env` und isolierte SQLite-Datenhaltung initialisieren. Legacy V4.25 vor Umschaltung von Test im authentifizierten Browser prüfen. **Kein** erneuter Composer-Install und **kein** Repository-Reclone nötig.
 
 **Dokumentationsregel:** Jede neue PuTTY-Ausgabe sofort chronologisch ergänzen und Kurz-Übergabe/Projektstatus fortschreiben; öffentliches GitHub enthält keine Authentifizierungsschlüssel.
+
+
+### 22.11.2026 · Laravel-CLI, Filament-Routen, Legacy-Live-Dateihashes und private Datendateien geprüft
+
+**Quelle:** Neue PuTTY-Ausgabe des Betreibers. Eine erneut eingefügte Kopie des identischen HW24_CHECK-Befehls enthält **keine zweite Ausgabebestätigung**; deshalb wird nur der erste abgeschlossene Durchlauf als bestätigt geführt.
+
+| Schritt | Tatsächlich beobachteter Nachweis | Bewertung |
+| --- | --- | --- |
+| 31 · Laravel CLI-Boot | Als Subscription-Benutzer mit Plesk-PHP 8.4: **Laravel Framework 13.43.0** | **BESTÄTIGT, erfolgreich** |
+| 32 · Filament Panel Routing | artisan route:list --path=admin zeigt **4 Routen**: GET/HEAD admin Dashboard, GET/HEAD admin/artikel Artikel, GET/HEAD admin/login Login, POST admin/logout Logout | **BESTÄTIGT, erfolgreich**; noch kein HTTP-/Login-Test |
+| 33 · Legacy-V4.25-Live-Webroot-Dateihashes | **OK** für index.html, artikelpflege.html, api/jtl.php und scanliste.html; exakter Abgleich gegen freigegebenen GitHub-Staging-Stand | **BESTÄTIGT, erfolgreich** |
+| 34 · Private Laravel-Konfiguration | platform/.env **noch nicht vorhanden** | **BESTÄTIGT, bewusst noch offen** |
+| 35 · Private Laravel-SQLite-Datei | platform/database/database.sqlite **noch nicht vorhanden** | **BESTÄTIGT, bewusst noch offen** |
+| 36 · Wiederholter Eingabeblock | Ein zweiter identischer Shellblock wurde als Eingabe gepostet, aber ohne nachfolgende Ausgabe; kein zweites erfolgreiches Ergebnis ableiten | **OFFEN/KEIN ZWEITER NACHWEIS**, nicht erneut nötig |
+
+**Aktuelle Sicherheitsgrenzen:** Beide Legacy-Artikelmanager-Domains bleiben weiterhin getrennt; Test-Webroot unverändert; Live-V4.25-Git-Commit und vier Live-Dateihashes bestätigt. Die sechs früheren HTTP-401-Prüfungen belegten Zugriffsschutz ohne Login auf diesen URLs. **Noch offen:** authentifizierter Legacy-Live-Browser-/API-E2E mit JTL, Amazon und OpenAI. Neue Laravel-App nur CLI-seitig startfähig; private .env, App-Key, separate SQLite-Migration, Filament-Admin und HTTP-Veröffentlichung fehlen.
+
+**Genau nächster Schritt:** Ausschließlich im vorhandenen privaten Laravel-Projekt als Site-Benutzer eine .env aus .env.example (APP_ENV=production, APP_DEBUG=false, APP_URL=https://test-artikelmanager.hairworld24.de, LOG_LEVEL=warning, SESSION_SECURE_COOKIE=true), privaten APP_KEY und SQLite-Datei für Laravel-Systemtabellen erstellen; NUR für SQLite php artisan migrate --database=sqlite --force, Filament-Assets lokal publizieren. Kein JTL-/MariaDB-Schreibvorgang, keine Webroot-Änderung, keine Secrets in GitHub oder Chat.
+
+**Danach:** Tatsächlichen SQLite-Migrationsstatus, Session-Konfiguration und Filament-Login als autorisierten User bestätigen, Legacy-Live-Browser-/API-E2E abschließen und erst dann vorhandene Testdomain auf Laravel platform/public umstellen.
