@@ -670,3 +670,26 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 - [Aktueller Projektstand](./HW24_PROJEKTSTAND_AKTUELL.md) ebenso nachgeführt: Commit `f1fbdb6fdd0931645ae95d80646b9c9cae186334`.
 - [Technisches Preflight-Runbook](./HW24_PREFLIGHT_FILAMENT_TESTDOMAIN_20261122.md) mit nachgewiesenem ACL-Erfolg und verbliebenen HTTP-/Legacy-Browser-/Rollbackgates ergänzt: Commit `d18b8f2e254edb1659d9618958032cd3f3bb1248`.
 - **Echter nächster Server-/Browserarbeitsschritt:** **Authentifizierte** Legacy-Live-App V4.25 am bestehenden Referenzartikel EAN `3474630337398` öffnen; JTL-Name/Bestand und manuelle Amazon-Katalog-GET-/OpenAI-Archiv-GET-Schaltflächen auf erfolgreiche Ergebnisse prüfen und Ergebnis ohne Cookies/Tokens mitteilen. Vor Freigabe Test-Plesk-Dokumentenstamm-/alte manuelle Git-Bereitstellung für den Rückfall festhalten. Der aktuelle Laravel-Webroot wurde noch nicht veröffentlicht.
+
+
+### 22.11.2026 · Live-Legacy-V4.25-Artikelpflege visuell getestet: JTL erfolgreich, Amazon-Cache nur teilweise, KI offen
+
+**Quelle:** Zwei unmittelbar vom Betreiber bereitgestellte Browser-Screenshots von `https://artikelmanager.hairworld24.de/artikelpflege.html?ean=3474630337398`. Das sind **Browseranzeige-Belege**, keine serverseitig protokollierten API-Requests. Die Screenshots wurden nicht als Bilddateien ins öffentliche Repository hochgeladen.
+
+| Einzelschritt | Sichtbarer Bildbefund | Belastbarer Status |
+| --- | --- | --- |
+| 102 · Bestehende Live-Artikelpflege | Live-Adresse `artikelmanager.hairworld24.de` im Browser; Ansicht `Artikel bearbeiten`, EAN `3474630337398` eingetragen | **BESTÄTIGT, Browseransicht erreichbar** |
+| 103 · JTL-Snapshot | Grüner Hinweis: `Aktueller JTL-Snapshot und HW24-Entwurf geöffnet. Nur bestätigte Änderungsfelder werden gespeichert.` | **BESTÄTIGT, JTL-Leseanzeige funktioniert** |
+| 104 · Artikelidentität | `Matrix Socolor Beauty - 6C - Dunkelblond kupfer - (90 ml)`, Marke Matrix; EAN und angezeigte JTL-Art.-Nr./HAN jeweils `3474630337398` | **BESTÄTIGT, angezeigter Referenzartikel** |
+| 105 · JTL-Bestands-/Kostenansicht | `Bestand laut JTL-Spiegel: 0`, `EK netto laut JTL: 1,50 €`, `HW24-Entwurf Rev. 0` | **BESTÄTIGT als Spiegel-Snapshot**, **keine** Aussage über Echtzeit-WMS-Bestand oder JTL-Verkaufspreis/Brutto-VK |
+| 106 · Amazon-EAN-Katalogvergleich | Amazon-Bereich zeigt `0 Amazon-Katalogtreffer · aus dem bestehenden Amazon-Cache (kein neuer SP-API-Abruf)` mit Cache-Zeitstempel `2026-11-21 23:45:51` | **BESTÄTIGT, Cacheanzeige**, **KEIN** bestätigter neuer SP-API-Request oder erfolgreicher Amazon-EAN-Match |
+| 107 · Amazon-Titelsuche | `10 zusätzliche Amazon-Kandidaten nach Produktname · bestehenden Cache`, sichtbare Beispiel-ASINs; in den Kandidaten ausdrücklich `EAN nicht als identisch bestätigt` | **BESTÄTIGT, zwischengespeicherte Kandidaten**, **nicht** automatisch als Produktidentität/Shopangebot übernehmen |
+| 108 · OpenAI-KI-Berichte | Rechtes Modul `OpenAI Intelligence · KI-Berichte` ist eingeklappt, ohne sichtbaren Berichtsinhalt oder GET-Abrufnachweis | **NOCH OFFEN**, keine Kosten oder API-Aktivität unterstellen |
+| 109 · Live/Test-Bezeichnung in UI | In der Kopfzeile der **Live-Domain** steht `HAIRWORLD24 INTELLIGENCE · TEST` | **BESTÄTIGT, UI-Kennzeichnungsproblem** für späteres Korrektur-Ticket, kein Beweis für falsche technische Domain |
+| 110 · Kein JTL-/Marktplatz-Schreibvorgang | Gezeigte Ansicht zeigt nur Artikel-/Cache-Lesedaten, keine Edit-Speicherung oder Marketplace-Write-Bestätigung | **KEIN SCHREIBNACHWEIS** |
+
+**Freigabegate vor der geplanten Testdomain-Umstellung weiterhin NICHT vollständig abgeschlossen:** Bestätigt ist jetzt der **Live-JTL-Lesetest im Browser**. Für Amazon fehlt ein eindeutiger **frischer/manuell ausgelöster SP-API-GET- oder korrekt zugeordneter Cachebeleg**; der aktuell gezeigte Cache hat null EAN-Treffer und die zehn Kandidaten sind ausdrücklich nicht EAN-identisch bestätigt. Für OpenAI fehlt noch die aufgeklappte **bereits gespeicherte KI-Archiv-Anzeige**. Kein kostenpflichtiger OpenAI-POST erforderlich oder erwünscht. Nicht behaupten, Amazon-API oder OpenAI seien in dieser Runde erfolgreich live getestet.
+
+**Nächster Betreiber-Schritt:** Im existierenden Live-Artikelmanager `OpenAI Intelligence · KI-Berichte` aufklappen und das kostenlose gespeicherte Archiv-GET-Ergebnis (auch ein korrektes `kein Bericht vorhanden`) zeigen. Danach die bereits sichtbare Schaltfläche `Amazon-Katalog prüfen` nur auf bewussten Wunsch einmalig manuell auslösen und genau unterscheiden, ob frischer SP-API-GET, Cache-Hit oder Fehler angezeigt wird. **Keine unbekannten Kandidaten-ASINs automatisch verknüpfen.** Anschließend vor Umstellung des Test-vHosts den bestehenden Plesk-Git-/DocumentRoot-/SSL-/HTTP-Basic-Rückfallweg konkret prüfen. Der erfolgreiche `HW24_PUBLIC_ACL`-Befund, private SQLite und Live-Version bleiben unverändert.
+
+**Datenschutz:** Screenshots enthalten keine Zugangsdaten; dokumentiert wurden nur Produkt-/API-UI-Diagnosen. Kein Login/Token, keine private Konfiguration in GitHub.
