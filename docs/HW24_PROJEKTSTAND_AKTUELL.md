@@ -1,3 +1,21 @@
+## NEUESTER TECHNISCHER MEILENSTEIN · 22.11.2026 · PR37-TEST-DEPLOY ERFOLGREICH
+
+**Nutzer-PuTTY bestätigt den abgeschlossenen manuellen Plesk-TEST-Deploy** des auf `feature/hw24-login-alias-scan-ai-20261122` gepinnten PR37-HEAD `c2cc4e1dc054da00f01087e7221659cf54a9a482`. Vier PHP-Git-BLOBs im **TEST-Webroot** sind exakt:
+- `api/scanliste.php` = `1a19331fc030ef473d05cc0b94fee92fd2d436ea`
+- `api/ai-reviews.php` = `41bfe53eba6f4392e4f0f48e92828fa004ffe311`
+- `api/ai-review.php` = `aba03b6146a34698bae71fe622671945019d2db5`
+- `api/hw24-actor-identity.php` = `cb2722952bd0cad9680d919630e4b2a06ba367fc`.
+
+PuTTY-Abschluss `PR37 TEST-DEPLOYMENT ERFOLGREICH`, `Alle vier PHP-Dateien stimmen mit GitHub ueberein`, `Plesk-Benutzer und Datenbank unveraendert`. **WICHTIG: Nur Code auf Test installiert, noch kein freigegebener privater read_aliases-Actor, kein Test-Basic-Rename, kein HTTPS-/Browser-E2E; Live-Webroot/Live-Basic unverändert.** Die historischen 3 KI-Berichte liegen weiterhin unter `hw24-test` und 2 Scanlisten-Stapel gesplittet 1 `hw24-test` + 1 `nvoss`. Keine Datenmigration, keine KI-Kosten.
+
+**GENAU NÄCHSTER PUtty-GATE:** Nur lesend (1) `/opt/plesk/php/8.5/bin/php -l` für alle vier Test-PHP-Dateien und (2) für `https://test-artikelmanager.hairworld24.de/api/ai-reviews.php`, `/api/scanliste.php`, `/api/jtl.php` **unauthentifizierte HTTPS-GET** mit `curl --output /dev/null --write-out %{http_code}`, jeweils **401** erwarten. Bei Fehlschlag **STOP** und Auth-Konfiguration prüfen. Nicht `api/ai-review.php` mit KI-POST aufrufen. Erst danach authentifizierten alten Testzugang mit 3 KI-Reviews und einem Scan-Stapel nachweisen; danach private `read_aliases`-Freigabe und gesonderte Plesk-Test-Konto-Rename-Planung. Kein Live-Deploy und kein Laravel-/Filament-Webroot-Cutover.
+
+**Nachvollziehbare Sicherung:** `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz`, SHA256 `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26`; reine Webdatei-Rückfallsicherung, kein Plesk-Basic-Snapshot.
+
+[Chronologie im Arbeitsjournal](./HW24_ARBEITSJOURNAL.md), GitHub-Commit `abb86f50a86b7bb5ea1cb5a7acb7fd7d26a747ba`.
+
+---
+
 ## AKTUELLSTE VORPRÜFUNG · 22.11.2026 · Legacy Test und Live haben identische geschützte APIs
 
 **Betreiber-PuTTY:** Sowohl `artikelmanager.HAIRWORLD24.de` (Live, `HW24-scanner`) als auch `test-artikelmanager.HAIRWORLD24.de` (Test, `HW24-scanner.git`) sind auf `deploy/staging` mit **manual deployment**. `api/scanliste.php`, `api/ai-reviews.php`, `api/ai-review.php` besitzen auf beiden Domains übereinstimmende Legacy-Git-Blob-Hashes `e9fb8075...`, `00fb61c9...`, `2eabde20...`; neuer Alias-Helfer **fehlt**. Kein Rollout von [Draft PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37) und keine Plesk-Benutzeränderung.
