@@ -1,3 +1,23 @@
+## NEUESTER BESTÄTIGTER SERVERSTAND · 22.11.2026 · TEST-BASIC-Passwortschutz-Sicherung ERFOLGREICH
+
+**Betreiber-PuTTY belegt vollständigen Erfolg von `HW24_PLESK_BASIC_BACKUP`:** Schutz für die TEST-Domain `test-artikelmanager.hairworld24.de` (`protected_dirs.id=9`, `dom_id=10`, alter Basic-Login `hw24-test`) wurde ohne Serveränderung separat gesichert.
+- Geschütztes Root-Verzeichnis: `/root/hw24-backups/test-plesk-auth-yideOvRf`
+- Archiv: `/root/hw24-backups/test-plesk-auth-yideOvRf/plesk-pd.tar.gz`, **tar-lesbar**, SHA256 **`a7aacc096055021c0447d4fd1ca20eeeec459dd0cdb3d72f8fc012ff692d107f`**.
+- SQL-Metadatenexport `plesk-protected-dir-metadata.tsv` vorhanden, **keine Kontopasswörter/-Hashinhalte in Chat/GitHub**.
+- Vorheriger TEST-Webroot-Snapshot `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz`, SHA256 `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26`.
+- Abschlussmeldung `TEST-PASSWORTSCHUTZ ERFOLGREICH GESICHERT`, `Keine Benutzer oder Daten veraendert`.
+- Diese Snapshots allein sind **kein vollständiges Plesk-Metadatenbank-Backup**.
+
+**Bis jetzt auf Test real nachgewiesen:** Draft PR #37 PHP-Code (vier SHA-Blobs passend zum Pin), PHP8.5-Lint 4/4, anonyme Basic-GETs 3/3 HTTP401, authentifizierte `hw24-test`-GETs genau **3 KI-Berichte und 1 offenen Scan-Stapel**. Private `hw24_private/actor-aliases.php` ist `0600`, Benutzer `nicovoss`, PHP-Funktion gibt `nvoss => ['nvoss','hw24-test']`. MariaDB-Tabelle hat insgesamt 2 Stapel, einen je Owner. Es wurde **noch kein Basic-Rename vorgenommen**, Live und Plesk-Statistik unverändert.
+
+**NÄCHSTE EINZEL-PuTTY-AKTION:** **`HW24_PLESK_RENAME_TEST`** zuoberst im [Loginwechsel-Runbook](./HW24_LOGIN_IDENTITAETSWECHSEL_20261122.md), Commit `e2beca291092f1a8875f11b1d98856319bd00074`. Er prüft beide Backup-SHAs, die exakte Schutz-ID 9/Domain 10, dass nur `hw24-test` und noch kein `nvoss` in dieser TEST-Schutzzone existiert, das private Zweier-Owner-Mapping und anonymen HTTP401. Danach **nur** durch Plesks dokumentierte `protdir -u '/' -domain test-artikelmanager.hairworld24.de -update_user hw24-test -user_name nvoss` den Test-HTTP-Basic-Namen ändern. Die `-u '/'`-Parametrisierung ist aus den Plesk-UI-Root- und CLI-Docs hergeleitet, aber auf diesem Server noch nicht erprobt; wenn der Aufruf fehlschlägt, **STOP**, keine Variante blind probieren. Nach Erfolg Plesk-Account-ID-Referenz und HTTP401 erneut prüfen; kein automatisch riskanter Rollback.
+
+**ERST DANACH:** separater HTTPS-GET mit `curl --basic --user nvoss` und verdeckter interaktiver Passwortabfrage: KI-Archiv 3 Berichte, Scanliste 1 bis 2 **offene** Stapel (gesamt SQL 2; neuer Stapel-Offenstatus noch nicht bestätigt). Keine Roh-API-Antworten, keine KI-POSTs, keine DB-Writes. Live-Git/HTTP Basic unverändert, späterer Laravel-Filament-Testdomain-Cutover getrennt.
+
+[Chronologischer Backup-Beleg](./HW24_ARBEITSJOURNAL.md), Commit `b48acdb8a1f14e1a7a1735780fb835fa675ab8f4`. [Original GitHub PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37) Draft gegen `deploy/staging`, auf Test bereits deployed aber nicht gemerged.
+
+---
+
 ## AKTUELLSTER SERVERSTAND · 22.11.2026 · PRIVATE OWNER-ALIASES ERFOLGREICH
 
 **Neue echte PuTTY-Ausgabe:** Der Nutzer hat `HW24_PRIVATE_READ_ALIASES` vollständig und erfolgreich ausgeführt. Es existiert jetzt eine private Datei `/var/www/vhosts/hairworld24.de/hw24_private/actor-aliases.php` (`0600`, `nicovoss:psacln`) mit ausdrücklich `read_aliases => ['nvoss'=>['hw24-test']]`. PHP8.5-Laufzeittest der tatsächlich auf TEST deployed Helferfunktion unter `runuser -u nicovoss` bestätigte exakt `nvoss => [nvoss,hw24-test]`, `hw24-test => [hw24-test]`, nicht freigegebene Actoren nur eigen. **Keine Datenbank-Updates und keine Plesk-Basic-Umbenennung.**
