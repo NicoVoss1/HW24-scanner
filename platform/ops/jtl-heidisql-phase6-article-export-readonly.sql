@@ -90,8 +90,8 @@ SELECT TOP (25)
     p.kArtikel AS jtl_article_id,
     p.kKundenGruppe AS jtl_customer_group_id,
     p.kShop AS jtl_shop_id,
-    CASE WHEN p.kKunde=0 THEN N'general'
-         ELSE N'customer_specific' END AS price_scope,
+    CASE WHEN p.kKunde=0 THEN N'kKunde=0'
+         ELSE N'kKunde<>0' END AS customer_key_state,
     d.nAnzahlAb AS tier_quantity_from,
     d.fNettoPreis AS price_net_raw,
     d.fProzent AS percentage_raw
