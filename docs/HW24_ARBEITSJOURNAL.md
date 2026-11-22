@@ -337,3 +337,18 @@
 3. Jeder Eintrag: Datum, ausführender Kontext, Soll/Ist, **wirklich beobachtetes** Resultat, Beleg, Status, Sicherheitsrisiko und exakt nächste Aktion. Nach relevanten Änderungen Kurz-Übergabe und [Projektstand](./HW24_PROJEKTSTAND_AKTUELL.md) aktualisieren.
 4. GitHub-Änderungen durch echten Commit nachweisen. Keine Geheimnisse, Token, privaten Konfigurationsinhalte, Server-Zugangsdaten oder SQL-Dumps in das **öffentliche** Repo.
 5. Keine automatischen Datenbank-Schreibzugriffe oder unkontrollierten Plesk-/Live-Deployments.
+
+
+### 22.11.2026 · Nachweis der GitHub-Dokumentationsschritte für neue Chats
+
+| Einzelakt | GitHub-Nachweis | Ergebnis |
+| --- | --- | --- |
+| 17 · Kurz-Übergabe neu angelegt | [`HW24_HANDOVER.md`](./HW24_HANDOVER.md), Commit `81130adfe12233a868648149ea711b2de8eb15b1` | **ERFOLGREICH**; verbindlicher Startpunkt |
+| 18 · Arbeitsjournal um sämtliche beobachteten PuTTY-/Git-/CI-Vorgänge und den `dubious ownership`-Fehler ergänzt | Commit `5b4ade9b86e9b603d9987ac8ce769d78a5eb0235` | **ERFOLGREICH**; append-only |
+| 19 · Projektstand oben auf aktuelle bestätigte Fakten gebracht | [`HW24_PROJEKTSTAND_AKTUELL.md`](./HW24_PROJEKTSTAND_AKTUELL.md), Commit `a475d2a1429f8aa977dd33df36a06a8b73f7d7e7` | **ERFOLGREICH**, frühere Planannahmen bleiben als historische Abschnitte gekennzeichnet |
+| 20 · Zwei-Domain-Migration mit Live-Branch und Clone-Teilerfolg ergänzt | [`HW24_TWO_DOMAIN_ROLLOUT_20261122.md`](./HW24_TWO_DOMAIN_ROLLOUT_20261122.md), Commit `b3fd0eb3ff6ed114e4e96a9a4050aa18ba085ad6` | **ERFOLGREICH** |
+| 21 · GitHub-Repository-Startseite verlinkt zuerst aktuelle Übergabe | [`README.md`](../README.md), Commit `616c0bc65c118a1acd101b2f34dca3da0b951ecb` | **ERFOLGREICH**; auch neue Chats folgen sofort dem richtigen Kontext |
+
+**OFFEN (nicht als abgeschlossen melden):** Repo-HEAD-Prüfung als Site-Benutzer, Composer-/Vendor-Installation, private Laravel-Konfiguration, separate Laravel-SQLite, Live-Webroot-Hash-/Browser-E2E, Umschaltung der Testdomain auf `platform/public`, echte JTL-/Amazon-/OpenAI-API-End-to-End-Abnahme.
+
+**Nächste Betreiberaktion:** Schon vorhandenen privaten Klon als Besitzer `nicovoss` auf erwarteten Head `980bcce75a0a3516b7b6364fae5a0fa6aab8d112` prüfen. Nur dann Composer im privaten `repo/platform` mit PHP 8.4 als `nicovoss` installieren, niemals als Root und ohne neue Git-Klone. Kommende PuTTY-Ausgabe unmittelbar hier dokumentieren.
