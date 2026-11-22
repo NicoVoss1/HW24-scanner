@@ -163,12 +163,22 @@ final class ScanWorkbench extends Page
             $id=filter_var($summary['review_id']??null,FILTER_VALIDATE_INT);
             if($id===false||$id<1)continue;
             $this->batchAiMarkers[$ean]=[
+                'found'=>true,
                 'id'=>$id,
                 'count'=>max(1,(int)($summary['count']??1)),
                 'at'=>mb_substr((string)($summary['at_utc']??''),0,40),
             ];
         }
+        $found=count($this->batchAiMarkers);
+        foreach(array_keys($eans) as $checkedEan){
+            if(!isset($this->batchAiMarkers[$checkedEan])){
+                $this->batchAiMarkers[$checkedEan]=[
+                    'found'=>false,'id'=>null,'count'=>0,'at'=>null,
+                ];
+            }
+        }
         $this->batchAiStatus=['ok'=>true,'checked'=>count($eans),
+            'found'=>$found,
             'checked_eans'=>array_keys($eans),
             'partial'=>count($this->items)>150,
             'message'=>'Vorhandenes KI-Archiv kostenlos geprüft. Keine neue KI-Analyse ausgelöst.'];
