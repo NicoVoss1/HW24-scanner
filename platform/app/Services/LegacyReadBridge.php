@@ -27,6 +27,8 @@ final class LegacyReadBridge
         // Mutations (create, scan, review, CSV/Import) remain in the original site.
         'scan.batches' => 'api/scanliste.php',
         'scan.items' => 'api/scanliste.php',
+        'scan.export' => 'api/scanliste.php',
+        'curated.article' => 'api/curated.php',
     ];
 
     public function fetch(string $service, array $parameters = []): array
