@@ -1,3 +1,81 @@
+## 22.11.2026 · AUTHENTIFIZIERTER PR37-TEST ERFOLGREICH, NEXT: PRIVATER Lese-OWNER-ALIAS
+
+**PuTTY-Gesamtnachweis:** Bereits auf TEST deployter PR37-Code mit vier verifizierten Git-BLOBs, PHP8.5-Syntax 4/4 grün, anonyme HTTPS-API-Anfragen 3/3 `HTTP 401`. Jetzt wurden mit dem bestehenden **Test-Basic-Benutzer** `hw24-test` die echten verschlüsselten HTTPS-GETs geprüft: `Historische KI-Berichte: 3` und `Offene Scanlisten-Stapel: 1`, `AUTHENTIFIZIERTER GET-TEST ERFOLGREICH`. Keine Passwortanzeige/JSON-Ausgabe, kein Schreibzugriff, keine OpenAI-Gebühren. Historischer SQL-Bestand: drei KI-Berichte (alt), zwei Scan-Stapel (einer alt, einer neu). **Kein Basic-Username-Wechsel bisher.**
+
+### Nächster eigenständiger PuTTY-Schritt: Private Zuordnung exakt einmal anlegen, keinen Login ändern
+
+Der unveränderte PHP-Helfer `api/hw24-actor-identity.php` lädt ausschließlich die **außerhalb beider Webroots** gelegene Datei `/var/www/vhosts/hairworld24.de/hw24_private/actor-aliases.php` und erwartet `['read_aliases'=>['nvoss'=>['hw24-test']]]`. Ohne Konfiguration bleibt er fail-closed auf die eigene Kennung beschränkt. Das folgende Skript prüft den vorhandenen Plesk-Dienstbenutzer und das private Verzeichnis, schreibt **nur falls noch keine Aliasdatei existiert**, nutzt einen Modus-0600-Tempfile-/Hardlink-Erstellungsvorgang (kein Überschreiben von vorhandenem Ziel), und testet die Besitzerliste direkt unter `nicovoss`. Keine Passwörter, keine API-/SQL-/Website-Benutzerkontenmutation.
+
+```bash
+bash <<'HW24_PRIVATE_READ_ALIASES'
+set -euo pipefail
+umask 077
+
+private="/var/www/vhosts/hairworld24.de/hw24_private"
+helper="/var/www/vhosts/hairworld24.de/test-artikelmanager.HAIRWORLD24.de/api/hw24-actor-identity.php"
+target="$private/actor-aliases.php"
+php="/opt/plesk/php/8.5/bin/php"
+
+echo "=== HW24 PRIVATE OWNER-ZUORDNUNG EINRICHTEN ==="
+test -d "$private"
+test ! -L "$private"
+test -f "$helper"
+test -f "$private/scanlist-db.php"
+getent passwd nicovoss >/dev/null
+getent group psacln >/dev/null
+runuser -u nicovoss -- test -r "$private/scanlist-db.php"
+
+if test -e "$target" || test -L "$target"; then
+  echo "STOP: Private Zuordnungsdatei bereits vorhanden, keine Ueberschreibung"
+  exit 1
+fi
+
+tmp="$(mktemp "$private/.actor-aliases.XXXXXXXX")"
+trap 'rm -f -- "$tmp"' EXIT
+
+cat >"$tmp" <<'PHP'
+<?php
+declare(strict_types=1);
+return [
+  'read_aliases' => [
+    'nvoss' => ['hw24-test'],
+  ],
+];
+PHP
+
+chown nicovoss:psacln "$tmp"
+chmod 600 "$tmp"
+runuser -u nicovoss -- "$php" -l "$tmp" >/dev/null
+
+# Atomar nur falls der Zieldateiname weiterhin frei ist; nicht ueberschreiben
+ln -- "$tmp" "$target"
+rm -f -- "$tmp"
+trap - EXIT
+
+test "$(stat -c '%a:%U:%G' "$target")" = '600:nicovoss:psacln'
+runuser -u nicovoss -- "$php" -r '
+ require "/var/www/vhosts/hairworld24.de/test-artikelmanager.HAIRWORLD24.de/api/hw24-actor-identity.php";
+ $new=hw24ReadableOwners("nvoss");
+ $old=hw24ReadableOwners("hw24-test");
+ $other=hw24ReadableOwners("unrelated");
+ if($new!==["nvoss","hw24-test"] || $old!==["hw24-test"] || $other!==["unrelated"]){
+   fwrite(STDERR,"STOP: Berechtigte Actor-Liste unerwartet\n");exit(1);
+ }
+ echo "nvoss: beide alten und neuen Daten-Owner freigegeben\n";
+ echo "hw24-test: bisheriger eigener Daten-Owner unveraendert\n";
+ echo "unrelated: kein Fremdzugriff\n";
+'
+echo "=== PRIVATE FREIGABE AUF PHP-EBENE ERFOLGREICH ==="
+echo "Plesk-Basic-Namen, Datenbank und Webdateien unveraendert"
+HW24_PRIVATE_READ_ALIASES
+```
+
+**Bei vorhandener Datei oder Laufzeitfehler:** **STOP** und Terminalmeldung abwarten; nichts überschreiben. Nur diese neue PHP-Datei wird absichtlich unter dem bestehenden `hw24_private`-Verzeichnis erstellt, kein gespeicherter Archiv-/Scanlisten-Datensatz verändert. Die durch das Skript getestete Freigabe ist zunächst ein **PHP-CLI-Nachweis**, kein tatsächlicher Auth-HTTP-GET unter `nvoss` auf TEST; dieser kann erst nach der **separaten** Test-Plesk-Basic-Namensumstellung erfolgen. Vor jener Kontooperation muss der Plesk-Root-Passwortschutz einschließlich Rückfallweg **gesondert gesichert** werden. Loginstatus alt TEST = `hw24-test`, Live = `nvoss`; `plesk-stat`-Konto unberührt.
+
+[Authentifizierter Test im Journal](./HW24_ARBEITSJOURNAL.md), Commit `3a9c1848c937424aa2f99f13156b3e8abd0e3812`.
+
+---
+
 ## PR37 TEST: PHP-SYNTAX UND BASIC-SCHUTZ BESTANDEN · 22.11.2026
 
 **Read-only Betreiber-PuTTY `HW24_PR37_SECURITY` erfolgreich:** Vier `/opt/plesk/php/8.5/bin/php -l`-Checks für `api/scanliste.php`, `api/ai-reviews.php`, `api/ai-review.php` und `api/hw24-actor-identity.php` alle `No syntax errors detected`. Anonyme HTTPS-GETs auf `/api/scanliste.php`, `/api/ai-reviews.php`, `/api/jtl.php` alle **HTTP 401**. Kein Login-/DB-/Website-Write in diesem Check, äußere Basic-Authentifizierung wirksam. **Noch nicht** authentifizierte Datenfunktion bestätigt. Bereits zuvor Test-PR37 mit allen vier verifizierten PHP-Git-Hashes deployed. Live und Test-Basic-Login unverändert.
