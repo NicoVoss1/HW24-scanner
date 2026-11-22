@@ -483,3 +483,26 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 **Bereits bestätigt:** Laravel 13.43.0/Filament 5.12.0, vier Admin-Routen, private produktionskonfigurierte `.env` und APP_KEY, 4 ausgeführte SQLite-Migrationen, Filament-Assets sowie erfolgreiche Benutzeranlage und Panel-Allowlist. Legacy-Live-Artikelmanager auf `deploy/staging` V4.25 und vier kritische Webroot-Datei-Hashes OK, anonymer HTTP-Zugriff auf die geprüften Endpunkte 401. **Noch offen:** authentifizierter E2E-Live-Legacy-Test (JTL-Artikel EAN, Amazon-/KI-Lesewege) und getrennte Plesk-Test-vHost-Zielkonfiguration/DocumentRoot/PHP-Handler, danach erst sicherer Testdomain-Cutover.
 
 **Exakt nächste Aktion:** Live-Legacy-Artikelpflege im angemeldeten Browser mit Referenz-EAN öffnen und tatsächliche JTL-Artikelanzeige, Amazon-Katalog manuell sowie OpenAI-Archiv kostenlos testen. Parallel vor jeder Änderung Plesk-Testdomain-DocumentRoot, PHP-Handler und alte Git-Deploy-Zielverzeichnisse **read-only** prüfen. Keine weiteren SQLite-Migrationen/Neuanlage von Admin, keine neue Domain/DB und keine Credentials ausgeben oder committen.
+
+
+### 22.11.2026 · Plesk-Testdomain: DocumentRoot, PHP-FPM, Git-Verknüpfung, Dateirechte geprüft
+
+**BESTÄTIGT durch neue Betreiber-PuTTY-Ausgabe des ausschließlich lesenden Blocks `HW24_PLESK_CHECK`.**
+
+| Schritt | Auslesung (keine Secrets) | Bestätigter Ist-Zustand |
+| --- | --- | --- |
+| 59 · Domain-Hostingkonfiguration | Plesk `hosting.www_root` für vorhandene Testdomain | `/var/www/vhosts/hairworld24.de/test-artikelmanager.HAIRWORLD24.de` (**alter Legacy-Webroot**) |
+| 60 · Test-Web-PHP-Handler | Plesk `hosting.php_handler_id` | `plesk-php85-fpm` (**PHP 8.5 im Web; bisher PHP 8.4 in CLI und Composer verwendet**) |
+| 61 · Plesk-Git-Anbindung | `plesk ext git --info -domain test-artikelmanager.hairworld24.de -name HW24-scanner.git` | `Deployment path: /test-artikelmanager.HAIRWORLD24.de`, `Deployment mode: manual`, `Active branch: deploy/staging` |
+| 62 · Private Laravel-Umgebungsdatei | `stat` ohne Dateiinhalt | `600`, Eigentümer: Site-Benutzer, Gruppe: Plesk-Webspacegruppe; **Zugangsdaten nicht ausgegeben** |
+| 63 · Private SQLite | `stat` ohne Dateiinhalt | `600`, Eigentümer: Site-Benutzer, Gruppe: Plesk-Webspacegruppe |
+| 64 · Laravel public/index.php | `stat` ohne Dateiinhalt | `600`, Eigentümer: Site-Benutzer, Gruppe: Plesk-Webspacegruppe; FPM-Lesbarkeit und Webserver-Pfadrechte noch nicht verifiziert |
+| 65 · Ende des Read-only-Audits | `PRUEFUNG ABGESCHLOSSEN`, Root-PuTTY-Prompt | **ERFOLGREICH**, keine Konfigurationsänderung vorgenommen |
+
+**Technische Bewertung:** Die Testdomain läuft **weiterhin auf dem Legacy-Webroot** und die bisherige manuelle Plesk-Git-Deployment-Zielstruktur ist weiterhin mit ihm gekoppelt. Die Laravel-App ist privat außerhalb dieses Webroots installiert. Die Abweichung zwischen `plesk-php85-fpm` (Test-Web) und `/opt/plesk/php/8.4/bin/php` (Composer/Artisan) muss vor dem ersten HTTP-Deploy bewusst behandelt werden. PHP-8.5-Kompatibilität mit der konkret gelockten Composer-Abhängigkeitsmenge und die nötigen PHP-Module/Dateisystemrechte im FPM-Kontext sind **noch nicht** geprüft. Dass `index.php` Modus 0600 hat, beweist nicht automatisch einen Fehler: PHP-FPM könnte als Dateieigentümer laufen; Webserver-Pfadzugriff auf das tatsächlich neue öffentliche Verzeichnis ist gesondert zu prüfen.
+
+**Wichtige Sperren:** Kein Plesk-DocumentRoot-/PHP-Handler-Wechsel, kein Unlink/Rewrite des bisherigen Plesk-Git-Repos, kein Symlink, kein Kopieren des gesamten privaten `platform/`-Verzeichnisses in den öffentlich zugänglichen Alt-Webroot, keine DB-/JTL-/API-Schreiboperation. Keine dritte Subdomain und keine neue MariaDB. Kein Rollout vor verifizierter Rückfallfähigkeit.
+
+**Nächster Schritt:** Read-only Prüfbefehle für Test-PHP-FPM-Benutzer und PHP-Version/-Erweiterungen, private Verzeichnis-Traversierung und mögliche DocumentRoot-Zielpfade; dazu auf der Legacy-Live-Domain angemeldeten JTL-/Amazon-/KI-Funktionstest bestätigen. Erst danach **separaten** rollback-fähigen Testdomain-Cutoverplan mit PHP-8.4-Handler und eindeutig nur `platform/public` als Webroot ausführen.
+
+**Aktueller Gesamtfortschritt:** Laravel/Filament und alle vier SQLite-Migrationen installiert; Admin-Account und `canAccessPanel` bestätigt; Live-V4.25-Git-SHA und vier Datei-Hashes bestätigt; Test-Web-Plesk-Konfiguration jetzt read-only inventarisiert. Laravel-Login via Browser und Legacy-API-E2E noch nicht bestätigt.
