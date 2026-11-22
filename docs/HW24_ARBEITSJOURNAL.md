@@ -891,3 +891,19 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 **Konsequenz:** Künftiger nur lesender Login-Inventur-SQL muss `pd.path` verwenden und Benutzer über `pu.pd_id=pd.id`, Subdomain über `pd.dom_id=d.id` verknüpfen. `realm` ist nur eine Bezeichnung, nicht der Login. Die tatsächliche Plesk-Accountverwaltung und Schutzpfade sind weiterhin **nicht nachgewiesen**, bis diese korrigierte `SELECT`-Abfrage ausgeführt wurde. Die zuvor bestätigten DB-Werte bleiben unverändert: KI-Archiv 3 Zeilen unter historischem Login, Scanliste 2 Stapel (je 1 unter historischer/neuer Kennung). **Es wurde weder ein Konto umbenannt noch eine Aliasdatei serverseitig angelegt noch ein Code-Branch deployed.**
 
 **Nächster Befehl:** Korrigierte Plesk-Leseabfrage mit `pd.path`, `pd.realm`, `pu.login` für exakt bestehende Live- und Testdomain sowie bisherige/geplante Login-Kennungen. Keine Passwort-Hashes, keine privaten Dateien, kein SQL-UPDATE. Wenn keine Treffer, Nginx/Apache-/htpasswd-Authquelle separat nur lesend ermitteln. **PR #37** enthält die auf tatsächliche Bestandslage korrigierte Zwei-Owner-Unterstützung und zwei erfolgreich absolvierte CI-Runs, bleibt **Draft und nicht deployed**.
+
+
+### 22.11.2026 · Plesk-Passwortschutzkonten read-only identifiziert: geschützte Verzeichnisse 8 und 9, Domain-IDs 9 und 10
+
+**Quelle:** Neue tatsächliche Betreiber-PuTTY-Ausgabe von `HW24_PLESK_AUTH_READ` (SELECT über `pd_users` JOIN `protected_dirs` mit den im vorherigen Schritt bestätigten Spalten). Der Block endete mit `PRUEFUNG ABGESCHLOSSEN`; keinerlei Änderungen wurden ausgeführt.
+
+**Verifizierte Plesk-Zuordnungen:**
+- `hw24-test`: `protected_dirs.id=9`, `dom_id=10`, `dom_type=domain`, `path` leer (Root-Verzeichnisschutz), `realm=hw24-test`.
+- `nvoss`: `protected_dirs.id=8`, `dom_id=9`, `dom_type=domain`, `path` leer (Root-Verzeichnisschutz), `realm=HW24 Artikelmanager`.
+- `nvoss` zusätzlich in separatem Statistikschutz: `protected_dirs.id=1`, `dom_id=1`, `path=plesk-stat`, `realm=Domainstatistiken`. **Dieser Statistikzugang ist nicht Teil der Umbenennung und darf nicht verändert werden.**
+
+**Wichtig:** Die `dom_id`-IDs **9 und 10** sind im bisherigen Terminalausdruck noch **nicht** mit den tatsächlichen Hostnamen verknüpft. Nur aus dem Realm-Namen darf weder Test- noch Live-Domain abgeleitet werden. Auch wurde die tatsächliche doppelte Passwortschutz-Konfiguration nicht verändert. Die benannten Domain-IDs sind mit dem jetzt bekannten Plesk-Schema durch den nächsten **nur lesenden** Befehl `SELECT id,name,parentDomainId,htype FROM domains WHERE id IN (9,10)` abzugleichen. `dom_type=domain` ist durch das Terminal bestätigt; damit ist der `domains`-Join für **diese** beiden Zeilen plausibel und wird als nächster Schritt überprüft.
+
+**Bestandsschutz:** Drei unveränderte `hw24_ai_reviews` gehören dem historischen `hw24-test`; zwei unveränderte `hw24_scan_batches` gehören getrennt je `hw24-test` und `nvoss`. Das separate noch nicht ausgerollte **Draft [PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37)** unterstützt serverseitig explizit erlaubten Lesezugriff auf beide Owner bei neuer aktueller Bearbeiterkennung. CI-Prüfungen #44978357305/#44978360796 bestanden. Eine Plesk-Login-Umbenennung **vor** gesicherter Zwei-Owner-Brücke würde Archiv/Stapel weiterhin ausblenden. Kein Live-/Test-Deploy, keine Accountmutation und kein SQL-UPDATE wurden im aktuellen Schritt ausgeführt.
+
+**Nächster Read-only-Operatorblock:** `HW24_PLESK_DOMAINS` nur `domains`-ID/Name/Typ für 9 und 10, optional `protected_dirs`-id, dom_id, realm und passende `pd_users`-Namen ausgeben. **Keine Passwörter, keine Hashes, keine Accountänderung.** Erst nach exakter Zuordnung sowie Plesk-Backup-/Rollbackplanung gezieltes Umbenennen am korrekt ermittelten Test-Schutzbereich vorbereiten. Plesk-Statistikbereich `id=1` dabei ausdrücklich ausklammern.
