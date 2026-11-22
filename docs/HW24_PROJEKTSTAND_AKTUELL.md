@@ -1,3 +1,20 @@
+## NEUESTER TECHNIKSTAND · 22.11.2026 · Plesk-Test-vHost vor Domain-Cutover geprüft
+
+**Betreiberbestätigung via PuTTY:**
+- Vorhandene Testdomain zeigt weiterhin auf den bisherigen Legacy-Webroot (nicht auf Laravel).
+- Test-Webhandler ist `plesk-php85-fpm` (PHP 8.5), während Laravel/Filament bisher mit Plesk-CLI-PHP 8.4 geprüft und Composer installiert wurde. Die offiziellen Laravel-13-Releaseangaben nennen PHP **8.3 bis 8.5** als kompatibel; dennoch müssen tatsächlich installierte Filament-/Composer-Pakete und FPM-Erweiterungen mit dem Webhandler geprüft werden. Kein ungeprüfter PHP-Wechsel.
+- Plesk-Git-Ziel der bestehenden Testsite ist weiterhin der Legacy-Test-Webroot, `deploy/staging`, **manuelle** Bereitstellung. Der neue Laravel-Code liegt in einem separaten privaten Verzeichnis und darf nicht versehentlich zum Ziel des Legacy-Git-Deployments werden.
+- Private Laravel-`.env` und SQLite sind Eigentum des Site-Nutzers mit Rechten **0600**. Auch `platform/public/index.php` hat **0600**; die Lesbarkeit und Verzeichnis-Traversierung für PHP-FPM und Nginx/Apache sind **noch offen**, insbesondere für CSS/JS/Fonts.
+- **Keine Plesk-Konfigurations- oder Datenbankänderung erfolgte durch diesen Prüfblock.**
+
+**Bereits bestätigt:** Laravel 13.43.0, Filament 5.12.0, private .env/APP_KEY/SQLite und vier Migrationsläufe, Assets, erster Admin sowie positive `canAccessPanel`-Prüfung, Legacy-Live V4.25 Branch/Commit und vier wichtige Webroot-Dateihashes.
+
+**Gates vor Testdomain-Umstellung:** 1. PHP-8.5-Laufzeit mit lokal gelockten Paketen nur lesend testen und private `public`-Pfadrechte prüfen; 2. bisherige Legacy-Live-Anwendung **angemeldet** mit JTL/Amazon/KI testen; 3. Plesk-DocumentRoot-/Legacy-Git-Abgrenzung und Backup-/Rollback dokumentieren; erst dann `platform/public` als ausschließliche Webroot. Benutzer/Passwort/APP_KEY nicht ins öffentliche GitHub.
+
+[Einzelschritte 59–65 im Arbeitsjournal](./HW24_ARBEITSJOURNAL.md); ursprünglicher Dokumentations-Commit `c8040254e7c1c2d8b812c611ce6683a19ffac513`.
+
+---
+
 
 ## NEUESTE BESTÄTIGUNG · Filament Admin-Berechtigung geprüft (22.11.2026)
 
