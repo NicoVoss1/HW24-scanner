@@ -189,3 +189,17 @@ GitHub-`deploy/staging` wurde erneut überprüft und zeigt unverändert auf `444
 **Vor Cutover verifiziert, danach noch ausstehend:** Tatsächlicher Funktions-/Login-Test im authentifizierten Browser einschließlich Artikel EAN `3474630337398`, KI-Archiv, WMS/JTL, Amazon, Qualitätszentrum und Scanliste. Noch keine Aussage treffen, die Kopie sei vollständig als Legacy-Backup abgenommen.
 
 **Danach:** Nur wenn Live V4.25 als funktionierende Referenz abgenommen wurde, getrennte Laravel-/Filament-Installation im bisherigen Test-vHost; bei neuer Domainwahl `LegacyReadBridge` von bisheriger Testdomain auf Live-Ziel mit Auth-/Host-Allowlist umstellen, ausschließlich auf dem Featurebranch, niemals Secret-Parameter im GitHub. `platform/public` muss DocumentRoot sein.
+
+## Intelligence Console: erste Filament-Implementierung im Featurebranch (22.11.2026)
+
+**Begonnen und im GitHub-Featurebranch gespeichert, Plesk noch unverändert:**
+- Filament 5 Adminpanel (`/admin`), eigener Filament-Nutzer mit `HW24_ADMIN_EMAIL` als strikter Zulassungsliste (ohne diese keine Benutzerfreigabe).
+- Lesende Artikelansicht (`/admin/artikel`), begrenzte JTL-Suche nach EAN/HAN/Artikelnummer, Originalwerte, kein geschätzter JTL-Brutto-VK.
+- Manuell ausgelöster, read-only Amazon SP API Catalog GET und GET von bestehenden OpenAI-KI-Berichten. Kein KI-POST und keine neue Modellrechnung.
+- `LegacyReadBridge` auf vorhandene **Live-Legacy-Artikelmanager-Domain** mit fester HTTPS-Host-Freigabe umgestellt, erst nutzbar nach Live-Übernahme und lokaler privater HTTP-Basic-Konfiguration.
+- Fail-closed Tests: ohne Credentials keine Upstream-Abfrage, falscher Legacy-Test-Host blockiert, Schreibendpoint blockiert, Panel-Gast wird auf Login verwiesen.
+- README im Featurebranch fortgeschrieben. Die vorliegenden Github-CI-Runs müssen zum neuesten Featurebranch-Commit erfolgreich abgeschlossen sein, bevor die App auf Plesk installiert wird.
+
+**Unverändert: Die Legacy-V4.25-Übertragung auf die Live-Artikelmanager-Domain ist im Gespräch nicht mit einer anschließenden PuTTY-/Browserausgabe belegt.** Der Wechsel des bestehenden Plesk-Test-Webroots zu `platform/public` bleibt deshalb gesperrt, bis die Live-Hashes und API-Smoke-Tests erfolgreich sind.
+
+**Nächster Schritt:** auf Live nur-lesend Dateien `artikelpflege.html`, `api/jtl.php`, `index.html`, `scanliste.html` gegen V4.25 Git-Blob-SHAs abgleichen und den Plesk-Git-Branch `deploy/staging` bestätigen. Dann getrennten privaten Laravel-Quellcode außerhalb beider DocumentRoots installieren, SQLite ausschließlich für Laravel-Login/Metadaten, Filament-Assets aus Composer; den alten Plesk-Git-Pull **niemals** direkt mit der neuen Branch-Root in den Webroot deployen.
