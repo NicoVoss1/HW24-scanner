@@ -1,3 +1,15 @@
+## AKTUELLSTE BESTÄTIGTE PRÜFUNG · nginx/www-data können Laravel-Assets nicht lesen (22.11.2026)
+
+**Server-PuTTY nachgewiesen:** Die Webserver-Nutzer `nginx`, `www-data` und sichtbare PHP-FPM-Poolprozesse `www-data` wurden ermittelt. `public/index.php`, Filament `app.css` und `app.js` sind für `nicovoss` **LESBAR**, für `nginx` und `www-data` **GESPERRT**. Vorherige `namei`-Prüfungen zeigten auf dem privaten Laravel-Pfad Verzeichnisse mit `0700` und Dateien mit `0600`. `getfacl`/`setfacl` wurden nicht im PATH gefunden. **Kein Laravel-Laufzeitfehler:** PHP 8.5.13, Composer-Requirements, Laravel 13.43.0 und 4 Filament-Routen waren zuvor OK.
+
+**Sicherheitsentscheidung:** **Keine pauschale Rechteöffnung** (`chmod -R 755`, `777`, allgemeine Gruppenleserechte auf `platform` usw.). `platform/.env` und SQLite müssen 0600 privat bleiben. Plesk-Deployment/DocumentRoot der Testdomain und Legacy-Live weiterhin unverändert; kein Browser-Login bestätigt.
+
+**GENAU NÄCHSTER SCHRITT:** Read-only Benutzer-/Gruppenzuordnung und den konkreten Testdomain-PHP-8.5-FPM-Pool prüfen, ohne private Inhalte auszulesen. [Prüfblock `HW24_POOL_READ` im Runbook](./HW24_PREFLIGHT_FILAMENT_TESTDOMAIN_20261122.md). Erst auf Grundlage tatsächlicher Workergruppen und FPM-Poolidentität werden zielgenaue öffentliche CSS/JS/FONT-Berechtigungen sowie der alleinige Laravel-`public`-DocumentRoot geplant. **Vor Umschaltung:** Alte Live-V4.25-App angemeldet für JTL, Amazon und KI-Archiv prüfen.
+
+[Einzelbelege](./HW24_ARBEITSJOURNAL.md), Journal-Commit `caf206b3ceef57a2c5bbb0d633dcf00bca4ea4d3`; aktuelles Runbook `867e34d5f860ce637e7a91bc846413767731b605`.
+
+---
+
 ## AKTUELLSTER PREFLIGHT-STATUS · 22.11.2026
 
 **PHP 8.5 ist für den installierten Laravel-/Filament-Stand auf CLI-Paketebene erfolgreich bestätigt:** `PHP 8.5.13`, Composer `check-platform-reqs --no-dev` ausschließlich `success`, Laravel `13.43.0` und alle vier Filament-Adminrouten unter PHP 8.5. Kein versionsbedingter Handlerwechsel nötig.
