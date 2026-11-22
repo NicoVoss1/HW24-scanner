@@ -121,6 +121,18 @@ for u in nginx www-data;do
  done
 done
 echo 'OK: Statische Assets lesbar, private Dateien weiterhin gesperrt'
+echo '3a. Reparierte Laravel-PUBLIC-Dateien vor jedem HTTPS-Wechsel pruefen'
+for f in "$new/.htaccess" "$new/index.php";do
+ [ -f "$f" ] && [ ! -L "$f" ] || {
+  echo 'STOP: Laravel-PUBLIC-Datei fehlt oder ist ein Symlink';exit 2;
+ }
+ for u in nicovoss nginx www-data;do
+  runuser -u "$u" -- test -r "$f" || {
+   echo "STOP: PUBLIC-Datei fuer $u nicht lesbar. Keinen Plesk-Cutover starten.";exit 2;
+  }
+ done
+done
+echo 'OK: Apache, Nginx und PHP-Site-User lesen public/.htaccess und public/index.php'
 echo '4. Unabhaengige Rueckfall-Prozedur vor der Umschaltung speichern'
 install -d -m 700 "$backup_dir"
 rollback="$(mktemp "$backup_dir/hw24-testdomain-rollback-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXXXX.sh")"
