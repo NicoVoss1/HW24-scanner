@@ -37,3 +37,14 @@
 - Die App kann GitHub nicht selbsttätig auf dem Server bedienen; diese **Dokumentationsdisziplin wird pro aktiver Arbeitsrunde durchgeführt**, nicht als unbeaufsichtigtes Hintergrundversprechen.
 
 **Keine neue Subdomain. Kein Merge des Framework-Draft-PRs in `deploy/staging`. Kein ungeprüfter JTL-/WMS-/Shopify-Live-Write.**
+
+
+## LETZTES EREIGNIS · Composer-Wrapper-Fehlversuch am 22.11.2026
+
+**Neu bestätigt:** Der Betreiber hat den **bestehenden** privaten Git-Klon erfolgreich als Site-Benutzer geprüft: HEAD exakt `980bcce75a0a3516b7b6364fae5a0fa6aab8d112`. Keine neue Clone-Aktion nötig, der frühere `dubious ownership`-Fehler ist damit gelöst.
+
+**Neuer Fehlversuch, protokolliert:** Der anschließende Befehl `/opt/plesk/php/8.4/bin/php "$(command -v composer)" ...` startete **nicht** Composer, sondern druckte den Inhalt des **Plesk-Shell-Wrappers**. Die tatsächliche Composer-PHAR-Datei liegt laut Wrapper unter `/opt/psa/var/modules/composer/composer.phar`. **Noch keine Pakete installiert**; `vendor/autoload.php` wurde nicht als vorhanden bestätigt. PuTTY blieb diesmal offen.
+
+**Genau nächster Schritt:** Vorhandenen PHAR-Pfad prüfen, dann `runuser -u nicovoss -- /opt/plesk/php/8.4/bin/php /opt/psa/var/modules/composer/composer.phar ... install` im bestehenden isolierten `repo/platform` ausführen. **Nicht** den Shell-Wrapper mit PHP interpretieren; **nicht** neu klonen; **nicht** globale Git-Sicherheitsausnahmen eintragen; **nicht** bestehende Sites/DB verändern. Skript in Subshell ausführen und dann tatsächliche `vendor/autoload.php`-Existenz prüfen.
+
+Chronologisch auch in [Arbeitsjournal](./HW24_ARBEITSJOURNAL.md) dokumentiert, Commit `11ee6bdbfd6fee832149e16418ab720769053f2e`.
