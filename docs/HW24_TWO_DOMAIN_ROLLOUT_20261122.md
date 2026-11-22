@@ -177,3 +177,15 @@ for domain in artikelmanager.hairworld24.de test-artikelmanager.hairworld24.de; 
 done
 ```
 **Interpretation:** HTTP 401/403 ohne Anmeldung ist für private APIs erwartungsgemäß; HTTP 200 von `api/jtl.php?ean=...` ohne Auth ist ein **Sicherheitsblocker** vor der Übertragung auf Live. Weiterleitungen/andere Statuscodes genauer prüfen, nicht automatisch Freigabe behaupten. Wenn HTTP 200 auf Test ebenfalls vorkommt, Zugriffsschutz priorisieren.
+
+## Bereit für Legacy-Stand auf Live (22.11.2026; noch NICHT übertragen)
+
+Nutzer meldet erfolgreiches V4.25-Test-Deployment mit privaten V4.24-Sicherung `/root/hw24-backups/test-v424-20261122-012618.tar.gz`. **Sechs anonyme HTTPS-Aufrufe** (jeweils Startseite, `api/jtl.php` mit Test-EAN und `api/ai-reviews.php` auf beiden vorhandenen Artikelmanager-Domains) lieferten **HTTP 401**. Damit ist der externe Basic-/Webserver-Schutz an diesen drei Pfaden auf beiden Domains nachgewiesen, **kein vollständiger Authentifizierungs-/Berechtigungstest**.
+
+GitHub-`deploy/staging` wurde erneut überprüft und zeigt unverändert auf `444453471b0fd27c73dcc7929f5e17f1d9239c52`. Framework-Draft-PR #36 weiterhin offen und nicht gemerged.
+
+**Unmittelbarer geplanter Schritt:** Vorhandene Live-Domain `artikelmanager.hairworld24.de` über ihr Plesk-Pull-Repository `HW24-scanner` manuell und exakt auf den freigegebenen Legacy-V4.25-Staging-Commit bringen; vorher privaten Live-Webroot-Snapshot anlegen, Branch-/Deploymentpfad/Commit absichern, nachher kritische Dateihashes und HTTP 401 kontrollieren. Keine DB-Migration, keine Secrets anfassen, kein GitHub-`main` mergen/resetten. Das ist ein Vorgang **auf der Live-Artikelmanager-Domain**, nicht auf `hairworld24.de` (Shopify).
+
+**Vor Cutover verifiziert, danach noch ausstehend:** Tatsächlicher Funktions-/Login-Test im authentifizierten Browser einschließlich Artikel EAN `3474630337398`, KI-Archiv, WMS/JTL, Amazon, Qualitätszentrum und Scanliste. Noch keine Aussage treffen, die Kopie sei vollständig als Legacy-Backup abgenommen.
+
+**Danach:** Nur wenn Live V4.25 als funktionierende Referenz abgenommen wurde, getrennte Laravel-/Filament-Installation im bisherigen Test-vHost; bei neuer Domainwahl `LegacyReadBridge` von bisheriger Testdomain auf Live-Ziel mit Auth-/Host-Allowlist umstellen, ausschließlich auf dem Featurebranch, niemals Secret-Parameter im GitHub. `platform/public` muss DocumentRoot sein.
