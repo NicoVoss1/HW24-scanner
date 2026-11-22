@@ -1,3 +1,14 @@
+## AKTUELLSTER CODESTAND · 22.11.2026 · V4.25 AMAZON/KI/AMEISE IN ARTIKELPFLEGE
+
+- **Neue Testversion:** [PR #34](https://github.com/NicoVoss1/HW24-scanner/pull/34), `deploy/staging` SHA **`444453471b0fd27c73dcc7929f5e17f1d9239c52`**. Automatischer [CI-Lauf #44964900380 grün](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44964900380). **Plesk-Deploy und Browser-E2E noch nicht bestätigt.**
+- **Ursache Amazon-Problem:** V4.24 `artikelpflege.html` band den bereits existierenden `api/amazon.php`-Katalogservice nicht ein. Neue, kompakt eingeklappte manuelle Amazon-EAN-SP-Abfrage plus Keyword-Fallback `api/amazon-keywords.php` (ASIN-Nachweis nur bei exakter EAN), read-only Angebotspreise `api/amazon-pricing.php?asin=...`. Die Server-API kann weiterhin wegen Zugang/LWA/Role-Konfiguration scheitern; Status inkl. Stage wird angezeigt, noch nicht live getestet.
+- **KI:** Kostenfreie persönliche Archivabfrage beim Öffnen, anschließende bewusst bestätigte und serverseitig deduplizierte OpenAI-Prüfung; kein automatischer kostenpflichtiger Call.
+- **UI:** Artikeltyp/Steuerklasse/Versandklasse/Währung als echte Dropdowns mit beobachteten JTL-Werten, Lieferantenfelder ausgeblendet, doppeltes `id=logisticsFields` repariert, `0=Nein`/`1=Ja` automatisches Berechnen; nach bestätigter Produktgruppe Haarfarbe nur LEERE Felder für manuell 1 Tag + Bearbeitung 1 Tag und automatik 0 vorschlagen. Kategorie ist JTL- und nicht zwingend Shopify-Kategorie.
+- **Ameise:** In der Pflegeansicht neue Einzelartikel-UTF8-Prüfdatei für **explizit ausgewählte, vorher bestätigte HW24-Overlay-Felder**, mit frischer JTL-Identitäts- und Revisionsprüfung. Keine unbestätigten/blanken Preis-/Bestandsfelder, keine direkte JTL-/WMS-Aktion, noch keine Liefer-/Beschaffungs-/Status-Felder ohne bewiesene Mapping-Konfiguration.
+- **Brutto-VK verbleibende Abhängigkeit:** Im bestehenden Windows-SQL-Sync werden bislang nur `netto_vk` und weitere begrenzte Felder gespiegelt. `api/jtl.php` kann künftig `raw.HW24_VKBrutto` nur mit expliziter verifizierter `raw.HW24_VKBruttoQuelle` zeigen. Actual JTL-Preis-/Steuerzonenquelle muss noch ermittelt und **Windows-Sync** ergänzt werden: [Issue #33](https://github.com/NicoVoss1/HW24-scanner/issues/33). Keine erfundene 19%-Brutto-SQL-Spalte.
+- **Nächste Aktion:** Nur Test-Plesk Git `deploy/staging` Pull/Bereitstellen, `https://test-artikelmanager.hairworld24.de/artikelpflege.html?ean=3474630337398` öffnen und **Amazon-Katalog prüfen** einmal bewusst starten. Eventuelle `error`, `stage`, `upstream_status` zur Ursachenbehebung heranziehen. Danach KI-Archiv, Dropdowns und freigegebene Ameise-CSV testen. Keine DB-Neuinstallation oder Live-Pull.
+- [Vollständige Test- und Releaseanleitung](./HW24_V425_ARTIKELPFLEGE_RELEASE_20261122.md).
+
 # HW24 · Verbindlicher Projektstand und Einstiegspunkt
 
 **Stand:** 22.11.2026, aktueller Release PR #32 (ältere Abschnitte dokumentieren historische Projektstände).
