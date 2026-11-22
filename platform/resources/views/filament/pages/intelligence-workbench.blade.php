@@ -101,6 +101,25 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
                     </div>
                 @endforeach
             @endif
+            <div class="divider">
+                <h3 style="font-size:14px;font-weight:800">Gespeicherte Amazon-Katalog-Snapshots</h3>
+                <p class="minor">Historische Katalogrecherchen anzeigen, ohne erneut die Amazon-SP-API aufzurufen. Die zusätzliche Archiv-GET-API muss separat auf der geschützten LIVE-Domain abgenommen werden.</p>
+                <button type="button" class="action secondary" wire:click="loadAmazonArchive"
+                    wire:loading.attr="disabled" wire:target="loadAmazonArchive"
+                    @disabled($article===[])>Amazon-Archiv laden</button>
+                @if($catalogArchive !== [])
+                    <p role="status" class="warning {{ ($catalogArchive['ok']??false) ? 'ok' : '' }}">
+                        {{ $catalogArchive['message'] }} · HTTP {{ $catalogArchive['http'] ?? '—' }}
+                    </p>
+                    @foreach(($catalogArchive['snapshots']??[]) as $snapshot)
+                        <div class="item" wire:key="hw24-amz-archive-{{ $snapshot['id'] }}">
+                            <h4>Amazon-Katalogarchiv #{{ $snapshot['id'] }}</h4>
+                            <p>Gespeichert: {{ $snapshot['date'] }} UTC · Katalogtreffer {{ $snapshot['count'] ?? '?' }} · Amazon.de</p>
+                            <p>Kataloghistorie, keine bestätigten aktiven Händlerangebote oder individuellen Verkaufspreise.</p>
+                        </div>
+                    @endforeach
+                @endif
+            </div>
             @if($keywords !== [])
                 <div class="divider">
                     <strong>Zusätzliche Kandidaten nach Artikelname · {{ $keywords['count'] ?? 'unbekannt' }}</strong>
