@@ -1,3 +1,47 @@
+## PLESK-TABELLENSCHEMA VERIFIZIERT · 22.11.2026 · nächster korrekter Nur-Lese-Befehl
+
+Der Betreiber hat `information_schema.COLUMNS` erfolgreich ausgeführt. In Plesk ist `protected_dirs.path` vorhanden, **`protected_dirs.name` existiert nicht**. `pd_users` hat `pd_id`, `login` und `account_id`; `domains` hat `id`, `name` und `parentDomainId`. Zuvor gescheiterte Abfragen mit `pd.name` **nicht** wiederholen.
+
+**Nur die folgende Plesk-SQL-Abfrage ausführen, noch kein Account-Rename, keine Konfigurationsänderung:**
+
+```bash
+bash <<'HW24_PLESK_AUTH_READ'
+set -euo pipefail
+
+echo "=== HW24 PLESK AUTH-INVENTUR: NUR LESEN ==="
+
+plesk db -Ne "
+SELECT d.name AS domain_name,
+       pd.id AS protected_dir_id,
+       pd.path AS protected_path,
+       pd.realm AS auth_realm,
+       pd.dom_type AS protected_type,
+       COALESCE(pu.login, '[kein Benutzer]') AS login
+FROM protected_dirs pd
+JOIN domains d ON d.id = pd.dom_id
+LEFT JOIN pd_users pu ON pu.pd_id = pd.id
+WHERE LOWER(d.name) IN (
+ 'artikelmanager.hairworld24.de',
+ 'test-artikelmanager.hairworld24.de'
+)
+ORDER BY d.name, pd.id, pu.login;
+"
+
+echo "=== AUTH-INVENTUR ABGESCHLOSSEN; KEINE AENDERUNGEN ==="
+HW24_PLESK_AUTH_READ
+```
+
+**Erwartete Auswertung:**
+- Zeilen für Live und Test mit beiden Basic-Login-Kennungen: passwortgeschützte Verzeichnisstruktur und Plesk-Verwaltung können nun konkret geplant werden; alte und neue Konten dürfen weder blind zusammengeführt noch vor der Zwei-Owner-Codefreigabe umbenannt werden.
+- Keine Zeilen / nur eine Domain: Plesk-Authquelle für fehlende Domain ist **nicht** geklärt. Mögliche andere Schutz-/Subdomain-Zuordnung oder Webserver-`.htpasswd`/eigene Auth-Konfiguration erfordert separate **read-only** Prüfung. Die Leeranzeige ist kein Beweis, dass kein Passwortschutz existiert.
+- SQL-Fehler: vollständigen Fehlertyp ohne private Credentials melden, niemals `UPDATE` oder `DELETE` als Ersatz verwenden.
+
+**Unverändert bestätigter Bestand:** drei KI-Berichte unter historischem Login; zwei Scanlisten-Stapel, davon je einer unter historischer und neuer Kennung. Für dieses echte Split-Owner-Szenario ist die naive Ein-Owner-Weiterleitung **ungeeignet**. [PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37) stellt die optionalen, privat autorisierten **Zwei-Owner-Leserechte** und aktuelle neue Schreibzuordnung bereit; CI für `c2cc4e1dc054da00f01087e7221659cf54a9a482` grün. **Nicht auf Plesk deployed.** Laufende Legacy-Anwendung und Laravel-Filament-Cutover getrennt behandeln.
+
+[Chronologischer Schema-Nachweis](./HW24_ARBEITSJOURNAL.md), Commit `56c278793b4665bf22d4c57a6ed13e03fcb158f7`.
+
+---
+
 ## AKTUELLE KORREKTUR · 22.11.2026 · **ZWEI Daten-Owner, keine einfache 1:1-Umleitung**
 
 **Tatsächlich in PuTTY bestätigt:**
