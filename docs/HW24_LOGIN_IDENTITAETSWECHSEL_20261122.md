@@ -1,3 +1,41 @@
+## NEUESTER PLESK-NACHWEIS · Root-Passwortschutz auf zwei getrennten Domain-IDs (22.11.2026)
+
+**Benutzer hat die korrigierte `HW24_PLESK_AUTH_READ`-Prüfung ausgeführt.** Der Schutz für den bisherigen Test-Basic-Namen ist als `protected_dirs.id=9` / `dom_id=10` / `dom_type=domain` / leerer `path` / `realm=hw24-test` verzeichnet. Der geplante einheitliche Basic-Name existiert in `protected_dirs.id=8` / `dom_id=9` / `dom_type=domain` / leerer `path` / `realm=HW24 Artikelmanager`. Derselbe geplante Basic-Name steht separat in `protected_dirs.id=1` / `dom_id=1` für `plesk-stat` / `Domainstatistiken`; **Statistikschutz nicht ändern**.
+
+Die Zuordnung `domains.id=9/10` zu den konkreten Live-/Test-Hostnamen **steht noch aus**. `realm` ist kein Domainbeweis. Deshalb vor jeder Plesk-CLI-Umbenennung genau einen reinen SQL-SELECT ausführen:
+
+```bash
+bash <<'HW24_PLESK_DOMAINS'
+set -euo pipefail
+
+echo "=== HW24 DOMAIN-ID-ZUORDNUNG: NUR LESEN ==="
+
+plesk db -Ne "
+SELECT d.id, d.name, d.htype, d.parentDomainId,
+       pd.id AS protected_dir_id,
+       pd.path AS protected_path,
+       pd.realm AS auth_realm,
+       pu.login AS basic_user
+FROM domains d
+JOIN protected_dirs pd ON pd.dom_id=d.id AND pd.dom_type='domain'
+JOIN pd_users pu ON pu.pd_id=pd.id
+WHERE d.id IN (9,10)
+  AND pd.id IN (8,9)
+ORDER BY d.id,pd.id,pu.login;
+"
+
+echo "=== NUR-LESE-PRUEFUNG ABGESCHLOSSEN ==="
+HW24_PLESK_DOMAINS
+```
+
+Dieser Block gibt lediglich Hostname, Hostingtyp, Domain-IDs, Schutzpfad, Realm und Basic-Anmeldename aus. **Keine Passwörter, Passwort-Hashes, Änderungsbefehle, Migration oder Git-Deployment.** Bei unerwarteter/leerer Ausgabe nicht raten, sondern die Plesk-Subdomain-Zuordnung gesondert prüfen.
+
+**Bisheriger Datenerhalt:** 3 KI-Review-Zeilen liegen unter historischer Kennung, 2 Scanlisten-Stapel sind unter historischer und neuer Kennung 1+1 getrennt. Daher vor Konten-Umbenennung zwingend den Zwei-Owner-PR #37 gezielt deployen und die private read-only-Zuordnung validieren; das ist **noch nicht geschehen**. Die ursprünglichen historischen Eigentümer bleiben für revisionssichere Protokolle unverändert.
+
+[Arbeitsjournalbeleg](./HW24_ARBEITSJOURNAL.md), Commit `840b57fdd04e9a448d7151978a67855edccea2b5`.
+
+---
+
 ## Präzisierung: Plesk-Basic-Namen zuerst ohne Annahme über Subdomain-Joins auflisten
 
 Plesk-`protected_dirs` besitzt ausdrücklich `dom_type` zusätzlich zu `dom_id`. Deshalb kann eine direkte Verbindung `domains.id = protected_dirs.dom_id` bei über die Plesk-Subdomaintabelle verwalteten Schutzverzeichnissen unvollständig sein. Die **erste** Ausführung sollte die von der Benutzer-SQL-Schemaausgabe nachgewiesenen Tabellen `pd_users` und `protected_dirs` **ohne voreilige Domain-Zuordnung** nutzen. Diese eng begrenzte Bestandsabfrage listet nur die zwei vom Betreiber vorgegebenen Basic-Nutzernamen.
