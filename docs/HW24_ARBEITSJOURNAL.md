@@ -515,3 +515,26 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 - **Prüfinhalt:** PHP-8.5-Version und Composer-`check-platform-reqs`, Laravel-Version und Filament-Routen unter PHP 8.5 als Site-User, `namei -l` auf Laravel-public/index.php und Filament-CSS; **nur lesen**, kein Domain-/Datenbankwechsel.
 - **OFFEN, nicht als erledigt werten:** Betreiber muss den Preflight in PuTTY ausführen und das Ergebnis senden; angemeldeter Legacy-Live-JTL/Amazon/KI-Funktionstest ist weiterhin Voraussetzung vor der Testdomain-Umstellung.
 - **Keine** eigenen Serveraktionen durch GitHub-Dokumentationsarbeit. Kein API-Token/APP_KEY/Passwort offen gelegt.
+
+
+### 22.11.2026 · PHP-8.5-Plesk-Preflight erfolgreich, Webserver-Asset-Rechte als Cutover-Gate erkannt
+
+**Quelle:** Vollständige neue PuTTY-Ausgabe des vom Betreiber ausgeführten rein lesenden `HW24_PREFLIGHT`-Blocks; keine neue Plesk-Konfiguration, kein JTL-Schreibzugriff.
+
+| Schritt | Konkreter Nachweis | Status |
+| --- | --- | --- |
+| 66 · PHP-8.5-CLI | `PHP 8.5.13 (cli)` aus Plesk `/opt/plesk/php/8.5/bin/php` unter Site-User | **BESTÄTIGT** |
+| 67 · Composer-Plattform unter 8.5 | `composer.phar check-platform-reqs --no-dev` für derzeit installierte `vendor`-Pakete zeigte für PHP 8.5.13, composer-runtime-api und alle geprüften Pflicht-Extensions **success**, teils via Symfony-Polyfills | **BESTÄTIGT, keine Plattformverletzung** |
+| 68 · Laravel-Boot mit 8.5 | `artisan --version` meldete `Laravel Framework 13.43.0` | **BESTÄTIGT** |
+| 69 · Filament-Panel-Routen mit 8.5 | `artisan route:list --path=admin`: vier erwartete GET/POST-Routen `admin`, `admin/artikel`, `admin/login`, `admin/logout` | **BESTÄTIGT** |
+| 70 · Laravel-public/index.php-Pfadrechte | `namei -l`: Subscription-Pfad `drwx--x---` mit Plesk-Servergruppe; private App `drwxr-x---`; `repo`, `platform`, `public` jeweils **0700** des Site-Users; `public/index.php` **0600** des Site-Users | **BESTÄTIGT**, tatsächlicher FPM-Webserver-Zugriff noch OFFEN |
+| 71 · CSS-Asset-Pfadrechte | `namei -l`: sämtliche `public/css/filament/filament`-Zwischenverzeichnisse **0700**, `app.css` **0600**, Eigentümer Site-User | **BESTÄTIGT; statische Nginx-/Apache-Auslieferung wahrscheinlich blockiert**, sofern Worker nicht Site-User ist |
+| 72 · Read-only Preflight beendet | `=== PREFLIGHT ABGESCHLOSSEN ===`, PuTTY-Prompt wieder erschienen | **BESTÄTIGT** |
+
+**Bewertung:** PHP-Versionen und installierte Laravel-/Filament-Pakete sind unter PHP 8.5 gemäß Paketplattform und CLI kompatibel; **kein vorschneller PHP-Handlerwechsel**. CLI-Erfolg beweist noch keinen erfolgreichen tatsächlichen PHP-8.5-FPM-/Browser-Test. Private `.env` und SQLite mit **0600 müssen privat bleiben**; keine globale Rechtefreigabe und niemals `chmod -R 755` auf die Anwendung. Statische CSS-/JS-/Font-Dateien müssen später vom Webserver gelesen werden können, aber `repo` und `platform` sind aktuell nur für den Site-User begehbar. Es gibt noch keine bestätigte Nginx-/Apache-Worker-Identität oder Plesk-FPM-User-Identität für den Vhost; erst diese und ACL-Wirksamkeit lesen, dann gezielte Rechte für public-Assets und nötige Traverse-Berechtigungen in einem gesonderten Cutover planen.
+
+**Offene verpflichtende Vorabnahme:** Die Legacy-V4.25-App auf Live wurde auf Git-/Dateiebene bestätigt; authentifizierter Browser-E2E mit JTL/Amazon/OpenAI fehlt weiterhin. Git-Deploy der bestehenden Testdomain zeigt weiterhin auf den alten Webroot (`deploy/staging`, manuell). Kein DocumentRoot-/PHP-FPM-/Git-Schalter wurde ausgeführt.
+
+**Exakt nächster Schritt:** Ausschließlich read-only (a) effektive Nginx-/Apache-Worker-Nutzergruppe und PHP-FPM-vHost-Betriebsbenutzer ermitteln, (b) Lesbarkeit von `platform/public/index.php` und CSS unter Webserveridentität mit `runuser ... -- test -r` prüfen, (c) ACL-/Mode-Vererbung und das bestehende Plesk-Git-Deployziel erfassen. Keine Secret-Dateien oder deren Inhalt auslesen, keine pauschalen Berechtigungsänderungen. Parallel Legacy-Live angemeldet testen; erst dann einen reversiblen Testdomain-Cutover durchführen.
+
+**Dokumentationsregel:** Jeder einzelne Folgebefund in GitHub fortschreiben; persönlichen Admin, Access-Tokens und private Laravel-`.env` nicht veröffentlichen.
