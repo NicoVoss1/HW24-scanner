@@ -126,6 +126,15 @@ function renderLinkedAsins(){
     '⚠ Amazon meldet eine andere EAN. NICHT automatisch übernehmen.':
     '⚠ Amazon liefert keinen EAN-Nachweis. Nur manuell vergleichen.';
    el('p',output,proof,'muted');
+   // Keep the real Amazon identifiers visible for manual color/pack/GTIN
+   // verification; never propose or write a JTL ASIN from a mismatched EAN.
+   const amazonEans=Array.isArray(data.ean_identifiers)?
+    [...new Set(data.ean_identifiers.filter(x=>typeof x==='string'&&/^\d{8,14}$/.test(x)))].slice(0,12):[];
+   if(amazonEans.length)
+    el('p',output,'Von Amazon gemeldete EANs: '+amazonEans.join(', '),'muted');
+   if(data.ean_evidence==='other_ean')
+    el('p',output,'Keine automatische Bestätigung der JTL-EAN '+ean+
+      '. Verpackung, Farbe, Größe und Angebot manuell abgleichen.','muted');
    const link=el('a',output,'Artikel auf Amazon.de ansehen','detail-link');
    link.href='https://www.amazon.de/dp/'+asin;link.target='_blank';link.rel='noopener noreferrer';
    el('p',output,'Unverbindliche Katalogprüfung, kein Preis- oder JTL-Schreibzugriff.','muted');
