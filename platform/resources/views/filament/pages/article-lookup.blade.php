@@ -1,4 +1,19 @@
 <x-filament-panels::page>
+    <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-5">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-primary-600 dark:text-primary-400">Produktdaten und Vertriebskanäle</p>
+                <h2 class="mt-1 text-lg font-semibold text-gray-950 dark:text-white">Artikelzentrale</h2>
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                    JTL-Stammdaten, Bestand und Preise mit belegter Herkunft. Es werden keine fehlenden Werte geschätzt.
+                </p>
+            </div>
+            <a href="{{ route('filament.admin.pages.dashboard') }}"
+               class="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800">
+                Zum Kontrollzentrum
+            </a>
+        </div>
+    </div>
     <x-filament::section heading="JTL-Artikel suchen">
         <p class="text-sm text-gray-500 dark:text-gray-400">
             Die Daten kommen aus dem bestehenden JTL-MariaDB-Spiegel. Keine Änderungen an JTL-Wawi oder WMS.
@@ -42,14 +57,64 @@
                                 <td class="py-2 pr-4">{{ $row['ean'] }}</td>
                                 <td class="py-2 pr-4">{{ $row['bestand'] ?? 'unbekannt' }}</td>
                                 <td class="py-2 pr-4">
-                                    {{ is_numeric($row['netto_vk']) ? number_format((float) $row['netto_vk'], 2, ',', '.') . ' EUR netto' : 'unbekannt' }}
+                                    {{ is_numeric($row['netto_vk']) ? number_format((float) $row['netto_vk'], 2, ',', '.') . ' netto' : 'unbekannt' }}
+                                    @if(!empty($row['waehrung']))<span class="text-xs text-gray-500">{{ $row['waehrung'] }}</span>@endif
                                 </td>
                             </tr>
                         @endforeach
                         </tbody>
                     </table>
                 </div>
-                <p class="mt-2 text-xs text-gray-500">JTL-Bruttopreis: nicht bestätigt. Es wird kein Steuersatz erfunden.</p>
+                @if(count($lookup['matches'] ?? []) === 1)
+                    @php
+                        $item = $lookup['matches'][0];
+                        $mass = $item['masseinheit_menge'] ?? null;
+                        $massLabel = $mass !== null
+                            ? rtrim(rtrim(number_format((float) $mass, 3, ',', '.'), '0'), ',')
+                            : 'Nicht belegt';
+                    @endphp
+                    <div class="mt-5 rounded-xl border border-gray-200 bg-gray-50/70 p-4 dark:border-gray-700 dark:bg-gray-800/40">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <h3 class="text-base font-semibold text-gray-950 dark:text-white">Artikeldaten aus dem JTL-Spiegel</h3>
+                            <span class="text-xs text-gray-500">Synchronisiert: {{ $item['synced_at_utc'] ?? 'unbekannt' }} UTC</span>
+                        </div>
+                        <dl class="mt-4 grid grid-cols-2 gap-x-5 gap-y-4 text-sm md:grid-cols-3 xl:grid-cols-4">
+                            <div class="min-w-0"><dt class="text-gray-500">JTL-Artikel-ID</dt><dd class="mt-1 break-words font-semibold">{{ $item['jtl_article_id'] ?: 'Nicht belegt' }}</dd></div>
+                            <div class="min-w-0"><dt class="text-gray-500">Artikelnummer</dt><dd class="mt-1 break-words font-semibold">{{ $item['artikelnummer'] ?: 'Nicht belegt' }}</dd></div>
+                            <div class="min-w-0"><dt class="text-gray-500">HAN</dt><dd class="mt-1 break-words font-semibold">{{ $item['han'] ?: 'Nicht belegt' }}</dd></div>
+                            <div class="min-w-0"><dt class="text-gray-500">Warengruppe</dt><dd class="mt-1 break-words font-semibold">{{ $item['warengruppe_name'] ?? 'Nicht zugeordnet' }}</dd></div>
+                            <div class="min-w-0"><dt class="text-gray-500">Artikeltyp</dt><dd class="mt-1 break-words font-semibold">{{ $item['artikeltyp'] ?? 'Noch nicht aufgelöst' }}</dd></div>
+                            <div class="min-w-0"><dt class="text-gray-500">Lieferstatus</dt><dd class="mt-1 break-words font-semibold">
+                                {{ $item['lieferstatus_name'] ?? (!empty($item['lieferstatus_id']) ? 'ID ' . $item['lieferstatus_id'] . ' · Klartext offen' : 'Nicht belegt') }}
+                            </dd></div>
+                            <div class="min-w-0"><dt class="text-gray-500">Steuerklasse</dt><dd class="mt-1 break-words font-semibold">
+                                {{ $item['steuerklasse_name'] ?? (!empty($item['steuerklasse_id']) ? 'ID ' . $item['steuerklasse_id'] . ' · Klartext offen' : 'Nicht belegt') }}
+                            </dd></div>
+                            <div class="min-w-0"><dt class="text-gray-500">Füllmenge / Maßmenge</dt><dd class="mt-1 break-words font-semibold">{{ $massLabel }}</dd>
+                                <p class="mt-1 text-xs text-gray-500">Originalwert, Einheit ungeprüft</p>
+                            </div>
+                            <div class="min-w-0"><dt class="text-gray-500">EK netto (JTL)</dt><dd class="mt-1 break-words font-semibold">
+                                {{ $item['netto_ek'] !== null ? number_format((float) $item['netto_ek'], 2, ',', '.') : 'Nicht belegt' }}
+                            </dd></div>
+                            <div class="min-w-0"><dt class="text-gray-500">VK netto (JTL)</dt><dd class="mt-1 break-words font-semibold">
+                                {{ $item['netto_vk'] !== null ? number_format((float) $item['netto_vk'], 2, ',', '.') : 'Nicht belegt' }}
+                            </dd></div>
+                            <div class="min-w-0"><dt class="text-gray-500">VK brutto (JTL)</dt><dd class="mt-1 break-words font-semibold">
+                                {{ $item['brutto_vk'] !== null ? number_format((float) $item['brutto_vk'], 2, ',', '.') : 'Quelle noch nicht bestätigt' }}
+                            </dd>
+                                @if($item['brutto_vk'] !== null)<p class="mt-1 break-words text-xs text-gray-500">Quelle: {{ $item['brutto_vk_source'] }}</p>@endif
+                            </div>
+                            <div class="min-w-0"><dt class="text-gray-500">Währung</dt><dd class="mt-1 break-words font-semibold">{{ $item['waehrung'] ?? 'Noch nicht belegt' }}</dd></div>
+                            <div class="min-w-0"><dt class="text-gray-500">ASIN aus JTL</dt><dd class="mt-1 break-words font-semibold">{{ $item['asin'] ?? 'Keine Quelle' }}</dd>
+                                <p class="mt-1 text-xs text-gray-500">Amazon-EAN und Angebot separat verifizieren</p>
+                            </div>
+                        </dl>
+                    </div>
+                @endif
+                <p class="mt-3 text-xs text-gray-500">
+                    Daten und Preisarten sind quellengebunden. Unbelegte Brutto-VK, Steuerzuordnungen oder Marktplatzangebote
+                    werden nicht automatisch berechnet oder als aktiv gekennzeichnet.
+                </p>
             @endif
         @endif
     </x-filament::section>
