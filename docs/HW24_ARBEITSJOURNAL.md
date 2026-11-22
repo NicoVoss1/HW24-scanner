@@ -1555,3 +1555,15 @@ Bitte Zugangsdaten nur auf dem Server in der privaten Laravel-Konfiguration hint
 - Bestehende `api/jtl-fields.php` auf Legacy-LIVE bleibt 404 bis gesondertem sicheren Release; die zusätzliche Originalfelder-Einzelseite ist weiterhin unvollständig. Gesamtumsatz, echte Kanalverkaufspreise, eigener eBay-/Shopify-Angebotsstatus sind vor Produktivabnahme **nicht** als verfügbar zu markieren.
 
 **Abnahmekette:** GitHub Laravel-13-/Filament-5-CI muss für die aktuelle UI grün sein; dann Operator-gestützte TEST-only Code-Aktualisierung; Browser-Sichtprüfung Dashboard, manuelle JTL-/KI-Datenprobe und responsive Artikelansicht; erst danach weitere JTL-Feld-/Kanal-API-Rollouts und Dashboard-Aggregate.
+
+
+## 22.11.2026 · Responsive Cockpit-Upgrade auf der aktiven TEST-Domain durch Betreiber erfolgreich eingespielt
+
+**Direkter PuTTY-Nachweis des Betreibers** vom erfolgreichen `platform/ops/upgrade-private-framework-cockpit-ffonly.sh`, gepinnte Skriptversion `d42f72867f8b095b6c452ca566fa469de894d172`:
+
+- Vorab exakter TEST-Plesk-DocumentRoot `platform/public`, alter privater Framework-HEAD `a26a64d09597e41523e224c557bb1d4e39bdf052`, keine getrackten Änderungen, bestehende ACLs für `public/index.php` und `public/.htaccess` und private `.env`/SQLite-Sperren erfolgreich kontrolliert. Live-Domain dabei nicht berührt.
+- **18 exakt erlaubte Pfade** überprüft. `git fetch` holte neuere Remotebranch-Objekte (Remote enthielt bereits `3ba3f54`); **installiert wurde bewusst nur der geprüfte gepinnte UI-Commit `b679642212ac1daace71af7abcc65fe69dc293bb`**, nicht der neuere Remote-HEAD. Fast-Forward von `a26a64d` nach `b679642`, 2.164 Einfügungen und 30 Löschungen. Zur neuen Version gehören responsives HW24-Dashboard als Filament-Custom-Widget, per Klick begrenzte JTL-/KI-Archiv-Lesebelege, um Quellwerte ergänzte JTL-Artikelansicht und Tests, ohne automatische Amazon-/OpenAI-Aufrufe.
+- Konsistentes SQLite-Backup mit vorab bestätigter Integrität: **`/root/hw24-backups/hw24-cockpit-before-20261122T202336Z-T9ZXY0Fz.sqlite`**. Git-/Rollback-Metadaten: **`/root/hw24-backups/hw24-cockpit-git-before-20261122T202336Z-OCAOsRon.txt`**. Nicht löschen.
+- Nach dem Update wurden die kompilierten Laravel-Blade-Views gezielt geleert. Das Skript meldete `=== HW24 COCKPIT-QUELLCODE ERFOLGREICH AKTUALISIERT ===`. `composer.lock`, Laravel-`.env`, Test-Plesk-Webroot/Basic-Auth, JTL und LIVE-Artikelmanager wurden im Skript nicht verändert. Keine DB-Migration, keine Amazon-/OpenAI-POSTs.
+- **Noch nicht direkt vom Betreiber nach dem Upgrade belegt:** tatsächlicher Browser-Render des breiteren Dashboards, Livewire-Klicks `JTL-Referenz prüfen`/`KI-Archiv prüfen`, neue Artikelkarten sowie Mobilansicht. Nächster Schritt: `https://test-artikelmanager.hairworld24.de/admin` und `/admin/artikel` nach `Strg+F5` im authentifizierten Browser prüfen. Kein zweiter Git-Fetch/Deploy nötig.
+- Weitere Funktion `api/jtl-fields.php` bleibt auf LIVE-Legacy **HTTP 404** (PR41 Draft, noch kein Rollout), somit ist vollständiges Originalfeld-Screening noch nicht über Filament verfügbar. Brutto-/Währungs-/Lieferstatus-Zuordnung bleibt ausschließlich mit verifizierter Quelle zulässig.
