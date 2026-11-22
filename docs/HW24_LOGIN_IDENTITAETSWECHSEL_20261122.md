@@ -1,3 +1,61 @@
+## PR37 TEST: PHP-SYNTAX UND BASIC-SCHUTZ BESTANDEN · 22.11.2026
+
+**Read-only Betreiber-PuTTY `HW24_PR37_SECURITY` erfolgreich:** Vier `/opt/plesk/php/8.5/bin/php -l`-Checks für `api/scanliste.php`, `api/ai-reviews.php`, `api/ai-review.php` und `api/hw24-actor-identity.php` alle `No syntax errors detected`. Anonyme HTTPS-GETs auf `/api/scanliste.php`, `/api/ai-reviews.php`, `/api/jtl.php` alle **HTTP 401**. Kein Login-/DB-/Website-Write in diesem Check, äußere Basic-Authentifizierung wirksam. **Noch nicht** authentifizierte Datenfunktion bestätigt. Bereits zuvor Test-PR37 mit allen vier verifizierten PHP-Git-Hashes deployed. Live und Test-Basic-Login unverändert.
+
+### Genau nächster Einzel-Befehl: zwei authentifizierte Test-GETs, nur Anzahlen ausgeben
+
+```bash
+bash <<'HW24_AUTHENTICATED_GET'
+set -euo pipefail
+
+url="https://test-artikelmanager.hairworld24.de"
+php="/opt/plesk/php/8.5/bin/php"
+
+echo "=== TEST-BASIC: GESPEICHERTES KI-ARCHIV ==="
+echo "Das Passwort wird von curl verdeckt abgefragt, bitte NICHT im Chat mitteilen."
+
+curl --silent --show-error --fail-with-body \
+  --basic --user hw24-test --max-time 30 --proto '=https' \
+  "$url/api/ai-reviews.php?limit=50" |
+"$php" -r '
+ $v=json_decode(stream_get_contents(STDIN),true);
+ if(!is_array($v)||($v["ok"]??false)!==true||!is_array($v["reviews"]??null)){
+   fwrite(STDERR,"STOP: KI-Archiv-GET fehlgeschlagen\n");exit(1);
+ }
+ $n=count($v["reviews"]);
+ echo "Historische KI-Berichte: $n\n";
+ if($n!==3){fwrite(STDERR,"STOP: Erwartet waren 3 Berichte\n");exit(1);}
+'
+
+echo "=== TEST-BASIC: OFFENE SCANLISTEN ==="
+echo "Passwort erneut verdeckt eingeben."
+
+curl --silent --show-error --fail-with-body \
+  --basic --user hw24-test --max-time 30 --proto '=https' \
+  "$url/api/scanliste.php?op=batches" |
+"$php" -r '
+ $v=json_decode(stream_get_contents(STDIN),true);
+ if(!is_array($v)||($v["ok"]??false)!==true||!is_array($v["batches"]??null)){
+   fwrite(STDERR,"STOP: Scanlisten-GET fehlgeschlagen\n");exit(1);
+ }
+ $n=count($v["batches"]);
+ echo "Offene Scanlisten-Stapel unter altem Benutzer: $n\n";
+ if($n>1){fwrite(STDERR,"HINWEIS: Zahl groesser als bisheriger SQL-Stand\n");}
+'
+
+echo "=== AUTHENTIFIZIERTE LESERUECKGABE GEPRUEFT ==="
+echo "Keine Rohdaten, kein POST, keine API-Kosten, keine Aenderungen"
+HW24_AUTHENTICATED_GET
+```
+
+**Sicherheit und Grenzen:** `curl --user hw24-test` ohne Doppelpunkt/Passwort im Kommando fordert bei interaktiver PuTTY-Terminalsitzung das Passwort verborgen an; es wird weder in die Shell-Argumente noch in GitHub oder in die Ausgabe geschrieben. Das Passwort **zweimal** eingeben, wenn beide curl-Aufrufe danach fragen. Beide API-Antworten gehen ausschließlich per Pipe an PHP und werden nur als Zählwerte ausgegeben, keine EANs/Review-Texte. `set -o pipefail` und `--fail-with-body` lassen fehlerhafte HTTP-Status/JSON-Formate scheitern.
+
+**Wichtig:** Das KI-Archiv hat insgesamt **3** historische Berichte unter `hw24-test`, daher erwartet dieser Test genau drei. Die Scanlisten-MariaDB hat **1** Stapel unter `hw24-test`, doch die API gibt **nur offene** Stapel `closed_at_utc IS NULL` zurück; 0 ist daher möglich und kein Beweis für Datenverlust. Bei 0 als nächstes `closed_at_utc` **nur lesend** abklären, nicht automatisch INSERT/UPDATE. Noch keine private `hw24_private/actor-aliases.php`, keine Test-Basic-Umbenennung und kein Live-Deploy.
+
+[Arbeitsjournal](./HW24_ARBEITSJOURNAL.md), Commit `645383969ba3b4366d54cd3a09e719257e1b4e04`; [Übergabe](./HW24_HANDOVER.md), Commit `60da44215859f934245fa1e5749ae345c8ae9e7c`.
+
+---
+
 ## NEUER MEILENSTEIN · PR37 Git-Quellbranch auf TEST korrekt ausgewählt; NÄCHSTER SCHRITT IST DEPLOY (22.11.2026)
 
 **Betreiber-PuTTY bestätigte:** `HW24_PR37_SELECT` erfolgreich: Sicherungschecksumme OK, Plesk `HW24-scanner.git` für **Test** auf `feature/hw24-login-alias-scan-ai-20261122` umgestellt, exakt Commit `c2cc4e1dc054da00f01087e7221659cf54a9a482` verifiziert, die Legacy-Webroot-Dateien blieben unverändert. **Noch KEIN Plesk-Deploy, kein HTTP-Basic-Loginwechsel und keine Alias-Privatekonfiguration.** Die Live-Website blieb unberührt.
