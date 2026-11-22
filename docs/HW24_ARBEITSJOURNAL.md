@@ -545,3 +545,26 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 - GitHub-`main` [`HW24_PREFLIGHT_FILAMENT_TESTDOMAIN_20261122.md`](./HW24_PREFLIGHT_FILAMENT_TESTDOMAIN_20261122.md) um **tatsächlich bestätigte** PHP-8.5.13-Kompatibilität, vier Admin-Routen und die beobachteten 0700/0600-Pfadrechte ergänzt. Commit `f4b3dc47d82e5d431a67e211f9d67a8e28b41ea7`.
 - Neuer, **noch nicht ausgeführter** read-only `HW24_WEB_ACCESS`-Block prüft aktive Nginx-/Apache-/FPM-Worker-Benutzer sowie effektive Lesbarkeit ausgewählter öffentlicher CSS-/JS-Dateien als App-User und www-data, ohne Geheimnisse auszulesen und ohne Datei-/Webserver-/Domain-/DB-Änderung.
 - [Kurz-Übergabe](./HW24_HANDOVER.md) und [Projektstatus](./HW24_PROJEKTSTAND_AKTUELL.md) an die Spitze auf diesen tatsächlich zuletzt bestätigten Zustand aktualisiert. **Exakt nächster Betreiber-Schritt:** nur diesen Worker-/Rechtecheck ausführen, daneben alten Live-V4.25-JTL-/Amazon-/KI-Browser-E2E bestätigen, dann gezielte Asset-Berechtigungen/Rollback planen.
+
+
+### 22.11.2026 · Webserver-Asset-Leseprobe durchgeführt: nginx und www-data ausgesperrt
+
+**BESTÄTIGT durch PuTTY-Ausgabe des rein lesenden `HW24_WEB_ACCESS`-Blocks.**
+
+| Einzelschritt | Tatsächliche Ausgabe | Bewertung |
+| --- | --- | --- |
+| 73 · Webserver-Prozesse ermitteln | Aktive Worker-Benutzer `nginx` und `www-data` | **BESTÄTIGT** |
+| 74 · PHP-FPM-Prozesse ermitteln | Unter den sichtbaren `php-fpm: pool`-Prozessen erscheint `www-data`; **noch kein Zuordnungsnachweis zum konkreten Test-vHost** | **BESTÄTIGT / Zuordnung OFFEN** |
+| 75 · Lesbarkeit Front-Controller | `public/index.php`: `nicovoss: LESBAR`, `nginx: GESPERRT`, `www-data: GESPERRT` | **BESTÄTIGT** |
+| 76 · Lesbarkeit Stylesheet | `public/css/filament/filament/app.css`: `nicovoss: LESBAR`, `nginx: GESPERRT`, `www-data: GESPERRT` | **BESTÄTIGT** |
+| 77 · Lesbarkeit JavaScript | `public/js/filament/filament/app.js`: `nicovoss: LESBAR`, `nginx: GESPERRT`, `www-data: GESPERRT` | **BESTÄTIGT** |
+| 78 · ACL-Werkzeuge erkennen | `command -v getfacl` / `command -v setfacl` gaben **keinen Pfad** zurück | **BESTÄTIGT**, ACL-Werkzeuge im aktuellen PATH nicht gefunden, keine Aussage über Kernel-/Dateisystem-ACL-Unterstützung |
+| 79 · Prüfausführung | `=== PRUEFUNG ABGESCHLOSSEN ===`, zurück im PuTTY-Prompt | **BESTÄTIGT, keine Änderungen** |
+
+**Technische Ursache:** Wie im vorigen `namei -l`-Check beobachtet, sind `repo/`, `platform/`, `public/` und CSS-/JS-Unterverzeichnisse auf 0700 sowie öffentliche Assets auf 0600 für `nicovoss` gesetzt. Andere Webserverprozess-Nutzer können die Dateien über diesen Pfad derzeit nicht lesen. **Dieses Ergebnis ist nicht gleichbedeutend mit einem Fehlschlag von Laravel oder Composer.** Die konkret zugehörige PHP-8.5-FPM-Poolidentität für die Testdomain ist noch nicht unabhängig bestätigt; die Prozessübersicht nennt nur `www-data`, möglicherweise nicht den vHost-Worker.
+
+**Sicherheitsanforderung:** `platform/.env` und private SQLite bleiben 0600. Niemals `chmod -R 755` auf den privaten Repository-/Laravel-Baum, nie `777` und kein generelles Gruppenzugriffsrecht für sämtliche privaten Konfigurations-/Source-Dateien. Eine pauschale Rechteänderung würde zudem den schon erfolgreichen Schutz der APP_KEY-/Benutzerdaten gefährden.
+
+**Nächster Schritt:** **Nur lesende** Zuordnung der Testdomain zum Plesk-FPM-Pool (Pool-Prozess-/Konfigurationsmetadaten ohne Secrets), der Unix-Gruppen von `nginx`, `www-data`, `nicovoss`, sowie effektiver `test -x/-r`-Zugriffe. Erst dann eine **eng begrenzte** Berechtigungs-/Trennungsstrategie für `platform/public` und das im PHP-FPM benötigte private Laravel-Backend entwerfen. Vor jeglichem Domain-Cutover außerdem **angemeldeten Live-V4.25-JTL-/Amazon-/OpenAI-Browser-E2E** nachweisen und Legacy-Testdomain-Git-Ziel/rollback-sicheres Bereitstellungsverfahren bestimmen.
+
+**Noch NICHT** Plesk-DocumentRoot geändert, PHP-FPM-Handler umgestellt, PHP- oder Webserver-Rechte verändert, Admin neu angelegt oder Migrationen wiederholt. Live/Legacy bleiben unverändert.
