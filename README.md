@@ -29,11 +29,13 @@ Diese beiden Dateien beim Fortsetzen eines Chats, beim Öffnen eines PRs und vor
 
 ## Sofortiger nächster Schritt
 
-**Stand 22.11.2026:** [PR #32](https://github.com/NicoVoss1/HW24-scanner/pull/32) wurde in GitHub-`deploy/staging` als **V4.24 TEST** gemerged, SHA **`f51ab67240bd1bf0e5be25498269049a24748b85`**. Neu: übersichtliche `artikelpflege.html` mit JTL-Istwerten, HW24-Entwurf/Revision und Haarfarben-Referenz-EAN `3474630337398`; `qualitaetszentrum.html` mit getrennten Bestands-/EK-Filtern, **ODER/UND**, sortierbaren Spalten und **Bestand zuerst**. Die bisherige `index.html` bleibt Expertenansicht.
+**Stand 22.11.2026:** [PR #34](https://github.com/NicoVoss1/HW24-scanner/pull/34) wurde auf **`deploy/staging`** gemerged. **V4.25 TEST** SHA **`444453471b0fd27c73dcc7929f5e17f1d9239c52`**. Die zuvor in der **neuen** Pflegeansicht fehlende Amazon-SP-API-Oberfläche ist jetzt integriert. Neue eingeklappte Module: Amazon-EAN- und Titelkatalog, manuelle ASIN-Angebotspreise, kostenfreies KI-Berichtsarchiv, optional bestätigter OpenAI-Call und sicherer, revisionsgeprüfter Einzelartikel-JTL-Ameise-Testexport. Dropdowns Artikeltyp/Steuerklasse/Versandklasse/Währung und 0/1-Lieferzeit-Erklärung ergänzt. Lieferantenfelder ausgeblendet. JTL bleibt führend.
 
-**Jetzt genau einmal:** Nur Plesk-Testdomain Git-Branch `deploy/staging` → **Jetzt Pull ausführen** → **Jetzt bereitstellen**. Dann `https://test-artikelmanager.hairworld24.de/qualitaetszentrum.html` und `https://test-artikelmanager.hairworld24.de/artikelpflege.html?ean=3474630337398` kontrollieren. Echte JTL-Referenzwerte werden dabei **erst aus dem privaten frischen JTL-Spiegel abgerufen**; sie sind noch nicht unabhängig geprüft. `main`/Live bleibt unverändert. Keine neuen DB-Tabellen, API-Keys oder PuTTY-Installationen nötig.
+**Genau nächste Aktion:** Nur **Plesk-Testdomain** `deploy/staging` → **Pull → Bereitstellen**. Dann `https://test-artikelmanager.hairworld24.de/artikelpflege.html?ean=3474630337398` öffnen. Einmal **Amazon-Katalog prüfen** klicken und `stage`/Amazon HTTP-Status bei Fehlern notieren. KI-Archivstatus und Dropdowns kontrollieren. **Keine Änderungen an `main`, JTL, WMS oder Shopify.**
 
-[Technische Freigabe- und Testanleitung V4.24](docs/HW24_V424_QUALITY_EDITOR_RELEASE_20261122.md).
+**Wichtige bekannte Grenze:** Der Original-**Brutto-VK** kann erst nach geprüftem [Windows-JTL-Feldmapping #33](https://github.com/NicoVoss1/HW24-scanner/issues/33) korrekt in die Testoberfläche gespiegelt werden. Kein automatisch berechneter 19%-Wert wird als vorhandener JTL-Preis ausgegeben. Ein `Rev. 0` bei HW24 bedeutet nur, dass für diese EAN noch kein bestätigter Overlay-Entwurf gespeichert wurde.
+
+[Release-/Testanleitung V4.25](docs/HW24_V425_ARTIKELPFLEGE_RELEASE_20261122.md).
 
 ## Vorheriger Schritt (PR #22)
 
