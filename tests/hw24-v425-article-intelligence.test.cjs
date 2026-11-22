@@ -8,12 +8,13 @@ const jtl=fs.readFileSync('api/jtl.php','utf8');
 const options=fs.readFileSync('api/jtl-options.php','utf8');
 const curated=fs.readFileSync('api/curated.php','utf8');
 const amazon=fs.readFileSync('api/amazon.php','utf8');
+const amazonAsin=fs.readFileSync('api/amazon-asin.php','utf8');
 const review=fs.readFileSync('api/ai-review.php','utf8');
 const archive=fs.readFileSync('api/ai-reviews.php','utf8');
 for(const id of [
  'identifier','identityFields','textFields','logisticsFields','priceFields',
  'advancedFields','saveChanges','suggestTimes','amazonSearch','amazonKeywordSearch','amazonResults','amazonKeywordResults',
- 'aiReviewRun','aiRecheck','aiReviewResults','ameiseDraftFields','exportAmeiseDraft',
+ 'aiReviewRun','aiRecheck','aiReviewResults','ameiseDraftFields','exportAmeiseDraft','amazonAsinDirect',
  'confirmHaircolor','referenceFacts','articleTypeValues','shippingValues',
  'taxValues','currencyValues'
 ]){
