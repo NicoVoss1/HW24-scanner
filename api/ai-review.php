@@ -15,6 +15,8 @@ function answer(int $code,array $data): never {
 }
 $actor=trim((string)($_SERVER['PHP_AUTH_USER']??$_SERVER['REMOTE_USER']??$_SERVER['REDIRECT_REMOTE_USER']??''));
 if($actor===''||strlen($actor)>180)answer(403,['ok'=>false,'error'=>'authenticated_user_required']);
+require_once __DIR__.'/hw24-actor-identity.php';
+$actor=hw24StoredActor($actor);
 if(($_SERVER['HTTPS']??'')!=='on'&&($_SERVER['HTTP_X_FORWARDED_PROTO']??'')!=='https')
  answer(403,['ok'=>false,'error'=>'https_required']);
 $method=(string)($_SERVER['REQUEST_METHOD']??'GET');
