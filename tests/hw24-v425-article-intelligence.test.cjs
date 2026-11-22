@@ -12,7 +12,7 @@ const review=fs.readFileSync('api/ai-review.php','utf8');
 const archive=fs.readFileSync('api/ai-reviews.php','utf8');
 for(const id of [
  'identifier','identityFields','textFields','logisticsFields','priceFields',
- 'advancedFields','saveChanges','suggestTimes','amazonSearch','amazonResults',
+ 'advancedFields','saveChanges','suggestTimes','amazonSearch','amazonKeywordSearch','amazonResults','amazonKeywordResults',
  'aiReviewRun','aiRecheck','aiReviewResults','ameiseDraftFields','exportAmeiseDraft',
  'confirmHaircolor','referenceFacts','articleTypeValues','shippingValues',
  'taxValues','currencyValues'
@@ -39,6 +39,9 @@ assert(editor.includes("if(!$('confirmHaircolor').checked)"),'Only propose templ
 assert(editor.includes("hw24:article-loaded"),'Article-load event for source integrations');
 assert(editor.includes("hw24:article-unloaded"),'Disconnect previous source panels on new article');
 assert(intel.includes("api/amazon.php?ean="),'Amazon existing SP endpoint');
+assert(intel.includes("api/amazon-pricing.php?asin="),'On-demand Amazon pricing by ASIN');
+assert(intel.includes("api/amazon-keywords.php?q="),'Optional keyword fallback');
+assert(intel.includes("item.gtins.includes(state.ean)"),'Do not suggest ASIN from keyword search without GTIN evidence');
 assert(amazon.includes("'marketplace_id'")||amazon.includes('marketplace_id'),'Existing Amazon snapshot persistence');
 assert(intel.includes("api/ai-reviews.php?ean="),'Free archive lookup on article load');
 assert(intel.includes("api/ai-review.php"),'Manual OpenAI review available');
