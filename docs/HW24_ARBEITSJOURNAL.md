@@ -828,3 +828,20 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 **Exakt nächster Betreiber-Schritt:** Das im Runbook dokumentierte `HW24_LOGIN_READONLY`-PuTTY-Skript ausführen, um für Live/Test die tatsächlich Plesk-verwalteten Schutzkonten und für `hw24_ai_reviews.actor`/`hw24_scan_batches.created_by` die Gesamt-/ALT-/NEU-/anderen Zahlen zu erhalten. Bei SQL-/Plesk-Fehler erst Struktur lesen, nicht blind umbenennen. Dann können wir den korrekten privaten Alias und den Plesk-Loginwechsel mit vollständiger Rückfallmöglichkeit gezielt durchführen.
 
 **Achtung:** Der ältere Entwurf `feature/hw24-ai-archive-admin-scope-20261122` enthält eine **separate ungetestete** Admin-Gesamtarchivfunktion, die noch nicht deployed ist und nicht mit dem jetzt geprüften Scanlisten-Kompatibilitäts-PR #37 verwechselt werden darf.
+
+
+### 22.11.2026 · Plesk-Authentifizierungsprüfung: SQL-Spaltenfehler und tatsächlich geteilte Scanlisten-Bestände
+
+**Quelle:** Betreiber-PuTTY-Ausgabe `HW24_LOGIN_CHECK`, nach präzisiertem Wunsch einer Umbenennung des bestehenden HTTP-Basic-Logins. Ein vorausgehender fehlerhaft doppelt eingefügter `HW24_ACTOR_MATCH`-Block löste lediglich `-bash: syntax error near unexpected token '('` aus und wurde mit Strg+C abgebrochen; dessen Ergebnis nicht als neuen Actor-Nachweis werten.
+
+| Schritt | Konkretes Ergebnis | Bewertung |
+| --- | --- | --- |
+| 137 · Plesk-Test-/Live-Schutzkonten abfragen | `SELECT d.name, pd.name, pu.login ...` meldet `ERROR 1054 (42S22): Unknown column 'pd.name'` | **FEHLGESCHLAGEN**, Plesk-Schema-/Spaltenannahme falsch; **keine** Benutzer- oder Auth-Änderung erfolgt |
+| 138 · Bestandszählung KI-Archiv | `hw24_ai_reviews`: **gesamt 3**, darunter **3** unter alter und **0** unter neuer HTTP-Basic-Kennung | **BESTÄTIGT**, alle drei bestehenden KI-Berichte unter historischer Anmeldung |
+| 139 · Bestandszählung Scanliste | `hw24_scan_batches`: **gesamt 2**, darunter **1** unter alter und **1** unter neuer Kennung | **BESTÄTIGT**, **beide** Anmeldungen besitzen bereits einen eigenen Scanlisten-Stapel |
+| 140 · SQL-Prüfung abgeschlossen | `SQL-PRUEFUNG ERFOLGREICH`; anschließend `PRUEFUNG ABGESCHLOSSEN` und SSH-Prompt | **BESTÄTIGT**, Read-only auf bestehende MariaDB |
+| 141 · Authentifizierungssystem | Plesk-`protected_dirs`/Benutzertabellen durch fehlerhafte Spalte **noch nicht inventarisiert** | **OFFEN**; kein Schluss, dass Plesk die Auth tatsächlich verwaltet |
+
+**WICHTIGE ARCHITEKTURKORREKTUR:** Der bisher in [Draft PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37) vorbereitete einzelne kanonische Actor-Alias (`new -> old`) ist **für diesen tatsächlichen Datenbestand nicht ausreichend**: Er würde die drei KI-Reviews und den alten Scan-Stapel anzeigen, aber den **bereits unter dem neuen Login vorhandenen Scan-Stapel ausblenden**. Daher **PR #37 nicht deployen oder mergen**, bis eine getestete read-only **Zwei-Owner-Ansicht** (historischer und neuer Owner) und konsistente sichere Schreibzuordnung implementiert sind. Historische `actor`, `created_by` und Audit-Ereignisse bleiben unverändert. **Neue Vorgänge sollen nur unter der neuen authentifizierten Kennung entstehen.**
+
+**Nächster sicherer Schritt:** (1) Plesk-Tabellenstruktur `SHOW COLUMNS FROM protected_dirs`, `pd_users` und `domains` **nur lesend** ausgeben und danach Authquelle korrekt inventarisieren; (2) PR #37 auf dualen, ausschließlich privat autorisierten Owner-Readzugriff überarbeiten, beide Scan-Stapel und drei KI-Reviews in automatischen Tests abdecken; (3) nach Backups Plesk-Test-Login mit Rückfallweg umstellen und Browser/Scanlisten/KI prüfen. Kein unkontrolliertes SQL-UPDATE, kein Passwort-Posting, kein neuer KI-POST.
