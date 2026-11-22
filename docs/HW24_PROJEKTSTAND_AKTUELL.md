@@ -1,3 +1,15 @@
+## NEUSTER LIVE-KI-ARCHIV-BEFUND · 0 Berichte bei 4 gezählten Prüfungen (22.11.2026)
+
+**Neuer Betreiber-Screenshot der Live-Expertenansicht** `artikelmanager.hairworld24.de/index.html`: Der Dialog `KI-Auswertungen · HW24-Prüfarchiv` öffnet sich, meldet jedoch `0 gespeicherte KI-Analysen` und `Noch keine dauerhaften KI-Ergebnisse`. Die gesonderte Kostenanzeige zeigt **4 Prüfungen im Monat**, geschätzt **0,0053 USD**, letzte geschätzte **0,0014 USD**, **1/25 heute**. Diese Anzeige ist **keine OpenAI-Rechnung** und keine Garantie, dass ein Bericht dauerhaft gespeichert wurde.
+
+**Quellcode erklärt den möglichen Unterschied, ohne Ursache zu beweisen:** Im GitHub-Branch `deploy/staging` speichert `api/ai-review.php` die Nutzungszähler in privatem `hw24-ai-usage.json`; `api/ai-reviews.php` liest tatsächliche Berichte aus der getrennten MariaDB-Tabelle `hw24_ai_reviews` und filtert nach authentifiziertem `actor` (`WHERE actor=?`), optional nach EAN. Zähler und gespeicherte Berichte können daher abweichen, etwa bei anderem Login-Actor, EAN-Filter oder fehlgeschlagener Persistierung nach Modellkosten. **Keine Ursache und kein Datenverlust bislang nachgewiesen.**
+
+**Genau nächste Browseraktion:** Im geöffneten Live-Archiv `Alle letzten Prüfungen` und `Aktualisieren` wählen, danach nur das Ergebnis mitteilen. **Keine neue kostenpflichtige KI-Prüfung starten.** Falls 0 bleibt, gezielt ausschließlich read-only API-Status und ggf. aggregierte DB-Zeilenanzahl klären, keine Review-Inhalte/Passwörter in Chat oder öffentliches GitHub. Legacy-Live-JTL wurde bereits browserseitig bestätigt; Amazon zeigt Cache-Kandidaten ohne EAN-Identitätsnachweis. **Testdomain noch nicht umstellen**; Plesk-Git-/DocumentRoot-Rollback muss zuvor stehen.
+
+[Quellcode- und Screenshot-Befund in chronologischem Arbeitsjournal](./HW24_ARBEITSJOURNAL.md), Commit `61c28b34dd8c29329b5bc947900c45d256ca4e3d`.
+
+---
+
 ## AKTUELLSTER LIVE-BROWSERBEFUND · Legacy V4.25 JTL erfolgreich, Amazon nur Cache, KI noch offen (22.11.2026)
 
 **Bestätigt durch zwei Betreiber-Screenshots auf `artikelmanager.hairworld24.de`:**
