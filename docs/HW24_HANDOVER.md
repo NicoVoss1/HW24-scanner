@@ -1,3 +1,17 @@
+## LETZTER MEILENSTEIN · 22.11.2026 · Test-Webroot erfolgreich mit SHA gesichert
+
+**Betreiber-PuTTY: `HW24_TEST_BACKUP` ERFOLGREICH.** Geprüftes privates Root-TAR der bisherigen Testdomain: `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz`, SHA256 **`679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26`**. `tar -tzf` bestätigte `test-artikelmanager.HAIRWORLD24.de/api/ai-reviews.php`. **KEIN** Test-/Live-Datei-Deploy, kein Plesk-Rename, keine SQL- oder Passwortänderung. Das TAR ist **kein** separates Backup der Plesk-Passwortschutz- oder MariaDB-Einträge.
+
+**Github-PR-Diff und CI erneut verifiziert:** [Draft PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37) `feature/hw24-login-alias-scan-ai-20261122` HEAD **`c2cc4e1dc054da00f01087e7221659cf54a9a482`**, 12 Commits vor `deploy/staging`, 0 zurück, genau 7 Dateipfade verändert (3 bestehende PHP-APIs, neue PHP-Owner-Hilfe, Test-/Workflow-Dateien). GitHub CI `44978357305` und `44978360796` **success**. Produktion und Test verwenden bis jetzt `deploy/staging` manuell, dieselben alten drei PHP-Dateihashes und haben **noch keine** neue Owner-Hilfe.
+
+**EXAKT NÄCHSTER EINZELNER PLESK-BLOCK:** `HW24_PR37_BRANCH_ONLY` in [Loginwechsel-Runbook](./HW24_LOGIN_IDENTITAETSWECHSEL_20261122.md), Commit `e0136d8346b40c6081bd0159c5ea3c2a9204803a`. Dieser prüft vorab den SHA des Backups und dass **NUR TEST** `HW24-scanner.git` aktuell `deploy/staging` im manuellen Deployment hat; er fetched den GitHub-Featurebranch, setzt ausschließlich die Plesk-Git-Branch-Metadaten auf PR37, prüft den erwarteten 40-stelligen HEAD und dass die drei Webroot-PHP-Dateihashes unverändert sind. **Kein `--deploy`, kein Account-Rename.** Bei SHA-Abweichung Branch-Metadaten zurück; privates Protokoll im Root-Backupbereich. Nach Ausgabe den kontrollierten **separaten** manuellen Test-Deploy mit Test-Browser-E2E vorbereiten, danach den geschützten Test-Login umbenennen. Keine Laravel/Filament-Cutover-Gleichzeitigkeit.
+
+**Historischer Bestand unverändert:** 3 KI-Berichte unter altem HTTP-Basic-Actor, 2 Scanlisten-Stapel je einer unter altem/neuem Actor; Live `nvoss` Plesk Root-Schutz-ID 8/Domain-ID 9, Test `hw24-test` Plesk Root-Schutz-ID 9/Domain-ID 10; Statistikschutz-ID 1 tabu. Keine KI-Kosten durch Branchwechsel.
+
+[Chronologisches Journal](./HW24_ARBEITSJOURNAL.md) mit Backup-Erfolg und exakter SHA, Commit `5b010bcfbc74f59e8b14272c1744cd9960ddd608`.
+
+---
+
 ## LETZTER BESTÄTIGTER SERVERSTAND · Live/Test gleiche Legacy-API-Dateien (22.11.2026)
 
 **PuTTY-Prüfung `HW24_AUTH_DEPLOY_PREFLIGHT` erfolgreich:** Live `artikelmanager.HAIRWORLD24.de`, Plesk-Git `HW24-scanner`, und Test `test-artikelmanager.HAIRWORLD24.de`, Plesk-Git `HW24-scanner.git`, stehen BEIDE auf `deploy/staging` mit **manuellem** Deployment und deaktivierten Post-Actions. Die drei Dateien `api/scanliste.php`, `api/ai-reviews.php`, `api/ai-review.php` haben auf **beiden** Domains exakt dieselben Legacy-Git-Blob-SHAs `e9fb8075c4f532d7a76adf81e760acf81cab4528`, `00fb61c9d636434cdc6562edf169811a717c0911`, `2eabde207434b8c62162dc553354cd052c6ec98f`; neuer Helfer `api/hw24-actor-identity.php` **fehlt auf beiden Domains**.
