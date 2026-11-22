@@ -157,10 +157,9 @@ cd "$1"
 "$2" artisan view:cache --no-interaction >/dev/null
 "$2" artisan route:list --path=admin --except-vendor
 ' hw24-panel "$app" "$php"
-for route in 'scanliste' 'werkzeuge';do
- runuser -u "$owner" -- "$php" "$app/artisan" route:list --path="admin/$route" --except-vendor --json |
-   grep -F "\"uri\":\"admin/$route\"" >/dev/null || { echo "STOP: Filament-Route fehlt: admin/$route";exit 2; }
-done
+# Parse Laravel route JSON by exact URI; ignore whitespace in JSON representation.
+routes="$(runuser -u "$owner" -- "$php" "$app/artisan" route:list --path=admin --except-vendor --json)"
+printf '%s' "$routes" | "$php" "$app/ops/verify-admin-routes-json.php" admin/scanliste admin/werkzeuge
 for f in "$app/.env" "$db";do
  for u in nginx www-data;do
   if runuser -u "$u" -- test -r "$f";then echo 'STOP: Private Datei nun lesbar';exit 2;fi
