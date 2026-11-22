@@ -1,0 +1,138 @@
+name: HW24 isolated Laravel 13 Filament 5 foundation
+on:
+  push:
+    branches: [feature/hw24-platform-laravel13-filament5-20261122]
+  pull_request:
+    paths: [platform/**, .github/workflows/hw24-platform-foundation.yml]
+permissions:
+  contents: read
+jobs:
+  safe-foundation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: mbstring, pdo_sqlite, sqlite3, curl, xml, dom, fileinfo
+          coverage: none
+          tools: composer:v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Safe price-contract tests, no framework boot required
+        run: |
+          php platform/scripts/verify-price-contract.php
+          php platform/scripts/verify-gross-calculation.php
+          bash -n platform/ops/check-host-readonly.sh
+          bash -n platform/ops/verify-filament-loopback-http.sh
+          bash -n platform/ops/verify-testdomain-cutover-readonly.sh
+          bash -n platform/ops/upgrade-private-framework-ffonly.sh
+          bash -n platform/ops/upgrade-private-framework-cockpit-ffonly.sh
+          bash -n platform/ops/upgrade-test-article-layout-ffonly.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('platform/ops/upgrade-private-framework-cockpit-ffonly.sh').read_text()
+          assert 'merge --ff-only "$target"' in s
+          assert 'view:clear' in s and 'artisan migrate' not in s
+          assert 'plesk bin subdomain --update' not in s
+          assert 'APP_KEY=' not in s and 'chmod -R' not in s
+          assert 'VACUUM INTO ?' in s
+          assert "target='b679642212ac1daace71af7abcc65fe69dc293bb'" in s
+          PY
+          bash -n platform/ops/migrate-source-catalog-isolated.sh
+          bash -n platform/ops/verify-legacy-readbridge-live.sh
+          bash -n platform/ops/verify-filament-https-release-gates-readonly.sh
+          bash -n platform/ops/verify-plesk-cutover-mechanics-readonly.sh
+          bash -n platform/ops/cutover-testdomain-filament-with-rollback.sh
+          bash -n platform/ops/upgrade-test-cockpit-ffonly.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('platform/ops/upgrade-test-cockpit-ffonly.sh').read_text()
+          assert "old='a26a64d09597e41523e224c557bb1d4e39bdf052'" in p
+          assert "target='b679642212ac1daace71af7abcc65fe69dc293bb'" in p
+          assert 'merge --ff-only' in p
+          assert 'VACUUM INTO ?' in p
+          assert 'reset --hard "$old"' in p
+          assert 'plesk bin subdomain --update' not in p
+          assert 'artisan migrate' not in p
+          PY
+          bash -n platform/ops/fix-filament-public-frontcontroller-acl.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('platform/ops/fix-filament-public-frontcontroller-acl.sh').read_text()
+          assert 'setfacl -m u:nginx:r,u:www-data:r -- "$f1"' in p
+          assert 'setfacl -m u:nginx:r,u:www-data:r -- "$f2"' in p
+          assert 'getfacl -p -- "$f1" "$f2"' in p
+          assert 'setfacl --restore="$backup"' in p
+          assert 'plesk bin subdomain --update' not in p
+          assert 'chmod -R' not in p and 'chown -R' not in p
+          PY
+          python3 -m py_compile platform/ops/diagnose-filament-testdomain-403-readonly.py
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path('platform/ops/cutover-testdomain-filament-with-rollback.sh').read_text()
+          start=text.index("python3 - \"$app\" \"$site\" <<'PY'\n")+len("python3 - \"$app\" \"$site\" <<'PY'\n")
+          end=text.index("\nPY\nswitched=0",start)
+          Path('/tmp/hw24-guarded-cutover-smoke.py').write_text(text[start:end]+'\n')
+          assert "switched=1" in text and "trap restore EXIT" in text
+          assert 'AuthType' not in text or '401' in text
+          PY
+          python3 -m py_compile /tmp/hw24-guarded-cutover-smoke.py
+          python3 - <<'PY'
+          from pathlib import Path
+          raw=Path('platform/ops/verify-filament-https-release-gates-readonly.sh').read_text()
+          start=raw.index("runuser -u \"$owner\" -- \"$php\" -r '\n")+len("runuser -u \"$owner\" -- \"$php\" -r '\n")
+          end=raw.index("\n' \"$app\"",start)
+          Path('/tmp/hw24-release-preflight-check.php').write_text('<?php\n'+raw[start:end]+'\n')
+          PY
+          php -l /tmp/hw24-release-preflight-check.php
+          python3 platform/ops/configure-private-legacy-readbridge.py --self-test
+          python3 - <<'PY'
+          from pathlib import Path
+          raw=Path('platform/ops/verify-legacy-readbridge-live.sh').read_text()
+          start=raw.index("code='\n")+len("code='\n")
+          end=raw.index("\n'\nrunuser",start)
+          Path('/tmp/hw24-readbridge-smoke.php').write_text('<?php\n'+raw[start:end]+'\n')
+          PY
+          php -l /tmp/hw24-readbridge-smoke.php
+          python3 - <<'PY'
+          from pathlib import Path
+          raw=Path('platform/ops/migrate-source-catalog-isolated.sh').read_text()
+          start=raw.index("inspect='\n")+len("inspect='\n")
+          end=raw.index("\n'\n# Stop before backup",start)
+          Path('/tmp/hw24-sqlite-inspect.php').write_text('<?php\n'+raw[start:end]+'\n')
+          PY
+          php -l /tmp/hw24-sqlite-inspect.php
+          php -r '$db=new PDO("sqlite::memory:",null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);$out=tempnam(sys_get_temp_dir(),"hw24-vacuum-");try{$db->prepare("VACUUM INTO ?")->execute([$out]);$copy=new PDO("sqlite:".$out);if($copy->query("PRAGMA integrity_check")->fetchColumn()!=="ok")exit(2);}finally{unlink($out);}echo "SQLite VACUUM INTO backup smoke PASS\n";'
+          find platform/app platform/config platform/database platform/routes -name '*.php' -print0 | xargs -0 -n 1 php -l
+      - name: Validate composer manifest and no secrets
+        working-directory: platform
+        run: |
+          composer validate --no-check-publish
+          test ! -e .env
+          test ! -e vendor
+          test ! -e composer.lock
+      - name: Install only in temporary GitHub runner, never in the user's Plesk server
+        working-directory: platform
+        run: |
+          composer update --no-interaction --no-progress --prefer-dist
+          cp .env.example .env
+          touch database/database.sqlite
+          php artisan key:generate
+          php artisan migrate --force
+          php artisan test
+          php artisan about --only=environment
+      - name: Compile isolated UI assets
+        working-directory: platform
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run build
+      - name: Validate protected integration design
+        run: |
+          grep -q "private const PATHS" platform/app/Services/LegacyReadBridge.php
+          grep -q "withoutRedirecting" platform/app/Services/LegacyReadBridge.php
+          grep -q "'writes_enabled'=>false" platform/config/hw24_legacy.php
+          grep -q "'openai_auto_calls'=>false" platform/config/hw24_legacy.php
+          grep -q "'amazon_auto_calls'=>false" platform/config/hw24_legacy.php
+          test ! -e platform/.env.production

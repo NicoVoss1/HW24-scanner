@@ -1,0 +1,65 @@
+<?php
+declare(strict_types=1);
+namespace App\Services;
+
+use Illuminate\Support\Facades\Http;
+use RuntimeException;
+
+/**
+ * TEMPORARY READ-ONLY adapter to the existing, protected HW24 LIVE LEGACY APIs.
+ * This class cannot write to Wawi, WMS, Shopify, Amazon or OpenAI.
+ * No upstream request is made unless a caller explicitly invokes fetch().
+ */
+final class LegacyReadBridge
+{
+    private const PATHS = [
+        'jtl.article' => 'api/jtl.php',
+        // Available only AFTER the source-explorer Legacy PR has passed test deployment.
+        'jtl.fields' => 'api/jtl-fields.php',
+        'jtl.quality' => 'api/jtl-quality.php',
+        'jtl.options' => 'api/jtl-options.php',
+        'amazon.catalog' => 'api/amazon.php',
+        'amazon.keywords' => 'api/amazon-keywords.php',
+        'amazon.pricing' => 'api/amazon-pricing.php',
+        'ai.history' => 'api/ai-reviews.php',
+        'ai.budget' => 'api/ai-review.php', // GET only, never billable POST
+    ];
+
+    public function fetch(string $service, array $parameters = []): array
+    {
+        $path = self::PATHS[$service] ?? null;
+        if ($path === null) throw new RuntimeException('HW24 unknown or forbidden API endpoint');
+        $base = rtrim((string) config('hw24_legacy.base_url'), '/');
+        $user = (string) config('hw24_legacy.user');
+        $password = (string) config('hw24_legacy.password');
+
+        // Pin integration to the established legacy LIVE host. Prevent user-directed SSRF
+        // or accidental Basic credentials disclosure to redirects/other domains.
+        if (parse_url($base, PHP_URL_SCHEME) !== 'https' ||
+            parse_url($base, PHP_URL_HOST) !== 'artikelmanager.hairworld24.de' ||
+            !$user || !$password) {
+            return ['ok'=>false,'service'=>$service,'state'=>'unconfigured','http_status'=>null,'data'=>null];
+        }
+        foreach ($parameters as $key=>$value) {
+            if (!is_string($key) || !preg_match('/^[a-z_]{1,35}$/D',$key) || !is_scalar($value))
+                throw new RuntimeException('Invalid HW24 read parameter');
+        }
+        try {
+            $response = Http::withBasicAuth($user, $password)->acceptJson()
+                ->timeout(12)->withoutRedirecting()->get($base.'/'.$path,$parameters);
+            $status=$response->status();
+            $json=$response->json();
+            return [
+                'ok'=>$response->successful() && is_array($json) && (($json['ok']??false)===true),
+                'service'=>$service,
+                'state'=>$response->successful()?'responded':'upstream_error',
+                'http_status'=>$status,
+                'data'=>is_array($json)?$json:null,
+            ];
+        } catch (\Throwable $e) {
+            // No secrets, URL query params or raw upstream payloads in logs.
+            return ['ok'=>false,'service'=>$service,'state'=>'upstream_unreachable',
+                'http_status'=>null,'data'=>null];
+        }
+    }
+}
