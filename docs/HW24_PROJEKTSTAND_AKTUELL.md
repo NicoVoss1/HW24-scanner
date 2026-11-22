@@ -1,3 +1,13 @@
+## NEUESTE VERIFIKATION · 22.11.2026 · ARTISAN- UND LIVE-ABNAHME
+
+**PuTTY bestätigt:** Laravel CLI 13.43.0, Filament-4er-Routenliste (/admin, /admin/artikel, /admin/login, /admin/logout), alle vier V4.25-Dateihashes im **Live-Artikelmanager** OK. Eine private Laravel-.env und lokale SQLite existieren noch nicht. Nur ein vollständiger Prüfdurchlauf beobachtet; zweiter geposteter Befehlsblock ohne abschließende Terminalausgabe.
+
+**Nächste Aktion:** isoliertes Laravel-.env mit APP_ENV=production, APP_DEBUG=false, HTTPS und APP_KEY; ausschließlich private SQLite-Datenbank Laravel-Systemmigrationen, Filament-Assets. Keine DB-/Website-Migration des Legacy-Codepfads. Legacy-Live angemeldet testen, ehe die bestehende Testdomain umgeschaltet wird.
+
+[Vollständiger Einzelnachweis](./HW24_ARBEITSJOURNAL.md), Commit 3b7ee3a26e2a524fe54f136f38453d9d190239c7.
+
+---
+
 # AKTUELLSTER PROJEKTSTAND · 22.11.2026 (Composer und Laravel/Filament erfolgreich installiert)
 
 **VERBINDLICHER EINSTIEG:** [Kurz-Übergabe für jeden neuen Chat](./HW24_HANDOVER.md) · [Chronologisches Arbeitsjournal](./HW24_ARBEITSJOURNAL.md) · [Zwei-Domain-Rollout](./HW24_TWO_DOMAIN_ROLLOUT_20261122.md). **Dieser neueste Stand ersetzt widersprechende frühere Planungsannahmen weiter unten.**
