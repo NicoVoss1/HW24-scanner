@@ -1,3 +1,17 @@
+## NEUESTER ARBEITSSTAND · 22.11.2026 · HTTP-Basic-Loginwechsel betrifft Scanliste UND KI-Archiv
+
+**Korrigierter Betreiberwunsch:** Die bestehende HTTP-Basic-Benutzerkennung soll für den Artikelmanager und die Scanliste auf einen neuen gewünschten Namen umgestellt werden. Im vorherigen Chat wurde der alte Loginname mit einer Bereichsbeschriftung verwechselt; **älteres Plesk-Rename-Skript nicht ausführen**. Die beiden konkreten Benutzernamen bleiben im aktuellen Betreiberdialog und werden nicht im öffentlichen GitHub-Kontext gespeichert.
+
+**Echter Code-Nachweis:** `scanliste.html` sendet `credentials:'same-origin'` und `api/scanliste.php` nutzt den Basic-Login als `hw24_scan_batches.created_by`. `api/ai-reviews.php` und `api/ai-review.php` verwenden denselben Basic-Login als `hw24_ai_reviews.actor`. Ein einfacher Plesk-Namenswechsel ohne Kompatibilitätsregel kann bestehende Scanlisten-Stapel und **alle 3 nachweislich gespeicherten KI-Berichte** verstecken. Die genau gespeicherte historische Actor-Kennung ist aber noch **NICHT** mit altem oder neuem Login abgeglichen.
+
+**Jetzt technisch vorbereitet (NOCH NICHT auf Plesk installiert):** [Draft PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37), Branch `feature/hw24-login-alias-scan-ai-20261122`, GitHub-CI [#44977971992](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44977971992) **SUCCESS**. Neues `api/hw24-actor-identity.php` erlaubt über eine **nur serverseitige private Datei** einen neuen Basic-Login auf eine stabile historische Owner-Kennung abzubilden. Die drei APIs für Scanliste, KI-Archiv und KI-Prüfung übernehmen diese Logik unter Beibehaltung der Auth-Prüfungen, Actor-Filter und ohne SQL-Rewrites. Private Zuordnung **noch nicht angelegt**. Keine Domain-/DB-/Benutzeränderung.
+
+**GENAU NÄCHSTER BETREIBER-SCHRITT:** Den [Read-only Login- und Datenbestandscheck](./HW24_LOGIN_IDENTITAETSWECHSEL_20261122.md) via PuTTY ausführen und die Plesk-Passwortschutz-Locations für Live und Test sowie Counts für `hw24_ai_reviews.actor` und `hw24_scan_batches.created_by` unter ALT/NEU ermitteln. Nur dann richtigen Alias wählen (oder weglassen, wenn historische Daten bereits unter neuer Kennung sind), Plesk-Zugang mit Rückfallsicherung umbenennen und Scanliste + 3 KI-Berichte im Browser prüfen. Das ist **noch nicht geschehen**. Daten bleiben unverändert.
+
+[Arbeitsjournal](./HW24_ARBEITSJOURNAL.md), Commit `434adae20343fa6d0a38fe8e02d42c35f9cb8fe6`.
+
+---
+
 ## AKTUELLSTER BENUTZERWUNSCH · Passwortschutz-Login für HW24 Test umbenennen (22.11.2026)
 
 **Betreiber hat eine konkrete neue Benutzerkennung für „HW-24 Test“ vorgegeben.** Aus Datenschutz-/Sicherheitsgründen wird der Login-String **nicht** im öffentlichen Repository notiert, sondern nur im aktuellen Betreiberdialog verwendet. **Die Änderung ist NOCH NICHT AUF PLESK AUSGEFÜHRT.** Kein Plugin-Zugriff auf SSH/Plesk vorhanden; die eigentliche Anmeldekonto-Umbenennung muss nach Auth-Quellenprüfung durch den Betreiber auf Plesk erfolgen. Laut [Plesk-Obsidian-Dokumentation](https://docs.plesk.com/en-US/obsidian/cli-linux/using-command-line-utilities/protdir-site-directories-protection.39417/) kann eine vorhandene Plesk-passwortgeschützte Verzeichniskennung mit `plesk bin protdir -u <VERZEICHNIS> -domain <DOMAIN> -update_user <ALT> -user_name <NEU>` geändert werden, aber **nur**, wenn Plesk den tatsächlich betroffenen Basic-Auth-Zugang verwaltet und Verzeichnis / bisherige Benutzerkennung genau geprüft wurden. Nicht blind auf der Live-Domain ausführen.
