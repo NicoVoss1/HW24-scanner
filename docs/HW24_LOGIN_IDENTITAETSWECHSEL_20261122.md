@@ -1,3 +1,95 @@
+## 22.11.2026 · Test-Webroot-Backup erfolgreich, PR37 Git-Diff auf 7 Dateien eingegrenzt
+
+**Betreiber-PuTTY-Erfolg:** Test-Webroot gesichert unter `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz`, TAR-Dateiinhaltscheck bestanden, SHA-256 `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26`. Live/Test/Basic-Anmeldung unberührt. Backup ist **nicht** automatisch ein Backup der Plesk-HTTP-Basic-Konfiguration oder der MariaDB-Datenbank.
+
+**GitHub-Connector-Compare:** PR37-Featurebranch gegenüber `deploy/staging` **12 Commits vor, 0 zurück**, exakt 7 Dateipfade geändert: `.github/workflows/hw24-v425-intelligence-test.yml`, `api/scanliste.php`, `api/ai-reviews.php`, `api/ai-review.php`, neuer `api/hw24-actor-identity.php`, `tests/hw24-actor-alias.test.php`, `tests/hw24-v425-article-intelligence.test.cjs`. CI für HEAD `c2cc4e1dc054da00f01087e7221659cf54a9a482` zweimal grün. Keine geänderten JS-/HTML-Frontends oder Datenbankmigrationen im PR.
+
+### Nächster abgetrennter Schritt: NUR TEST-Git-Featurebranch vorbereiten, NOCH KEIN DEPLOY
+
+**Ziel:** Nach erfolgreichem Backup nur das **manuelle** Plesk-Git-Test-Repository `HW24-scanner.git` aktualisieren und seine aktive Branch-Metadaten auf den **gepinnten** PR37-Featurebranch setzen. `plesk ext git --update -active-branch ...` ist laut [offizieller Plesk-Obsidian-CLI-Dokumentation](https://docs.plesk.com/en-US/obsidian/cli-linux/using-command-line-utilities/git-git-repositories.75956/) die vorgesehene Option. **Keine** `--deploy`-Operation, keine Live-Änderung.
+
+```bash
+bash <<'HW24_PR37_BRANCH_ONLY'
+set -euo pipefail
+umask 077
+
+domain="test-artikelmanager.HAIRWORLD24.de"
+repo="HW24-scanner.git"
+branch="feature/hw24-login-alias-scan-ai-20261122"
+want="c2cc4e1dc054da00f01087e7221659cf54a9a482"
+backup="/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz"
+expect_sum="679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26"
+webroot="/var/www/vhosts/hairworld24.de/test-artikelmanager.HAIRWORLD24.de"
+log="$(mktemp /root/hw24-backups/pr37-git-stage.XXXXXXXX)"
+switched=no
+verified=no
+
+rollback() {
+  if [ "$switched" = yes ] && [ "$verified" != yes ]; then
+    plesk ext git --update -domain "$domain" -name "$repo" \
+      -active-branch deploy/staging >>"$log" 2>&1 || true
+    echo "Fehler: Git-Branch-Rueckstellung versucht, bitte Status nachpruefen."
+  fi
+}
+trap rollback EXIT
+
+echo "=== HW24 PR37 NUR TEST-BRANCH VORBEREITEN ==="
+test -f "$backup"
+printf '%s  %s\n' "$expect_sum" "$backup" | sha256sum -c --status
+echo "Backup SHA256: OK"
+
+info="$(plesk ext git --info -domain "$domain" -name "$repo")"
+printf '%s\n' "$info" | grep -Fq 'Deployment mode: manual'
+printf '%s\n' "$info" | grep -Fq 'Active branch: deploy/staging'
+echo "TEST-Repository: branch deploy/staging, manuell"
+
+before="$(for p in api/scanliste.php api/ai-reviews.php api/ai-review.php; do
+  git hash-object "$webroot/$p"
+done)"
+echo "1. Featurebranch aus GitHub abrufen, ohne Deploy ..."
+if ! plesk ext git --fetch -domain "$domain" -name "$repo" >"$log" 2>&1; then
+  echo "STOP: Git-Fetch nicht erfolgreich. Privates Log: $log"; exit 1
+fi
+
+echo "2. Nur Plesk-Test-Git-Branch auf PR37 setzen ..."
+if ! plesk ext git --update -domain "$domain" -name "$repo" \
+  -active-branch "$branch" >>"$log" 2>&1; then
+  echo "STOP: Branch-Umstellung fehlgeschlagen. Privates Log: $log"; exit 1
+fi
+switched=yes
+
+after_info="$(plesk ext git --info -domain "$domain" -name "$repo")"
+printf '%s\n' "$after_info" | grep -Fq "Active branch: $branch"
+printf '%s\n' "$after_info" | grep -Fq 'Deployment mode: manual'
+
+actual="$(plesk ext git --get-last-commit -domain "$domain" -name "$repo" | tr -d '\r\n')"
+if [ "$actual" != "$want" ]; then
+  echo "STOP: Unerwarteter PR-Commit: $actual"
+  exit 1
+fi
+echo "PR37-Commit: $actual"
+
+after="$(for p in api/scanliste.php api/ai-reviews.php api/ai-review.php; do
+  git hash-object "$webroot/$p"
+done)"
+if [ "$before" != "$after" ]; then
+  echo "STOP: Test-Webroot-Inhalte haben sich unerwartet geaendert."
+  exit 1
+fi
+echo "Test-Webroot-Dateihashes unveraendert: JA"
+test ! -f "$webroot/api/hw24-actor-identity.php"
+echo "KEIN DEPLOY AUSGEFUEHRT; Live und Datenbanken unveraendert"
+verified=yes
+echo "=== PR37-QUELLBRANCH NUR AUF TEST VORBEREITET ==="
+HW24_PR37_BRANCH_ONLY
+```
+
+**Abbruch:** Ein misslungener Branchwechsel wird nicht durch einen `--deploy` verschlimmert. Der Skript-Rollback versucht bei einem Fehler nach der Branchänderung lediglich die **Git-Metadaten** auf `deploy/staging` zu setzen, stellt aber keine Webdateien automatisch wieder her. Das erhaltene private Backup bleibt bis zur Endabnahme unangetastet.
+
+**Nächstes Gate nach Erfolg:** separater kontrollierter Test-Webroot-Deploy mit vorab noch zu prüfenden Plesk-HTML-/API-Abhängigkeiten, danach private `read_aliases`-Datei (streng berechtigter `nvoss`-Login liest beide Owner), Browser-Nachweis alte/neue Scan-Stapel und 3 KI-Berichte, und erst danach TEST-Basic-Kennung umbenennen. **Vor der Plesk-Rename-Operation muss der tatsächliche Test-Passwortschutz noch separat gesichert werden.** Nicht über Plesk-Git gleichzeitig Laravel/Filament auf die Testdomain schalten.
+
+---
+
 ## DOMAIN-ZUORDNUNG ENDGÜLTIG BESTÄTIGT · 22.11.2026
 
 **PuTTY-Beleg:** `domains.id=9` ist **LIVE** `artikelmanager.hairworld24.de`, `protected_dirs.id=8`, bestehender Haupt-Basic-Benutzer; `domains.id=10` ist **TEST** `test-artikelmanager.hairworld24.de`, `protected_dirs.id=9`, bisheriger Test-Basic-Benutzer. Beide Schutzpfade sind Root (DB-Feld `path` leer), `dom_type=domain`, Plesk Hostingtyp `vrt_hst`. Gemeinsamer `parentDomainId=5`. `plesk-stat` auf `dom_id=1` völlig ausklammern.
