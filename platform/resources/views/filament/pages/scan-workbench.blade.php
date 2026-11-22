@@ -159,7 +159,7 @@
                                                 @if(isset($batchAiMarkers[$item['ean']]))
                                                     <span class="hw24-stat">🧠 Bereits geprüft</span>
                                                     <div class="hw24-sub">{{ $batchAiMarkers[$item['ean']]['count'] }} Bericht(e) · zuletzt {{ $batchAiMarkers[$item['ean']]['at'] }} UTC</div>
-                                                @elseif(($batchAiStatus['ok']??false)===true)
+                                                @elseif(($batchAiStatus['ok']??false)===true && in_array($item['ean'],($batchAiStatus['checked_eans']??[]),true))
                                                     <span class="hw24-sub">Kein bestätigter Archivtreffer in der geprüften Teilmenge</span>
                                                 @else
                                                     <span class="hw24-sub">Noch nicht geprüft</span>
