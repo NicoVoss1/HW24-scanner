@@ -1,3 +1,78 @@
+## AKTUELLSTER BETREIBER-BEFUND · TEST-RÜCKSTELLUNG ERFOLGREICH (22.11.2026)
+
+**Nach vorherigem falschem SHA-Textvergleich jetzt wirklich read-only verifiziert:** `test-artikelmanager.HAIRWORLD24.de` / `HW24-scanner.git` steht wieder auf `deploy/staging`, `Deployment mode: manual`, deploy path `/test-artikelmanager.HAIRWORLD24.de`. Die drei Legacy-APIs haben ihre unveränderten Git-Blob-SHAs: `api/scanliste.php=e9fb8075c4f532d7a76adf81e760acf81cab4528`, `api/ai-reviews.php=00fb61c9d636434cdc6562edf169811a717c0911`, `api/ai-review.php=2eabde207434b8c62162dc553354cd052c6ec98f`. `api/hw24-actor-identity.php` **nicht vorhanden**. Der versuchte Metadaten-Rollback hat somit funktioniert; der Testcode blieb unverändert, kein Deploy.
+
+[Draft PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37) HEAD **`c2cc4e1dc054da00f01087e7221659cf54a9a482`**, CI-Läufe `44978357305` und `44978360796` beide grün, nochmals am 22.11.2026 über GitHub überprüft. Test-Webroot-Backup: `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz`, SHA256 `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26`.
+
+### Nächste einzelne Aktion: Test-Git-Branch wählen und Commit-Zeile korrekt parsen; KEIN Deploy
+
+**NUR diesen neuen korrigierten Block verwenden.** Der vorherige Block `HW24_PR37_BRANCH_ONLY` weiter unten in der Historie ist wegen fehlerhafter Commit-Ausgabeformat-Annahme überholt.
+
+```bash
+bash <<'HW24_PR37_SELECT'
+set -euo pipefail
+d="test-artikelmanager.HAIRWORLD24.de"
+r="HW24-scanner.git"
+b="feature/hw24-login-alias-scan-ai-20261122"
+want="c2cc4e1dc054da00f01087e7221659cf54a9a482"
+root="/var/www/vhosts/hairworld24.de/$d"
+backup="/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz"
+sum="679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26"
+
+echo "=== NUR PLESK-TEST-GIT-BRANCH AUSWAEHLEN ==="
+printf '%s  %s\n' "$sum" "$backup" | sha256sum -c --status
+
+info="$(plesk ext git --info -domain "$d" -name "$r")"
+printf '%s\n' "$info" | grep -Fq 'Deployment mode: manual'
+printf '%s\n' "$info" | grep -Fq 'Active branch: deploy/staging'
+
+for pair in \
+  "api/scanliste.php e9fb8075c4f532d7a76adf81e760acf81cab4528" \
+  "api/ai-reviews.php 00fb61c9d636434cdc6562edf169811a717c0911" \
+  "api/ai-review.php 2eabde207434b8c62162dc553354cd052c6ec98f"; do
+  path="${pair%% *}"
+  sha="${pair#* }"
+  test "$(git hash-object "$root/$path")" = "$sha"
+done
+test ! -e "$root/api/hw24-actor-identity.php"
+echo "Backup und Legacy-Dateien: OK"
+
+# Featurebranch wurde im vorherigen Versuch bereits erfolgreich gefetched.
+plesk ext git --update -domain "$d" -name "$r" -active-branch "$b"
+
+info="$(plesk ext git --info -domain "$d" -name "$r")"
+printf '%s\n' "$info" | grep -Fq "Active branch: $b"
+printf '%s\n' "$info" | grep -Fq 'Deployment mode: manual'
+
+# --get-last-commit gibt einen mehrzeiligen Git-Block zurück:
+# Nur den SHA aus der Zeile "commit <40 HEX>" extrahieren.
+actual="$(plesk ext git --get-last-commit -domain "$d" -name "$r" |
+  sed -nE 's/^commit[[:space:]]+([0-9a-f]{40}).*/\1/p')"
+echo "Gewaehlter Git-HEAD: $actual"
+if [ "$actual" != "$want" ]; then
+  echo "STOP: Branch-HEAD nicht erwartet. Kein Deploy ausfuehren."
+  exit 1
+fi
+for pair in \
+  "api/scanliste.php e9fb8075c4f532d7a76adf81e760acf81cab4528" \
+  "api/ai-reviews.php 00fb61c9d636434cdc6562edf169811a717c0911" \
+  "api/ai-review.php 2eabde207434b8c62162dc553354cd052c6ec98f"; do
+  path="${pair%% *}"
+  sha="${pair#* }"
+  test "$(git hash-object "$root/$path")" = "$sha"
+done
+test ! -e "$root/api/hw24-actor-identity.php"
+echo "ERFOLG: Test-Git-Featurebranch gewaehlt, Webroot unveraendert"
+echo "KEIN DEPLOY, KEIN ACCOUNT-RENAME, KEINE KI-KOSTEN"
+HW24_PR37_SELECT
+```
+
+**Wenn `STOP` oder vorheriges Shell-Ende:** Aktiven Testbranch und Webroot erneut nur lesend prüfen. Selbst wenn die Branch-Metadaten auf PR37 zeigen, ist **ohne `--deploy` noch keine PR37-Datei in der Website installiert**. Einen Rollback der Branch-Metadaten vor allem bei unerwartetem SHA erst nach Statusfeststellung ausführen, nicht nochmal blind das alte fehlerhafte Skript verwenden. TEST-Login `hw24-test` weiterhin unverändert; Live-Basic `nvoss` und die drei KI-Berichte/Scan-Stapel bleiben erhalten.
+
+[Beleg im Journal](./HW24_ARBEITSJOURNAL.md), Commit `6382a2816283aa8f0380c70d7d63977e4199b147`.
+
+---
+
 ## WICHTIGE KORREKTUR · 22.11.2026 · Git SHA bereits richtig, vorheriges Branch-Skript NICHT erneut ausführen
 
 **Benutzer-PuTTY-Ausgabe:** `HW24_PR37_BRANCH_ONLY` hat das Backup erfolgreich geprüft, nur auf Test `git --fetch` und `--update -active-branch ...` ausgeführt. Der tatsächliche Plesk-`--get-last-commit`-Output beginnt mit `commit c2cc4e1dc054da00f01087e7221659cf54a9a482` und enthält danach **Autor, Datum, Nachricht**. Der im alten Skript verwendete Vergleich nach `tr -d '\r\n'` ist **FALSCH**: Er vergleicht den gesamten zusammengeklebten Block statt der reinen 40-stelligen SHA. Daher der scheinbare `STOP: Unerwarteter Commit`. **Der angezeigte SHA war korrekt.**
