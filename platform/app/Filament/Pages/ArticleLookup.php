@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Services\LegacyReadBridge;
+use App\Domain\Jtl\SourceSnapshot;
 use Filament\Pages\Page;
 use Livewire\Attributes\Locked;
 
@@ -25,9 +26,20 @@ final class ArticleLookup extends Page
     #[Locked]
     public array $ai = [];
 
+    #[Locked]
+    public array $sourceState = [];
+
+    #[Locked]
+    public array $sourceRows = [];
+
+    #[Locked]
+    public int $sourceNextOffset = 0;
+
+    public string $sourceQuery = '';
+
     public function findArticle(LegacyReadBridge $bridge): void
     {
-        $this->reset(['lookup', 'amazon', 'ai']);
+        $this->reset(['lookup', 'amazon', 'ai', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery']);
         $id = trim($this->identifier);
         if (! preg_match('/^[\pL\pN][\pL\pN._\/-]{1,63}$/uD', $id)) {
             $this->addError('identifier', 'Bitte EAN, HAN oder JTL-Artikelnummer eingeben.');
@@ -41,6 +53,7 @@ final class ArticleLookup extends Page
         foreach (array_slice(is_array($raw['matches'] ?? null) ? $raw['matches'] : [], 0, 15) as $row) {
             if (! is_array($row)) continue;
             $matches[] = [
+                'jtl_article_id' => (string) ($row['jtl_article_id'] ?? ''),
                 'artikelnummer' => (string) ($row['artikelnummer'] ?? ''),
                 'ean' => (string) ($row['ean'] ?? ''),
                 'han' => (string) ($row['han'] ?? ''),
@@ -58,6 +71,64 @@ final class ArticleLookup extends Page
             'jtl_status' => (string) ($raw['jtl_status'] ?? 'unbekannt'),
             'matches' => $matches,
             'ean' => isset($matches[0]) ? $matches[0]['ean'] : null,
+        ];
+    }
+
+    /** Manually load one page of original JTL source fields, never a bulk DB export. */
+    public function readJtlSources(LegacyReadBridge $bridge): void
+    {
+        $this->reset(['sourceState','sourceRows','sourceNextOffset','sourceQuery']);
+        $this->fetchJtlSourcePage($bridge);
+    }
+
+    public function loadMoreJtlSources(LegacyReadBridge $bridge): void
+    {
+        if (($this->sourceState['ok']??false)!==true ||
+            ($this->sourceState['has_more']??false)!==true) return;
+        $this->fetchJtlSourcePage($bridge);
+    }
+
+    private function fetchJtlSourcePage(LegacyReadBridge $bridge): void
+    {
+        // Multiple matches must be resolved by article number before using
+        // any article-specific source rows.
+        $matches=$this->lookup['matches']??[];
+        if (($this->lookup['jtl_status']??null)!=='current_snapshot' ||
+            !is_array($matches)||count($matches)!==1) {
+            $this->sourceState=['ok'=>false,'reason'=>'Eindeutigen, aktuellen JTL-Artikel wählen.'];
+            return;
+        }
+        $article=$matches[0];
+        $id=(string)($article['jtl_article_id']??'');
+        $ean=(string)($article['ean']??'');
+        if (!preg_match('/^[0-9]{1,12}$/D',$id) ||
+            !preg_match('/^(?:[0-9]{8}|[0-9]{12}|[0-9]{13}|[0-9]{14})$/D',$ean)) {
+            $this->sourceState=['ok'=>false,'reason'=>'JTL-Artikel-ID oder EAN ungültig.'];
+            return;
+        }
+        $result=$bridge->fetch('jtl.fields',[
+            'article_id'=>$id,'ean'=>$ean,'offset'=>$this->sourceNextOffset,'limit'=>80
+        ]);
+        $raw=is_array($result['data']??null)?$result['data']:[];
+        $page=SourceSnapshot::present($raw);
+        if(($result['ok']??false)!==true || ($page['ok']??false)!==true ||
+            ($page['article_id']??null)!==$id || ($page['ean']??null)!==$ean) {
+            $this->sourceState=['ok'=>false,'reason'=>'JTL-Feldquelle nicht verfügbar oder noch nicht bereitgestellt.'];
+            return;
+        }
+        if ($this->sourceNextOffset>0 &&
+            ($this->sourceState['snapshot_at']??null)!==$page['snapshot_at']) {
+            $this->reset(['sourceRows','sourceNextOffset']);
+            $this->sourceState=['ok'=>false,'reason'=>'Neuer JTL-Snapshot erkannt. Quellfelder bitte erneut laden.'];
+            return;
+        }
+        $this->sourceRows=array_merge($this->sourceRows,$page['fields']);
+        $this->sourceNextOffset+=count($page['fields']);
+        $this->sourceState=[
+            'ok'=>true,'snapshot_at'=>$page['snapshot_at'],
+            'field_count'=>$page['field_count'],
+            'has_more'=>$page['has_more'],
+            'prices'=>$page['prices'],
         ];
     }
 
