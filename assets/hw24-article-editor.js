@@ -72,6 +72,14 @@ const editable=new Set(Object.values(fieldSets).flatMap(group=>group.map(f=>f[0]
 const state={jtl:null,article:null,approved:{},revision:0,controls:new Map(),
  initial:new Map(),reference:null,latestRequest:0,saving:false,sourceFresh:false,
  options:{articleTypeValues:['Normaler Artikel'],shippingValues:[],taxValues:[],currencyValues:['EUR']}};
+// Default proposals are UI-only and deliberately NOT represented as JTL source values.
+// They become a curated HW24 draft only after explicit user review and confirmation.
+function standardProposal(key,old,approved){
+ if(approved!==null||val(old))return '';
+ if(key==='Artikeltyp')return 'Normaler Artikel';
+ if(key==='Währung')return 'EUR';
+ return '';
+}
 const money=x=>x===null||x===undefined||val(x)===''?'Nicht belegt':
  Number.isFinite(Number(x))?Number(x).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €':'Nicht lesbar';
 const gtinGood=ean=>{
@@ -152,7 +160,8 @@ function createField(target,definition){
  const old=original(key,state.article);
  const approved=Object.prototype.hasOwnProperty.call(state.approved,key)?
    val(state.approved[key]):null;
- const current=approved!==null?approved:val(old);
+ const proposed=standardProposal(key,old,approved);
+ const current=approved!==null?approved:(val(old)||proposed);
  const box=el('div',target,null,'editor-field'+(layout==='wide'?' wide':'')+(current?'':' missing'));
  const tag=el('label',box,label);
  const id='field_'+key.replace(/[^a-zA-Z0-9]/g,'_');
@@ -213,10 +222,19 @@ function createField(target,definition){
    provenance='Lieferstatus-ID '+(val(state.article?.jtl_source_fields?.kLieferStatus)||'unbekannt')+
     ' · Klartextzuordnung fehlt im derzeitigen JTL-Spiegel.';
  hint.textContent=provenance;
+ if(proposed){
+  provenance=key==='Währung'
+   ?'HW24-Vorschlag: EUR für den deutschen Shop. Nicht als JTL-Originalwert nachgewiesen. Bitte prüfen und bestätigen.'
+   :'HW24-Vorschlag: Normaler Artikel. Nicht als JTL-Originalwert nachgewiesen. Bitte prüfen und bestätigen.';
+  hint.textContent=provenance;
+  box.classList.add('proposal');
+ }
  if(approved!==null)hint.classList.add('edited');
  if(!current)hint.classList.add('missing-label');
  state.controls.set(key,{control,box,hint,old:origin});
- state.initial.set(key,current);
+ // Compare against the REAL source baseline, not the suggested display value.
+ // Otherwise proposed values would not appear in the review diff.
+ state.initial.set(key,approved!==null?approved:val(old));
  control.addEventListener('input',()=>{box.classList.toggle('missing',!val(control.value));renderChanges()});
  control.addEventListener('change',renderChanges);
 }
