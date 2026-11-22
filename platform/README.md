@@ -1,6 +1,6 @@
 # HW24 Intelligence Console · isolierter Laravel-13-/Filament-5-Pilot
 
-**Status 22.11.2026:** Das offizielle Laravel-13-Skeleton liegt im **separaten GitHub-Featurebranch**, nicht im Plesk-Webroot und nicht in `deploy/staging` oder `main`. `filament/filament:^5.0` ist in Composer deklariert. **Laravel-/Filament-Pakete und Adminpanel sind noch nicht auf dem Plesk-Server installiert.** Ohne Composer, NPM und geeignete PHP-Handler ist die App dort noch nicht startbar.
+**Stand 22.11.2026:** Die Laravel-13-/Filament-5-Quellen bleiben in einem **isolierten GitHub-Featurebranch**, getrennt von `deploy/staging` und `main`. Laut dokumentiertem Betreiber-Plesk-Preflight liegen Laravel **13.43.0** und Filament **5.12.0** bereits in einem **privaten** Verzeichnis; PHP **8.5.13** und die Composer-Plattformanforderungen wurden dort geprüft. **Die öffentliche Testdomain ist weiterhin die Legacy-Anwendung; ein erfolgreicher FPM-/Filament-Browsertest und die Asset-Dateirechte sind noch nicht abschließend abgenommen.** Dieser Branch darf nicht in den alten öffentlichen Webroot ausgerollt werden.
 
 ## Sicherheit und Zero-Loss-Vorgehen
 
@@ -82,3 +82,24 @@ Neu implementiert, **noch nicht auf Plesk veröffentlicht**:
 **Keine neue Subdomain, keine neue MariaDB:** später private Laravel-App im bestehenden Webspace, eigene lokale SQLite-Datei nur für Laravel-Login/Anwendungsmetadaten (nicht für JTL-Daten), Plesk-Test-Webroot ausschließlich auf `platform/public`, PHP 8.4. Filament Panel Builder ist laut Hersteller für den ersten Start grundsätzlich ohne eigene Node-/npm-Buildkette nutzbar; eigene UI-Tailwind-/Vite-Anpassungen erfordern später einen Asset-Build. Initiale Installation der PHP-Pakete muss mit `/opt/plesk/php/8.4/bin/php` als **nicht-root** erfolgen. Die private Datei `.env` enthält `APP_ENV=production`, `APP_DEBUG=false`, `APP_URL=https://test-artikelmanager.hairworld24.de`, `HW24_ADMIN_EMAIL`, `HW24_LEGACY_URL` und die Basic-Auth-Credentials. Der Operator wird nur lokal über `artisan make:filament-user` angelegt.
 
 **Unverändert:** alle Legacy-APIs, JTL-Wawi, WMS, MariaDB-Spiegel, KI-Archiv, Live-/Test-Plesk-Webroots, Branch `deploy/staging`, GitHub-Defaultbranch `main`, Plesk-Git-Einstellungen.
+
+## V4.26: vollständige Quelle ansehen, getrennte Plattform-Katalogdaten
+
+Die neue Legacy-Testentwicklung in PR #41 ergänzt die authentifizierte **GET-only**-API `api/jtl-fields.php`. Die Laravel-`LegacyReadBridge` kennt nun `jtl.fields`, schaltet aber **keinen** automatischen Abruf und **keinen** Schreibpfad frei. Das Filament-Panel zeigt für einen eindeutigen, aktuellen JTL-Treffer die Originalquellen und eine nach Seite begrenzte Quellfeldertabelle (80 pro Abruf). Zusätzliche Seiten werden ausdrücklich per Klick geholt; eine alte Snapshot-Generation darf beim Blättern nicht mit einer neueren vermischt werden. Ohne bereitgestellten Legacy-Endpunkt erscheint ein Fehler statt erfundener Daten.
+
+Das neue, **isolierte Plattform-Datenmodell** enthält:
+- `source_field_catalog` für SQL-Feldnamen, Datentyp, Geschäftsbereich, Herkunft, Freigabestand und Kennzeichnung sensibler Felder.
+- `source_reference_observations` für spätere, **explizit geprüfte** Referenzwerte aus z. B. Kostenarten, Steuerklassen oder Währungsquellen. Derzeit keine automatisch importierten Rohzeilen.
+- `channel_account_registry` für getrennte Amazon-, eBay- und Shopify-Konten einschließlich echter externer Konto-ID nach Verifizierung; noch keine automatischen Marketplace-Preise.
+
+Die **bereits vorhandenen JTL-Originaldaten bleiben in der bisherigen MariaDB** und werden nicht bei jeder Windows-Synchronisation noch einmal in Laravel dupliziert. Nur bestätigte fachliche Referenztabellen dürfen später selektiv in die Plattformdatenbank übernommen werden. JTL-Wawi, WMS und bestehende HTTP-APIs bleiben unverändert.
+
+Optional in einer **isolierten, geprüften Laravel-Testdatenbank** zur Vorbereitung eines Feldkatalogs:
+```bash
+php artisan db:seed --class=ObservedSourcesSeeder
+```
+Dieser Seeder übernimmt nur nachgewiesene Feld**metadaten** aus der Betreiber-SQL-Ausgabe sowie als **`label_only`** markierte Anzeigenamen der beiden eBay-Zugänge und der Shopify-Kanäle. Er liest keine JTL-DB, erzeugt keine Personen- oder Demo-Zugänge und liefert **keine** validierten Verkaufspreise. Er darf erst nach den eigenständigen Laravel-Migrationen auf der getrennten Plattformdatenbank laufen; **niemals** gegen `hw24_artikelmanager` oder `eazybusiness`.
+
+Technische eBay-Konto-IDs, Zuordnung von JTL-eazyAuction-Angeboten zu den zwei Zugängen, tatsächliche Angebotspreise, Steuerinklusion, Lieferstatus-Namen und Original-Brutto-VK fehlen weiterhin als verifizierte SQL-Quellen (Issue #33, PR #40).
+
+**Freigabekette:** erst PR #39 und #41 auf der geschützten Legacy-Testumgebung browsergetestet → Windows-SQL-Quellen sauber verifiziert → getrennte Laravel-Admin-/Asset-/ACL-Prüfung → isolierter Framework-Test mit dem GET-Adapter → kein Produktiv-Cutover ohne gesonderte Freigabe und Rollback.
