@@ -741,3 +741,25 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 - **Sicherheits- und Auswertungsumfang:** Verwendet nur die bereits existierende private MariaDB-Konfiguration, `SELECT COUNT(*)`, `COUNT(DISTINCT actor)`, `COUNT(DISTINCT ean)`, parametrisierten historischen ID-/EAN-Existenztest und anonymisierte `GROUP BY actor`-Counts. Gibt **keine** Authentifizierungskennung/Passwort/API-Tokens/Reviewtexte aus. Kein KI-POST, keine Migration und keine Plesk-Änderung.
 - **Übertragung für neue Chats:** [HW24_HANDOVER.md](./HW24_HANDOVER.md) aktualisiert unter Commit `f4324e514fb3309b08456ff70e115a7129e709fa`; [HW24_PROJEKTSTAND_AKTUELL.md](./HW24_PROJEKTSTAND_AKTUELL.md) unter Commit `74c6cbc978d1c18753838cc01c3f5393fcadbe2b`.
 - **Nächster wirklicher Erkenntnisschritt:** Der Betreiber führt `HW24_AI_ARCHIVE_AUDIT` per PuTTY auf dem bestehenden Plesk-Server aus und übermittelt nur aggregierte Ausgaben. Ohne die echte MariaDB-Zahl ist weder die Behauptung „alle archivierten Berichte fehlen“ noch die Aussage „nur anderer Actor“ verifiziert. Anschließend targeted Code-/UI-Korrektur auf isoliertem Branch mit Regressionstests und manueller Freigabe zur Live-Bereitstellung.
+
+
+### 22.11.2026 · MariaDB-KI-Archiv read-only geprüft: 3 Berichte vorhanden, Live-Anzeige 0
+
+**Quelle:** Vollständige Betreiber-PuTTY-Ausgabe des rein lesenden `HW24_AI_ARCHIVE_AUDIT`; der teils verrutschte Kopier-/Eingabetext hat die eigentliche erfolgreiche SQL-Prüfung nicht verhindert.
+
+| Schritt | Direkt beobachtetes Ergebnis | Status |
+| --- | --- | --- |
+| 125 · Bestehende private MariaDB-Konfiguration | `hw24_private/scanlist-db.php` konnte unter `nicovoss` und Plesk PHP 8.5 geladen werden; PDO-Verbindung zur bestehenden `hw24_artikelmanager` erfolgreich | **BESTÄTIGT, ausschließlich lesend** |
+| 126 · Gesamtbestand `hw24_ai_reviews` | `Gespeicherte KI-Berichte: 3` | **BESTÄTIGT: Archiv NICHT leer** |
+| 127 · Benutzerzuordnungen | `Unterschiedliche Benutzerzuordnungen: 1` | **BESTÄTIGT**, Actor-Name bewusst nicht ausgegeben |
+| 128 · EANs | `Unterschiedliche EANs: 3` | **BESTÄTIGT** |
+| 129 · Jüngster Datensatz | `Letzter archivierter Bericht UTC: 2026-11-22 01:31:34.913848` | **BESTÄTIGT** |
+| 130 · Historischer Referenzbericht | `Historischer Bericht ID 1 vorhanden: JA`, EAN `8027483835211` per gebundenem parametrisiertem `SELECT` geprüft | **BESTÄTIGT, kein Datenverlust dieses Berichts** |
+| 131 · Gruppierung | `Anonyme Benutzergruppe 1: 3 Berichte` | **BESTÄTIGT**, alle drei unter derselben Actor-Zuordnung |
+| 132 · Abschluss | `DATENBANKABFRAGE ERFOLGREICH`, `HW24 ARCHIVPRUEFUNG ABGESCHLOSSEN`, Terminalprompt wieder da | **BESTÄTIGT** |
+
+**Schlussfolgerung aus diesen Daten (belegt):** Der in Live sichtbare Zustand `0 gespeicherte KI-Analysen` kann **nicht** die Gesamtzahl der Archivdatensätze bezeichnen. Mindestens drei archivierte Datensätze existieren aktuell in genau der MariaDB, die der Legacy-PHP-Endpunkt laut `deploy/staging` liest. Der Archivendpunkt filtert jedoch per `WHERE actor=?` nach `PHP_AUTH_USER/REMOTE_USER`. Damit ist eine **abweichende HTTP-Basic-Anmeldung/Actor-Kennung** die vorrangig zu prüfende Ursache. Die tatsächliche aktuelle Live-Basic-Auth-Kennung ist noch nicht mit der DB-Actor-Kennung verglichen. **Nicht** global das WHERE-Actor-Filter entfernen, weil das die Datensicht fremder Nutzer freigeben würde.
+
+**Exakt nächster Schritt:** Aus dem authentifizierten Legacy-Live-Browser den aktuell verwendeten **HTTP-Basic-Benutzernamen** (nur Nutzerkennung, kein Passwort) privat in einem interaktiven PuTTY-`read` erfassen und mit `SELECT COUNT(*) FROM hw24_ai_reviews WHERE actor=?` vergleichen, ausschließlich die anonymen Zahlen `0..3` ausgeben. Der Vergleich muss ohne Speicherung/Ausgabe des Accountnamens und ohne Reportinhalt erfolgen. Wenn die Zahl 0 beträgt, ist der Login-Scope-Mismatch bestätigt, und eine separat autorisierte Betreiber-Gesamtarchivansicht ist erforderlich; wenn 3, dann den tatsächlichen Live-PHP-`PHP_AUTH_USER/REMOTE_USER`-Kontext und eventuelle EAN-/Filterabweichung prüfen. Das Prüfskript wird in `docs/HW24_AI_ARCHIVE_AUDIT_20261122.md` ergänzt.
+
+**Nach erfolgreicher Diagnose:** Änderungen nur über separaten GitHub-Featurebranch mit Tests (serverseitig autorisierte Admin-Sicht; bestehender Actor-Scope für Standardnutzer bleibt bestehen), keine Archiveinträge überschreiben, keine zusätzlichen OpenAI-POSTs, kein unangemeldeter globaler DB-Endpoint, kein Live-/Test-Webroot-Cutover ohne Rollback.
