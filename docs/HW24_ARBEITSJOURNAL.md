@@ -110,6 +110,12 @@ Befehl ausgeführt UTC `2026-11-22T23:11:35Z`, Shell-User `root`.
 - Anonymer `GET https://test-artikelmanager.hairworld24.de/admin/artikel` HTTP **401**. Entspricht einer aktiven Zugangshürde, beweist allein jedoch nicht vollständige Benutzer-/API-Autorisierung.
 - **Kein** Browser-Login-/End-to-End-Test, keine LIVE-Gleichheit und keine neue DB-Replikation hiermit bestätigt.
 
+### S015 | SQL Server Express 2017 Grenzen | **amtliche Herstellerdokumentation geprüft**
+- Microsoft SQL Server 2017 Express: maximale relationale Datenbankgröße 10 GB pro Datenbank; **Data/ROWS** von **LOG** bei Speicherprüfung trennen.
+- Kein integrierter SQL Server Agent in Express; für späteren 15-Minuten-Scheduler **externen Windows-Taskplaner** oder einen abgesicherten Job-Runner auf dem bereits vorhandenen System evaluieren, nicht SQL-Agent-Jobs voraussetzen.
+- SQL Server Change Tracking ist laut SQL-Editionstabelle verfügbar, tatsächliche Aktivierung ist **weiterhin unbekannt**; keine Aktivierung an JTL ohne Prüfung/Vendor-Freigabe.
+- Herstellerbeleg: https://learn.microsoft.com/en-us/sql/sql-server/editions-and-components-of-sql-server-2017?preserve-view=true&view=sql-server-2017
+
 ### S014 | Sicherheitsbewertung und Folgearbeit | **Code vorbereitet**
 - Kein weiterer Fast-Forward nötig. Bestehende `5eae5be...`-Installation unangetastet lassen.
 - Neuer ausschließlich lesender Phase-2-Abfragesatz `platform/ops/jtl-heidisql-phase2-readonly.sql` im isolierten GitHub-PR #46 angelegt. Er fragt DB-Dateigrößen inkl. `FILEPROPERTY`, CT-Status samt Anzahl getrackter Tabellen, Primary-Key-Metadaten relevanter Tabellen sowie Artikel-/Bestands-/Offer-Spaltenstruktur ab.
