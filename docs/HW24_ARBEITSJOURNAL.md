@@ -1025,3 +1025,18 @@ Die separate `protected_dirs.id=1` für `plesk-stat` auf `domains.id=1` ist **ni
 **GitHub neu verifiziert:** [Draft PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37) weiter exakt HEAD `c2cc4e1dc054da00f01087e7221659cf54a9a482`, Base `deploy/staging`, Draft. Die zwei zu diesem SHA gehörenden GitHub-CI-Läufe [#44978360796](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44978360796) und [#44978357305](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44978357305) weiterhin **success**.
 
 **Nächster Schritt:** Nur TEST-Plesk-Git-Branch erneut auf gepinnten PR37-Head setzen, diesmal Commit-ID ausschließlich aus der `^commit <40 HEX>`-Zeile mittels `sed -nE` extrahieren, vorab Backup-SHA und bisherige drei Legacy-Webroot-Blob-Hashes prüfen und nach Branchwechsel nachweisen, dass der Test-Webroot nicht verändert wurde. **Kein** `plesk ext git --deploy`, **kein** Plesk-HTTP-Basic-Rename, **keine** Datenbank- oder Live-Änderung. Bei Fehler selektiv Branch-Metadaten zurück auf `deploy/staging` und tatsächlichen Status melden, keinen unbelegten Erfolg behaupten.
+
+
+### 22.11.2026 · Plesk-Git Test-PR37-Featurebranch ERFOLGREICH vorbereitet, noch kein Deployment
+
+**Tatsächliche neue Betreiber-PuTTY-Ausgabe** des korrigierten Blocks `HW24_PR37_SELECT`: `Backup: OK`; `plesk ext git --update ... -active-branch feature/hw24-login-alias-scan-ai-20261122` meldet `The repository "HW24-scanner.git" was updated.`; der korrigierte SHA-Parser lieferte exakt `c2cc4e1dc054da00f01087e7221659cf54a9a482`; die drei bestehenden Webroot-PHP-Dateien blieben unverändert; Ausgabe `Kein Deployment ausgefuehrt` und `PR37 BRANCH ERFOLGREICH VORBEREITET`.
+
+**Bedeutung:** Der aktive Plesk-Git-Branch der **Testdomain** ist jetzt auf dem gepinnten Featurebranch, aber die WEBSITE selbst enthält weiter den Legacy-API-Stand. Die Live-Domain blieb auf `deploy/staging`; ihre Git-Konfiguration und ihr HTTP-Basic-Konto wurden nicht geändert. Historische MariaDB-Reviews (3 unter `hw24-test`) und Scan-Stapel (1 unter `hw24-test`, 1 unter `nvoss`) unverändert.
+
+**GitHub unmittelbar erneut geprüft:** PR #37 ist weiter **draft**, Base `deploy/staging`, HEAD `c2cc4e1dc054da00f01087e7221659cf54a9a482`. Exakte Git-BLOB-SHAs der vier zu deployenden PHP-Dateien:
+- `api/scanliste.php` → `1a19331fc030ef473d05cc0b94fee92fd2d436ea`
+- `api/ai-reviews.php` → `41bfe53eba6f4392e4f0f48e92828fa004ffe311`
+- `api/ai-review.php` → `aba03b6146a34698bae71fe622671945019d2db5`
+- `api/hw24-actor-identity.php` (neu) → `cb2722952bd0cad9680d919630e4b2a06ba367fc`.
+
+**Nun sicherster nächster Test-Schritt:** Plesk-Git-TEST-Repositorium **einmal manuell deployen** nach erneuter SHA-/Branch-/Backup-/Basisdatei-Prüfung und danach alle **vier** Git-BLOBs mit diesen gepinnten SHA-Werten vergleichen. Keinen Plesk-LIVE-Deploy, keine private Aliasdatei oder Test-Accountumbenennung im selben Befehl. Falls Plesk-Deploy fehlschlägt oder Dateihashes abweichen, **STOP** und Zustand lesen; nicht blind ein automatisches Git- oder TAR-Rollback über teilweise deployte Dateien durchführen. Das geprüfte Test-TAR `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz` mit SHA256 `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26` bleibt Rückfalloption.
