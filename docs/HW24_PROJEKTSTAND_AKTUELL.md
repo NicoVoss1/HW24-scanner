@@ -1,3 +1,15 @@
+## AKTUELLSTER PREFLIGHT-STATUS · 22.11.2026
+
+**PHP 8.5 ist für den installierten Laravel-/Filament-Stand auf CLI-Paketebene erfolgreich bestätigt:** `PHP 8.5.13`, Composer `check-platform-reqs --no-dev` ausschließlich `success`, Laravel `13.43.0` und alle vier Filament-Adminrouten unter PHP 8.5. Kein versionsbedingter Handlerwechsel nötig.
+
+**Noch ungelöste Bereitstellungsvoraussetzung:** Private Laravel-Projekt- und `public`-/Asset-Verzeichnisse sind `0700`; `public/index.php` und Filament-CSS sind `0600`. Die tatsächlichen Webserver-/FPM-Leseidentitäten und ggf. ACLs sind noch nicht geprüft. Der Webserver könnte CSS/JS/Fonts nicht ausliefern. **Private .env und SQLite bleiben auf 0600. Niemals pauschales chmod -R auf privates Laravel.**
+
+**GENAU NÄCHSTER SCHRITT:** Read-only Nginx-/Apache-Worker-/FPM-Identität und `test -r` für öffentliche Assets prüfen. Ausführbarer Befehlsblock in [HW24 PHP 8.5 und Web-Access Preflight](./HW24_PREFLIGHT_FILAMENT_TESTDOMAIN_20261122.md), letzter Runbook-Commit `f4b3dc47d82e5d431a67e211f9d67a8e28b41ea7`. Die alte Live-V4.25-Anwendung muss vor Testdomain-Umschaltung zusätzlich mit gültiger Anmeldung für JTL/Amazon/KI bestätigt werden. **Kein Domain-/Git-/Datenbankwechsel ausgeführt.**
+
+[Einzelprotokoll](./HW24_ARBEITSJOURNAL.md), Commit `1d0a3e55b1a5c8e59ced2e665687ce11984520f6`.
+
+---
+
 ## NEUESTER TECHNIKSTAND · 22.11.2026 · Plesk-Test-vHost vor Domain-Cutover geprüft
 
 **Betreiberbestätigung via PuTTY:**
