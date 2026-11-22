@@ -1,3 +1,15 @@
+## JETZT BESTÄTIGT · Plesk-Schema mit `protected_dirs.path` (22.11.2026)
+
+**PuTTY-Read-only-Beleg:** `protected_dirs` enthält die Felder `id, non_ssl, ssl, realm, path, dom_id, dom_type, cgi_bin`; **kein** Feld `name`. `pd_users` hat `id,login,account_id,pd_id`, `domains` enthält `id,name,parentDomainId`. Die zuvor fehlgeschlagene Passwortschutz-Abfrage verwendete `pd.name` und muss zwingend durch `pd.path` ersetzt werden. **Keine Plesk-Einstellung geändert.**
+
+**GENAU NÄCHSTE PUtty-AKTION:** Den korrigierten **nur lesenden** Block `HW24_PLESK_AUTH_READ` aus [Loginwechsel-Runbook](./HW24_LOGIN_IDENTITAETSWECHSEL_20261122.md) ausführen. Er prüft auf bestehender Live- und Testdomain die Plesk-geschützten Verzeichnisse/HTTP-Basic-Logins über `domains.id=protected_dirs.dom_id` und `pd_users.pd_id=protected_dirs.id`, mit `pd.path` statt `pd.name`. **Bei leerem Resultat:** Authquelle separat read-only prüfen, nicht blind neue Benutzer erstellen. Keine Passwort-Hashes, kein SQL-Write.
+
+**Bereits unverändert nachgewiesene Daten:** KI-Berichte **3** unter bisherigem Login, **0** unter künftigem; Scanlisten-Stapel **1+1** unter bisherigem bzw. künftigem Login. [Draft PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37), HEAD `c2cc4e1dc054da00f01087e7221659cf54a9a482`, CI #44978357305/#44978360796 grün, unterstützt ausdrücklich beide **Lesebesitzer**, behält neue Writes/Audit beim aktuellen Login. **Kein Merge, kein Deployment, keine Aliasdatei, kein Account-Rename**, historischer Bestand unangetastet. Vor Plesk-Änderung Authquelle/Backup/Rollback absichern; Filament-Cutover separat.
+
+[Arbeitsjournal](./HW24_ARBEITSJOURNAL.md), Schema-Nachweis-Commit `56c278793b4665bf22d4c57a6ed13e03fcb158f7`; [Runbook](./HW24_LOGIN_IDENTITAETSWECHSEL_20261122.md) korrigiert unter Commit `299b50bb342d6e08dac7189a02df5d52261a1e3a`.
+
+---
+
 ## NEUESTER ARBEITSSTAND · 22.11.2026 · HTTP-Basic-Loginwechsel betrifft Scanliste UND KI-Archiv
 
 **Korrigierter Betreiberwunsch:** Die bestehende HTTP-Basic-Benutzerkennung soll für den Artikelmanager und die Scanliste auf einen neuen gewünschten Namen umgestellt werden. Im vorherigen Chat wurde der alte Loginname mit einer Bereichsbeschriftung verwechselt; **älteres Plesk-Rename-Skript nicht ausführen**. Die beiden konkreten Benutzernamen bleiben im aktuellen Betreiberdialog und werden nicht im öffentlichen GitHub-Kontext gespeichert.
