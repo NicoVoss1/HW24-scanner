@@ -336,3 +336,18 @@ HW24_PUBLIC_ACL
 **Manuelle Rückfalloption nach erfolgreichem Skript, falls später erforderlich:** Als root den auf dem Server ausgegebenen **exakten** ACL-Backup-Dateipfad über `setfacl --restore="/root/hw24-backups/<genau-gesicherte-Datei>"` wiederherstellen. Den Pfad nicht erraten und das Backup nicht löschen. Ein Fehler im Skript löst bereits die eingebaute Rücknahme aus. Es werden **keine** Berechtigungen für später erzeugte Dateien vorgemerkt; nach erneuter Asset-Publikation muss Lesbarkeit der Assets neu geprüft werden.
 
 **Wichtig:** Dieser Schritt allein aktiviert **noch keinen** Laravel-Webserverzugriff. Vor Umschaltung der bestehenden Testdomain gilt weiterhin das Gate zur **authentifizierten Legacy-Live-V4.25-JTL-/Amazon-/KI-Funktionsprüfung** und ein kontrollierter Plesk-Git-/DocumentRoot-Rollback.
+
+
+## Bestätigung 22.11.2026 02:22:45 UTC: ACL-Sicherung und Berechtigungen erfolgreich
+
+Der Betreiber hat den oben dokumentierten `HW24_PUBLIC_ACL`-Block ausgeführt und die Abschlussmeldung `PUBLIC-ACL ERFOLGREICH` erhalten. Vor der Änderung wurde eine **Root-private ACL-Sicherung** mit UTC-Zeitstempel angelegt; der **konkrete Dateipfad** wurde im privaten Terminal ausgegeben und muss für die Rollback-Prozedur erhalten bleiben, wird hier aber nicht in ein öffentliches Repository kopiert.
+
+Die aufgesetzten ACLs entsprechen dem begrenzten Plan: `--x` für `nginx`/`www-data` auf den benötigten Elternverzeichnissen, `rX` nur unter `platform/public/css`, `public/js`, `public/fonts`. **Aktuelle Unix-User-Zugriffsproben erfolgreich:**
+- `nginx: ASSETS LESBAR, PRIVATE DATEIEN GESPERRT`
+- `www-data: ASSETS LESBAR, PRIVATE DATEIEN GESPERRT`
+
+`.env`, `database/database.sqlite` und `public/index.php` waren für beide Webserver-Nutzer nicht lesbar. **Es wurden keine Default-ACLs erzeugt:** Bei neu veröffentlichten statischen Assets die Rechte erneut prüfen.
+
+**Damit entfällt der bisher bekannte Asset-Dateizugriffsblocker.** Die tatsächliche HTTP-Auslieferung ist trotzdem **noch nicht geprüft**, weil das Domain-DocumentRoot weiterhin auf die Legacy-Testseite zeigt. Der Legacy-Live-Schutz und vier relevante Datei-Hashes waren bestätigt; der **angemeldete JTL-/Amazon-/OpenAI-E2E-Test** bleibt offen. Nur nach dessen Erfolg und nach dokumentiertem Plesk-Git-/DocumentRoot-/SSL-/Basic-Auth-Rollbackplan die bestehende Testdomain umstellen. Keine dritte Subdomain, keine neue MariaDB.
+
+[Chronologischer ACL-Erfolgsnachweis](./HW24_ARBEITSJOURNAL.md), GitHub-Commit `888ebe9f549a7a500dde0502edb6722e25da4a1a`.
