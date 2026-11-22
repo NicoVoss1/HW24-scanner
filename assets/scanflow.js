@@ -66,6 +66,40 @@ function render(){
   :'JTL-Synchronisation noch nicht verfügbar';
  $('scanArchiveStatus').textContent=historyText;
  const match=jtl?.jtl_status==='current_snapshot'&&jtl.matches?.length===1?jtl.matches[0]:null;
+ // Keep source-backed core product details visible without opening 13 tabs.
+ const facts=$('scanQuickFacts');
+ if(facts){
+   facts.replaceChildren();facts.hidden=!match;
+   if(match){
+     const money=raw=>{
+       const value=Number(v(raw).replace(',','.'));
+       return v(raw)!==''&&Number.isFinite(value)&&value>=0
+         ?new Intl.NumberFormat('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2}).format(value)+' €'
+         :'Nicht belegt';
+     };
+     const origin=window.hw24SourceFor?.('Hersteller');
+     const fallback=v(current?.Hersteller);
+     const manufacturer=v(match.hersteller)||(fallback?
+       fallback+' · '+(origin?.kind==='history'?'historischer Vorschlag, noch prüfen':origin?.kind==='manual'?'manuell bestätigt':'nicht aus JTL bestätigt'):
+       'In dieser JTL-Quelle nicht aufgelöst');
+     const values=[
+       ['Artikelnummer',v(match.artikelnummer)||'Nicht belegt'],
+       ['Artikelname',v(match.artikelname)||'Nicht belegt'],
+       ['Hersteller',manufacturer],
+       ['EAN / GTIN',v(match.ean)||'Nicht belegt'],
+       ['VK netto (JTL)',money(match.netto_vk)],
+       ['Artikelkosten (JTL)',match.kosten===null||match.kosten===undefined?'Noch nicht synchronisiert':money(match.kosten)],
+       ['Warengruppe (JTL)',v(match.warengruppe_name)||'Noch nicht aufgelöst'],
+       ['Ø EK netto (JTL)',money(match.netto_ek)],
+       ['Letzter EK (JTL)',money(match.letzter_ek)],
+       ['Lagerbestand (JTL-Spiegel)',v(match.bestand)||'Nicht belegt']
+     ];
+     for(const [label,value] of values){
+       const cell=document.createElement('div');cell.className='hw24-fact';
+       put(cell,'small',label);put(cell,'strong',value);facts.append(cell);
+     }
+   }
+ }
  const location=v(match?.lagerplatz||match?.lagerort);
  const csvPlace=v(current?.Lagerplatz||current?.Lagerort||current?.Lagerortbezeichnung);
  $('scanLocation').textContent=location?'JTL-Lagerplatz: '+location
@@ -99,6 +133,8 @@ function mappedLabel(label){
  return m[v(label).toLocaleLowerCase('de').replace(/\s+/g,' ')]||null;
 }
 function historyFill(){
+ // v4.5 performs one consolidated, source-labelled merge after both APIs respond.
+ if(typeof window.hw24SmartScanFinish==='function')return;
  if(!current||!history?.ok||!history.gtin_valid)return;
  const fields=new Map();
  for(const row of history.matches||[])for(const cell of row.cells||[]){

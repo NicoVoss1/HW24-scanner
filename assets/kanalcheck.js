@@ -111,6 +111,15 @@ function autoPrefill(){
  const r=(jtl?.jtl_status==='current_snapshot'&&jtl.matches?.length===1)?jtl.matches[0]:null;
  const copy=(channel,k)=>{
   if(!forms[channel]||!origins[channel])return;
+  // If the existing JTL article has a Warengruppe-ID but its name is
+  // unresolved, suppress stale CSV group names in marketplace proposals.
+  if(k==='product_type'&&r?.warengruppe_unresolved){
+    if(val(origins[channel][k]).startsWith('Automatisch:')){
+      forms[channel][k]='';
+      origins[channel][k]='JTL Warengruppe-ID '+val(r.warengruppe_id)+' ohne Klarname · Zuordnung offen';
+    }
+    return;
+  }
   const fromJtl={
     title:r?.artikelname,brand:r?.hersteller,vendor:r?.hersteller,
     sku:r?.artikelnummer,gtin:r?.ean,asin:r?.asin,

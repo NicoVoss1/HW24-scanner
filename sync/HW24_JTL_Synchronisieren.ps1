@@ -72,6 +72,103 @@ SELECT * FROM dbo.tArtikelBeschreibung ORDER BY kArtikel, kSprache, kPlattform, 
   $adapter=New-Object -TypeName System.Data.SqlClient.SqlDataAdapter -ArgumentList $command
   $dataset=New-Object System.Data.DataSet
   [void]$adapter.Fill($dataset)
+  # Optional safe lookup: use manufacturer names only when the real
+  # SQL Server catalog confirms dbo.tHersteller(kHersteller,cName).
+  # If the read-only account has no permission, do NOT invent names.
+  $manufacturerNames=@{}
+  try {
+    $metadata=[System.Data.SqlClient.SqlCommand]::new()
+    $metadata.Connection=$connection
+    $metadata.CommandTimeout=20
+    $metadata.CommandText=@'
+SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA='dbo' AND TABLE_NAME='tHersteller'
+  AND COLUMN_NAME IN ('kHersteller','cName');
+'@
+    $verified=[int]$metadata.ExecuteScalar()
+    if($verified -eq 2){
+      $query=[System.Data.SqlClient.SqlCommand]::new()
+      $query.Connection=$connection
+      $query.CommandTimeout=30
+      $query.CommandText='SELECT kHersteller,cName FROM dbo.tHersteller'
+      $reader=$query.ExecuteReader()
+      try {
+        while($reader.Read()){
+          if($reader.IsDBNull(0) -or $reader.IsDBNull(1)){continue}
+          $key=[string]$reader.GetValue(0)
+          $name=([string]$reader.GetValue(1)).Trim()
+          if($key -and $name){$manufacturerNames[$key]=$name}
+        }
+      } finally {$reader.Close()}
+      Write-Host ("JTL-Herstellernamen verifiziert: "+$manufacturerNames.Count)
+    } else {
+      Write-Warning 'Hersteller-Tabelle bzw. Spalten nicht nachgewiesen. Namen bleiben leer, IDs bleiben im Rohdatensatz.'
+    }
+  } catch {
+    Write-Warning 'Hersteller-Namensabfrage nicht möglich (JTL-Schema oder SELECT-Berechtigung prüfen). Keine Namen geraten.'
+  }
+  # Resolve the authoritative article group directly on every completed
+  # JTL snapshot. Historical CSV categories are NEVER a replacement for
+  # tArtikel.kWarengruppe -> dbo.tWarengruppe.cName.
+  $warengroupNames=@{}
+  try {
+    $groupMetadata=[System.Data.SqlClient.SqlCommand]::new()
+    $groupMetadata.Connection=$connection
+    $groupMetadata.CommandTimeout=20
+    $groupMetadata.CommandText=@'
+SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA='dbo' AND TABLE_NAME='tWarengruppe'
+  AND COLUMN_NAME IN ('kWarengruppe','cName');
+'@
+    if([int]$groupMetadata.ExecuteScalar() -eq 2){
+      $groupQuery=[System.Data.SqlClient.SqlCommand]::new()
+      $groupQuery.Connection=$connection
+      $groupQuery.CommandTimeout=30
+      $groupQuery.CommandText='SELECT kWarengruppe,cName FROM dbo.tWarengruppe'
+      $groupReader=$groupQuery.ExecuteReader()
+      try{
+        while($groupReader.Read()){
+          if($groupReader.IsDBNull(0) -or $groupReader.IsDBNull(1)){continue}
+          $groupKey=[string]$groupReader.GetValue(0)
+          $groupName=([string]$groupReader.GetValue(1)).Trim()
+          if($groupKey -and $groupName){$warengroupNames[$groupKey]=$groupName}
+        }
+      } finally {$groupReader.Close()}
+      Write-Host ("JTL-Warengruppen verifiziert: "+$warengroupNames.Count)
+    }else{
+      Write-Warning 'tWarengruppe(kWarengruppe,cName) fehlt oder ist nicht lesbar. Unbekannte Namen niemals aus Excel ersetzen.'
+    }
+  }catch{
+    Write-Warning 'JTL-Warengruppenauflösung fehlgeschlagen. Kein Ersatz durch historische Klassifikation.'
+  }
+  # Optional additional article-related sources. Admin mapping must use
+  # verified SQL Server table/column names; no guesses and no JTL writes.
+  $relatedSources=@{}
+  $relatedMap=''
+  if($config.related_sources_file){$relatedMap=[string]$config.related_sources_file}
+  else {
+    # Standard location: put the local verified map beside jtl-sync.json.
+    $defaultMap=Join-Path (Split-Path -Parent $ConfigFile) 'jtl-related-sources.json'
+    if(Test-Path -LiteralPath $defaultMap -PathType Leaf){$relatedMap=$defaultMap}
+  }
+  if($relatedMap){
+    . (Join-Path $PSScriptRoot 'HW24_JTL_Zusatzquellen.ps1')
+    $relatedSources=Get-HW24RelatedSources -Connection $connection -ArticleTable $dataset.Tables[0] -MapFile $relatedMap
+    Write-Host ("HW24 Zusatzquellen: "+$relatedSources.Count+" Artikel angereichert")
+    $relatedSettings=Get-Content -LiteralPath $relatedMap -Raw -Encoding UTF8 | ConvertFrom-Json
+    if($relatedSettings.include_wms_bins -eq $true -or $relatedSettings.include_tax_de -eq $true){
+      . (Join-Path $PSScriptRoot 'HW24_JTL_SteuerWMS.ps1')
+      $enrichment=Get-HW24TaxAndBinSources -Connection $connection -ArticleTable $dataset.Tables[0] `
+        -IncludeBins ([bool]$relatedSettings.include_wms_bins) -IncludeTax ([bool]$relatedSettings.include_tax_de)
+      foreach($aid in $enrichment.Keys){
+        if(-not $relatedSources.ContainsKey($aid)){$relatedSources[$aid]=@{}}
+        foreach($sourceName in $enrichment[$aid].Keys){
+          $relatedSources[$aid][$sourceName]=$enrichment[$aid][$sourceName]
+        }
+      }
+      Write-Host ("HW24 WMS/Steuer: "+$enrichment.Count+" Artikel mit verifizierten Zusatzdaten")
+    }
+  }
 }finally{
   $connection.Dispose()
 }
@@ -102,9 +199,19 @@ $sent=0
 foreach($row in $articles.Rows){
   $a=To-DbObject $row
   $id=[string]$a['kArtikel']
+  $warengroupId=[string]$a['kWarengruppe']
+  $warengroupName=$null
+  if($warengroupId -and $warengroupNames.ContainsKey($warengroupId)){
+    $warengroupName=$warengroupNames[$warengroupId]
+    $a['HW24_WarengruppeName']=$warengroupName
+  }
+  if($relatedSources.ContainsKey($id)){$a['HW24_RelatedSources']=$relatedSources[$id]}
   $main=if($primary.ContainsKey($id)){$primary[$id]}else{@{}}
   $all=@()
   if($descriptions.ContainsKey($id)){$all=@($descriptions[$id].ToArray())}
+  $makerId=[string]$a['kHersteller']
+  $manufacturer=$null
+  if($makerId -and $manufacturerNames.ContainsKey($makerId)){$manufacturer=$manufacturerNames[$makerId]}
   $record=@{
     jtl_article_id=$id
     artikelnummer=$a['cArtNr']
@@ -116,7 +223,8 @@ foreach($row in $articles.Rows){
     beschreibung=$main['cBeschreibung']
     seo_titel=$main['cTitleTag']
     seo_beschreibung=$main['cMetaDescription']
-    hersteller=$null # tArtikel has kHersteller (ID), NOT cHersteller; names require a verified tHersteller join
+    hersteller=$manufacturer # Only a resolved, read-only manufacturer master row; never ID->name guessing
+    warengruppe_name=$warengroupName # Authoritative tWarengruppe.cName or null
     netto_vk=$a['fVKNetto']
     netto_ek=$a['fEKNetto']
     letzter_ek=$a['fLetzterEK']

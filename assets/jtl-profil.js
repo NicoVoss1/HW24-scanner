@@ -46,8 +46,8 @@ const newDefaults={
  'Zusätzliche Bearbeitungszeit':'1','Beschaffungszeit automatisch ermitteln':'0',
  'Beschaffungszeit manuell setzen':'2','Versandklasse':'standard',
  'Artikel aktiv':'Y','Bestandsführung aktiv':'Y','Top-Artikel':'N',
- 'Warengruppe':'Haarfarben','Artikeltyp':'Normaler Artikel','Neu im Sortiment':'Y',
- 'Steuerklasse':'normaler steuersatz','Steuersatz in %':'19,00','Währung':'EUR'
+ 'Artikeltyp':'Normaler Artikel','Neu im Sortiment':'Y',
+ 'Steuerklasse':'normaler steuersatz','Währung':'EUR'
 };
 const protectedFields=new Set(['Auf Lager','In Aufträgen','Verfügbar','Durchschnittlicher Einkaufspreis (netto)',
  'Artikel zuletzt bearbeitet am','Artikel zuletzt bearbeitet durch','Steuersatz in %']);
@@ -88,18 +88,15 @@ function applyDefaults(){
  for(const [key,value] of defaults){
   if(val(rec[key]))continue;
   if(key==='Warengruppe'){
-   const name=val(rec.Artikelname).toLowerCase();
-   // Product family cannot be guessed from a generic missing name.
-   if(/shampoo|conditioner|haarkur|pflegemaske|haarpflege/.test(name))rec[key]='Haarpflege';
-   else if(/styling|haarspray|haargel|haarwachs|haarschaum/.test(name))rec[key]='Haarstyling';
-   else if(/booster|pokemon|pokémon|sammelkart/.test(name))rec[key]='Sammelkarten';
-   else if(/haarfarb|tönung|koleston|illumina|color touch|igora|majirel|majiblond|tinta color|färbecreme/.test(name))rec[key]='Haarfarben';
-   else continue;
+   // A product name is not a JTL category master record.
+   // Never classify "spray" as Haarstyling or copy a preset group.
+   // Wait for a verified JTL kWarengruppe lookup / manual approval.
+   continue;
   }else rec[key]=value;
   count++;
  }
- // 19% is a proposed default only for the normal tax class, not for gift cards.
- if(val(rec.Steuerklasse).toLowerCase()!=='normaler steuersatz')delete rec['Steuersatz in %'];
+ // Never infer an effective VAT percentage from a tax class label.
+ delete rec['Steuersatz in %'];
  source='new_template';
  window.hw24AmeiseCurrent?.(rec);
  window.hw24ChannelCurrent?.(rec);
@@ -124,10 +121,12 @@ function createControl(container,key,type,read){
    if(read)return;
    rec[key]=n;manuallyChanged.add(key);
    if(key==='Steuerklasse'){
-    // A rate is only suitable for its actual tax class, never keep a stale 19% suggestion.
-    if(n!=='normaler steuersatz')delete rec['Steuersatz in %'];
-    else if(!val(rec['Steuersatz in %'])&&canPreset())rec['Steuersatz in %']='19,00';
+    // Tax percentage is contextual: company, delivery country and zone determine
+    // its value. Never set a flat 19% simply because a class was chosen.
+    delete rec['Steuersatz in %'];
    }
+   window.hw24MarkEdited?.(key);
+   window.hw24BatchRefresh?.();
    window.hw24AmeiseCurrent?.(rec);
    window.hw24QualityEdited?.(key,rec);
    window.hw24ChannelCurrent?.(rec);
