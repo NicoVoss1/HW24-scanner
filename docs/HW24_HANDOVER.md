@@ -1,3 +1,19 @@
+## AKTUELLSTER SERVERSTAND · 22.11.2026 · PRIVATE OWNER-ALIASES ERFOLGREICH
+
+**Neue echte PuTTY-Ausgabe:** Der Nutzer hat `HW24_PRIVATE_READ_ALIASES` vollständig und erfolgreich ausgeführt. Es existiert jetzt eine private Datei `/var/www/vhosts/hairworld24.de/hw24_private/actor-aliases.php` (`0600`, `nicovoss:psacln`) mit ausdrücklich `read_aliases => ['nvoss'=>['hw24-test']]`. PHP8.5-Laufzeittest der tatsächlich auf TEST deployed Helferfunktion unter `runuser -u nicovoss` bestätigte exakt `nvoss => [nvoss,hw24-test]`, `hw24-test => [hw24-test]`, nicht freigegebene Actoren nur eigen. **Keine Datenbank-Updates und keine Plesk-Basic-Umbenennung.**
+
+**Datenlage**: 3 historische KI-Berichte auf `hw24-test` und zwei Scanlisten-Stapel insgesamt (einer `hw24-test`, einer bereits `nvoss`). Bestehende Test-HTTPS-Basic-Anmeldung `hw24-test` las 3 KI-Berichte und 1 offenen Scan-Stapel erfolgreich nach PR37-Test-Deployment. Anonyme API-Routen waren HTTP 401. Noch **kein** HTTP-Test `nvoss` auf TEST möglich, da Basic-Konto noch alt. Wichtige Nuance: Die private Alias-Map gewährt auch Bearbeitungsberechtigung auf alten Scan-Stapeln, mit neuer Actor-Auditierung.
+
+**WEITER NUR EIN PuTTY-Schritt:** `HW24_PLESK_BASIC_BACKUP` ganz oben in [Loginwechsel-Runbook](./HW24_LOGIN_IDENTITAETSWECHSEL_20261122.md) (Commit `52db9c1c58d540abf92c6f1d6c00c8f68ce2cbf8`). Er bestätigt in Plesk per read-only SQL exakt Schutz-ID 9/Domain-ID 10/`hw24-test`, sichert die Plesk-`pd`-Dateien der **Testdomain** aus `/var/www/vhosts/system/test-artikelmanager.hairworld24.de/pd` in ein privates Root-TAR und speichert nur SELECT-Metadaten aus `protected_dirs` und `pd_users` ohne Hashwerte. Rechte 0700/0600, Archivlesbarkeit und SHA256 prüfen, nur Dateipfad und Checksumme im Terminal. Die Auth-Dateien können Passwort-Hashes enthalten und dürfen niemals im Chat/GitHub landen. **Dies ist noch kein ausgeführtes Plesk-Backup!**
+
+**Anschließend separat:** Erst korrekte Plesk-`protdir`-Root-CLI-Parametrisierung und inversen Rename-/Rollbackpfad absichern, dann **nur** Test-Basic `hw24-test` auf `nvoss` umbenennen. Der Livestatus und `plesk-stat` werden nicht angefasst. Nach Rename echten authentifizierten HTTPS-GET `nvoss` mit **3 KI-Berichten und beiden offenen Scan-Stapeln** prüfen (SQL zeigte 1+1 Stapel, aber nur alter Stapel ist bestätigt offen; Status des neuen `nvoss`-Stapels ggf. read-only prüfen). Private Mappingdatei und Historie unverändert lassen.
+
+**Vorheriges Test-Webroot-Rollback-TAR:** `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz`, SHA256 `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26`. Das frühere TAR enthält **NICHT** die separat jetzt zu sichernden Plesk-Auth-Dateien.
+
+[Journal](./HW24_ARBEITSJOURNAL.md), Commit `ddf35c68f8790af1fad3b56599b19bce91d2a00c`. [PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37) bleibt Draft und ist bisher **nur auf der TEST-Domain**, nicht auf Live, manuell deployed; GitHub-Branch nicht in `deploy/staging` gemergt.
+
+---
+
 ## JETZT BESTÄTIGT · 22.11.2026 · AUTHENTIFIZIERTER TEST LESBAR, PRIVATE ALIASDATEI NÄCHSTER SCHRITT
 
 **Neuer tatsächlicher PuTTY-Erfolg:** Mit dem existierenden Plesk-Test-Basic-Namen `hw24-test` liefen zwei HTTPS-GET-only-Abfragen auf dem bereits ausgerollten und lint-geprüften PR37-Code vollständig durch. `/api/ai-reviews.php?limit=50` lieferte exakt **3 historische KI-Berichte**, `/api/scanliste.php?op=batches` lieferte **1 offenen Scan-Stapel** unter historischer Kennung. Ausgabe `AUTHENTIFIZIERTER GET-TEST ERFOLGREICH`, `Keine Daten veraendert`. Passwörter interaktiv verborgen, JSON-Datensätze nicht in Terminal oder Chat ausgegeben. Vorher PHP8.5-Syntax viermal korrekt, unauthentifizierter Basic-HTTP-Schutz dreimal 401. Damit altes Test-Archiv real nutzbar, nicht bloß in MariaDB vorhanden.
