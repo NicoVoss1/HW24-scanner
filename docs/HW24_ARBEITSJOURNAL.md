@@ -632,3 +632,11 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 **Sicherheitsregel:** Es werden ausschließlich **statische Dateien** unter `platform/public/css`, `platform/public/js`, `platform/public/fonts` für `nginx`/`www-data` durch gezielte ACLs lesbar gemacht; auf den zwingenden Elternverzeichnissen nur Durchquerung `--x`. **Keine Lese-ACL** auf `platform/public/index.php`, `platform/.env`, `database.sqlite` oder auf privaten Laravel-Quellcode. Vor der Änderung ist eine root-private `getfacl`-Sicherung zu erstellen, bei Fehlern sofort mit `setfacl --restore` rückgängig zu machen. Schreibrechte der beiden Webserverbenutzer ausdrücklich nicht vergeben. Erst danach per `runuser -u nginx/www-data -- test -r` tatsächlichen Zugriff auf CSS/JS und die **fortbestehende Sperre** von `.env`/SQLite prüfen.
 
 **Nächster Betreiber-Schritt:** Gezielte ACL-Freigabe *mit* Sicherung/Rollback auf der noch nicht öffentlich geschalteten Laravel-App; danach Plesk-Test-Webroot-/Git-Rollback-Konzept und **authentifizierter Legacy-V4.25-Live-JTL-/Amazon-/KI-Browsertest** vor Domainumstellung. Admin, SQLite und Composer werden nicht neu erstellt.
+
+
+### 22.11.2026 · Dokumentationsaktionen nach erfolgreicher Ubuntu-ACL-Installation
+
+- Bestätigte Benutzer-PuTTY-Ergebnisse: ACL-Paketinstall, bestehendes `ext4`-Dateisystem, Werkzeuge und OS-Kernel-Restart-Hinweis im [Arbeitsjournal](./HW24_ARBEITSJOURNAL.md) unter Commit `c98c4dae803f62f5f87f63270d7f3ac88c857676` eingetragen.
+- [Runbook](./HW24_PREFLIGHT_FILAMENT_TESTDOMAIN_20261122.md) enthält nun das **noch nicht ausgeführte** konservative ACL-Skript für ausschließlich `public/css`, `public/js`, `public/fonts`, mit vorheriger Sicherung und automatischer Fehler-Rücknahme. Runbook-Commit `f8dc3fb875fcc0c6534713f47bb65fcf98e8a607`.
+- [Cross-Chat-Übergabe](./HW24_HANDOVER.md) und [Projektstand](./HW24_PROJEKTSTAND_AKTUELL.md) fortgeschrieben. Keine weitere Serveroperation durch die GitHub-Dokumentationsänderungen.
+- Nächster Servernachweis: Betreiberausgabe von `HW24_PUBLIC_ACL` samt expliziter Positivprobe CSS/JS und Negativprobe `.env`/SQLite/`index.php`; dann noch angemeldete Legacy-Live-Abnahme und abgesichertes Plesk-Cutover mit Rollback.
