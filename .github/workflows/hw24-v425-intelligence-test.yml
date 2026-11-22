@@ -23,6 +23,7 @@ jobs:
           php -l api/ai-reviews.php
           php -l api/amazon.php
           php -l api/amazon-asin.php
+          php api/amazon-asin.php --test-ean-evidence
           node --check assets/hw24-article-editor.js
           node --check assets/hw24-source-core.js
           node --check assets/hw24-source-explorer.js
