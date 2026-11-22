@@ -229,3 +229,110 @@ HW24_ACL_TOOLS
 **Danach (gesondert und nicht automatisch):** Vor jeder `setfacl`-Änderung eine root-private `getfacl`-Sicherung der ausgewählten Pfade einschließlich Verzeichnisse und Asset-Unterbäume sowie eine `setfacl --restore`-Rückfallanleitung erstellen. Für nginx und www-data ausschließlich **`--x` auf notwendige private Elternverzeichnisse** und **`r-x` auf die öffentlichen statischen `public/css`, `public/js`, `public/fonts`** verwenden; **keine Lese-ACL** auf `.env`, SQLite, `vendor`, `storage`, `app` oder andere Laravel-Privatquellen. Nach Prüfung die CSS/JS-Benutzer-Leseproben wiederholen. Der Frontcontroller `public/index.php` bleibt für PHP-FPM-Site-User erreichbar, ohne ihn für nginx als Quelltext freizugeben.
 
 **Weiteres Gate vor Webroot-Cutover:** alten Legacy-Live-Artikelmanager mit gültiger Anmeldung, JTL-Artikel, manuellem Amazon-GET und archiviertem KI-GET abnehmen; Plesk-Git-Deployment-Ziel/rollback dokumentieren; nur `platform/public` als Docroot wählen. Webserver-Static-Asset-Auslieferung unter Plesk erfolgt je nach nginx/Apache-Setup mit deren Prozessrechten. Offizielle Hinweise: https://laravel.com/framework/docs/13.x/deployment und https://docs.plesk.com/en-US/obsidian/customer-guide/websites-and-domains/hosting-settings/web-server-settings/apache-and-nginx-settings.72320/.
+
+
+## 22.11.2026 · ACL-Paket auf Betreiber-Server tatsächlich installiert; nächster Rollback-gesicherter Asset-Freigabeschritt
+
+**Bestätigt:** `apt-get install acl` auf Ubuntu 22.04.5 installierte `acl 2.3.1-1`, `/usr/bin/getfacl` und `/usr/bin/setfacl` sind vorhanden. `findmnt` zeigt `ext4` (`rw`), `needrestart` meldet einen ausstehenden Kernelwechsel von `5.15.0-202-generic` auf `5.15.0-204-generic`; **kein automatischer Reboot**. Kein Serverneustart für die Rechtekonfiguration nötig; separate Wartung später planen. [Journalnachweis](./HW24_ARBEITSJOURNAL.md), Commit `c98c4dae803f62f5f87f63270d7f3ac88c857676`.
+
+### Nächster kontrollierter Schritt: Nur Asset-ACLs mit Backup und Fehlerrücknahme
+
+**Noch nicht ausgeführt.** Das Skript richtet **keinen** Plesk-Webroot um, verändert **keine** Website/API und führt **keine** SQL-/JTL-Migration aus. Es speichert die alten ACLs nur unter `/root/hw24-backups`, bleibt in einer Bash-Subshell und setzt gezielte Unix-ACLs, ausschließlich für `nginx` und `www-data`:
+
+- Die Verzeichnisse `hw24-console-private`, `repo`, `platform` und `platform/public` erhalten für beide Webserver-Nutzer **nur --x (traverse)**, **keine Leselisten- oder Schreibrechte**.
+- Nur `platform/public/css`, `platform/public/js` und `platform/public/fonts` (samt Unterverzeichnissen und Dateien) erhalten `rX` (Lesen und Verzeichnisse durchqueren, keine Schreibrechte).
+- `public/index.php`, private Laravel-`.env`, private SQLite und anderer privater Quellcode bleiben für `nginx`/`www-data` **nicht lesbar**.
+- Verweigert Symlinks unter Asset-Verzeichnissen vorsorglich, um keine außerhalb liegenden Dateien zu öffnen.
+- Verifiziert danach tatsächliche Lesbarkeit der CSS-/JS-Dateien als `nginx` und `www-data` sowie fortbestehende Sperre von `.env`, SQLite und `public/index.php`. Bei Fehler automatischer `setfacl --restore`-Versuch.
+
+```bash
+bash <<'HW24_PUBLIC_ACL'
+set -euo pipefail
+umask 077
+
+base="/var/www/vhosts/hairworld24.de/hw24-console-private"
+repo="$base/repo"
+app="$repo/platform"
+public="$app/public"
+backup_dir="/root/hw24-backups"
+
+echo "=== HW24 PUBLIC-ASSET-ACL ==="
+test "$(id -u)" -eq 0
+for cmd in getfacl setfacl runuser find mktemp; do
+  command -v "$cmd" >/dev/null
+done
+for dir in "$base" "$repo" "$app" "$public"            "$public/css" "$public/js" "$public/fonts"; do
+  test -d "$dir" || { echo "STOP: Verzeichnis fehlt"; exit 1; }
+  test ! -L "$dir" || { echo "STOP: Symlink-Verzeichnis"; exit 1; }
+done
+test -f "$public/index.php"
+test -f "$public/css/filament/filament/app.css"
+test -f "$public/js/filament/filament/app.js"
+test -f "$app/.env"
+test -f "$app/database/database.sqlite"
+for dir in "$public/css" "$public/js" "$public/fonts"; do
+  if [ -n "$(find "$dir" -type l -print -quit)" ]; then
+    echo "STOP: Symlink in oeffentlichen Assets vorhanden"
+    exit 1
+  fi
+done
+
+echo "1. Bestehende ACLs root-privat sichern ..."
+install -d -m 700 "$backup_dir"
+backup="$(mktemp "$backup_dir/hw24-assets-acl-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX")"
+chmod 600 "$backup"
+getfacl -p "$base" "$repo" "$app" "$public" > "$backup"
+for dir in "$public/css" "$public/js" "$public/fonts"; do
+  getfacl -R -p "$dir" >> "$backup"
+done
+echo "Backup: $backup"
+
+changed=0
+rollback_on_error() {
+  rc=$?
+  if [ "$rc" -ne 0 ] && [ "$changed" -eq 1 ]; then
+    echo "FEHLER: Vorherige ACLs werden wiederhergestellt ..."
+    if setfacl --restore="$backup"; then
+      echo "ACL-Ruecknahme erfolgreich"
+    else
+      echo "WARNUNG: Ruecknahme fehlgeschlagen. Backup sicher aufbewahren!"
+    fi
+  fi
+}
+trap rollback_on_error EXIT
+changed=1
+
+echo "2. Nur Verzeichnisdurchquerung auf private Eltern ..."
+setfacl -m u:nginx:--x,u:www-data:--x   "$base" "$repo" "$app" "$public"
+
+echo "3. Nur oeffentliche CSS-/JS-/Font-Assets lesbar ..."
+for dir in "$public/css" "$public/js" "$public/fonts"; do
+  setfacl -R -m u:nginx:rX,u:www-data:rX "$dir"
+done
+
+echo "4. Oeffentliche Assets aus Sicht beider Webserver pruefen ..."
+for user in nginx www-data; do
+  for file in     "$public/css/filament/filament/app.css"     "$public/js/filament/filament/app.js"; do
+    runuser -u "$user" -- test -r "$file" || {
+      echo "STOP: Webserver kann Asset nicht lesen"
+      exit 1
+    }
+  done
+  for private in     "$app/.env"     "$app/database/database.sqlite"     "$public/index.php"; do
+    if runuser -u "$user" -- test -r "$private"; then
+      echo "STOP: Privater Dateiinhalt waere lesbar!"
+      exit 1
+    fi
+  done
+  echo "$user: ASSETS LESBAR, PRIVATE DATEIEN GESPERRT"
+done
+
+echo "=== PUBLIC-ACL ERFOLGREICH ==="
+echo "Rollen- und Webroot-Konfiguration unveraendert"
+echo "ACL-Sicherung: $backup"
+HW24_PUBLIC_ACL
+```
+
+**Manuelle Rückfalloption nach erfolgreichem Skript, falls später erforderlich:** Als root den auf dem Server ausgegebenen **exakten** ACL-Backup-Dateipfad über `setfacl --restore="/root/hw24-backups/<genau-gesicherte-Datei>"` wiederherstellen. Den Pfad nicht erraten und das Backup nicht löschen. Ein Fehler im Skript löst bereits die eingebaute Rücknahme aus. Es werden **keine** Berechtigungen für später erzeugte Dateien vorgemerkt; nach erneuter Asset-Publikation muss Lesbarkeit der Assets neu geprüft werden.
+
+**Wichtig:** Dieser Schritt allein aktiviert **noch keinen** Laravel-Webserverzugriff. Vor Umschaltung der bestehenden Testdomain gilt weiterhin das Gate zur **authentifizierten Legacy-Live-V4.25-JTL-/Amazon-/KI-Funktionsprüfung** und ein kontrollierter Plesk-Git-/DocumentRoot-Rollback.
