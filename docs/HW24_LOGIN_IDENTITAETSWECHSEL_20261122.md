@@ -1,3 +1,92 @@
+## NEUER MEILENSTEIN · PR37 Git-Quellbranch auf TEST korrekt ausgewählt; NÄCHSTER SCHRITT IST DEPLOY (22.11.2026)
+
+**Betreiber-PuTTY bestätigte:** `HW24_PR37_SELECT` erfolgreich: Sicherungschecksumme OK, Plesk `HW24-scanner.git` für **Test** auf `feature/hw24-login-alias-scan-ai-20261122` umgestellt, exakt Commit `c2cc4e1dc054da00f01087e7221659cf54a9a482` verifiziert, die Legacy-Webroot-Dateien blieben unverändert. **Noch KEIN Plesk-Deploy, kein HTTP-Basic-Loginwechsel und keine Alias-Privatekonfiguration.** Die Live-Website blieb unberührt.
+
+### Jetzt EINMAL kontrolliert nur auf TEST deployen
+
+Vor dem mutierenden Test-Deploy werden Backup-SHA, Plesk-Manuellmodus, aktuelle Featurebranch/Commit sowie die drei bisherigen Webroot-Blob-SHAs erneut kontrolliert. Nach dem Deploy müssen alle **vier** betroffenen PHP-Dateien exakt den frisch bei GitHub verifizierten PR37-Blob-SHAs entsprechen. Alle anderen User-/JTL-/Amazon-/OpenAI-/Datenbank-Systeme bleiben unangetastet.
+
+```bash
+bash <<'HW24_PR37_TEST_DEPLOY'
+set -euo pipefail
+umask 077
+
+d="test-artikelmanager.HAIRWORLD24.de"
+r="HW24-scanner.git"
+branch="feature/hw24-login-alias-scan-ai-20261122"
+commit="c2cc4e1dc054da00f01087e7221659cf54a9a482"
+root="/var/www/vhosts/hairworld24.de/$d"
+backup="/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz"
+checksum="679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26"
+
+echo "=== HW24 PR37: NUR TEST-CODE DEPLOYEN ==="
+printf '%s  %s\n' "$checksum" "$backup" | sha256sum -c --status || {
+  echo "STOP: Backup-SHA nicht korrekt"; exit 1;
+}
+
+info="$(plesk ext git --info -domain "$d" -name "$r")"
+printf '%s\n' "$info" | grep -Fq "Active branch: $branch"
+printf '%s\n' "$info" | grep -Fq 'Deployment mode: manual'
+current="$(plesk ext git --get-last-commit -domain "$d" -name "$r" |
+  sed -nE 's/^commit[[:space:]]+([0-9a-f]{40}).*/\1/p')"
+test "$current" = "$commit" || {
+  echo "STOP: Unbekannter Branch-Commit: $current"; exit 1;
+}
+
+for pair in \
+  "api/scanliste.php e9fb8075c4f532d7a76adf81e760acf81cab4528" \
+  "api/ai-reviews.php 00fb61c9d636434cdc6562edf169811a717c0911" \
+  "api/ai-review.php 2eabde207434b8c62162dc553354cd052c6ec98f"; do
+  path="${pair%% *}"
+  expected="${pair#* }"
+  test "$(git hash-object "$root/$path")" = "$expected" || {
+    echo "STOP: Test-Quelldatei weicht ab: $path"; exit 1;
+  }
+done
+test ! -e "$root/api/hw24-actor-identity.php" || {
+  echo "STOP: Helferdatei bereits vorhanden"; exit 1;
+}
+echo "Gates OK: Backup, Branch, Commit und bisheriger Testcode"
+
+log="$(mktemp /root/hw24-backups/pr37-test-deploy.XXXXXXXX)"
+echo "Fuehre jetzt NUR das manuelle Plesk-Git-Deployment der TESTDOMAIN aus ..."
+if ! plesk ext git --deploy -domain "$d" -name "$r" >"$log" 2>&1; then
+  echo "STOP: Plesk-Deploy FEHLGESCHLAGEN; privates Log: $log"
+  echo "KEIN AUTO-ROLLBACK. Test-Webroot und Git-Zustand zuerst pruefen."
+  exit 1
+fi
+
+echo "Plesk-Deploy-Befehl abgeschlossen; pruefe PHP-Blob-Hashes ..."
+for pair in \
+  "api/scanliste.php 1a19331fc030ef473d05cc0b94fee92fd2d436ea" \
+  "api/ai-reviews.php 41bfe53eba6f4392e4f0f48e92828fa004ffe311" \
+  "api/ai-review.php aba03b6146a34698bae71fe622671945019d2db5" \
+  "api/hw24-actor-identity.php cb2722952bd0cad9680d919630e4b2a06ba367fc"; do
+  path="${pair%% *}"
+  expected="${pair#* }"
+  actual="$(git hash-object "$root/$path" 2>/dev/null || echo MISSING)"
+  if [ "$actual" != "$expected" ]; then
+    echo "STOP: UNERWARTETER Test-Dateihash: $path ($actual)"
+    echo "KEIN AUTO-ROLLBACK; verwende privaten Webroot-Snapshot nach Analyse."
+    exit 1
+  fi
+  echo "OK $path"
+done
+
+echo "=== PR37 TEST-CODE BEREITGESTELLT UND HASHES GEPRUEFT ==="
+echo "Noch KEINE Benutzerumbenennung, keine private read_aliases-Datei"
+echo "Live-Website und historische Datenbanken nicht geaendert"
+HW24_PR37_TEST_DEPLOY
+```
+
+**WICHTIG ZUM ROLLBACK:** Das geprüfte private TAR `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz` ist der Rückfallstand für Test-Webdateien, SHA256 `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26`. Kein automatisches `tar -x` im Skript; nach partiellen Dateifehlern muss die Ursache zuerst festgestellt werden. Der Plesk-Git-Testbranch kann separat wieder auf `deploy/staging` gestellt werden, das ist aber kein nachgewiesener Wiederherstellungslauf.
+
+**Nach erfolgreicher rein technischer Bereitstellung, SEPARATE GATES:** 1. HTTP-Anmeldung mit bestehendem Testbenutzer und Scanliste/KI-Archiv prüfen; 2. private serverseitige `read_aliases`-Freigabe mit Rechten außerhalb der Webroots installieren und bewusst validieren; 3. Test-Plesk-Root-Basic-Passwortschutz separat sichern, dann NUR den Testbenutzer umbenennen; 4. unter neuem Login beide Scan-Stapel und drei historischen KI-Berichte browserseitig abnehmen; 5. Live erst nach expliziter Freigabe gesondert behandeln. Laravel-Filament-Webroot bleibt bis dahin unangetastet.
+
+[Prüfjournal](./HW24_ARBEITSJOURNAL.md), Commit `b48c6a1b36fb7fe3b24e1939c94a767b2d120c86`.
+
+---
+
 ## AKTUELLSTER BETREIBER-BEFUND · TEST-RÜCKSTELLUNG ERFOLGREICH (22.11.2026)
 
 **Nach vorherigem falschem SHA-Textvergleich jetzt wirklich read-only verifiziert:** `test-artikelmanager.HAIRWORLD24.de` / `HW24-scanner.git` steht wieder auf `deploy/staging`, `Deployment mode: manual`, deploy path `/test-artikelmanager.HAIRWORLD24.de`. Die drei Legacy-APIs haben ihre unveränderten Git-Blob-SHAs: `api/scanliste.php=e9fb8075c4f532d7a76adf81e760acf81cab4528`, `api/ai-reviews.php=00fb61c9d636434cdc6562edf169811a717c0911`, `api/ai-review.php=2eabde207434b8c62162dc553354cd052c6ec98f`. `api/hw24-actor-identity.php` **nicht vorhanden**. Der versuchte Metadaten-Rollback hat somit funktioniert; der Testcode blieb unverändert, kein Deploy.
