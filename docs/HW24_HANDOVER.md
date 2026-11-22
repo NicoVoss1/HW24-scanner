@@ -1,3 +1,17 @@
+## NÄCHSTE EINZELAKTION · 22.11.2026 · Plesk PR37-Git-SHA richtig, Status nach fehlerhaftem Parser OFFEN
+
+**PuTTY-Evidenz:** Backup SHA erfolgreich kontrolliert; Plesk TEST-Git-Repository `HW24-scanner.git` zunächst `deploy/staging` / manuell. `plesk ext git --fetch` und `plesk ext git --update -active-branch feature/hw24-login-alias-scan-ai-20261122` liefen ohne sichtbaren Fehler. Danach Abbruch `STOP: Unerwarteter Commit` **NUR WEGEN FEHLERHAFTEM AUSGABEPARSER**: `--get-last-commit` zeigt einen vollständigen mehrzeiligen `commit c2cc4e1dc054da00f01087e7221659cf54a9a482\nAuthor ...\nDate ...\nmessage`-Block, nicht eine nackte SHA. **Die ausgegebene Commit-ID entspricht dem erwarteten PR37-HEAD**.
+
+**Rollback-Hinweis:** Das Skript hat **automatisch versucht**, die Plesk-Test-Git-Branch-Metadaten auf `deploy/staging` zurückzustellen, aber dieser CLI-Ausgang ging nur in eine private Root-Protokolldatei und ein Fehler wäre durch `|| true` nicht sichtbar. Damit ist **der tatsächliche jetzige Test-Git-Branch noch nicht bestätigt**. Kein `plesk ext git --deploy` im Skript, dennoch Test-Webroot-SHAs erneut read-only verifizieren. Nicht das alte Branch-Only-Skript wiederholen und keine Benutzeränderung machen!
+
+**GENAU NÄCHSTER Betreiber-Block:** `HW24_PR37_STATUS`, ganz oben im [korrigierten Login-Runbook](./HW24_LOGIN_IDENTITAETSWECHSEL_20261122.md) (Commit `c164db33b734b6cb4323c008a81962aa03dbb7e1`). Er liest **nur** Branch/Deploymentmodus/-Pfad der **Testdomain**, drei Git-Blob-Hashes und Vorhandensein der neuen Owner-Hilfe. Keine Plesk-Git-`fetch/update/deploy`, keine SQL-Mutation, keine KI-Kosten. Mit dessen Ausgabe den sauber korrigierten SHA-Parser und die weitere vorsichtige Test-Bereitstellung planen.
+
+**Sicherungsreferenz:** `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz`, SHA256 `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26`. Live, Test-Basic und historische Bestände (KI 3 alt, Scan-Stapel je 1 alt/neu) bisher nicht mutiert.
+
+[Einzeljournal](./HW24_ARBEITSJOURNAL.md), Commit `7329b6c88cedda64a6ec93969a7b0b6d2fd636fe`.
+
+---
+
 ## LETZTER MEILENSTEIN · 22.11.2026 · Test-Webroot erfolgreich mit SHA gesichert
 
 **Betreiber-PuTTY: `HW24_TEST_BACKUP` ERFOLGREICH.** Geprüftes privates Root-TAR der bisherigen Testdomain: `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz`, SHA256 **`679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26`**. `tar -tzf` bestätigte `test-artikelmanager.HAIRWORLD24.de/api/ai-reviews.php`. **KEIN** Test-/Live-Datei-Deploy, kein Plesk-Rename, keine SQL- oder Passwortänderung. Das TAR ist **kein** separates Backup der Plesk-Passwortschutz- oder MariaDB-Einträge.
