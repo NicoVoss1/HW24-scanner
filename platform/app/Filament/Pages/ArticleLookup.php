@@ -28,6 +28,9 @@ final class ArticleLookup extends Page
     public array $ai = [];
 
     #[Locked]
+    public array $existingEvidence = [];
+
+    #[Locked]
     public array $sourceState = [];
 
     #[Locked]
@@ -40,7 +43,7 @@ final class ArticleLookup extends Page
 
     public function findArticle(LegacyReadBridge $bridge): void
     {
-        $this->reset(['lookup', 'amazon', 'ai', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery']);
+        $this->reset(['lookup', 'amazon', 'ai', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery', 'existingEvidence']);
         $id = trim($this->identifier);
         if (! preg_match('/^[\pL\pN][\pL\pN._\/-]{1,63}$/uD', $id)) {
             $this->addError('identifier', 'Bitte EAN, HAN oder JTL-Artikelnummer eingeben.');
@@ -62,6 +65,45 @@ final class ArticleLookup extends Page
             'jtl_status' => (string) ($raw['jtl_status'] ?? 'unbekannt'),
             'matches' => $matches,
             'ean' => isset($matches[0]) ? $matches[0]['ean'] : null,
+        ];
+        if (($this->lookup['jtl_status']??'')==='current_snapshot' &&
+            count($matches)===1 &&
+            preg_match('/^(?:[0-9]{8}|[0-9]{12}|[0-9]{13}|[0-9]{14})$/D',
+                (string)($matches[0]['ean']??''))) {
+            // Only cheap, read-only archival metadata after an explicit user search.
+            // No amazon.catalog / amazon.pricing / OpenAI POST is called here.
+            $this->readExistingEvidence($bridge,(string)$matches[0]['ean']);
+        }
+    }
+
+    private function readExistingEvidence(LegacyReadBridge $bridge,string $ean): void
+    {
+        $ai=$bridge->fetch('ai.summary',['summary'=>1,'eans'=>$ean]);
+        $data=is_array($ai['data']??null)?$ai['data']:[];
+        $summary=is_array($data['summaries']??null)?($data['summaries'][$ean]??null):null;
+        $this->existingEvidence['ai']=[
+            'verified'=>($ai['ok']??false)===true && ($data['summary']??false)===true,
+            'found'=>($ai['ok']??false)===true && is_array($summary),
+            'id'=>is_array($summary)&&is_numeric($summary['review_id']??null)
+                ?(int)$summary['review_id']:null,
+            'count'=>is_array($summary)&&is_numeric($summary['count']??null)
+                ?(int)$summary['count']:null,
+            'at'=>is_array($summary)?mb_substr((string)($summary['at_utc']??''),0,40):null,
+            'model'=>is_array($summary)?mb_substr((string)($summary['model']??''),0,60):null,
+        ];
+        $amz=$bridge->fetch('amazon.archive',['ean'=>$ean,'limit'=>1]);
+        $raw=is_array($amz['data']??null)?$amz['data']:[];
+        $snap=is_array($raw['snapshots']??null)&&is_array($raw['snapshots'][0]??null)
+            ?$raw['snapshots'][0]:null;
+        $this->existingEvidence['amazon']=[
+            'verified'=>($amz['ok']??false)===true &&
+                ($raw['scope']??'')==='catalog_ean_not_seller_account',
+            'found'=>($amz['ok']??false)===true && is_array($snap),
+            'snapshot_id'=>is_array($snap)&&is_numeric($snap['id']??null)
+                ?(int)$snap['id']:null,
+            'count'=>is_array($snap)&&is_numeric($snap['count']??null)
+                ?(int)$snap['count']:null,
+            'at'=>is_array($snap)?mb_substr((string)($snap['fetched_at_utc']??''),0,40):null,
         ];
     }
 
