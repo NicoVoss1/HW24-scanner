@@ -1,3 +1,16 @@
+## AKTUELLSTER BELEG · Laravel und Live-Stand betriebsseitig bestätigt (22.11.2026)
+
+- **Laravel CLI**: PHP 8.4 führt Laravel **13.43.0** fehlerfrei aus.
+- **Filament Adminpanel im CLI-Router**: Genau vier Routen: GET/HEAD /admin (Dashboard), GET/HEAD /admin/artikel, GET/HEAD /admin/login, POST /admin/logout.
+- **Live-Legacy-V4.25-Dateihashes**: Alle vier direkt geprüften Dateien index.html, artikelpflege.html, api/jtl.php, scanliste.html stimmen mit dem Staging-SHA überein. Live-Branch war bereits deploy/staging mit Commit 444453471b0fd27c73dcc7929f5e17f1d9239c52.
+- **Private Laravel-Datendateien**: .env und database/database.sqlite sind **noch NICHT** angelegt. Die fertig installierten Composer-Pakete bleiben erhalten, erneute Installation unnötig.
+- Ein zweites Mal eingefügter identischer PuTTY-Shellblock hatte **keine** zweite Abschlussausgabe; nicht als erneute Verifikation zählen.
+- **Noch ausstehend**: Legacy-Live-Funktionstest mit gültiger Anmeldung, Laravel-.env, APP_KEY, eigene SQLite-Laravel-Migration, Filament-Adminnutzer, Plesk-Webroot-Umschaltung, echte Laravel-HTTPS-Abnahme.
+- **GENAU NÄCHSTER SCHRITT:** Nur im bestehenden privaten Laravel-Projekt als Site-Benutzer .env sicher aus .env.example erzeugen; production/HTTPS/Debug off/secure session; APP_KEY erzeugen; SQLite-Datei (nicht in Git einchecken) und ausschließlich SQLite-Laravel-Tabellen migrieren; Assets lokal publizieren. **Weder bestehenden Test-Webroot noch JTL/MariaDB ändern.**
+- Nach jedem Schritt [Arbeitsjournal](./HW24_ARBEITSJOURNAL.md) nachtragen. Dokumentations-Commit des aktuellen CLI-/Hash-Belegs: 3b7ee3a26e2a524fe54f136f38453d9d190239c7.
+
+---
+
 # HW24 · VERBINDLICHE ÜBERGABE FÜR NEUE CHATS
 
 **Stand:** 22.11.2026 nach erfolgreicher Composer-/Laravel-/Filament-Installation. **Der neueste bestätigte Status steht direkt hier und am Ende der Datei; ältere Zwischenstände im Verlauf sind historisch.** **Diese Datei zuerst lesen**, danach [aktuellen Projektstand](./HW24_PROJEKTSTAND_AKTUELL.md), [chronologisches Arbeitsjournal](./HW24_ARBEITSJOURNAL.md) und [Zwei-Domain-Rollout](./HW24_TWO_DOMAIN_ROLLOUT_20261122.md). Die Dokumentation ist im öffentlichen GitHub-`main`; keine Secrets ergänzen.
