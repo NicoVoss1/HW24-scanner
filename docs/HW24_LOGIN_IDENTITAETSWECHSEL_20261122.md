@@ -1,3 +1,47 @@
+## AKTUELLE KORREKTUR · 22.11.2026 · **ZWEI Daten-Owner, keine einfache 1:1-Umleitung**
+
+**Tatsächlich in PuTTY bestätigt:**
+
+| Datenbanktabelle | Historischer Basic-Login | Künftiger Basic-Login | Insgesamt |
+| --- | ---: | ---: | ---: |
+| `hw24_ai_reviews.actor` | **3** | **0** | **3** |
+| `hw24_scan_batches.created_by` | **1** | **1** | **2** |
+
+**Achtung:** Der vorherige Entwurf mit `neuer Login -> alter Login` als **einzigen** kanonischen Owner war **nicht** geeignet und würde einen bereits unter dem neuen Login vorhandenen Scan-Stapel ausblenden. Er wurde im **Draft [PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37)** durch einen ausdrücklich autorisierten **Zwei-Owner-Leseumfang** ersetzt. GitHub CI [44978357305](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44978357305) und [44978360796](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44978360796) **grün** für Commit `c2cc4e1dc054da00f01087e7221659cf54a9a482`. Noch **kein** Plesk-Deploy, kein Kontenwechsel, keine Datenbankmutation!
+
+**Aktueller Codevertrag für neue Chats:**
+
+- `api/hw24-actor-identity.php` erlaubt nur serverseitig freigegebene **`read_aliases`** aus privater `hw24_private/actor-aliases.php`, z. B. `<?php return ['read_aliases'=>['NEUER_LOGIN'=>['HISTORISCHER_LOGIN']]];`. Die Namen werden hier nur als Platzhalter dokumentiert; keine Zugangsdaten im Repository.
+- `api/scanliste.php` zeigt und autorisiert beide bisherigen Stapel mittels gebundener `created_by IN (...)`, protokolliert **neue** Stapel/Scanvorgänge/Audits aber unter dem **aktuell authentifizierten Login**.
+- `api/ai-reviews.php` zeigt alte und neue KI-Berichte über begrenzte `actor IN (...)`-Abfragen; `api/ai-review.php` prüft bestehende Reviews über beide Owner, erzeugt **neue** Berichte immer unter der aktuellen Kennung. Keine automatischen OpenAI-Kosten.
+- Ohne valide private Aliasdatei ist die Leseberechtigung ausschließlich der eingeloggte Basic-Benutzer. Weder GET-/POST-Parameter noch ein Browserzustand können Berechtigungen erweitern.
+- Die alten `actor`, `created_by`, `changed_by`, `scanned_by` bleiben unverändert. Keine Migration und kein SQL-UPDATE.
+
+**Plesk-Diagnoseblock vom vorherigen Stand FEHLGESCHLAGEN:** Die SQL-Abfrage mit `pd.name` meldete `ERROR 1054 Unknown column 'pd.name'`. Das beweist **nur eine falsche Spaltenannahme**, keine Störung der Schutzkonten. **Nicht erneut** eine fehlerhafte SELECT-/Umbenennungsanweisung benutzen.
+
+### GENAU NÄCHSTER AUSZUFÜHRENDER Befehl: nur Plesk-Spaltennamen auslesen
+
+```bash
+bash <<'HW24_PLESK_SCHEMA'
+set -u
+echo "=== HW24 PLESK-PASSWORTSCHUTZ: TABELLENSTRUKTUR ==="
+plesk db -Ne "
+SELECT TABLE_NAME, COLUMN_NAME
+FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA=DATABASE()
+AND TABLE_NAME IN ('protected_dirs','pd_users','domains')
+ORDER BY TABLE_NAME, ORDINAL_POSITION;
+"
+echo "=== PRUEFUNG ABGESCHLOSSEN; KEINE AENDERUNGEN ==="
+HW24_PLESK_SCHEMA
+```
+
+**Ausgabeziel:** Nur Tabellen- und Spaltennamen, **keine** Logins, Passwort-Hashes, E-Mail-Adressen oder DB-Inhalte. Nach Erhalt wird die korrekt an die **tatsächliche** Plesk-Datenbank angepasste *read-only* Domain-/Protected-Directory-/Basic-User-Abfrage erstellt. Dabei beide vorhandenen Domains und eventuelle bereits existierende neue Login-Accounts prüfen; keine Kollisionen zulassen. Plesk-Benutzer erst **nach Backup und Test** gezielt umbenennen.
+
+**Voraussetzung vor einer späteren Umbenennung:** Die Test- und Live-Authquelle, beide Benutzer in Plesk, `hw24_private/actor-aliases.php` und der GitHub-PR #37-Rollout müssen für den richtigen Domainkontext konsistent und mit Rollback eingerichtet sein. Ein früherer Loginwechsel ohne den Code würde durch die existierenden Datenfilter **1 Scan-Stapel und 3 KI-Berichte ausblenden**. Die alte Domain-Test-Umstellung auf Laravel/Filament ist ein getrenntes Vorhaben.
+
+---
+
 # HW24 Loginwechsel · Artikelmanager und Scanliste ohne Historienverlust
 
 **Stand 22.11.2026.** Betreiber wünscht die Umbenennung **einer bestehenden HTTP-Basic-Anmeldung** für Artikelmanager und Scanliste. Der konkrete alte/neue Nutzername wird ausschließlich im Betreiberterminal verwendet, **nicht** im öffentlichen GitHub dokumentiert.
