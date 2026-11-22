@@ -1,3 +1,15 @@
+## NEUESTER STATUS · 22.11.2026 · FILAMENT ADMIN ANGELEGT
+
+**Bestätigt durch neue PuTTY-Ausgabe:** `HW24_ADMIN_EMAIL` ist privat in Laravel-.env gesetzt, `artisan config:clear` erfolgreich und interaktive `artisan make:filament-user`-Anlage mit verdecktem Passwort meldete **Success!**. Script `ADMINISTRATOR EINRICHTUNG ABGESCHLOSSEN`. Admin-E-Mail und Passwort werden **nicht** im öffentlichen GitHub veröffentlicht. PHP/Laravel/Filament, SQLite-Migrationen und Assets waren bereits erfolgreich eingerichtet.
+
+**Nicht behaupten:** Die durch Filament ausgegebene URL `https://test-artikelmanager.hairworld24.de/admin/login` beweist noch **keine öffentliche HTTP-Erreichbarkeit**, denn Testdomain läuft derzeit noch auf Legacy. Live-V4.25-Hashkontrolle war erfolgreich, authentifizierter JTL-/Amazon-/KI-E2E weiterhin ausstehend.
+
+**Nächster Schritt:** Lokalen Admin und freigegebene E-Mail nur als booleschen Konsistenzstatus prüfen, ohne E-Mail oder Credentials auszugeben. Danach authentifizierte Legacy-Live-Funktionsprobe, dann separater abgesicherter Testdomain-Cutover auf `platform/public` mit manueller Plesk-Git-Pipeline, PHP 8.4-FPM und Rollback-Plan. Keine neuen Domains, keine zusätzliche MariaDB, kein JTL-/WMS-Live-Write.
+
+[Arbeitsjournal mit Einzelbelegen](./HW24_ARBEITSJOURNAL.md), Commit `95246e6a8a9e2cb499454c4bdad4bcd6c3eb4307`.
+
+---
+
 ## NEUESTER IST-STAND · 22.11.2026 · Private Laravel-Konfiguration und SQLite MIGRIERT
 
 **Bestätigt durch PuTTY:** Im separaten privaten Framework-Klon Laravel-Produktions-.env angelegt (Debug aus, Secure-Session, HTTPS), privater APP_KEY erzeugt, isolierte SQLite angelegt, vier **ausschließlich Laravel-eigene** Migrationen erfolgreich, `migrate:status` viermal `Ran`; Filament JS/CSS/Schriften mit `filament:assets` erfolgreich publiziert. Abschlussausgabe `=== HW24 ERSTKONFIGURATION ERFOLGREICH ===`. **Weder JTL-Wawi noch MariaDB/Legacy-Webroots migriert oder umgestellt.**
