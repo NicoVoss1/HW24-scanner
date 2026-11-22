@@ -158,3 +158,22 @@ Dokumentation zu CLI: https://docs.plesk.com/en-US/obsidian/cli-linux/using-comm
 - `plesk ext git --fetch`, danach `--get-last-commit` muss **exakt** `444453471b0fd27c73dcc7929f5e17f1d9239c52` ergeben. Bei Abweichung **STOP** ohne Deployment.
 - `plesk ext git --deploy` manuell ausführen und danach kritische Git-Blob-Dateihashes erneut vergleichen; die letzte tatsächliche Live-Abnahme erfolgt erst durch Browser/API-Checks.
 - Kein `git reset --hard`, kein Plesk-Live-Deploy, keine SQL-Migration, keine Offenlegung privater `.env`-/API-Dateien.
+
+## V4.25 TEST erfolgreich bereitgestellt (PuTTY, 22.11.2026)
+
+**BESTÄTIGT (Nutzer-Ausgabe):** Vor-Deploy-V4.24-Dateihashes geprüft und alle 5 erwarteten Werte OK. Ein privates Webroot-Archiv wurde erstellt und seine Lesbarkeit mit `tar -tzf` geprüft: `/root/hw24-backups/test-v424-20261122-012618.tar.gz`. GitHub-Pull `plesk ext git --fetch` und manueller Deploy auf **test-artikelmanager.HAIRWORLD24.de** erfolgreich. Vor Deploy exakt V4.25-Commit `444453471b0fd27c73dcc7929f5e17f1d9239c52` verifiziert. Nach Deployment Dateihashes `artikelpflege.html` und `api/jtl.php` entsprechen V4.25. Das ist ein **nachgewiesenes Code-Deployment**, noch kein bestätigter Browser-/API-Funktionstest.
+
+**Technischer Sicherheitshinweis (Codeprüfung):** Die V4.25-`api/jtl.php`-Route prüft keinen `PHP_AUTH_USER`; sie benötigt **äußeren Webserver-/Plesk-Zugriffsschutz**. Bei einer ungeschützten Live-Domain könnten Artikel-/Preis-/Bestandsdaten über diese GET-Route abrufbar sein. Amazon-/KI-Endpunkte haben teilweise zusätzliche Auth-Prüfungen, die den Webserverzugriffsschutz **nicht ersetzen**. Die Live-Übernahme ist gesperrt, bis Authentifizierung beider Artikelmanager-Domains ohne Credentials per HTTP-Status geprüft ist und die Legacy-JTL-API geschützt ist. Für diesen Check ausschließlich Statuscodes ausgeben, niemals JSON-Nutzdaten.
+
+**Sofortiger Test:** Testdomain im authentifizierten Browser auf `/artikelpflege.html?ean=3474630337398` öffnen. JTL-Originalwerte sowie Anzeige von Amazon-/KI-Bereichen und Dropdowns prüfen, bewusst einmal Amazon-Katalog aufrufen und gegebenenfalls Fehlerstatus notieren. Noch keine Entwurfs-/Ameise-Datenänderung erforderlich.
+
+**Nächster Schutztest (read-only):**
+```bash
+for domain in artikelmanager.hairworld24.de test-artikelmanager.hairworld24.de; do
+  for path in / /api/jtl.php?ean=3474630337398 /api/ai-reviews.php; do
+    status=$(curl --silent --show-error --max-time 12 --output /dev/null --write-out '%{http_code}' "https://$domain$path") || status="curl_error"
+    printf '%s | %s | HTTP %s\n' "$domain" "$path" "$status"
+  done
+done
+```
+**Interpretation:** HTTP 401/403 ohne Anmeldung ist für private APIs erwartungsgemäß; HTTP 200 von `api/jtl.php?ean=...` ohne Auth ist ein **Sicherheitsblocker** vor der Übertragung auf Live. Weiterleitungen/andere Statuscodes genauer prüfen, nicht automatisch Freigabe behaupten. Wenn HTTP 200 auf Test ebenfalls vorkommt, Zugriffsschutz priorisieren.
