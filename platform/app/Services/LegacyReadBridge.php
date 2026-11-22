@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
 /**
- * TEMPORARY READ-ONLY adapter to the existing, protected HW24 test APIs.
+ * TEMPORARY READ-ONLY adapter to the existing, protected HW24 LIVE LEGACY APIs.
  * This class cannot write to Wawi, WMS, Shopify, Amazon or OpenAI.
  * No upstream request is made unless a caller explicitly invokes fetch().
  */
@@ -31,10 +31,10 @@ final class LegacyReadBridge
         $user = (string) config('hw24_legacy.user');
         $password = (string) config('hw24_legacy.password');
 
-        // Pin integration to the established isolated test host. Prevent user-directed SSRF
+        // Pin integration to the established legacy LIVE host. Prevent user-directed SSRF
         // or accidental Basic credentials disclosure to redirects/other domains.
         if (parse_url($base, PHP_URL_SCHEME) !== 'https' ||
-            parse_url($base, PHP_URL_HOST) !== 'test-artikelmanager.hairworld24.de' ||
+            parse_url($base, PHP_URL_HOST) !== 'artikelmanager.hairworld24.de' ||
             !$user || !$password) {
             return ['ok'=>false,'service'=>$service,'state'=>'unconfigured','http_status'=>null,'data'=>null];
         }
