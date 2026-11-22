@@ -50,7 +50,7 @@ final class Hw24DashboardReadOnlyTest extends TestCase
             ->assertSet('jtl.ok', true)
             ->assertSet('jtl.article_id', '1428')
             ->assertSee('Test Matrix 6C')
-            ->assertSee('11,76 EUR');
+            ->assertSee('11,76 (Währung unbestätigt)');
         Http::assertSentCount(1);
         Http::assertSent(fn ($req) => $req->method() === 'GET'
             && str_contains($req->url(), '/api/jtl.php')
@@ -88,7 +88,7 @@ final class Hw24DashboardReadOnlyTest extends TestCase
             ->call('inspectArchive')
             ->assertSet('archive.ok', true)
             ->assertSet('archive.count', 1)
-            ->assertSee('1 gespeicherte Einträge');
+            ->assertSee('1 Archivtreffer (max. 5)');
         Http::assertSentCount(1);
         Http::assertSent(fn ($req) => $req->method() === 'GET'
             && str_contains($req->url(), '/api/ai-reviews.php')
