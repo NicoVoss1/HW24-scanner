@@ -444,3 +444,25 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 **Exakt nächster Schritt:** Ohne Offenlegung von E-Mail/Passwort im Chat **interaktiv** nur im privaten Laravel-Projekt `HW24_ADMIN_EMAIL` setzen und `artisan make:filament-user` als Site-User starten, Nutzerpasswort verdeckt am PuTTY-Terminal eingeben. Nur erlaubter User soll das Panel betreten. Nicht `env` oder `APP_KEY` ausgeben, keine lokale/öffentliche Datenbankreset-Migration, keine Veröffentlichung des `platform/`-Gesamtverzeichnisses. Danach verantwortungsvoll die vorhandene Legacy-Live-Domain angemeldet im Browser abnehmen; Testdomain erst danach auf `platform/public` umschalten.
 
 **Chronologie-Regel:** Jeder nächste Terminal-/Browser-Befund und jede Anpassung an GitHub-Featurebranch oder Infrastruktur wird unmittelbar hier als eigener Folgeeintrag dokumentiert.
+
+
+### 22.11.2026 · Erster Filament-Administrator erfolgreich erstellt
+
+**Quelle:** Vom Betreiber vollständig bereitgestellte PuTTY-Ausgabe des interaktiven Blocks zur Admin-Erstellung nach zuvor erfolgreich installierter Laravel-Anwendung und separater SQLite-Migration.
+
+| Schritt | Nachgewiesener Vorgang | Ergebnis |
+| --- | --- | --- |
+| 50 · Konfigurations-/DB-Gates | Vorhandensein privater `.env`, privater SQLite und Composer-Autoload bestätigt; sonst wäre das Skript mit `set -e` abgebrochen | **BESTÄTIGT** |
+| 51 · Admin-E-Mail eingegeben | Admin-E-Mail wurde interaktiv eingegeben und gegen ein einfaches E-Mail-Syntaxmuster geprüft | **BESTÄTIGT**; persönliche E-Mail ausdrücklich **nicht** im öffentlichen Repository protokolliert |
+| 52 · Filament-Zugriffsfreigabe | `HW24_ADMIN_EMAIL` in privater Laravel-`.env` gesetzt; Ausgabe `Private Admin-Freigabe gespeichert.` | **BESTÄTIGT**; keine Secrets oder private `.env` gesichert |
+| 53 · Laravel Konfigurationscache | `artisan config:clear` meldete `Configuration cache cleared successfully.` | **BESTÄTIGT** |
+| 54 · Neuer Filament-Benutzer | `artisan make:filament-user` interaktiv ausgeführt, Benutzername und gleiche E-Mail eingegeben, Passwort verdeckt erfasst; Filament meldete `Success! ... may now log in at https://test-artikelmanager.hairworld24.de/admin/login.` | **BESTÄTIGT, SQLite-Benutzeranlage erfolgreich** |
+| 55 · Skriptabschluss | `=== ADMINISTRATOR EINRICHTUNG ABGESCHLOSSEN ===` und Rückkehr zum Root-PuTTY-Prompt | **BESTÄTIGT** |
+
+**Datenschutz:** Persönliche Administrator-E-Mail sowie geheimes Passwort wurden **nicht** in die öffentliche Dokumentation übernommen; nur das vorhandene interne Konfigurationsmerkmal `HW24_ADMIN_EMAIL` und die erfolgreiche Benutzeranlage. Der Server hat die Zugangsdaten lokal erhalten.
+
+**Wichtige Statusgrenze:** Die Filament-Meldung enthält die später gültige HTTPS-Login-URL, aber die bestehende Testdomain wurde bisher **nicht** auf Laravel umgeschaltet. Deshalb ist die Erreichbarkeit des Filament-Logins **NICHT durch HTTP oder Browser verifiziert**. Die Berechtigungsmatrix wird erst im HTTP-Test geprüft. Die Live-Legacy-V4.25-Dateihashes sind bestätigt, aber JTL/Amazon/OpenAI im angemeldeten Live-Browser noch nicht vollständig abgenommen.
+
+**Exakt nächster Schritt:** Read-only Auth-Gate der neuen privaten SQLite-Anwendung ohne Ausgabe der Admin-E-Mail: Benutzerzahl, Übereinstimmung `users.email` mit `HW24_ADMIN_EMAIL` und Panel-Login-Routen, danach den vorhandenen Legacy-Live-Artikelmanager **angemeldet** mit Referenz-EAN und API-Funktionen im Browser testen. Vor dem Umschalten der Testdomain Plesk-DocumentRoot/PHP-8.4-FPM und die bestehende manuelle Plesk-Git-Deploymentkopplung absichern, sonst könnte die neue Laravel-App ungewollt überschrieben bzw. privat gespeicherter Code öffentlich werden. **Noch keine Domainumstellung, kein JTL-Write, keine API-Secret-Übernahme.**
+
+**Pflicht:** Erfolg, weitere Tests und auch Fehler weiterhin sofort in GitHub festhalten.
