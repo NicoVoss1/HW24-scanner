@@ -1,3 +1,13 @@
+## AKTUELLE BLOCKADE · 22.11.2026 · Ehemaliger Test-Basic-Login noch HTTP 200, Live-Historie noch ohne Codebridge
+
+**Aktuell nicht als sicher abgeschlossen freigeben.** Der Plesk-Test-Basic-Login wurde von `hw24-test` auf `nvoss` umbenannt. HTTPS-GETs als `nvoss` auf TEST lieferten 3/3 historische KI-Berichte und 2/2 offene Scan-Stapel. Der anschließend durch den Nutzer ausgeführte Negativtest mit `curl --basic --user hw24-test` gab jedoch **HTTP 200**, nicht 401, zurück. Ursache unbekannt; bestehender Plesk-DB-Benutzereintrag allein belegt nicht die aktive Webserver-Anmeldung. Eine Read-only-Inventarisierung von Test-`pd`-Usernamen und `AuthUserFile`/`auth_basic_user_file`-Referenzen steht an. Kein Restart/Datei-Edit ohne Diagnose.
+
+**Wichtige UI-Abgrenzung:** Auf `test-artikelmanager.hairworld24.de` ist PR37 plus private Actor-Mappingdatei aktiv. Die produktive `artikelmanager.hairworld24.de` wurde nicht upgedatet und kann die historischen `hw24-test`-KI-Berichte deshalb noch nicht automatisch unter `nvoss` auflisten. Auf TEST zeigt die `📂 Auswertungen`-Schaltfläche im Code die `hw24-ai-history.js`-Ansicht, dort `Alle letzten Prüfungen` (ohne EAN-Filter). Browser-E2E noch nicht bestätigt. Die alte Login-HTTP-200-Frage hat jetzt Priorität.
+
+**NÄCHSTER SCHRITT:** Der einzelne PuTTY-Read-only-Befehl `HW24_BASIC_AUTH_TRACE` steht zuoberst in [Loginwechsel-Runbook](./HW24_LOGIN_IDENTITAETSWECHSEL_20261122.md), Commit `1ddac25aa56791fb8d6d950421613c67b834a92a`. Nach Ausgabe wirksame Basic-Auth-Quelle von Plesk herausfinden, nur gezielt korrigieren, neuen HTTP-Negativtest. Kein Live-Deploy bis Sicherheitsblockade beseitigt. GitHub-Journal-Commit `a5dfa5a75ca92df531219c80f1252e46ab0de93c`.
+
+---
+
 ## NEUESTER TECHNISCHER MEILENSTEIN · 22.11.2026 · PR37-TEST-DEPLOY ERFOLGREICH
 
 **Nutzer-PuTTY bestätigt den abgeschlossenen manuellen Plesk-TEST-Deploy** des auf `feature/hw24-login-alias-scan-ai-20261122` gepinnten PR37-HEAD `c2cc4e1dc054da00f01087e7221659cf54a9a482`. Vier PHP-Git-BLOBs im **TEST-Webroot** sind exakt:
