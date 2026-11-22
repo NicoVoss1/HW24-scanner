@@ -1,3 +1,13 @@
+## AKTUELLSTE VORPRÜFUNG · 22.11.2026 · Legacy Test und Live haben identische geschützte APIs
+
+**Betreiber-PuTTY:** Sowohl `artikelmanager.HAIRWORLD24.de` (Live, `HW24-scanner`) als auch `test-artikelmanager.HAIRWORLD24.de` (Test, `HW24-scanner.git`) sind auf `deploy/staging` mit **manual deployment**. `api/scanliste.php`, `api/ai-reviews.php`, `api/ai-review.php` besitzen auf beiden Domains übereinstimmende Legacy-Git-Blob-Hashes `e9fb8075...`, `00fb61c9...`, `2eabde20...`; neuer Alias-Helfer **fehlt**. Kein Rollout von [Draft PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37) und keine Plesk-Benutzeränderung.
+
+**Plesk-IDs:** Live Domain 9, Protected-Dir 8, Basic-User künftig gewünschter Name; Test Domain 10, Protected-Dir 9, alter Test-Basic-User; `plesk-stat`-Protected-Dir 1 separat. **DB-Bestand**: 3 alte KI-Archivberichte, Scanliste-Stapel geteilt 1 alt / 1 neu. Neue Basic-Benutzerumbenennung muss erst nach getestetem Dual-Owner-Zugriff stattfinden. **Nächster sicherer Schritt:** Wiederherstellbares, frisches privates Test-Webroot-Backup, dann kontrolliertes separates Test-Git-Deployment und gesicherter Passwortschutz-Rollback; Live unverändert.
+
+[Arbeitsjournal](./HW24_ARBEITSJOURNAL.md), Commit `4cc22b45c84babb69407d0bbac69b93f8e66ca8f`; [Handover](./HW24_HANDOVER.md), Commit `8833728dd7d7806f9c4b46a03f8e32f98ee7164f`.
+
+---
+
 ## NEUESTER SICHERER STAND · 22.11.2026 · PLESK TEST/LIVE EXAKT ZUGEORDNET
 
 **Vom Betreiber durch PuTTY-SQL bestätigt:**
