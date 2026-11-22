@@ -30,6 +30,18 @@ jobs:
           bash -n platform/ops/upgrade-private-framework-ffonly.sh
           bash -n platform/ops/upgrade-private-framework-cockpit-ffonly.sh
           bash -n platform/ops/upgrade-test-article-layout-ffonly.sh
+          bash -n platform/ops/upgrade-test-legacy-workflows-ffonly.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('platform/ops/upgrade-test-legacy-workflows-ffonly.sh').read_text()
+          assert "target='6c9be5c6258800feb65f20c036e6d7526c7fb803'" in p
+          assert 'merge --ff-only "$target"' in p
+          assert 'set -Eeuo pipefail' in p
+          assert 'VACUUM INTO ?' in p
+          assert 'artisan migrate' not in p
+          assert 'plesk bin subdomain --update' not in p
+          assert 'scanliste' in p and 'werkzeuge' in p
+          PY
           python3 - <<'PY'
           from pathlib import Path
           s=Path('platform/ops/upgrade-private-framework-cockpit-ffonly.sh').read_text()
