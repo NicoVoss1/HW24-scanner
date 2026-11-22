@@ -44,6 +44,10 @@ assert(intel.includes("api/amazon-pricing.php?asin="),'On-demand Amazon pricing 
 assert(intel.includes("api/amazon-keywords.php?q="),'Optional keyword fallback');
 assert(intel.includes('api/amazon-asin.php?'),'Manual linked ASIN Catalog Items endpoint');
 assert(intel.includes('renderLinkedAsins()'),'Linked ASIN lookup only after article load');
+assert(intel.includes('ean_identifiers'),'Show Amazon-supplied EANs for manual source verification');
+assert(intel.includes('Keine automatische Bestätigung der JTL-EAN'),'Block automatic trust when ASIN reports other EAN');
+assert(intel.includes("data.ean_evidence==='other_ean'"),'Make mismatched EAN a visible warning');
+
 assert(amazonAsin.includes('asin_not_linked_to_jtl_article'),'Server verifies explicit current JTL ASIN mapping');
 assert(amazonAsin.includes('jtl_mirror_not_current'),'No stale JTL-ASIN cross checks');
 assert(amazonAsin.includes('marketplaceIds')&&amazonAsin.includes('get_catalog_item'),'Get Amazon.de item by ASIN');
