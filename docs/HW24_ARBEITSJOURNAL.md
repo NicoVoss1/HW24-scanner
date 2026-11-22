@@ -1268,3 +1268,19 @@ Die separate `protected_dirs.id=1` für `plesk-stat` auf `domains.id=1` ist **ni
 - **GitHub Actions `HW24 V4.25 Amazon KI Ameise article editor`, Lauf-ID `45027407660`, `completed/success`**. **NOCH NICHT deployed** auf TEST oder LIVE; PR39 bleibt DRAFT zur separaten Validierung der vorhandenen Amazon- und JTL-Schnittstellen. Nicht mit PR37/38 verwechseln.
 
 **Nächste konkrete Aktion, NUR SELECT und ohne Secret-Ausgabe:** auf Plesk unter `nicovoss` aktuelle `hw24_jtl_articles.raw_json`-Einträge für EAN 3474630337398 auf Existenz der fünf HW24-Zuordnungsfelder und `related_sources` prüfen, ebenso aktuelle `hw24_amazon_catalog_snapshots`-Einträge aus dem Cache. Kein SP-API-Aufruf nötig. Danach gezielte Windows SQL Schema-/Preisgruppe-/Steuerbeobachtung, Sicherung des Windows-Sync-Skripts, staged Ergänzung mit Tests und später Test-Snapshot; erst danach LIVE-Entscheidung. Ohne diese Quellprüfung kein autoritatives `Brutto-VK` oder `Artikeltyp` in Wawi/Ameise ausfüllen. Ziel: vollständiger verifizierter JTL-Datenspiegel mit sauberer Preisprovenienz und getrennten Amazon/eBay/Shopify-Kanalpreisen, keine Massenänderung ungeprüfter Artikel.
+
+
+## 22.11.2026 · LIVE-/TEST-V4.25-PREFLIGHT mit Betreiber-PuTTY ERFOLGREICH (17:21:55 UTC)
+
+**Neuer, vom Betreiber vollständig mitgeteilter Shell-Ausgabenachweis** zur read-only Prüfung `ops/hw24-live-test-preflight-readonly.sh` (Featurebranch `feature/hw24-jtl-all-fields-channel-view-20261122`, Commit `443b0e65d169fb41e60650ee3fe1cb61f80c9d45`):
+
+- Beiden bestehenden Plesk-DocumentRoots gehören weiterhin zum Artikelmanager: `/var/www/vhosts/hairworld24.de/artikelmanager.HAIRWORLD24.de` bzw. `/var/www/vhosts/hairworld24.de/test-artikelmanager.HAIRWORLD24.de`.
+- **10/10 exakte Legacy-V4.25-Git-Blob-Hashes** auf Live und Test stimmen überein: jeweils `index.html`, `artikelpflege.html`, `scanliste.html`, `api/jtl.php`, `api/amazon.php`. Kein Plesk-Webroot umgestellt.
+- **6/6 anonyme HTTPS-GETs HTTP 401:** Artikelpflege, JTL-EAN-Lookup und KI-Archiv auf beiden Domains. Die Pfade sind ohne Anmeldung nicht offen.
+- Private Laravel-CLI bestätigt `Laravel Framework 13.43.0`; `artisan route:list --path=admin` liefert die vier erwarteten Routen `GET /admin`, `GET /admin/artikel`, `GET /admin/login`, `POST /admin/logout`.
+- `nginx` und `www-data` können die öffentlichen CSS-/JS-Assets lesen, **nicht** `platform/.env` oder `platform/database/database.sqlite`.
+- Abschließend `=== Ende: 0 Abweichung(en), keine Aenderungen vorgenommen ===`. Betreiber hatte unmittelbar zuvor separat bereits die **authentifizierte LIVE-KI-Historie mit 3 Berichten** und **2 offene Scanlisten-Stapel** unter Basic-User `nvoss` erfolgreich geprüft; Schutz weiter HTTP 401 anonym. Keine Datenbank-/Artikeländerungen.
+
+**Bewusst noch offen und nicht als erfüllt ausgeben:** Ein authentifizierter LIVE-EAN-/JTL-Lese- und Artikelpflege-Browsertest (Referenz EAN `3474630337398`, erwartete JTL-ID `1428`, ASIN `B091J3HV6B`), die manuell ausgelöste Amazon-Selling-Partner-API-Katalogprüfung und der Laravel-/Filament-Login via HTTP nach Test-DocumentRoot-Umstellung. Fehlender EAN-Katalogtreffer beweist nicht fehlende verknüpfte ASIN. PR #39, PR #41 und PR #36 weiterhin **Draft/nicht deployed**; neueste PHP-Anwendungsänderungen nur in GitHub. Zwischen CI-Grün und echter Plesk-HTTP-Abnahme strikt unterscheiden.
+
+**Nächster Schritt:** genau **ein** authentifizierter HTTPS-GET auf `https://artikelmanager.hairworld24.de/api/jtl.php?ean=3474630337398` mit interaktiver/verdeckter Passwortabfrage (keine Secrets im Chat/Repo/Shell-History). Rückgabefelder nur gefiltert anzeigen. Danach Browserartikelpflege und die ausdrückliche manuelle Amazon-GET-Abfrage ansehen. Erst bei erfolgreicher E2E-Abnahme die weitere Legacy-PR-#39/#41-Testbereitstellung und die isolierte Laravel-Testdomain unter Rollback planen; Live unverändert.
