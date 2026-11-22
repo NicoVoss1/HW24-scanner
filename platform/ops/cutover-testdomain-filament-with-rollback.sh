@@ -36,6 +36,8 @@ restore(){
  exit "$rc"
 }
 trap restore EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 echo '=== HW24 TEST-SUBDOMAIN: GESICHERTER FILAMENT-CUTOVER ==='
 [ "$(id -u)" -eq 0 ] || { echo 'STOP: Root-PuTTY erforderlich'; exit 2; }
 for bin in plesk python3 curl git runuser;do command -v "$bin" >/dev/null;done
@@ -65,8 +67,8 @@ plesk bin subdomain --info "$site" >/dev/null 2>&1 || {
 }
 echo '1. Urspruengliche HTTPS-Absicherung pruefen'
 for path in '/' '/admin/login' '/api/jtl.php?ean=3474630337398';do
- code="$(curl -fsS --max-time 12 --proto '=https' --output /dev/null --write-out '%{http_code}' \
-  "https://$site$path" 2>/dev/null)" || code="$(curl -sS --max-time 12 --proto '=https' --output /dev/null --write-out '%{http_code}' "https://$site$path" 2>/dev/null || true)"
+ code="$(curl -sS --max-time 12 --proto '=https' --output /dev/null --write-out '%{http_code}' \
+  "https://$site$path" 2>/dev/null)" || code='transport_error'
  [ "$code" = '401' ] || [ "$code" = '403' ] || {
   echo "STOP: bisherige Test-URL nicht geschuetzt: $path (HTTP $code)";exit 2;
  }
