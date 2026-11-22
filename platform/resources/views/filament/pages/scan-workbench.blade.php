@@ -138,7 +138,7 @@
                         <p class="hw24-note {{ ($batchAiStatus['ok']??false)?'':'hw24-note-warn' }}" role="status">
                             {{ $batchAiStatus['message'] }}
                             @if(($batchAiStatus['ok']??false)===true)
-                                · {{ count($batchAiMarkers) }} zuvor analysiert
+                                · {{ $batchAiStatus['found']??0 }} zuvor analysiert
                                 @if($batchAiStatus['partial']) · Die Marker-Liste ist auf 150 EANs begrenzt @endif
                             @endif
                         </p>
@@ -156,10 +156,10 @@
                                             <td>{{ $item['resolution'] }}</td>
                                             <td>{{ $item['review'] }}</td>
                                             <td>
-                                                @if(isset($batchAiMarkers[$item['ean']]))
+                                                @if(($batchAiMarkers[$item['ean']]['found']??false)===true)
                                                     <span class="hw24-stat">🧠 Bereits geprüft</span>
                                                     <div class="hw24-sub">{{ $batchAiMarkers[$item['ean']]['count'] }} Bericht(e) · zuletzt {{ $batchAiMarkers[$item['ean']]['at'] }} UTC</div>
-                                                @elseif(($batchAiStatus['ok']??false)===true && in_array($item['ean'],($batchAiStatus['checked_eans']??[]),true))
+                                                @elseif(isset($batchAiMarkers[$item['ean']]))
                                                     <span class="hw24-sub">Kein bestätigter Archivtreffer in der geprüften Teilmenge</span>
                                                 @else
                                                     <span class="hw24-sub">Noch nicht geprüft</span>
