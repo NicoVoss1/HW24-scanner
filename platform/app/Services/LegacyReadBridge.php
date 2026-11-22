@@ -23,6 +23,7 @@ final class LegacyReadBridge
         'amazon.archive' => 'api/amazon-archive.php', // Requires separate LIVE read-only API release
         'amazon.keywords' => 'api/amazon-keywords.php',
         'amazon.pricing' => 'api/amazon-pricing.php',
+        'amazon.sellers' => 'api/amazon-sellers.php', // verified seller names, GET only
         'ai.history' => 'api/ai-reviews.php',
         'ai.budget' => 'api/ai-review.php', // GET only, never billable POST
         // Strictly read-only legacy scan batches, scoped by existing Basic-Auth actor.
