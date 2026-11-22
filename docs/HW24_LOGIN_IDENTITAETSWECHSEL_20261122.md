@@ -1,3 +1,61 @@
+## PLESK-BASIC-RENAME AUF TEST ERFOLGREICH · 22.11.2026
+
+**PuTTY-Beleg des Betreibers:** Plesk bestätigte `SUCCESS: Update of protected URL '/' completed.` nach `plesk bin protdir -u '/' -domain test-artikelmanager.hairworld24.de -update_user hw24-test -user_name nvoss`. Skript-Nachchecks: `TESTBENUTZER ERFOLGREICH UMBENANNT`, `Neuer Benutzer: nvoss`, gleiche `account_id`-Referenz wie vorher, alte Test-PD-Login-Zeile verschwunden, anonymer HTTPS-GET weiterhin **401**. Private read_aliases-PHP-Funktion `nvoss => [nvoss,hw24-test]` vorher ebenfalls geprüft. Beide Root-Sicherungsprüfsummen bestanden. **Kein SQL-Daten-Update und kein Live-Deploy.**
+
+### NÄCHSTER EINZEL-BLOCK: authentifizierte GET-Anfragen als neuer TEST-User `nvoss`
+
+```bash
+bash <<'HW24_NVOSS_GET_VERIFY'
+set -euo pipefail
+
+url="https://test-artikelmanager.hairworld24.de"
+php="/opt/plesk/php/8.5/bin/php"
+
+echo "=== NVOSS: HISTORISCHES KI-ARCHIV ==="
+echo "Passwort fuer nvoss nur im verdeckten curl-Prompt eingeben."
+
+curl --silent --show-error --fail-with-body \
+  --basic --user nvoss --max-time 30 --proto '=https' \
+  "$url/api/ai-reviews.php?limit=50" |
+"$php" -r '
+ $v=json_decode(stream_get_contents(STDIN),true);
+ if(!is_array($v)||($v["ok"]??false)!==true||!is_array($v["reviews"]??null)){
+   fwrite(STDERR,"STOP: nvoss KI-Archiv-GET nicht lesbar\n");exit(1);
+ }
+ $n=count($v["reviews"]);
+ echo "KI-Berichte unter nvoss sichtbar: $n\n";
+ if($n!==3){fwrite(STDERR,"STOP: Erwartet exakt 3 historische Berichte\n");exit(1);}
+'
+
+echo "=== NVOSS: OFFENE SCANLISTEN ==="
+echo "Passwort erneut verdeckt eingeben."
+
+curl --silent --show-error --fail-with-body \
+  --basic --user nvoss --max-time 30 --proto '=https' \
+  "$url/api/scanliste.php?op=batches" |
+"$php" -r '
+ $v=json_decode(stream_get_contents(STDIN),true);
+ if(!is_array($v)||($v["ok"]??false)!==true||!is_array($v["batches"]??null)){
+   fwrite(STDERR,"STOP: nvoss Scanlisten-GET nicht lesbar\n");exit(1);
+ }
+ $n=count($v["batches"]);
+ echo "Offene Scanlisten-Stapel unter nvoss sichtbar: $n\n";
+ if($n<1||$n>2){fwrite(STDERR,"STOP: Erwartet 1 oder 2 offene Stapel\n");exit(1);}
+ if($n===1) echo "HINWEIS: SQL-Gesamtbestand 2, zweiter Stapel eventuell geschlossen; Status danach separat pruefen\n";
+'
+echo "=== NVOSS AUTHENTIFIZIERTER TEST ERFOLGREICH ==="
+echo "Keine Rohdaten, keine POSTs, keine Veraenderungen"
+HW24_NVOSS_GET_VERIFY
+```
+
+**Wichtig:** `curl --user nvoss` ohne angehängtes Kennwort fragt im interaktiven PuTTY-Terminal verdeckt ab. Keine Zugangsdaten in GitHub, Shell-History oder Chat schreiben. `--fail-with-body` und `set -o pipefail` stoppen bei fehlerhaftem HTTP-/JSON-/Archivzustand. Erwartung exakt 3 historische KI-Reviews. In SQL sind **2** Scan-Stapel insgesamt vorhanden, davon 1 unter alt und 1 unter neu, aber die API listet nur **offene** Stapel; ist der neue geschlossen, kann HTTP-GET trotz korrekt installiertem Alias nur **1** zeigen. Deshalb 1 oder 2 hier zulässig, bei 1 anschließend `closed_at_utc` read-only prüfen. Keine Änderung in diesem Test, auch kein weiterer Basic-Rename.
+
+**Sicherungen:** Private Plesk-Test-Auth `/root/hw24-backups/test-plesk-auth-yideOvRf/plesk-pd.tar.gz`, SHA256 `a7aacc096055021c0447d4fd1ca20eeeec459dd0cdb3d72f8fc012ff692d107f`; Test-Webroot `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz`, SHA256 `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26`.
+
+[Arbeitsjournal](./HW24_ARBEITSJOURNAL.md), Commit `8e94d1236a9773312743a0d0d929bebe3a5700c7`; [Handover](./HW24_HANDOVER.md), Commit `abe47079415fc35418837e91bf7775319fda49b4`.
+
+---
+
 ## AKTUELLSTER BELEG · 22.11.2026 · Plesk-Test-Basic-Backup erfolgreich, gezielter Rename als nächster Gate
 
 **PuTTY `HW24_PLESK_BASIC_BACKUP` vollständig erfolgreich:**
