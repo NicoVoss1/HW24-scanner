@@ -11,7 +11,7 @@
 -- 0. Confirm intended database. STOP if name differs.
 SELECT DB_NAME() AS datenbankname;
 
--- 1. First real row preview (max 15 articles).
+-- FIX verified 2026-11-23: cast timestamp/rowversion to varbinary(8)\n-- BEFORE CONVERT style 1. Direct conversion produced blank CSV results.\n-- 1. First real row preview (max 15 articles).
 -- Every alias says clearly whether it is an original source value or a label.
 -- Do NOT apply arbitrary /1000 correction to fMassMenge.
 SELECT TOP (15)
@@ -33,7 +33,7 @@ SELECT TOP (15)
     a.fMassMenge                 AS jtl_unit_quantity_raw,
     a.nLagerbestand              AS jtl_article_stock_raw,
     a.dMod                       AS jtl_last_modified_raw,
-    CONVERT(varchar(18), a.bRowversion, 1) AS jtl_rowversion_hex
+    CONVERT(varchar(18), CONVERT(varbinary(8), a.bRowversion), 1) AS jtl_rowversion_hex
 FROM dbo.tArtikel AS a
 LEFT JOIN dbo.tSteuerklasse AS tk ON tk.kSteuerklasse=a.kSteuerklasse
 LEFT JOIN dbo.tLieferStatus AS ls
@@ -65,7 +65,7 @@ SELECT
     a.fMassMenge                 AS jtl_unit_quantity_raw,
     a.nLagerbestand              AS jtl_article_stock_raw,
     a.dMod                       AS jtl_last_modified_raw,
-    CONVERT(varchar(18), a.bRowversion, 1) AS jtl_rowversion_hex
+    CONVERT(varchar(18), CONVERT(varbinary(8), a.bRowversion), 1) AS jtl_rowversion_hex
 FROM dbo.tArtikel AS a
 LEFT JOIN dbo.tSteuerklasse AS tk ON tk.kSteuerklasse=a.kSteuerklasse
 LEFT JOIN dbo.tLieferStatus AS ls
