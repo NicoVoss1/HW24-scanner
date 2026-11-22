@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - feature/hw24-v425-amazon-ai-ameise-20261122
+      - feature/hw24-login-alias-scan-ai-20261122
   pull_request:
 jobs:
   verify:
@@ -11,6 +12,13 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate JS contracts and source integrations
         run: node tests/hw24-v425-article-intelligence.test.cjs
+      - name: Validate renamed Basic login owner mapping
+        run: |
+          php -l api/hw24-actor-identity.php
+          php -l api/scanliste.php
+          php -l api/ai-review.php
+          php -l api/ai-reviews.php
+          php tests/hw24-actor-alias.test.php
       - name: Validate PHP and JS
         run: |
           php -l api/jtl.php
