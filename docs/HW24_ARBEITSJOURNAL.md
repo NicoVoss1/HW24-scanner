@@ -1352,3 +1352,21 @@ upstream_status: None
 - **Befund:** Amazon.de hat das ASIN-Produkt gefunden, obwohl die frühere EAN-Katalogsuche auf LIVE `0` Treffer lieferte. **Kritische fachliche Abweichung:** Amazon hat mindestens eine andere EAN gemeldet und **nicht** die JTL-EAN `3474630337398`. Das beweist weder Produktgleichheit noch zwingend Ungleichheit; Verpackung/Varianten/Regionen sind separat manuell zu prüfen. Diese Antwort darf **keine automatische neue ASIN- oder Preiszuordnung** auslösen.
 - Der eigentliche HTTP-JSON-Payload enthält bereits `ean_identifiers` (maximal 12 Amazon-EANs), aber die bisherige PuTTY-Ausgabe hat diese nicht angezeigt. Nächster gezielter Schritt: nur `ean_identifiers` lesen und JTL-EAN dagegen vergleichen; keine vollständigen Katalog-/Secret-Payloads in Chat/GitHub.
 - **Noch nicht:** HTML/Frontend von PR39 auf Test oder Live ausgerollt, keine Framework-DocumentRoot-Änderung, kein Laravel/Filament-HTTPS-Browser-Login. Neuer Endpoint wurde manuell nur in TEST hinterlegt; bei späterem Plesk-Deploy beachten, da Git `deploy/staging` diese Datei noch nicht enthält.
+
+
+## 22.11.2026 · Filament-Loopback-HTTP bestanden; Amazon-EAN-Typfehler entdeckt
+
+**Betreiber-PuTTY-Nachweis:** `platform/ops/verify-filament-loopback-http.sh` aus dem Framework-Draft-PR36 wurde auf dem tatsächlichen Plesk-Server ausgeführt. Ausgabe:
+- `GET /admin/login` HTTP **200** (Filament-Loginseite)
+- `GET /admin` und `GET /admin/artikel` anonym HTTP **302** (Login-Weiterleitung)
+- `GET /css/filament/filament/app.css` HTTP **200**
+- `GET /js/filament/filament/app.js` HTTP **200**
+- Abschluss `LARAVEL/FILAMENT LOOPBACK: HTTP TEST BESTANDEN`; nur `127.0.0.1`, Testserver anschließend beendet, kein Plesk-Cutover, keine Datenbank-/JTL-Schreibvorgänge.
+
+**Amazon-EAN-Diagnose:** Betreiber führte zweimal den empfohlenen Test-GET `api/amazon-asin.php?ean=3474630337398&asin=B091J3HV6B` aus. Amazon-ASIN und Marke wurden ausgegeben, aber der bisherige Python-Ausdruck `", ".join(codes)` schlug mit `TypeError: sequence item 0: expected str instance, int found` fehl. **Grundursache im PHP-Endpunkt** `$codes[$code]=true; $codes=array_keys($codes)`: rein numerische EANs als Array-Keys werden durch PHP häufig in Integer umgewandelt, weshalb `in_array($ean,$codes,true)` mit der JTL-String-EAN stets einen falschen Mismatch liefern kann und `ean_identifiers` teilweise als JSON-Zahlen statt String ausgegeben werden. Die bisherige Evidenz `other_ean` ist **nicht zuverlässig**; kein nachgewiesener GTIN-Konflikt, keine automatische JTL-/Marktplatz-Änderung.
+
+**Quellcode-Fix in GitHub, noch nicht auf Plesk aktiviert:** PR39-Featurebranch `fdec3fa`, CI `e697ee6...`; PR41-Featurebranch `4a1e3b0...`. EAN-IDs als stringwertige Liste speichern, mit `array_unique(..., SORT_STRING)` deduplizieren, strikter Vergleich nun korrekt; führende Nullen erhalten. Serverseitiger CLI-Selbsttest `php api/amazon-asin.php --test-ean-evidence` umfasst exakte, abweichende, fehlende und EANs mit führenden Nullen. Aktueller **exakter PHP-Git-Blob SHA** `712d2c4a565258cefac93c4282e06b8604d384b8`. Auth/HTTPS/JTL-EAN-ASIN-Freshness unverändert.
+
+**Abgesicherte Testdomain-Korrektur als Skript vorbereitet, NICHT ausgeführt:** `ops/hw24-test-amazon-asin-ean-fix.sh` im PR41. Es akzeptiert nur den zuvor auf TEST installierten Endpunkt mit SHA `617e2162f20dd012ed8c4fe8cc73d12b5e0d2373` oder den bereits korrigierten SHA; prüft fest gepinnte GitHub-Quelle, PHP-Lint/Regressionen, sichert Original nur root-privat, tauscht nur **TEST**-`api/amazon-asin.php` atomar aus, prüft anonymen HTTP 401/403 und versucht Rollback bei Fehler. Keine Änderung an LIVE-/Test-DocumentRoots, Plesk-Git-Branch, SQLite, JTL oder Shops. Danach authentifizierte ASIN-GET-Ausgabe `ean_identifiers` erneut und nur als Strings prüfen; danach entscheidet die tatsächliche Übereinstimmung, nicht das vorher falsche `other_ean`.
+
+**Projektstand:** Framework HTTP-Loopback erfolgreich, jedoch **kein öffentlicher HTTPS-Filament-Login** geprüft. Live JTL + Amazon EAN API und Test ASIN API funktionieren; Source-Bug muss zuerst in TEST abgenommen werden. Keine automatische Staging-/Live-Migration oder Kauf-/Preisänderungen.
