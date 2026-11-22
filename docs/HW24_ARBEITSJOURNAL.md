@@ -320,6 +320,11 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - Vollständige Werte und methodische Grenzen in `platform/docs/HW24_JTL_PHASE5_VERIFIED_REFERENCE_VALUES.md`.
 - Code liegt ausschließlich auf Draft-PR #46. **CI des neuesten HEAD muss erneut geprüft werden.**
 
+### S042 | Phase-6-Preisabfrage präzisiert | **GitHub geändert, HeidiSQL noch nicht ausgeführt**
+- `platform/ops/jtl-heidisql-phase6-article-export-readonly.sql` SQL 4 gibt `dbo.tPreis.kKunde` **nicht** aus und deutet dessen 0-/Nicht-0-Status nicht ungeprüft als allgemeine bzw. kundenspezifische Preisart. Stattdessen nur `customer_key_state` mit `kKunde=0` oder `kKunde<>0`.
+- Damit keine erfundenen fachlichen Preissemantiken oder ungeschützten Kundenschlüssel in den Pilotexport gelangen. Alle Statements bleiben `SELECT`-only.
+- Operator-Ausführung SQL 0,1,3,4,5,6,7 für sicher begrenzte Stichprobe; SQL 2 vollständiger Artikel-Basisexport nur **lokal und privat**. Bisher **nicht ausgeführt**.
+
 ## Fachlich beschlossene Zielarchitektur
 
 1. **JTL eazybusiness** bleibt maßgebliche SQL-Server-Datenbank; zunächst nur Leseinventur, DB-Backup/Wiederherstellung als getrennte Aufgabe prüfen.
