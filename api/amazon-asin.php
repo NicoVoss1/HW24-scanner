@@ -15,6 +15,66 @@ function respond(int $code, array $data): never {
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
     exit;
 }
+// Treat EANs as identifiers, never as integer-indexed map keys:
+// PHP converts integer-shaped array keys to int, breaking strict comparisons.
+function hw24AmazonEanEvidence(array $identifiers,string $jtlEan): array {
+    $codes=[];
+    foreach($identifiers as $part){
+        if(!is_array($part))continue;
+        foreach(($part['identifiers']??[]) as $id){
+            if(!is_array($id))continue;
+            if(strtoupper((string)($id['identifierType']??''))!=='EAN')continue;
+            $code=trim((string)($id['identifier']??''));
+            if(preg_match('/^[0-9]{8,14}$/D',$code))$codes[]=$code;
+        }
+    }
+    // array_unique retains string values, including significant leading zeroes.
+    $codes=array_values(array_unique($codes,SORT_STRING));
+    return [
+        'ean_identifiers'=>array_slice($codes,0,12),
+        'ean_evidence'=>in_array($jtlEan,$codes,true)?'exact_ean':
+            (count($codes)>0?'other_ean':'ean_not_supplied')
+    ];
+}
+if(PHP_SAPI==='cli' && ($argv[1]??'')==='--test-ean-evidence'){
+    $cases=[
+        [
+            'input'=>[['identifiers'=>[
+                ['identifierType'=>'EAN','identifier'=>'3474630337398'],
+                ['identifierType'=>'EAN','identifier'=>'3474630337398']
+            ]]],
+            'ean'=>'3474630337398','expected'=>'exact_ean','codes'=>['3474630337398']
+        ],
+        [
+            'input'=>[['identifiers'=>[
+                ['identifierType'=>'EAN','identifier'=>'3400012345678']
+            ]]],
+            'ean'=>'3474630337398','expected'=>'other_ean','codes'=>['3400012345678']
+        ],
+        [
+            'input'=>[],'ean'=>'3474630337398','expected'=>'ean_not_supplied','codes'=>[]
+        ],
+        [
+            'input'=>[['identifiers'=>[
+                ['identifierType'=>'EAN','identifier'=>'0123456789012']
+            ]]],
+            'ean'=>'0123456789012','expected'=>'exact_ean','codes'=>['0123456789012']
+        ]
+    ];
+    foreach($cases as $case){
+        $result=hw24AmazonEanEvidence($case['input'],$case['ean']);
+        if($result['ean_evidence']!==$case['expected']||
+            $result['ean_identifiers']!==$case['codes']){
+            fwrite(STDERR,'Amazon-EAN-Evidenztest fehlgeschlagen'.PHP_EOL);exit(1);
+        }
+        foreach($result['ean_identifiers'] as $code)if(!is_string($code)){
+            fwrite(STDERR,'EAN verliert String-Datentyp'.PHP_EOL);exit(1);
+        }
+    }
+    fwrite(STDOUT,'Amazon EAN identity: exact, mismatch, missing and leading zeros PASS'.PHP_EOL);
+    exit(0);
+}
+
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
     header('Allow: GET');
     respond(405, ['ok'=>false,'error'=>'method_not_allowed']);
@@ -150,19 +210,9 @@ try {
         respond(502,['ok'=>false,'error'=>'amazon_catalog_invalid_asin']);
     }
     $summary=$product['summaries'][0]??[];
-    $codes=[];
-    foreach(($product['identifiers']??[]) as $part){
-        if(!is_array($part))continue;
-        foreach(($part['identifiers']??[]) as $id){
-            if(!is_array($id))continue;
-            if(strtoupper((string)($id['identifierType']??''))!=='EAN')continue;
-            $code=trim((string)($id['identifier']??''));
-            if(preg_match('/^\d{8,14}$/D',$code))$codes[$code]=true;
-        }
-    }
-    $codes=array_keys($codes);
-    $evidence=in_array($ean,$codes,true)?'exact_ean':
-      (count($codes)>0?'other_ean':'ean_not_supplied');
+    $identity=hw24AmazonEanEvidence($product['identifiers']??[],$ean);
+    $codes=$identity['ean_identifiers'];
+    $evidence=$identity['ean_evidence'];
     respond(200,[
         'ok'=>true,'found'=>true,'source'=>'amazon_spapi_by_asin',
         'marketplace_id'=>$marketplace,'ean'=>$ean,'asin'=>$asin,
