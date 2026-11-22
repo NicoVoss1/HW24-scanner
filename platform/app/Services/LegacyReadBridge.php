@@ -25,6 +25,7 @@ final class LegacyReadBridge
         'amazon.pricing' => 'api/amazon-pricing.php',
         'amazon.sellers' => 'api/amazon-sellers.php', // verified seller names, GET only
         'ai.history' => 'api/ai-reviews.php',
+        'ai.summary' => 'api/ai-reviews.php', // historical count per actor/EAN, GET-only
         'ai.budget' => 'api/ai-review.php', // GET only, never billable POST
         // Strictly read-only legacy scan batches, scoped by existing Basic-Auth actor.
         // Mutations (create, scan, review, CSV/Import) remain in the original site.
