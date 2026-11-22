@@ -1,3 +1,15 @@
+## NEUESTE BESTÄTIGUNG · Erster Filament-Administrator erfolgreich angelegt (22.11.2026)
+
+Der Betreiber hat die interaktive Filament-Administratoranlage in der privaten Laravel-/SQLite-Umgebung erfolgreich ausgeführt. `HW24_ADMIN_EMAIL` ist **privat** in der Laravel-`.env` gesetzt, `artisan config:clear` erfolgreich, `artisan make:filament-user` meldete **Success!** und die künftige URL `https://test-artikelmanager.hairworld24.de/admin/login`. Nutzername/E-Mail/Passwort werden im öffentlichen GitHub **nicht** wiedergegeben. Abschluss `=== ADMINISTRATOR EINRICHTUNG ABGESCHLOSSEN ===`.
+
+**Tatsächlich abgeschlossen:** Git/Composer, Laravel 13.43.0, Filament 5.12.0, App-Key/.env, private SQLite und 4 Migrationen, Filament-Assets, CLI-Routen und erster Admin mit Allowlist. **V4.25 Live:** Git SHA und vier Webroot-Dateihashes bestätigt, sechs vorherige anonyme HTTP-401-Prüfungen auf Live/Test. **Noch OFFEN:** Browser-Login zur Laravel-Konsole, da Plesk-Testdomain weiterhin Legacy; authentifizierter Legacy-Live-E2E inkl. JTL/Amazon/OpenAI; Plesk-Test-DocumentRoot und Zugriffsschutzumstellung; Basic-Auth-Verbindung der Laravel-Bridge; reproducible `composer.lock` im Featurebranch.
+
+**EXAKT NÄCHSTE AKTION:** Erst lokalen Filament-User/Allowlist anonymisiert ohne Ausgabe von E-Mail/Passwort prüfen. Dann bestehende **Live**-Legacy-Artikelpflege authentifiziert im Browser mit Referenz-EAN sowie Amazon-/KI-Lesezugriff abnehmen. Vor Webroot-Cutover die Plesk-Git-/PHP-FPM-/DocumentRoot-Mechanik absichern. **Noch nicht** Testdomain auf Laravel umstellen und keinen API-Schlüssel in GitHub oder Chat kopieren.
+
+[Chronologische Einzelereignisse](./HW24_ARBEITSJOURNAL.md), Dokumentationscommit `95246e6a8a9e2cb499454c4bdad4bcd6c3eb4307`.
+
+---
+
 ## AKTUELLSTE BETREIBERABNAHME · Private Laravel-Erstkonfiguration erfolgreich (22.11.2026)
 
 **Neuester Stand (gilt vor älteren historischen Hinweisen dieser Datei):** Der Betreiber hat auf Plesk im privaten Laravel-/Filament-Verzeichnis die Ersteinrichtung **vollständig und erfolgreich** ausgeführt. Private `.env` mit `APP_ENV=production`, `APP_DEBUG=false`, HTTPS-App-URL und Secure-Session erstellt (Dateimodus 0600). `artisan key:generate` bestätigte den neuen geheimen APP_KEY, **nicht im Repo**. Neue eigene private **SQLite-Datenbank** angelegt, ausschließlich vier Laravel-System-/Preistabellen migriert; alle vier im Status `[1] Ran`. `artisan filament:assets` erfolgreich. Ausgabe endete mit `=== HW24 ERSTKONFIGURATION ERFOLGREICH ===`. **Bestehende Testdomain, Live-Domain und JTL/MariaDB-Tabellen wurden dabei nicht umgeschaltet/verändert.**
