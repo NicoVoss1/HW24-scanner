@@ -5,6 +5,7 @@
  */
 return [
     'base_url'=>env('HW24_LEGACY_URL'),
+    'admin_email'=>env('HW24_ADMIN_EMAIL', ''),
     'user'=>env('HW24_LEGACY_BASIC_USER'),
     'password'=>env('HW24_LEGACY_BASIC_PASSWORD'),
     'writes_enabled'=>false,
