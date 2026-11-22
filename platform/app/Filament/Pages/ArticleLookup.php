@@ -6,6 +6,7 @@ namespace App\Filament\Pages;
 use App\Services\LegacyReadBridge;
 use App\Domain\Jtl\SourceSnapshot;
 use App\Domain\Jtl\ArticleCard;
+use App\Domain\Jtl\RelatedSourceEvidence;
 use Filament\Pages\Page;
 use Livewire\Attributes\Locked;
 
@@ -31,6 +32,9 @@ final class ArticleLookup extends Page
     public array $existingEvidence = [];
 
     #[Locked]
+    public array $articleRelated = [];
+
+    #[Locked]
     public array $sourceState = [];
 
     #[Locked]
@@ -43,7 +47,7 @@ final class ArticleLookup extends Page
 
     public function findArticle(LegacyReadBridge $bridge): void
     {
-        $this->reset(['lookup', 'amazon', 'ai', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery', 'existingEvidence']);
+        $this->reset(['lookup', 'amazon', 'ai', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery', 'existingEvidence', 'articleRelated']);
         $id = trim($this->identifier);
         if (! preg_match('/^[\pL\pN][\pL\pN._\/-]{1,63}$/uD', $id)) {
             $this->addError('identifier', 'Bitte EAN, HAN oder JTL-Artikelnummer eingeben.');
@@ -66,6 +70,9 @@ final class ArticleLookup extends Page
             'matches' => $matches,
             'ean' => isset($matches[0]) ? $matches[0]['ean'] : null,
         ];
+        if (count($matches)===1 && ($this->lookup['jtl_status']??'')==='current_snapshot' && is_array($raw['matches'][0]??null)) {
+            $this->articleRelated=RelatedSourceEvidence::present($raw['matches'][0]);
+        }
         if (($this->lookup['jtl_status']??'')==='current_snapshot' &&
             count($matches)===1 &&
             preg_match('/^(?:[0-9]{8}|[0-9]{12}|[0-9]{13}|[0-9]{14})$/D',
