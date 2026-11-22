@@ -76,6 +76,25 @@
             <p class="muted">Kategorie Ebene 1 bis 3 bezeichnet die JTL-Kategoriehierarchie, nicht automatisch die Shopify-Produktkategorie. Währung EUR ist nur ein Vorschlag, solange im Spiegel kein eindeutiger Wert vorliegt.</p>
             <div id="advancedFields" class="editor-fields"></div>
           </details>
+          <details class="editor-section advanced" id="jtlSourceExplorer">
+            <summary>🔎 Vollständiger JTL-Quellenspiegel und Verkaufskanäle</summary>
+            <p class="muted">Alle bereits synchronisierten Originalfelder des gewählten JTL-Artikels, einschließlich vorhandener Beschreibungsvarianten und belegter Zusatzquellen. Unbekannte Tabellen und Kanalkonten werden nicht vorgetäuscht. Diese Ansicht ist ausschließlich lesend.</p>
+            <p id="jtlSourceStatus" class="template-note" role="status">Artikel zuerst auswählen.</p>
+            <h4>Preisquellen nach Vertriebskanal und Konto</h4>
+            <p class="muted">JTL-Artikelstammpreise sind keine bestätigten Live-Angebotspreise. Die zwei eBay-Zugänge bleiben getrennt, bis ihre technischen JTL-Konto-IDs und tatsächlichen Angebote ermittelt sind. Steuerart und Währung werden nicht geraten.</p>
+            <div id="channelPriceBoard" class="source-channels"></div>
+            <h4>Originalfelder und Zusatzquellen durchsuchen</h4>
+            <div class="source-filters">
+              <label>Feld, Wert oder SQL-Quelle suchen
+                <input type="search" id="jtlSourceQuery" placeholder="z. B. fVKNetto, Lieferstatus, Steuerklasse, ASIN">
+              </label>
+              <label>SQL-Quelle
+                <select id="jtlSourceGroup"><option value="all">Alle Quellen</option></select>
+              </label>
+            </div>
+            <p class="muted" id="jtlSourceCount">Noch keine Felder geladen.</p>
+            <div id="jtlSourceFields" class="source-fields" aria-live="polite"></div>
+          </details>
           <section class="editor-section">
             <div class="section-title"><span class="section-no">05</span><div><h3>Änderungen prüfen</h3><p>Nur tatsächlich geänderte Felder werden gespeichert.</p></div></div>
             <div id="diffList" class="diff-list"><p class="muted">Noch keine Änderungen.</p></div>
@@ -152,5 +171,7 @@
 <datalist id="articleTypeValues"></datalist>
 <script src="assets/hw24-article-editor.js?v=2" defer></script>
 <script src="assets/hw24-article-intelligence.js?v=1" defer></script>
+<script src="assets/hw24-source-core.js?v=1" defer></script>
+<script src="assets/hw24-source-explorer.js?v=1" defer></script>
 </body>
 </html>
