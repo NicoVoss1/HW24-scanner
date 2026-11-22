@@ -325,6 +325,43 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - Damit keine erfundenen fachlichen Preissemantiken oder ungeschützten Kundenschlüssel in den Pilotexport gelangen. Alle Statements bleiben `SELECT`-only.
 - Operator-Ausführung SQL 0,1,3,4,5,6,7 für sicher begrenzte Stichprobe; SQL 2 vollständiger Artikel-Basisexport nur **lokal und privat**. Bisher **nicht ausgeführt**.
 
+## Betreiberergebnisse Phase 6: vollständige Artikeldaten und isolierter Staging-Prototyp (2026-11-23)
+
+### S043 | SQL Phase-6-Befunde | **Betreiber-SELECTs bestätigt**
+- Datenbank `eazybusiness`, Artikel-Preview und Aggregate erhalten; `dbo.tArtikel`: **2.692** Artikel, `nDelete=1` **0**, `kLieferStatus IS NULL` **0**, `kMassEinheit IS NULL` **0**, `cBarcode IS NULL/''` **738**.
+- Preis-Kontext `dbo.tPreis` + `dbo.tPreisDetail`: Netto-Beträge existieren, verbunden mit Kundengruppen/Shop-IDs und Mengenstaffel `nAnzahlAb`; 25 Zeilen Preview bestätigt. `kKunde=0` markiert als **roher Schlüsselzustand**, keine angenommene Kundenart.
+- `dbo.tSteuerzone`: Zone **3 'EU-Zone'**, Zone **4 'Nicht EU-Zone'**, jeweils Firma 1, `cLandISO=DE`. **`cLandISO=DE` bei beiden Zonen belegt keine eindeutige Lieferland-Zuordnung oder gültige Steuersatzberechnung je Transaktion.**
+- `dbo.tWaehrung` Schema vorhanden, `kWaehrung`, `cName`, `fFaktor`, `cEAMapping`, `nStandard` etc.; **noch keine Währungswerte oder Zuordnung zu konkreten Kanalangeboten**.
+- `SCX.tOfferPrice`: erster Roh-Preisdatensatz mit `kOffer`, `kChannelPriceType`, Preis `fLastPrice`, Menge, `nIsListed`, Status; B2C und Mindestpreis für Kaufland sichtbar. **Keine externe LIVE-Verifizierung**, keine aus JTL abgeleitete Händlerpreishistorie.
+- Nur lesende JTL-SELECTs durch Betreiber, keine JTL-Betriebsänderungen nachgewiesen.
+
+### S044 | Vollständige Phase-6-Artikeldatei | **private Dateianalyse bestätigt**
+- Generierte lange Text-/CSV-Anlage mit 19 Header-Feldern und **2.692 Datenzeilen** unter privatem Chat-Kontext erhalten. Bei programmgesteuerter Prüfung **2.692 eindeutige `jtl_article_id`** und **2.692 eindeutige `jtl_article_number`**; konsistent zur vorherigen SQL-Gesamtzahl.
+- **738 fehlende Barcodes:** 718 leere Strings, 20 `\\N` (= SQL NULL); 31 Gruppen mehrfach vorkommender nichtleerer Barcodes mit insgesamt 67 betroffenen Artikeln; 223 Barcodes beginnen mit Ziffer 0; keine Barcode-basierte Upsert-ID.
+- Alle 2.692 `cAktiv=Y`; 2.690 `nDelete=0`, zwei `nDelete=NULL`. 844 Artikel besitzen `kLieferStatus=0`, obwohl vorheriger Null-Check 0 zurückgab. 727 Artikel besitzen `kMassEinheit=0`, obwohl vorheriger Null-Check 0 zurückgab.
+- Einheitenverteilung: 1.893 ml, 727 ohne Einheit-ID, 46 Stk, 17 g, 5 m, 3 kg, 1 l. Vereinzelt `fMassMenge<1` für mL (etwa 0,06), zu prüfen; keine automatische Skalierung der Rohmenge.
+- Alle 2.692 Artikel haben exportiertes `nLagerbestand=0`, aber **kein Beleg für tatsächlich 0 in WMS/per-Warenlager-Tabellen**.
+- Alle 2.692 `jtl_rowversion_hex` **leer**. Blocker für belastbaren Delta-Watermark; Herkunft muss an SQL/HeidiSQL-Konvertierung geprüft werden. Vorher **nicht** mit rowversion 15-minütig spiegeln.
+- 20 `fVKNetto=0`, 501 `fAmazonVK=0`, 1.629 `fEbayPreis=0`, alle `fUVP=0`. Dies sind **JTL-Originalfelder**, keine extern verifizierten Live-Angebotspreise.
+- **Rohdaten und produktbezogene Einzelpreise werden NICHT in diesem öffentlichen Repository gespeichert.** Aggregierte Qualität und Einschränkungen separat in `platform/docs/HW24_JTL_PHASE6_ARTICLE_EXPORT_QA.md`.
+
+### S045 | Neue HeidiSQL-Phase-7-Sicherheitstests | **in GitHub, noch nicht bei Betreiber ausgeführt**
+- `platform/ops/jtl-heidisql-phase7-rowversion-quality-readonly.sql` enthält SQL 0–6: sichere DB-Prüfung, Rowversion-DATALENGTH und zwei Hex-Konvertierungen, Rowversion-Aggregate, Einheit-/Barcode-Qualitätszahlen, per-Warenlager-Nonzero-Counts und Sentinel-NULL/0-Unterschied.
+- Nur SQL-SELECTs. Keine Änderung an Tabellen, Indizes, SQL-Server-Einstellungen, JTL-API oder Schnittstellen. **Noch keine Betreiberergebnisse**.
+
+### S046 | Erster echter Staging-Code mit Sicherheitsgates | **GitHub vorbereitet, noch nicht deployed**
+- `platform/ops/jtl-article-csv-stage.php` ist eigenständiger PHP-CLI-Importer, der im Standardmodus nur den CSV-Aufbau, Spaltentypen, Duplikate und Qualitätsaggregate prüft. Kein Laravel-/JTL-/SQL-Server-Datenbankzugang.
+- **Einzige optionale Schreibwirkung:** `--apply` + überprüfte exakte `--sha256` + erwartete Artikelzahl + neuer Zielpfad in bereits vorhandenem privaten Owner-only-Verzeichnis (0700) legt eine **NEUE isolierte SQLite-Stagingdatei** an. Er verweigert vorhandene Ziel-DBs und Ziele innerhalb des Anwendungsbaums, transaktional mit Rowcount-/SQLite-Integritätscheck. **Keine** bestehende Datenbank wird verändert/überschrieben.
+- Rohfelder wie `cArtNr`, `cBarcode`, `fVKNetto`, Menge und Preis ohne automatische Skalierung oder Netto-/Brutto-Umetikettierung gespeichert; `\\N` wird als SQL NULL behandelt. Manifest `is_consistent_cross_table_snapshot=0`. `rowversion_watermark_available` bleibt wegen leerer CSV-Werte false.
+- `platform/tests/Unit/JtlArticleCsvStageTest.php`: Validierung ohne DB-Schreiben, Prüfsummen-Sperre, führende EAN-Nullen, NULL, bestehende DB nicht überschreiben, falsche doppelte Artikelnummer abweisen, App-Verzeichnis nicht beschreiben. **CI-Erfolg für aktuellen HEAD muss gesondert bestätigt werden.**
+- **Noch kein CSV-Staging auf dem Nutzer-Server ausgeführt, kein echter Datenspiegel online, kein PHP-Skript live freigeschaltet und kein 15-Minuten-Scheduler angelegt.**
+
+### S047 | Nächster Freigabeschritt | **offen**
+1. Aktuelle GitHub-CI-Tests für PR #46 prüfen, Fehler korrigieren, vorher nicht installieren.
+2. Betreiber führt Phase-7-HeidiSQL-Abfragen separat aus; besonders Rowversion muss geklärt werden.
+3. Privater CSV-Transfer **außerhalb des DocumentRoots** zum TEST-Server nach Bedienerfreigabe. `php platform/ops/jtl-article-csv-stage.php --input=/PRIVATE/datei` zunächst nur Dry-Run. Für optionales `--apply` vorher schriftliche Prüfsumme und Zielpfad abstimmen, nie vorhandene TEST/LIVE SQLite-Datenbank überschreiben.
+4. Quelle nach Vollständigkeit und Performance testen; WMS/per-Lager-, Shopify- und SCX-Preis-Spiegel getrennt und nur mit verifizierten Quellbeziehungen aufbauen; dann nächtliche Reconciliation und 15-minütigen Delta-Job absichern.
+
 ## Fachlich beschlossene Zielarchitektur
 
 1. **JTL eazybusiness** bleibt maßgebliche SQL-Server-Datenbank; zunächst nur Leseinventur, DB-Backup/Wiederherstellung als getrennte Aufgabe prüfen.
@@ -341,4 +378,4 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - **C** Ergebnisse, Abweichungen und Risiken im Journal festhalten; gegebenenfalls Versionsvergleich des Test-/Live-Codes.
 - **D** Nur kleine, rollbackfähige Änderungen isoliert vorbereiten, GitHub CI + Browser-E2E prüfen und Betreiberfreigabe für Deployment einholen.
 
-**Nächster Nachweis:** Betreiber prüft Phase-6-HeidiSQL SQL 0 und SQL 1 (max. 15 echte Artikel) sowie SQL 3/5/6 (Aggregat/Steuerzone/Währungsschema), danach SQL 2 als **privaten lokalen** Artikel-Basisexport. Kein LIVE-Deploy oder automatischer Sync.
+**Nächster Nachweis:** Phase-7-HeidiSQL Ausgabe zu bRowversion/Qualitätsaggregaten und GitHub CI für isolierten Staging-Prototyp; erst danach nur privater CSV-Dry-Run, keine Live-/JTL-Änderungen.
