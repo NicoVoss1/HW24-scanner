@@ -1,3 +1,15 @@
+## NEUESTER ERFOLGREICHER BETREIBERTEST · 22.11.2026 · PR37-Testcode und äußerer Auth-Schutz sicher
+
+**PuTTY `HW24_PR37_SECURITY` durchgelaufen:** Die vier auf Test deployten PHP-Dateien `api/scanliste.php`, `api/ai-reviews.php`, `api/ai-review.php`, `api/hw24-actor-identity.php` haben unter `/opt/plesk/php/8.5/bin/php -l` **keine Syntaxfehler**. Anonyme HTTPS-GETs der Testdomain liefern jeweils **HTTP 401** für `api/scanliste.php`, `api/ai-reviews.php` und `api/jtl.php`. Abschluss `SICHERHEITSPRUEFUNG ERFOLGREICH`. Keine Plesk-Basic-Änderung und keine SQL-Änderung. **Das belegt äußeren Basic-Schutz, nicht die authentifizierte API-/Datenfunktion.**
+
+**Bereits gesichert:** Test-Rollback-TAR `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz`, SHA256 `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26`. Test-Plesk-Git enthält deployten PR37-Commit `c2cc4e1dc054da00f01087e7221659cf54a9a482` mit vier verifizierten PHP-Git-Blob-SHAs, GitHub-CI grün. Live bleibt auf Legacy-`deploy/staging` und HTTP-Basic-`nvoss` unverändert. Test-Basic heißt **weiter `hw24-test`** und die private `read_aliases`-Datei ist noch nicht eingerichtet.
+
+**JETZT NÄCHSTER EINZEL-PuTTY-Block:** Nur **authentifizierte GETs** unter `hw24-test` gegen `https://test-artikelmanager.hairworld24.de/api/ai-reviews.php` und `/api/scanliste.php?op=batches`. Passwort darf NICHT im Chat oder als Shellargument erscheinen: `curl --user hw24-test` fordert es verborgen an. Die JSON-Rohdaten niemals ins Terminal ausgeben, per lokalem PHP-Decoder nur Zählwerte anzeigen. Erwartet: 3 KI-Reviews und **bis zu 1** offener alter Scan-Stapel (die API filtert geschlossene Stapel; SQL-Zählung 1 umfasst offen/geschlossen). **Kein POST, keine OpenAI-Kosten, keine Bestandsänderung.** Erst nach Funktionstest die serverseitige private read_aliases-Liste, Plesk-Auth-Backup und gezielte TEST-Rename-Sequenz planen.
+
+[Neuer Journal-Eintrag](./HW24_ARBEITSJOURNAL.md), Commit `645383969ba3b4366d54cd3a09e719257e1b4e04`.
+
+---
+
 ## NEUESTER TECHNISCHER MEILENSTEIN · 22.11.2026 · PR37-TEST-DEPLOY ERFOLGREICH
 
 **Nutzer-PuTTY bestätigt den abgeschlossenen manuellen Plesk-TEST-Deploy** des auf `feature/hw24-login-alias-scan-ai-20261122` gepinnten PR37-HEAD `c2cc4e1dc054da00f01087e7221659cf54a9a482`. Vier PHP-Git-BLOBs im **TEST-Webroot** sind exakt:
