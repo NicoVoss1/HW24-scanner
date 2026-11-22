@@ -169,7 +169,8 @@ final class ScanWorkbench extends Page
             ];
         }
         $this->batchAiStatus=['ok'=>true,'checked'=>count($eans),
-            'partial'=>count($this->items)>count($eans),
+            'checked_eans'=>array_keys($eans),
+            'partial'=>count($this->items)>150,
             'message'=>'Vorhandenes KI-Archiv kostenlos geprüft. Keine neue KI-Analyse ausgelöst.'];
     }
 
