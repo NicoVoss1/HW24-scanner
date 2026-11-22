@@ -1,3 +1,17 @@
+## NEUESTE BESTÄTIGUNG · ACL-Paket installiert (22.11.2026)
+
+**Betreiber-Ausgabe:** Ubuntu-22.04-`acl 2.3.1-1` erfolgreich installiert, `/usr/bin/getfacl` und `/usr/bin/setfacl` vorhanden, privates Laravel-Dateisystem ist `ext4` (rw). Das Betriebssystem meldet zusätzlich **ausstehenden Kernel-/Diensteneustart** (laufend 5.15.0-202, verfügbar 5.15.0-204); das ist ein getrennter Wartungsbedarf. **Kein Reboot, keine Dienstrestarte und kein `apt autoremove`** während des Laravel-Rollouts.
+
+**Aktuelle Sicherheitslage:** Test-FPM läuft als `nicovoss:psacln`, kann private Laravel-`.env`/SQLite 0600 lesen. Nginx/Apache (`nginx`, `www-data`) dürfen statische Filament-CSS/JS/Fonts noch **nicht** lesen; Zugriff auf `public/index.php` als Quelltext soll gesperrt bleiben.
+
+**GENAU NÄCHSTER BETREIBERSCHRITT:** Ein einmaliges ACL-Skript **mit root-privater `getfacl`-Sicherung, automatischem `setfacl --restore` im Fehlerfall, schmalen Traverse-Rechten für Elternverzeichnisse und Leserechten nur für öffentliche `public/{css,js,fonts}`-Assets** ausführen. Der vollständige überprüfbare Block steht unter [HW24_PUBLIC_ACL im Preflight-Runbook](./HW24_PREFLIGHT_FILAMENT_TESTDOMAIN_20261122.md), GitHub-Commit `f8dc3fb875fcc0c6534713f47bb65fcf98e8a607`. **Noch nicht ausgeführt.** Überprüfung schließt gezielt `.env`, SQLite und `index.php`-Quelltext für nginx/www-data aus.
+
+**Vor Plesk-Testdomain-Webroot-Umstellung weiterhin offen:** Angemeldeter Legacy-Live-Browser-E2E JTL/Amazon/KI; Rückfallplan für alte Plesk-Test-Git-Bereitstellung, HTTPS und HTTP-Filament-Login. Keine neue Subdomain/DB.
+
+[Alle bestätigten Serveroperationen im Journal](./HW24_ARBEITSJOURNAL.md), ACL-Installations-Commit `c98c4dae803f62f5f87f63270d7f3ac88c857676`.
+
+---
+
 **GENAU NÄCHSTER BESTÄTIGTER ARBEITSAUFTRAG (22.11.2026):** PHP-8.5-FPM-Pool des Test-vHosts läuft als `nicovoss:psacln`, Socket für `psaserv`; nginx/www-data benötigen nur Zugriff auf statische öffentliche Assets. **Noch keine Rechte geändert.** Die frei verfügbaren Ubuntu-`acl`-Werkzeuge (`getfacl`, `setfacl`) werden nun bei Bedarf via separat dokumentiertem [`HW24_ACL_TOOLS`-Block](./HW24_PREFLIGHT_FILAMENT_TESTDOMAIN_20261122.md) installiert; dieser Schritt ist noch **nicht** ausgeführt. Danach kontrollierte private ACL-Sicherung und gezielte öffentliche Asset-ACLs mit Rollback, ohne `.env`-/SQLite-Freigabe. Live-Legacy-E2E vor Domain-Cutover offen. [Arbeitsjournal](./HW24_ARBEITSJOURNAL.md).
 
 ## AKTUELLSTE SERVERPRÜFUNG · PHP-FPM-Testdomain gehört nicovoss (22.11.2026)
