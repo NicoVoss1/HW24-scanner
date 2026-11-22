@@ -1,3 +1,7 @@
+### Betrieblicher Folgepunkt: Plesk-LIVE-Git kann noch alten lokalen Fetch-Stand haben
+
+Obwohl der **remote GitHub-Branch `deploy/staging`** nach PR #38 jetzt Commit `bd58ea909c8807f274a4bb9a5759de0d43ef9ee3` enthält, wurde **kein** Plesk-Git-`--update`/`fetch` auf dem LIVE-Server ausgeführt. Das lokal in Plesk verwaltete Repository `HW24-scanner` kann deswegen noch auf dem alten Commit `444453471b0fd27c73dcc7929f5e17f1d9239c52` stehen. **Vor irgendeinem späteren manuellen Plesk-LIVE-Deploy zwingend LIVE-Plesk-Git-Commit lesen, auf neueste `deploy/staging`-HEAD synchronisieren und 4 PHP-Webroot-Hashwerte vergleichen, ohne in demselben Schritt auf LIVE zu deployen.** Ein voreiliges Deploy aus einem lokal veralteten Plesk-Git-Snapshot könnte die historisch korrekte PHP-Bridge sonst weiterhin überschreiben. Nicht als bereits automatisch vom GitHub-Merge synchronisiert darstellen. Die LIVE-Webroot-Dateien selbst sind nachweislich bereits korrekt; aktuell ist kein Deployment notwendig.
+
 ## 22.11.2026 · LIVE-Historie in Git deploy/staging dauerhaft verankert (PR #38 MERGED)
 
 **Verifiziertes Ergebnis:** Nach dem bereits erfolgreichen direkten LIVE-Webroot-Rollout mit echtem HTTPS-GET unter `nvoss` (3 historische KI-Berichte, 2 offene Scanlisten-Stapel) wurde **genau der produktiv laufende Vier-PHP-Datei-Stand** zusammen mit einem aktualisierten Bestands-Vertragstest dauerhaft in GitHub-`deploy/staging` aufgenommen. Das ist kein neuer Webserver-Deploy.
