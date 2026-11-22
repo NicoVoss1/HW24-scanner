@@ -10,10 +10,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validate JS contracts and source integrations
-        run: node tests/hw24-v425-article-intelligence.test.cjs
+        run: |
+          node tests/hw24-v425-article-intelligence.test.cjs
+          node tests/hw24-jtl-source-explorer.test.cjs
       - name: Validate PHP and JS
         run: |
           php -l api/jtl.php
+          php -l api/jtl-fields.php
           php -l api/jtl-options.php
           php -l api/curated.php
           php -l api/ai-review.php
@@ -21,6 +24,8 @@ jobs:
           php -l api/amazon.php
           php -l api/amazon-asin.php
           node --check assets/hw24-article-editor.js
+          node --check assets/hw24-source-core.js
+          node --check assets/hw24-source-explorer.js
           node --check assets/hw24-article-intelligence.js
       - name: Validate HTML and package safety
         run: |
