@@ -289,3 +289,10 @@
 - [GitHub-Staging](https://github.com/NicoVoss1/HW24-scanner/tree/deploy/staging)
 - [Abweichender alter V4.35-Branch PR #14](https://github.com/NicoVoss1/HW24-scanner/pull/14) · **nicht als Grundlage verwenden**
 - [Geschlossene PR #15](https://github.com/NicoVoss1/HW24-scanner/pull/15)
+
+
+### Aktualisierung 22.11.2026: Composer-Shell-Wrapper erkannt
+
+Die nächste PuTTY-Ausgabe bestätigte `runuser -u nicovoss -- git ... rev-parse HEAD` auf dem bestehenden privaten Klon mit **exaktem SHA `980bcce75a0a3516b7b6364fae5a0fa6aab8d112`**. Anschließender Composer-Installationsversuch schlug fehl, weil `command -v composer` auf ein **Plesk-Shell-Skript** statt PHAR verweist und versehentlich `php "$wrapper"` ausgeführt wurde. Nur Skripttext ausgegeben, **Composer noch nicht installiert, Webroots unverändert**. Tatsächliches Composer-PHAR laut Wrapper: `/opt/psa/var/modules/composer/composer.phar`. Nächster Schritt PHP-8.4-Aufruf direkt auf die PHAR als `nicovoss` (isolierte Subshell), danach Vendor-Prüfung; kein erneuter Git-Klon.
+
+[Alle Einzelheiten und Belege im Arbeitsjournal](./HW24_ARBEITSJOURNAL.md).
