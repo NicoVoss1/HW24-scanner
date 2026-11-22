@@ -19,6 +19,7 @@ jobs:
           php -l api/ai-review.php
           php -l api/ai-reviews.php
           php -l api/amazon.php
+          php -l api/amazon-asin.php
           node --check assets/hw24-article-editor.js
           node --check assets/hw24-article-intelligence.js
       - name: Validate HTML and package safety
