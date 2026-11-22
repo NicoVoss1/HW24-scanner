@@ -44,6 +44,18 @@ jobs:
           bash -n platform/ops/verify-filament-https-release-gates-readonly.sh
           bash -n platform/ops/verify-plesk-cutover-mechanics-readonly.sh
           bash -n platform/ops/cutover-testdomain-filament-with-rollback.sh
+          bash -n platform/ops/upgrade-test-cockpit-ffonly.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('platform/ops/upgrade-test-cockpit-ffonly.sh').read_text()
+          assert "old='a26a64d09597e41523e224c557bb1d4e39bdf052'" in p
+          assert "target='b679642212ac1daace71af7abcc65fe69dc293bb'" in p
+          assert 'merge --ff-only' in p
+          assert 'VACUUM INTO ?' in p
+          assert 'reset --hard "$old"' in p
+          assert 'plesk bin subdomain --update' not in p
+          assert 'artisan migrate' not in p
+          PY
           bash -n platform/ops/fix-filament-public-frontcontroller-acl.sh
           python3 - <<'PY'
           from pathlib import Path
