@@ -32,7 +32,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           text=Path('platform/ops/upgrade-reused-evidence-ffonly.sh').read_text()
-          assert "target='543cd6bab36886ba4255c6747f2014d7806a02c6'" in text
+          assert "target='5eae5be7e8dc05298dba56ed37267cfc76622d20'" in text
           assert '0d8bb9baf85365d4c07a1c17450ec0674bac3989' in text
           assert 'merge --ff-only "$target"' in text
           assert 'VACUUM INTO ?' in text
@@ -40,6 +40,7 @@ jobs:
           assert 'verify-admin-routes-json.php' in text
           assert 'platform/app/Domain/Amazon/OfferEvidence.php' in text
           assert 'platform/app/Domain/Jtl/RelatedSourceEvidence.php' in text
+          assert 'platform/ops/upgrade-reused-evidence-ffonly.sh' in text
           assert 'artisan migrate' not in text
           assert 'plesk bin subdomain --update' not in text
           PY
