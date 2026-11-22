@@ -75,8 +75,70 @@ html.dark .hw24-warehouse{--edge:#334155;--bg:#182638;--soft:#233249;--ink:#f1f5
  </div>
 </section>
 
+@if($product!==[])
+<section class="panel full" aria-labelledby="wms-legacy-mirror">
+ <div class="panel-head" id="wms-legacy-mirror">02 · Vorhandene JTL-Bestände und WMS-Lagerplätze</div>
+ <div class="panel-body">
+  <p class="small">Diese Werte stammen direkt aus den bereits vorhandenen <code>related_sources.bestand</code> und <code>related_sources.wms_lagerplaetze</code> der JTL-Artikelantwort, nicht aus neu berechneten Lagerbewegungen. Null ist ein echter Quellwert.</p>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-top:7px">
+   @foreach([
+    ['Gesamtbestand', $related['stock']['total'] ?? null, 'fLagerbestand'],
+    ['Verfügbar', $related['stock']['available'] ?? null, 'fVerfuegbar'],
+    ['In Aufträgen', $related['stock']['in_orders'] ?? null, 'fInAuftraegen'],
+    ['Im Zulauf', $related['stock']['incoming'] ?? null, 'fZulauf'],
+   ] as [$name,$amount,$source])
+    <div class="price-row" style="display:block">
+     <div class="meta">{{ $name }}</div>
+     <div class="value">{{ $amount!==null ? number_format((float)$amount,0,',','.') : 'Nicht synchronisiert' }}</div>
+     <div class="meta">JTL · {{ $source }}</div>
+    </div>
+   @endforeach
+  </div>
+  <p class="small" style="margin-top:12px">„In Aufträgen“ umfasst nicht automatisch sämtliche Reservierungen. Verfügbar ist der JTL-Originalwert und wird nicht aus Gesamtbestand minus Aufträge geschätzt.</p>
+  @if(($related['wms']['confirmed']??false)===true)
+   <div class="actions">
+    <span class="tag">WMS-Quellspiegel bestätigt</span>
+    <span class="meta">{{ $related['wms']['count']??0 }} Lagerplätze · {{ $related['wms']['positive_bins']??0 }} mit positivem Bestand · {{ $related['wms']['locked_bins']??0 }} gesperrt</span>
+   </div>
+   @if(($related['wms']['truncated']??false)===true)
+    <p role="status" class="note">⚠ Die WMS-Lagerplatzliste ist begrenzt. Nicht als vollständige Inventurliste verwenden.</p>
+   @endif
+   @if(($related['wms']['bins']??[])!==[])
+    <div class="overflow">
+     <table class="list">
+      <thead><tr><th>Warenlager</th><th>WMS-Lagerplatz</th><th>Fachmenge</th><th>Fachstatus</th><th>Letzte Bewegung</th><th>Weitere Quellangaben</th></tr></thead>
+      <tbody>
+       @foreach($related['wms']['bins'] as $i=>$bin)
+        <tr wire:key="legacy-bin-{{ $i }}">
+         <td><strong>{{ $bin['warehouse'] }}</strong><div class="meta">{{ $bin['warehouse_id'] ? 'Lager-ID '.$bin['warehouse_id'] : '' }}</div></td>
+         <td>{{ $bin['bin'] }}<div class="meta">{{ $bin['bin_id'] ? 'Platz-ID '.$bin['bin_id'] : '' }}</div></td>
+         <td><strong>{{ $bin['quantity']!==null ? number_format((float)$bin['quantity'],0,',','.') : 'Nicht belegt' }}</strong></td>
+         <td>
+          @if($bin['locked']||$bin['shipping_locked'])
+           <span class="tag warn">🔒 {{ $bin['locked']?'Fach gesperrt':'Auslieferung gesperrt' }}</span>
+          @else
+           <span class="tag">Keine Sperre gemeldet</span>
+          @endif
+         </td>
+         <td>{{ $bin['last_movement'] ?: 'Nicht im Spiegel belegt' }}<div class="meta">{{ $bin['last_source'] ?: '' }}</div></td>
+         <td><div class="meta">{{ $bin['comment'] ?: '' }}</div><div class="meta">{{ $bin['type_id'] ? 'Platztyp-ID '.$bin['type_id'] : '' }} {{ $bin['status_id'] ? ' · Status-ID '.$bin['status_id'] : '' }}</div></td>
+        </tr>
+       @endforeach
+      </tbody>
+     </table>
+    </div>
+   @else
+    <p class="note">Der bestätigte WMS-Snapshot enthält für diesen Artikel keine zugeordneten Fachpositionen.</p>
+   @endif
+  @else
+   <p role="status" class="note">⚠ WMS-Lagerplatzspiegel zu diesem Artikel nicht bestätigt. Es werden keine Lagerorte oder Fachmengen erfunden. Die bisherige JTL-Synchronisation muss den vorhandenen <code>HW24_RelatedSources.wms_lagerplaetze</code>-Bereich bereitstellen.</p>
+  @endif
+ </div>
+</section>
+@endif
+
 <section class="panel" aria-labelledby="wms-prices">
- <div class="panel-head" id="wms-prices">02 · Preisquellen im Vergleich</div>
+ <div class="panel-head" id="wms-prices">03 · Preisquellen im Vergleich</div>
  <div class="panel-body">
   <p class="small">Vergleichswerte bleiben nach Kanal, Kontozuordnung, Preisart und Datenherkunft getrennt. Ein JTL-Plattformfeld ist kein verifiziert aktives Händlerangebot.</p>
   @if($product!==[])
@@ -113,6 +175,22 @@ html.dark .hw24-warehouse{--edge:#334155;--bg:#182638;--soft:#233249;--ink:#f1f5
   @else
    <p class="note">Zuerst einen JTL-Artikel über die Suche laden.</p>
   @endif
+  @if(($related['amazon_jtl']['confirmed']??false)===true)
+  <div class="divider">
+   <h4 style="font-size:13px;font-weight:800">Amazon · JTL-Angebotszuordnungen aus vorhandenem Spiegel</h4>
+   <p class="small">Separater JTL-Mappingbereich, nicht automatisch aktuelles Amazon-SP-API-Verkäuferangebot.</p>
+   @foreach(($related['amazon_jtl']['offers']??[]) as $i=>$offer)
+    <div class="price-row" style="margin-top:8px" wire:key="jtl-amazon-offer-{{ $i }}">
+     <div><strong>{{ $offer['asin']??'ASIN offen' }}</strong><div class="meta">Seller-SKU {{ $offer['sku']??'offen' }} · {{ $offer['marketplace']??'Markt offen' }}</div></div>
+     <div>
+      <div class="value">{{ $offer['jtl_price']!==null ? number_format((float)$offer['jtl_price'],2,',','.') : 'Preis nicht belegt' }}</div>
+      <div class="meta">JTL-Angebotsquelle · Währung/Preisart prüfen · Menge {{ $offer['jtl_quantity']??'offen' }} · {{ $offer['fulfillment']??'Versandart offen' }}</div>
+     </div>
+    </div>
+   @endforeach
+   @if(($related['amazon_jtl']['truncated']??false)===true)<p class="note">Hinweis: JTL-Amazon-Angebotsliste wurde gekürzt.</p>@endif
+  </div>
+  @endif
   <div class="divider">
    <h4 style="font-weight:800;font-size:13px">Eigene aktive Angebote aus verifizierten Kontenquellen</h4>
    <p class="small">Es werden nur höchstens 24 Stunden alte, ausdrücklich als aktiv und geprüft gekennzeichnete Shopify-, Amazon- oder eBay-Beobachtungen aus der privaten Preisquellentabelle gelesen. Kontoname und tatsächliche Quelle bleiben sichtbar.</p>
@@ -140,6 +218,50 @@ html.dark .hw24-warehouse{--edge:#334155;--bg:#182638;--soft:#233249;--ink:#f1f5
      </div>
     @endforeach
    @endif
+   @if(($amazonMarket['ok']??false)===true)
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-top:12px">
+     @foreach([
+      ['🏆 Amazon Buy Box (Summary)', $amazonMarket['buy_box']??null],
+      ['💶 Niedrigster Preis (Amazon Summary)', $amazonMarket['lowest_summary']??null],
+      ['🔎 Günstigstes der abgerufenen Angebote', $amazonMarket['lowest_visible']??null]
+     ] as [$priceLabel,$price])
+      <div class="price-row" style="display:block">
+       <div class="meta">{{ $priceLabel }}</div>
+       <div class="value">{{ $price!==null ? number_format($price['amount'],2,',','.') . ' '.$price['currency'] : 'Nicht gemeldet' }}</div>
+      </div>
+     @endforeach
+    </div>
+    <div class="meta">Stand: {{ $amazonMarket['retrieved_at']??'unbekannt' }} UTC · {{ $amazonMarket['returned']??0 }} abgerufene Einzelangebote, {{ $amazonMarket['winner_count']??0 }} ausdrücklich als Buy-Box-Gewinner markiert. Der günstigste Anbieter muss nicht die Buy Box haben.</div>
+    @if(($amazonMarket['sellers']??[])!==[])
+     <h4 style="font-weight:800;font-size:13px;margin-top:17px">Amazon-Händlerübersicht · nach Buy Box und Preis sortiert</h4>
+     <div class="stack" style="margin-top:10px">
+      @foreach($amazonMarket['sellers'] as $i=>$seller)
+       <article class="price-row" wire:key="seller-offer-{{ $i }}">
+        <div>
+         <h4>{{ $seller['seller_name'] ?: 'Amazon-Verkäufer '.$seller['seller_id'] }}</h4>
+         <div class="meta">Seller-ID {{ $seller['seller_id'] }} · {{ $seller['fba']?'FBA':'Versandart nicht als FBA gemeldet' }} · {{ $seller['prime']===true?'Prime gemeldet':'Prime nicht bestätigt' }}</div>
+         @if($seller['winner'])
+          <span class="tag">🏆 Aktueller Buy-Box-Gewinner</span>
+         @elseif($seller['eligible']===true)
+          <span class="tag warn">Buy-Box-berechtigt, nicht Gewinner</span>
+         @else
+          <span class="tag warn">Buy Box nicht bestätigt</span>
+         @endif
+         <div class="meta">Bewertung: {{ $seller['feedback_percent']!==null ? number_format($seller['feedback_percent'],1,',','.').' % positiv' : 'nicht verfügbar' }} · {{ $seller['feedback_count']??'?' }} Rückmeldungen</div>
+         <a href="https://www.amazon.de/sp?seller={{ urlencode($seller['seller_id']) }}" target="_blank" rel="noopener noreferrer">Amazon-Verkäuferprofil</a>
+        </div>
+        <div>
+         <div class="value">{{ $seller['total']!==null ? number_format($seller['total']['amount'],2,',','.') . ' '.$seller['total']['currency'] : 'Gesamtpreis nicht bestätigt' }}</div>
+         <div class="meta">Artikel {{ $seller['item']!==null ? number_format($seller['item']['amount'],2,',','.') . ' '.$seller['item']['currency'] : '?' }} · Versand {{ $seller['shipping']!==null ? number_format($seller['shipping']['amount'],2,',','.') . ' '.$seller['shipping']['currency'] : '?' }}</div>
+         <div class="meta">Versand aus {{ $seller['ships_from']??'unbekannt' }} · Bearbeitung {{ $seller['dispatch_min']??'?' }} bis {{ $seller['dispatch_max']??'?' }} h (keine Zustellgarantie)</div>
+        </div>
+       </article>
+      @endforeach
+     </div>
+    @else
+     <p class="note">Amazon hat keine einzelnen Verkäuferangebote geliefert. Nur die Summary-Preise stehen zur Verfügung.</p>
+    @endif
+   @endif
    @if($amazonMarket!==[])
     <p class="note {{ ($amazonMarket['ok']??false) ? 'ok' : '' }}">HTTP {{ $amazonMarket['http']??'—' }} · {{ $amazonMarket['offers']??'?' }} Angebote · {{ $amazonMarket['message'] }}</p>
     @foreach(($amazonMarket['prices']??[]) as $price)
@@ -154,7 +276,7 @@ html.dark .hw24-warehouse{--edge:#334155;--bg:#182638;--soft:#233249;--ink:#f1f5
 </section>
 
 <section class="panel" aria-labelledby="wms-history">
- <div class="panel-head" id="wms-history">03 · JTL-WMS-Lagerbewegungen</div>
+ <div class="panel-head" id="wms-history">04 · JTL-WMS-Bewegungshistorie</div>
  <div class="panel-body">
   <p class="small">Die bestehende Historien-Schnittstelle zeigt Bewegung, Zeitpunkt, Menge und Lagerplätze zum letzten abgeschlossenen Snapshot. Sie liefert nicht automatisch aktuelle Fachbestände, Verfügbarkeit oder Reservierungen.</p>
   <div class="actions">
@@ -187,7 +309,7 @@ html.dark .hw24-warehouse{--edge:#334155;--bg:#182638;--soft:#233249;--ink:#f1f5
     </table>
    </div>
   @endif
-  <p class="note">Für <strong>aktuelle</strong> WMS-Lagerplätze mit freiem Bestand, gesperrten Mengen und Reservierungen benötigen wir eine eigene verifizierte Snapshot-Abfrage aus JTL-WMS. Aus Bewegungen allein wird kein aktueller Lagerbestand errechnet.</p>
+  <p class="note">WMS-Fachmengen und Verfügbarkeit stehen oben, sofern der bereits vorhandene JTL-Zusatzspiegel sie liefert. Eine konkrete Auftragsnummer oder Buchungsreferenz enthält die bisherige WMS-Historien-API nicht. Ohne bestätigten JTL-Quellbeleg wird kein Auftrag zugeordnet.</p>
  </div>
 </section>
 </div>
