@@ -259,3 +259,21 @@ Betreiber bestätigt erfolgreiche Anlage des ersten Filament-Adminusers via `art
 **Noch keine öffentliche Admin-URL**: Die URL ist nur in Laravel-Routen/Filament-Bestätigung angegeben, die Testdomain wurde **nicht** umgeschaltet. Als nächstes read-only lokalen Datenbank- und Allowlist-Status prüfen, dann Legacy-Live angemeldet mit JTL/Amazon/KI testen und Testdomain-DocumentRoot-/Git-Deploymentmechanik sicher abnehmen.
 
 [Schritte 50–55 im Journal](./HW24_ARBEITSJOURNAL.md), Commit `95246e6a8a9e2cb499454c4bdad4bcd6c3eb4307`.
+
+
+## NEUESTE BESTÄTIGUNG · Filament Admin-Berechtigung geprüft (22.11.2026)
+
+**Erfolgreiche Tinker/CLI-Read-only-Prüfung auf dem privaten Plesk-Laravel-Projekt:**
+- `Administrator vorhanden: OK` durch Suche nach privater `HW24_ADMIN_EMAIL` in der isolierten SQLite-`users`-Tabelle.
+- `Filament-Zugriff freigegeben: OK` durch tatsächlichen Aufruf von `canAccessPanel(Filament::getPanel("admin"))`.
+- `=== PRÜFUNG ABGESCHLOSSEN ===` und Rückkehr zur SSH-Shell. **Admin ist also erstellt und serverseitig berechtigt.**
+- Persönliche E-Mail, Passwort, APP_KEY und sämtliche HTTP-Basic/API-Secrets werden **nicht** im öffentlichen GitHub-Protokoll veröffentlicht.
+
+**Nicht verifiziert:** Login im Browser und die Erreichbarkeit unter `test-artikelmanager.hairworld24.de/admin`, da bestehender Test-vHost noch Legacy. Ebenfalls noch ausstehend: angemeldeter E2E-Funktionstest der Live-V4.25-Artikelpflege (JTL/Amazon/KI), Plesk Test-vHost DocumentRoot/PHP-FPM/Git-Deploy-Verhalten, Laravel-GET-Bridge zu Legacy-Live.
+
+**EXAKT NÄCHSTER SCHRITT:** Authentifizierten Legacy-Live-Funktionstest durchführen und die Plesk-Testdomain-Konfiguration rein lesend prüfen. Erst bei erfolgreichem Test den Rollout der neuen Oberfläche mit separat dokumentiertem Rollback planen. **Keine neue Admin-/DB-Initialisierung und keine Test-Webroot-Umstellung ohne Gate.**
+
+[Chronologisches Arbeitsjournal](./HW24_ARBEITSJOURNAL.md), Dokumentations-Commit `88cdc61e5e52d184e30a841c970b93b7ef8723a8`.
+
+---
+
