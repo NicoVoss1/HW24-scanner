@@ -30,6 +30,15 @@ jobs:
           bash -n platform/ops/upgrade-private-framework-ffonly.sh
           bash -n platform/ops/migrate-source-catalog-isolated.sh
           bash -n platform/ops/verify-legacy-readbridge-live.sh
+          bash -n platform/ops/verify-filament-https-release-gates-readonly.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          raw=Path('platform/ops/verify-filament-https-release-gates-readonly.sh').read_text()
+          start=raw.index("runuser -u \"$owner\" -- \"$php\" -r '\n")+len("runuser -u \"$owner\" -- \"$php\" -r '\n")
+          end=raw.index("\n' \"$app\"",start)
+          Path('/tmp/hw24-release-preflight-check.php').write_text('<?php\n'+raw[start:end]+'\n')
+          PY
+          php -l /tmp/hw24-release-preflight-check.php
           python3 platform/ops/configure-private-legacy-readbridge.py --self-test
           python3 - <<'PY'
           from pathlib import Path
