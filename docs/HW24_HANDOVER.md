@@ -1,3 +1,17 @@
+## AKTUELLSTER ERFOLG · 22.11.2026 · TEST-PLESK-BASIC erfolgreich auf `nvoss` geändert
+
+**Nutzer-PuTTY bestätigt tatsächlichen Plesk-Username-Wechsel:** `HW24_PLESK_RENAME_TEST` war komplett erfolgreich; `Beide Sicherungen: OK`, `Private Benutzerzuordnung: OK`, `SUCCESS: Update of protected URL '/' completed.`, `TESTBENUTZER ERFOLGREICH UMBENANNT`, `Neuer Benutzer: nvoss`, `Kontoreferenz unveraendert`, `Anonymer HTTPS-Zugriff: HTTP 401`. Änderung ausschließlich über `plesk bin protdir -u '/' -domain test-artikelmanager.hairworld24.de -update_user hw24-test -user_name nvoss`. **Test-Basic ist JETZT `nvoss`**, nicht mehr `hw24-test`; Account-ID für Test-Schutz-ID 9 / Domain 10 identisch. Authentifizierter HTTPS-Zugriff mit neuem User muss als **nächster Schritt** erst noch geprüft werden.
+
+**Status beibehalten:** Bereits deployter Test-PR37 mit korrekten PHP-Blob-SHAs, PHP-Syntax und anonymem HTTP401; separate private `hw24_private/actor-aliases.php` owner `nicovoss`, Mode 0600, gibt `nvoss => [nvoss,hw24-test]`. Live-Basic `nvoss` und Live-Webroot unverändert, `plesk-stat`-ID1 unverändert. Kein Datenbank-Update, kein Lösch-/Editier-Vorgang an bisherigen 3 historischen KI-Berichten oder 2 Scanlisten-Stapeln. Vor Rename als alter User: 3 Reviews, 1 offener alter Stapel per HTTPS GET bestätigt.
+
+**NÄCHSTER EINZEL-PuTTY-SCHRITT:** Authentifizierten GET-ONLY-Test **als `nvoss` auf TEST** durchführen, ausschließlich interaktive verdeckte `curl --basic --user nvoss`-Passwortabfrage, kein Passwort in Skript/History/Chat. `GET /api/ai-reviews.php?limit=50` muss **3** historische KI-Berichte aus alter Owner-Kennung zurückgeben. `GET /api/scanliste.php?op=batches` muss mindestens 1 alten offenen Stapel zurückgeben und kann **bis zu 2** offene Stapel (alt + neu) liefern; API schließt `closed_at_utc != NULL` aus. Wenn 1 zurückkommt, prüfen, ob der unter `nvoss` gespeicherte Stapel bereits geschlossen ist. JSON-Antworten niemals roh anzeigen, nur PHP-Zählwerte. Kein POST oder neue KI-Kosten. Falls Login 401 oder falsche Zahl, STOP und Status read-only prüfen, nicht blind Passwortschutz zurückstellen.
+
+**Gesicherte Rückfallstände:** Test-auth `/root/hw24-backups/test-plesk-auth-yideOvRf/plesk-pd.tar.gz` SHA256 `a7aacc096055021c0447d4fd1ca20eeeec459dd0cdb3d72f8fc012ff692d107f`; Test-Webroot `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz` SHA256 `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26`. Keine geheimen Auth-Dateien in Chat/GitHub hochladen.
+
+[Journal-Eintrag](./HW24_ARBEITSJOURNAL.md), Commit `8e94d1236a9773312743a0d0d929bebe3a5700c7`. [Draft PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37) unverändert, bisher nur auf TEST deployt.
+
+---
+
 ## NEUESTER BESTÄTIGTER SERVERSTAND · 22.11.2026 · TEST-BASIC-Passwortschutz-Sicherung ERFOLGREICH
 
 **Betreiber-PuTTY belegt vollständigen Erfolg von `HW24_PLESK_BASIC_BACKUP`:** Schutz für die TEST-Domain `test-artikelmanager.hairworld24.de` (`protected_dirs.id=9`, `dom_id=10`, alter Basic-Login `hw24-test`) wurde ohne Serveränderung separat gesichert.
