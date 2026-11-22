@@ -123,3 +123,67 @@ Der Ablauf liest weder `.env` noch Datenbankinhalte oder Passwörter, ändert ke
 **Weiterhin erforderlich vor dem Cutover:** Authentifizierter Browser-E2E auf der alten Live-V4.25-Domain (JTL, Amazon, vorhandenes KI-Archiv) sowie ein Rollback der bestehenden Testdomain und Entkopplung des alten manuellen Git-Deploy-Ziels.
 
 [Einzelbeleg im Journal](./HW24_ARBEITSJOURNAL.md), ursprünglicher Prüfprotokoll-Commit `1d0a3e55b1a5c8e59ced2e665687ce11984520f6`.
+
+
+## Nachtrag: Web-Access-Prüfung abgeschlossen, Rechteblockade nachgewiesen
+
+PuTTY bestätigt die aktiven Webserver-Prozessbenutzer `nginx` und `www-data`; `php-fpm: pool`-Prozesse zeigen `www-data`, ihre Zuordnung zum konkreten Testdomain-Pool ist noch nicht geklärt. Für `public/index.php`, Filament-CSS und Filament-JS ergaben `test -r` jeweils `nicovoss: LESBAR`, `nginx: GESPERRT`, `www-data: GESPERRT`. `getfacl` und `setfacl` wurden im PATH nicht gefunden. Der ausführliche Nachweis steht im [Arbeitsjournal](./HW24_ARBEITSJOURNAL.md), Commit `caf206b3ceef57a2c5bbb0d633dcf00bca4ea4d3`.
+
+**Keine pauschalen `chmod`-Operationen durchführen.** Linux-Standardrechte reichen derzeit nicht für die öffentliche Dateiauslieferung durch die geprüften Worker. Die tatsächlichen Test-vHost-PHP-FPM-Pool-Metadaten und Unix-Gruppenzuordnungen müssen zunächst geklärt werden. Laut [Plesk-Support](https://support.plesk.com/hc/en-us/articles/12377800927127-How-to-find-and-edit-PHP-configuration-files-in-Plesk-for-a-domain-or-for-global-PHP-handler) liegen pro Domain generierte Plesk-FPM-Pooldateien typischerweise unter `/opt/plesk/php/8.5/etc/php-fpm.d/`. Hier nur erlaubte `user/group/listen.owner/listen.group`-Metadaten lesen, niemals private Konfigurationen oder Secrets ausgeben.
+
+### GENAU NÄCHSTE PRÜFUNG: Unix-Gruppen und PHP-8.5-Pool (read-only)
+
+```bash
+bash <<'HW24_POOL_READ'
+set -u
+echo "=== HW24 POOL UND UNIX-GRUPPEN ==="
+
+echo "1. Aktuelle Gruppen der drei beteiligten Benutzer:"
+for u in nicovoss nginx www-data; do
+  if id "$u" >/dev/null 2>&1; then
+    id "$u"
+  else
+    echo "Benutzer nicht gefunden: $u"
+  fi
+done
+
+echo "2. GitHub-Framework-/Domain-Gruppe (nur Metadaten):"
+for g in psacln psaserv; do
+  getent group "$g" | cut -d: -f1,3,4 || true
+done
+
+echo "3. Plesk PHP-8.5-FPM-Konfiguration der Testdomain:"
+pool="/opt/plesk/php/8.5/etc/php-fpm.d"
+if [ -d "$pool" ]; then
+  find "$pool" -maxdepth 1 -type f -iname '*test-artikelmanager*.conf' -print |
+  while IFS= read -r file; do
+    echo "Pool-Konfiguration vorhanden"
+    awk -F= '
+      /^[[:space:]]*(user|group|listen.owner|listen.group|listen.mode)[[:space:]]*=/ {
+        gsub(/[[:space:]]+/, "", $1)
+        sub(/[;#].*$/, "", $2)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2)
+        print $1 "=" $2
+      }
+    ' "$file"
+  done
+else
+  echo "Pool-Verzeichnis nicht vorhanden"
+fi
+
+echo "4. Asset-Verzeichnisrechte im App-Baum:"
+app="/var/www/vhosts/hairworld24.de/hw24-console-private/repo/platform"
+stat -c '%a %U:%G %n' \
+  "$app" "$app/public" "$app/public/css" \
+  "$app/public/css/filament" \
+  "$app/public/css/filament/filament" \
+  "$app/public/css/filament/filament/app.css" \
+  "$app/.env" "$app/database/database.sqlite"
+
+echo "=== NUR LESEPRUEFUNG ABGESCHLOSSEN ==="
+HW24_POOL_READ
+```
+
+Dieser Block verändert **keine** Dateirechte, legt **keine** ACL an, liest nur Unix-User-/Gruppen-IDs, ausgewählte Pool-`user/group`-Schlüssel und `stat`-Metadaten und gibt **keinen** `.env`-/SQLite-Inhalt aus. Keinen PHP-FPM-/Webserver-Neustart durchführen. Erst nach Analyse dieser Angaben eine minimal erforderliche, rückrollbare Asset-Freigabe und FPM-Trennung konzipieren.
+
+Weiterhin gilt: Keine Domain-Umstellung vor authentifiziertem Legacy-Live-Artikel-/Amazon-/KI-Funktionstest.
