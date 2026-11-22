@@ -35,19 +35,19 @@ inspect='
 chdir($argv[1]);
 require "vendor/autoload.php";
 $app=require "bootstrap/app.php";
-$app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap();
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 $driver=config("database.default");
 $cfg=config("database.connections.sqlite");
 $path=realpath((string)($cfg["database"]??""));
 $expect=realpath($argv[2]);
-$actual=Illuminate\\Support\\Facades\\DB::connection()->getDatabaseName();
+$actual=Illuminate\Support\Facades\DB::connection()->getDatabaseName();
 if($driver!=="sqlite" || ($cfg["url"]??null) || $path===false ||
     $expect===false || $path!==$expect || realpath((string)$actual)!==$expect ||
-    Illuminate\\Support\\Facades\\DB::connection()->getDriverName()!=="sqlite") {
+    Illuminate\Support\Facades\DB::connection()->getDriverName()!=="sqlite") {
     fwrite(STDERR,"STOP: effektive Laravel-Datenbank ist nicht die private Plattform-SQLite\n");
     exit(3);
 }
-$pdo=Illuminate\\Support\\Facades\\DB::connection()->getPdo();
+$pdo=Illuminate\Support\Facades\DB::connection()->getPdo();
 if($pdo->query("PRAGMA integrity_check")->fetchColumn()!=="ok"){
     fwrite(STDERR,"STOP: private SQLite Integrity Check fehlgeschlagen\n");exit(3);
 }
