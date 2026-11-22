@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\ArticleLookup;
+use App\Filament\Widgets\Hw24SystemOverview;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -31,6 +32,7 @@ final class AdminPanelProvider extends PanelProvider
             ->login()
             ->colors(['primary' => Color::Blue])
             ->pages([Dashboard::class, ArticleLookup::class])
+            ->widgets([Hw24SystemOverview::class])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
