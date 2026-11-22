@@ -8,6 +8,23 @@
 const $=id=>document.getElementById(id);
 const val=x=>String(x??'').trim();
 const referenceEan='3474630337398';
+// Visual-only environment marker. Does not alter Plesk, JTL or credentials.
+if(location.hostname.toLowerCase()==='artikelmanager.hairworld24.de'){
+ const marker=document.querySelector('.brand small');
+ if(marker)marker.textContent='INTELLIGENCE · LIVE';
+ const footer=document.querySelector('footer');
+ if(footer)footer.textContent=footer.textContent.replace('HW24 TEST','HW24 LIVE');
+}
+// Display JTL decimal quantities without meaningless trailing zeroes.
+// The raw SQL value remains untouched; it is not an Ameise conversion.
+function formatJtlQuantity(input){
+ const raw=String(input??'').trim();
+ if(!/^\d+(?:[.,]\d+)?$/.test(raw))return raw;
+ const [whole,fraction='']=raw.replace(',','.').split('.');
+ const cleanWhole=whole.replace(/^0+(?=\d)/,'');
+ const cleanFraction=fraction.replace(/0+$/,'');
+ return cleanWhole+(cleanFraction?','+cleanFraction:'');
+}
 const fieldSets={
  identity:[
   ['Artikelname','Artikelbezeichnung','text','wide'],
@@ -80,7 +97,7 @@ function original(key,a){
   'Warengruppe':a.warengruppe_name,
   'Kurzbeschreibung':a.kurzbeschreibung,'Beschreibung':a.beschreibung,
   'Netto-EK':a.netto_ek,'Netto-VK':a.netto_vk,'Brutto-VK':a.brutto_vk,'Kosten':a.kosten,
-  'Inhalt/Menge':f.fMassMenge,'Artikeltyp':a.artikeltyp,
+  'Inhalt/Menge':formatJtlQuantity(f.fMassMenge),'Artikeltyp':a.artikeltyp,
   'ASIN':a.asin,'Maßeinheit':getMassCode(a),
   'Versandklasse':a.versandklasse_name,'Steuerklasse':a.steuerklasse_name,'Währung':a.waehrung,
   'Lieferstatus':verifiedRelatedValue(a,'lieferstatus','cName'),
