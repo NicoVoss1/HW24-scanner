@@ -241,3 +241,13 @@ Die nächste PuTTY-Ausgabe bestätigte `runuser -u nicovoss -- git ... rev-parse
 **Nächste Aktion:** Auf Plesk unter Site-Benutzer read-only `artisan --version`, `artisan route:list --path=admin` und Live-Artikelmanager V4.25-Webroot-Hashes prüfen. Keine neuen Domains/Datenbanken und keine erneute Composer-Installation. Danach private Laravel-Konfiguration.
 
 [Vollständiger chronologischer Einzelbeleg](./HW24_ARBEITSJOURNAL.md) (Commit `006fbf833d06b9dd89d5a663f653d75afd3444ee`).
+
+### Ergänzung 22.11.2026: Private Laravel-Ersteinrichtung ERFOLGREICH
+
+- `platform/.env` ausschließlich privat angelegt mit Produktionsmodus, HTTPS-Test-URL und deaktiviertem Debugging; APP_KEY wurde auf Server generiert und **nirgends veröffentlicht**.
+- Eigene private Laravel-SQLite erstellt, vier Migrationen von Laravel System/Cache/Jobs und Channel-Price-Observations ausgeführt, alle in Batch [1] **Ran**. **Keine JTL-/MariaDB-Migration**.
+- `artisan filament:assets`: erfolgreich CSS, JS und Fonts publiziert.
+- Nutzer-Ausgabe endet mit `HW24 ERSTKONFIGURATION ERFOLGREICH`. **Keine Umstellung der bestehenden Test-/Live-Domain.**
+- Nächster Schritt: ausschließlich privaten, autorisierten Filament-Admin anlegen; Legacy-Live angemeldet testen; erst dann Testdomain auf ausschließlich `platform/public` umstellen.
+
+[Nachweis im Arbeitsjournal](./HW24_ARBEITSJOURNAL.md) · Commit `f0f0cb0cc19af24fab670552e4eac5e420218c1b`.
