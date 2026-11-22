@@ -39,6 +39,7 @@ Die Standardumgebung ist absichtlich **SQLite**, `QUEUE_CONNECTION=sync`, `MAIL_
 
 - `ChannelPrice`: validiert Anbieter `jtl | shopify | amazon | ebay`, Preisart, Währung, Netto und Brutto (beide separat), Preisquellen und Zeitstempel. Status `verified | derived | unverified | unavailable`. Ein verifizierter Wert benötigt eine Quelle, einen Beobachtungszeitpunkt und einen Preis.
 - `PriceBoard`: Preise werden **pro Kanal, Preisart, Konto, Marketplace und Angebot** getrennt; fehlende Quellen erscheinen explizit als `unavailable` statt 0,00 €.
+- `VerifiedGrossDeriver`: Kann zu einem belegten **JTL-Netto-VK** einen **explizit als berechnet gekennzeichneten Brutto-VK** auf Basis eines ebenfalls belegten Steuersatzes, Steuerlands, Preisquellen-/Kundengruppenkontexts bestimmen. Ohne diese Nachweise bleibt Brutto unbekannt, niemals einfach Netto × 1,19 als „original aus JTL“ ausgeben.
 - `channel_price_observations`: indexierte isolierte SQLite/MariaDB-Tabelle für viele Produkte und Beobachtungen. Speicherung aus Amazon/SP-API nur im rechtlich/vertraglich zulässigen Umfang und Aufbewahrungszeitraum.
 - `LegacyReadBridge`: gemeinsamer nur-lesender Adapter zu JTL, Amazon-Katalog/-Preisen und OpenAI-Archiv; noch keine Schreiboperation.
 
