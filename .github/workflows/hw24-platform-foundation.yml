@@ -24,6 +24,9 @@ jobs:
         run: |
           php platform/scripts/verify-price-contract.php
           php platform/scripts/verify-gross-calculation.php
+          php -l api/amazon-archive.php
+          grep -q "if (\(\$_SERVER\['REQUEST_METHOD'\]??''\)!=='GET')" api/amazon-archive.php || grep -q "method_not_allowed" api/amazon-archive.php
+          grep -q 'hw24_amazon_catalog_snapshots' api/amazon-archive.php
           bash -n platform/ops/check-host-readonly.sh
           bash -n platform/ops/verify-filament-loopback-http.sh
           bash -n platform/ops/verify-testdomain-cutover-readonly.sh
