@@ -1,3 +1,15 @@
+## NEUESTER IST-STAND · 22.11.2026 · Private Laravel-Konfiguration und SQLite MIGRIERT
+
+**Bestätigt durch PuTTY:** Im separaten privaten Framework-Klon Laravel-Produktions-.env angelegt (Debug aus, Secure-Session, HTTPS), privater APP_KEY erzeugt, isolierte SQLite angelegt, vier **ausschließlich Laravel-eigene** Migrationen erfolgreich, `migrate:status` viermal `Ran`; Filament JS/CSS/Schriften mit `filament:assets` erfolgreich publiziert. Abschlussausgabe `=== HW24 ERSTKONFIGURATION ERFOLGREICH ===`. **Weder JTL-Wawi noch MariaDB/Legacy-Webroots migriert oder umgestellt.**
+
+**Bereits vorher:** Composer/Filament installiert, Admin-Routen über CLI bestätigt, Live-V4.25 Git-Commit sowie vier Webroot-Dateihashes bestätigt und anonyme Legacy-Zugriffe je 401. **Noch offen**: Admin-Benutzer und `HW24_ADMIN_EMAIL`, authentifizierter Legacy-Live-Test, GET-only Bridge-Auth, sichere Test-Webroot-Umschaltung und Filament-Browser-Anmeldung, Composer-Lockfile für reproduzierbare Deploys im Featurebranch.
+
+**Nächste Aktion:** Admin-E-Mail in der privaten Laravel-.env festlegen und `make:filament-user` interaktiv als Site-Benutzer ausführen; dann Legacy-Live-Browserabnahme und abgesicherter Test-DocumentRoot `platform/public`. Keine weiteren Initialmigrationen oder erneute Composer-Installation.
+
+[Alle einzelnen PuTTY-Schritte](./HW24_ARBEITSJOURNAL.md) unter Dokumentations-Commit `f0f0cb0cc19af24fab670552e4eac5e420218c1b`.
+
+---
+
 ## NEUESTE VERIFIKATION · 22.11.2026 · ARTISAN- UND LIVE-ABNAHME
 
 **PuTTY bestätigt:** Laravel CLI 13.43.0, Filament-4er-Routenliste (/admin, /admin/artikel, /admin/login, /admin/logout), alle vier V4.25-Dateihashes im **Live-Artikelmanager** OK. Eine private Laravel-.env und lokale SQLite existieren noch nicht. Nur ein vollständiger Prüfdurchlauf beobachtet; zweiter geposteter Befehlsblock ohne abschließende Terminalausgabe.
