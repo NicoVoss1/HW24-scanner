@@ -1310,3 +1310,24 @@ LIVE-JTL-PRUEFUNG ERFOLGREICH
 **Befund:** Die LIVE-API und die HTTP-Basic-Berechtigung `nvoss` funktionieren tatsächlich; der Spiegel ist zum Prüfzeitpunkt 13 Minuten alt und genau **ein eindeutiger Artikel** mit erwarteter JTL-ID 1428 und erwarteter JTL-ASIN wird bereitgestellt. `fMassMenge` ist weiterhin technisch mit vielen Dezimalstellen gespeichert, sodass PR39-Darstellungsnormalisierung weiterhin benötigt wird. Ein **belegter JTL-Standard-Bruttopreis fehlt**; die tatsächliche Originalquelle muss zuerst über read-only Windows-SQL-JTL ermittelt werden, ohne `fAmazonVK` fälschlich als Standard-Brutto-VK oder LIVE-Angebotspreis zu deklarieren. `fEbayPreis` ist noch keinem der beiden eBay-Konten eindeutig zugeordnet. Live-/Test-Webroots und SQL-Daten wurden durch den GET nicht geändert.
 
 **Nächste Freigabe-Gates:** Amazon Catalog GET auf **LIVE** einmal manuell prüfen (`api/amazon.php?ean=3474630337398`, ggf. Cache/kein EAN-Treffer trotz vorhandener JTL-ASIN), Anzeige in `artikelpflege.html` mit vorhandenen KI-Archivinfos, dann abgesicherter Testdomain-Framework-HTTP-/Filament-Login. Das neue direkte ASIN-API-Modul `api/amazon-asin.php` aus PR39 ist **noch nicht** live installiert. PR39/PR41 bleiben Draft; PR36 bleibt isolierter Pilot. **Keinen Live-Merge/-Deploy vor separater Testabnahme.**
+
+
+## 22.11.2026 · LIVE-Amazon-SP-API-EAN-Abfrage erfolgreich, 0 Katalogtreffer
+
+**Echte authentifizierte Betreiber-Abfrage** am Produktiv-Endpunkt:
+`curl -sS --user nvoss "https://artikelmanager.hairworld24.de/api/amazon.php?ean=3474630337398"`.
+Vom Betreiber gepostete lokal gefilterte Antwort:
+```text
+Amazon API: OK
+Datenquelle: live
+Katalogtreffer: 0
+Fehler: None
+Fehlerphase: None
+Amazon HTTP: None
+```
+
+**Interpretation:** Amazon LWA/SP-API EAN-Suche hat ohne HTTP-Anwendungsfehler live reagiert und im Amazon.de-Katalog **0 EAN-Treffer** ermittelt. Das ist **kein Nachweis**, dass die in JTL original hinterlegte ASIN `B091J3HV6B` bei Amazon nicht existiert. Der Amazon-Katalog-Gegencheck per JTL-verknüpfter ASIN ist der fachlich richtige nächste Schritt; der separat entwickelte GET-only-Endpunkt `api/amazon-asin.php` aus Draft PR39 ist noch **nicht** auf Live/Test deployed.
+
+**Sichere nächste Testvorbereitung:** auf dem gestapelten PR41 (Featurebranch, kein Merge) das Test-only-Skript `ops/hw24-stage-amazon-asin-single-file.sh` vorbereitet. Es lädt die freigegebene PHP-Datei **aus festem PR39-Commit** `87ad1c38534fd5a59e7332e63bd9e666919ea8b5`, verifiziert Git-Blob-SHA `617e2162f20dd012ed8c4fe8cc73d12b5e0d2373`, PHP8.5-Syntax und die zwei bestehenden V4.25-API-Dateihashes. Es erstellt die neue Datei **nur auf der bestehenden Testdomain**, überschreibt nie eine bestehende Datei, prüft anonymen HTTP 401/403 und entfernt den Neuzugang bei unerwarteter öffentlicher Erreichbarkeit. Keine Änderung an Live-Webroot, Datenbanken, Plesk-DocumentRoot oder aktiven Verkaufskanälen. **Nur vorbereitet, nicht vom Betreiber ausgeführt.** Shell-Syntaxprüfung in CI. Danach den Endpunkt mit `nvoss` und EAN/ASIN gezielt über HTTPS GET einmal manuell testen, Ergebnisse `found/title/brand/ean_evidence` protokollieren; Marktplatz-EAN-Nachweis nicht automatisch als Preis-/ASIN-Änderung übernehmen.
+
+**Framework-Gate:** Laravel/Filament private CLI- und Assetberechtigungen bereits durch vorherigen Betreiber-Preflight erfolgreich; ein Testdomain-DocumentRoot-Cutover darf **erst** nach abschließendem Legacy- und Filament-HTTP-/Rollback-Plan erfolgen. Live funktional gesichert lassen.
