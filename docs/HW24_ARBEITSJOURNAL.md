@@ -231,6 +231,54 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - Zusätzlicher Test `platform/tests/Unit/JtlSourceContractTest.php`: Sperren, zusammengesetzte PKs und plausible Delta-Kandidaten. CI-Resultat für neuen HEAD separat prüfen; Tests ohne CI-Resultat **nicht** als erfolgreich behaupten.
 - **Nächster Operator-Schritt:** Read-only-Phase-4-Abfragen `platform/ops/jtl-heidisql-phase4-mapping-readonly.sql` (SQL 0–5) für JTL-Preisarten, Klartext-Status, Artikeltypen und konto-/shopbezogene Referenzen. Keine Plesk-/PuTTY-Aktionen.
 
+## Betreiberergebnisse Phase 4: Referenzquellen und Preis-/Shop-Mapping (2026-11-23)
+
+### S029 | HeidiSQL Datenbankidentität und Referenztabellen | **bestätigt**
+- Datenbankkontext: `eazybusiness`. Nur lesende SQL-Abfragen; keine JTL-Änderungen belegt.
+- Ungefähre Zeilen aus `sys.partitions`: `dbo.tArtikel` 2.692; `Artikel.tArtikelAsin` 2.461; `Artikel.tArtikelkosten` 2.692; `Artikel.tArtikelType` **0**; `dbo.tPreis` **49**; `dbo.tLieferStatus` **1**; `dbo.tSteuerklasse` **2**; `dbo.tSteuersatz` **4**; `dbo.tMassEinheit` **31**; `dbo.tShop` **7**; `dbo.tWarenLager` **10**; `SCX.tChannelPriceType` **12**; `SCX.tOffer` **16.049**; `SCX.tOfferPrice` **30.522**; `SCX.tVerkaufskanalArtikelData` **15.809**.
+- **Quellbeleg vs. Deutung:** `Artikel.tArtikelType` hat bei Bestandsaufnahme **0 Zeilen**. Aus dieser Tabelle kann **kein** Artikeltyp wie Standard/Variante abgeleitet werden, auch wenn sie die Spalten `kArtikel` und `uArtikelType` (uniqueidentifier) besitzt. Alternative Definition erst nach separater Prüfung der JTL-Artikellogik und ggf. Daten.
+- `Artikel.tArtikelAsin` enthält `kArtikelAsin`, `kArtikel`, `cAsin`, `bRowversion`. Es können zusätzliche ASIN-Quellen existieren; Anzahl Datensätze ≠ Anzahl eindeutig zugeordneter Produkte. `Artikel.tArtikelkosten` besitzt `fArtikelkosten`, `bRowversion`.
+
+### S030 | Preis, Steuern, Einheiten und Lieferstatus | **Schema bestätigt, Werte offen**
+- `dbo.tPreis` enthält exakt `kPreis`, `kArtikel`, `kKundenGruppe`, `kShop`, `kKunde`, `bRowversion`. **Kein Preisbetrag in diesen sechs gelieferten Spalten**; `dbo.tPreisDetail` als tatsächlich vorhandener Kandidat für Preise identifiziert, **dessen Spalten noch unbekannt**. Preisberechnung nicht erfinden.
+- `SCX.tChannelPriceType`: `kChannelPriceType`, `kChannel`, `kShop`, `cPriceTypeId`, `cDisplayName`, `cDescription`, `kKundenGruppe`. Genau 12 ungefähr erfasste Zeilen, aber **Klartext/Werte und Zuordnung zu Shops noch nicht geliefert**. Live-Preis nicht aus einem unbestätigten Label ableiten.
+- `dbo.tSteuersatz`: `kSteuersatz`, `kSteuerzone`, `kSteuerklasse`, `fSteuersatz`, `nPrio`. Brutto hängt von korrekter Steuerzone/-klasse und ggf. Kundengruppe/Shop ab; keine pauschale 19%-Annahme ohne Beleg.
+- `dbo.tSteuerklasse`: `kSteuerklasse`, `cName`, `nStandard`, `nTyp`; `dbo.tLieferStatus`: `kLieferStatus`, `kSprache`, `cName`, `bRowversion`. Die bisherige `kLieferStatus=1` kann erst mit der jeweiligen tatsächlichen `kSprache` als Klartext angezeigt werden.
+- `dbo.tMassEinheit`: `kMassEinheit`, `cCode`, `cDisplayCode`, `kBezugsMassEinheit`, `fBezugsMassEinheitFaktor`, `cUnitCode` + `bRowversion`. Füllmenge wie 90000 → 90 erst nach überprüfter Einheit/Bezugsfaktor-Metadaten und Artikel-Testfall normalisieren.
+- Quelle Währung/Preisart noch nicht endgültig bestimmt. `dbo.tShopWaehrung` und `dbo.tPreisDetail` müssen erst auf schema-/referenzbezogene Felder untersucht werden.
+
+### S031 | Bestätigte Foreign Keys / Account-Verbindungen | **Metadaten belegt**
+- `SCX.tChannelPriceType.kChannel` → `SCX.tChannel.kChannel`; `SCX.tChannelPriceType.kShop` → `dbo.tShop.kShop`; `SCX.tChannelPriceType.kKundenGruppe` → `dbo.tKundenGruppe.kKundenGruppe`.
+- `SCX.tOfferPrice.kChannelPriceType` → `SCX.tChannelPriceType.kChannelPriceType` und `SCX.tOfferPrice.kOffer` → `SCX.tOffer.kOffer`.
+- `SCX.tVerkaufskanalArtikelData.kShopScx` → `dbo.tShopScx.kShopScx`.
+- `dbo.tShopScx.kShop` → `dbo.tShop.kShop`; weitere Verknüpfungen von `dbo.tShop` zu Shopkunden-/Sync-/Konfigurationstabellen. **Noch keine bestätigte Zusammenführung aller externen Konten/Marketplace-IDs**.
+- `Artikel.tArtikelType.kArtikel`, `Artikel.tArtikelAsin.kArtikel`, `Artikel.tArtikelkosten.kArtikel` → `dbo.tArtikel.kArtikel`.
+- `dbo.tPreis.kArtikel` → `dbo.tArtikel.kArtikel`.
+- `dbo.tSteuerklasse` ist über Auftrags-/Rechnungspositionen referenziert; `dbo.tMassEinheit` auch in Artikel-Dimension-/Teilmengenpositionen. Relevante Tabellen mit Verbraucher- oder Adressdaten bleiben für Spiegelung **nicht freigegeben**.
+
+### S032 | Replikationsperformance / Change Tracking | **bestätigt**
+- Auf **allen fünf untersuchten** `bRowversion`-Spalten kein Index, der `bRowversion` als Schlüssel benutzt (`rowversion_index_key_vorhanden=0`): `dbo.tArtikel`, `dbo.tArtikelHistory`, `dbo.tArtikelShop`, `dbo.tlagerbestandProLagerLagerartikel`, `dbo.tWarenLagerPlatzArtikel`.
+- Ein SQL-Prädikat `WHERE bRowversion > @marker` nutzt daher **keinen gezielten Rowversion-Index-Seek** aus diesen vorhandenen Indizes. Tabellen- oder Index-Scan möglich; Last vor 15-Minuten-Scheduler unter realen Bedingungen messen. Keine JTL-Indexanlage ohne Hersteller-/DBA-Freigabe.
+- Change Tracking weiterhin **0/0** und CDC aus. Es existieren ältere Artikel/Preis-/WMS-Felder, die Delta-Strategie kann **nicht** für sämtliche 1.176 Tabellen einheitlich festgelegt werden.
+- Ansatz: zunächst **kleiner sicherer Tabellenkatalog**, gemessene vollständige Reconciliation für moderate Volumen und später überwachte Delta-Logik, deletions/transaktionssichere Wasserzeichen. Kein aktuell aktiver Scheduler.
+
+### S033 | Schutz sensibler Quellfelder | **verbindlich**
+- `dbo.tShop` hat unter anderem `cAPIKey`, `cPasswortWeb`, `cBenutzerWeb`, `cServerWeb` sowie weitere betriebliche Felder. **Tabellenweite 1:1-Übernahme in eine allgemein zugängliche Analyse-DB ist nicht freigegeben.**
+- Nur beabsichtigte Lesespalten `kShop`, `cName`, `nTyp`, `nAktiv`, `kFirma` nach Zweck-/Rechtekontrolle. Keine Passwörter, Tokens, URLs mit Secrets oder Webshop-Zugangsdaten in Tests, Logs, GitHub oder Dialogausgaben.
+- Auch `dbo.tWarenLager` enthält Anschriften und persönliche Ansprechpartner. Analytische Lageridentität (`kWarenLager`, `cName`, `nAktiv`) strikt von Personen-/Kontaktfeldern trennen.
+- Der Wunsch nach vollständiger JTL-Datenbasis wird in **Vollinventur aller Tabellen + zweckgebundene, klassifizierte private Quellspiegel** umgesetzt, nicht als pauschal öffentliche Vollkopie.
+
+### S034 | GitHub: Phase-5-Abfragen | **erstellt, noch nicht auf HeidiSQL ausgeführt**
+- `platform/ops/jtl-heidisql-phase5-reference-values-readonly.sql`: SQL 0–9; nur `SELECT`, kontrollierte Klartext-/Steuer-/Einheiten-/ChannelPriceType-Lookups, ausdrücklich eingeschränkte Shop-ID/-Namen-Auswahl, ergänzende Schema-Metadaten, aggregierte Marktplatzangebotszahlen ohne Seller-IDs.
+- SQL 0 prüft `DB_NAME()=eazybusiness`; SQL 1–6 enthalten verifizierte, benannte Quellspalten. SQL 7–8 lesen nur System-Metadaten über `dbo.tPreisDetail`, `dbo.tKundenGruppe`, `SCX.tChannel`, `dbo.tShopScx`, `dbo.tShopWaehrung` und Währungsreferenzen. SQL 9 liefert Angebotssummen je Shop.
+- **Betreiber muss die Abfragen einzeln ausführen** und ggf. Shopnamen privat/redigiert zurückgeben. Bei fehlender Berechtigung/Fehlermeldung nicht an JTL-Rechten drehen.
+- `dbo.tShop`: niemals `SELECT *` verwenden oder `cAPIKey` etc. mit exportieren.
+
+### S035 | GitHub: referenzbasierter Datenvertrag und Tests | **erstellt, CI offen**
+- Neu `platform/config/hw24_jtl_reference_dictionary.php`: `enabled=false`, erlaubte Felder pro Referenztabelle, Kennzeichnung `dbo.tShop` als geheimhaltungsrelevante Quelle, explizite Unsicherheiten `Artikel.tArtikelType`, `dbo.tPreisDetail`, `SCX.tChannel`.
+- Neu `platform/tests/Unit/JtlReferenceDictionaryTest.php`: Kontrolltests für deaktivierte Freigabe, exakte Shop-Spalten-Whitelist und nicht erfundene Artikeltypen/Brutto-Preisfelder. **Kein** automatischer Import oder neue API.
+- Aktueller GitHub Draft-PR #46: https://github.com/NicoVoss1/HW24-scanner/pull/46. Neues CI-Ergebnis vor Rollout abwarten und im Journal vermerken. Keine Plesk-/TEST-/LIVE-Datenbankänderung.
+
 ## Fachlich beschlossene Zielarchitektur
 
 1. **JTL eazybusiness** bleibt maßgebliche SQL-Server-Datenbank; zunächst nur Leseinventur, DB-Backup/Wiederherstellung als getrennte Aufgabe prüfen.
@@ -247,4 +295,4 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - **C** Ergebnisse, Abweichungen und Risiken im Journal festhalten; gegebenenfalls Versionsvergleich des Test-/Live-Codes.
 - **D** Nur kleine, rollbackfähige Änderungen isoliert vorbereiten, GitHub CI + Browser-E2E prüfen und Betreiberfreigabe für Deployment einholen.
 
-**Nächster Nachweis:** Phase-4-Mapping für Artikeltyp, Brutto-/Nettopreis, Steuer, Lieferstatus, Shop-/ChannelPriceType und rowversion-Indizierung. SQL nur lesend; noch kein Produktiv-Sync.
+**Nächster Nachweis:** HeidiSQL Phase 5, bestätigte Klartextwerte für Lieferstatus, Steuern, Einheiten und Verkaufskanalpreise sowie Schema von Preisdetails/Währungen. Danach erster sicherer Mirror-Prototyp, vor Freigabe getestet. Noch kein Produktiv-Sync.
