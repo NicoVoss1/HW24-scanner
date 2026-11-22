@@ -8,7 +8,7 @@
 <title>HW24 · Artikelpflege</title>
 <link rel="icon" type="image/svg+xml" href="assets/hw24-favicon.svg">
 <link rel="stylesheet" href="assets/hw24-quality-center.css?v=2">
-<link rel="stylesheet" href="assets/hw24-article-editor.css?v=1">
+<link rel="stylesheet" href="assets/hw24-article-editor.css?v=2">
 </head>
 <body>
 <header class="topbar">
@@ -61,6 +61,8 @@
           </section>
           <section class="editor-section">
             <div class="section-title"><span class="section-no">03</span><div><h3>Lieferung und Versand</h3><p>Lieferstatus, Bearbeitungszeit und Beschaffung aus JTL vergleichen</p></div></div>
+            <p class="muted"><strong>Automatische Beschaffungszeit:</strong> 0 = Nein, manuelle Tage verwenden. 1 = Ja, JTL ermittelt die Zeit automatisch. <strong>Haarfarben-Zielwerte:</strong> 0 automatisch, 1 Tag manuelle Beschaffung und 1 Tag zusätzliche Bearbeitung. Nur als bewusster Vorschlag, keine globale Änderung.</p>
+            <button type="button" class="secondary" id="suggestTimes">1 + 1 Tage für leere Felder vorschlagen</button>
             <div id="logisticsFields" class="editor-fields"></div>
           </section>
           <section class="editor-section">
@@ -69,10 +71,9 @@
           </section>
           <details class="editor-section advanced" id="advancedSection">
             <summary>Weitere Artikeldaten (nur bei Bedarf)</summary>
-            <h4>Versand, Beschaffung und Lieferstatus</h4>
-            <p class="muted">Nur im JTL-Spiegel eindeutig aufgelöste Werte werden als Vorgaben angezeigt. Bestätigte Entwürfe ändern JTL nicht direkt.</p>
-            <div id="logisticsFields" class="editor-fields"></div>
-            <h4>Steuern, Kategorien und ergänzende Angaben</h4>
+            <p class="muted">Steuerklasse, Währung, Kategorie und weitere Einstellungen. Lieferzeiten stehen bereits im Bereich Lieferung und Versand.</p>
+            <h4>Steuern, Kategorien und weitere Angaben</h4>
+            <p class="muted">Kategorie Ebene 1 bis 3 bezeichnet die JTL-Kategoriehierarchie, nicht automatisch die Shopify-Produktkategorie. Währung EUR ist nur ein Vorschlag, solange im Spiegel kein eindeutiger Wert vorliegt.</p>
             <div id="advancedFields" class="editor-fields"></div>
           </details>
           <section class="editor-section">
@@ -103,8 +104,33 @@
             Dieser Zielartikel ist eine Haarfarbe. Ich habe die Produktart geprüft.
           </label>
           <button type="button" class="secondary" id="suggestReference" disabled>Geeignete Leerfelder vorschlagen</button>
-          <p class="muted">Liefer- und Bearbeitungszeiten sind vorerst Vergleichswerte. Eine Übernahme in Ameise erfolgt erst nach bestätigter Feldzuordnung.</p>
+          <p class="muted">Nur bestätigte Haarfarben-Artikel erhalten Vorschläge für leere Felder. Lieferstatus und Steuerklasse werden erst nach überprüfter JTL-Feldzuordnung übernommen.</p>
         </section>
+        <details class="sidebar-panel intel-panel">
+          <summary class="intel-summary">🛒 Amazon SP-API · Katalogvergleich</summary>
+          <p class="muted">Katalogtreffer nach EAN manuell abfragen. Ergebnisse werden auf dem Server archiviert; keine automatische Änderung Deiner JTL-Daten.</p>
+          <button type="button" class="secondary" id="amazonSearch">Amazon-Katalog prüfen</button>
+          <button type="button" class="secondary" id="amazonKeywordSearch">Zusätzlich nach Produktname suchen</button>
+          <p class="muted" id="amazonState" role="status">Noch keine Amazon-Abfrage gestartet.</p>
+          <div id="amazonResults"></div>
+          <div id="amazonKeywordResults"></div>
+        </details>
+        <details class="sidebar-panel intel-panel">
+          <summary class="intel-summary">🤖 OpenAI Intelligence · KI-Berichte</summary>
+          <p class="muted">Vorhandene KI-Berichte kostenlos anzeigen. Neue kostenpflichtige Analyse nur nach Deiner ausdrücklichen Bestätigung.</p>
+          <button type="button" class="secondary" id="aiReviewRun">KI-Archiv prüfen / Analyse starten</button>
+          <button type="button" class="secondary" id="aiRecheck" hidden>Neue KI-Prüfung ($)</button>
+          <p class="muted" id="aiReviewState" role="status">KI-Bericht wird beim Öffnen nur lesend geprüft.</p>
+          <div id="aiReviewResults"></div>
+        </details>
+        <details class="sidebar-panel intel-panel">
+          <summary class="intel-summary">📥 JTL-Ameise · geprüfter Export</summary>
+          <p class="muted">Nur bestätigte und einzeln ausgewählte Stammdatenänderungen für den vorhandenen Artikel. Leere und unbestätigte Werte werden nicht exportiert.</p>
+          <button type="button" class="secondary" id="loadAmeiseDraft">Bestätigte Felder auswählen</button>
+          <div id="ameiseDraftFields"></div>
+          <button type="button" class="action" id="exportAmeiseDraft" disabled>Prüf-CSV erzeugen</button>
+          <p class="muted" id="ameiseDraftState" role="status">Nur JTL-Ameise Testlauf mit „Nur vorhandene aktualisieren“.</p>
+        </details>
         <section class="sidebar-panel">
           <h3>Arbeitsablauf</h3>
           <p class="muted">1. JTL-Werte ansehen. 2. Fehlende oder falsche Felder bearbeiten. 3. Änderungen kontrollieren und bestätigen. 4. Später Ameise-Import vorbereiten.</p>
@@ -119,6 +145,11 @@
 <datalist id="groupValues"></datalist>
 <datalist id="categoryValues"></datalist>
 <datalist id="statusValues"></datalist>
-<script src="assets/hw24-article-editor.js?v=1" defer></script>
+<datalist id="shippingValues"></datalist>
+<datalist id="taxValues"></datalist>
+<datalist id="currencyValues"></datalist>
+<datalist id="articleTypeValues"></datalist>
+<script src="assets/hw24-article-editor.js?v=2" defer></script>
+<script src="assets/hw24-article-intelligence.js?v=1" defer></script>
 </body>
 </html>

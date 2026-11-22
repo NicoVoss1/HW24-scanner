@@ -61,3 +61,22 @@
 
 .reference-confirm{display:flex;gap:9px;align-items:flex-start;margin:13px 0 7px;color:#335e76;font-size:12px;font-weight:650;line-height:1.55;background:#f2f7fb;border:1px solid #dbe6f0;padding:10px;border-radius:9px}
 .reference-confirm input{margin:3px 0 0;flex-shrink:0;width:17px;height:17px;accent-color:#1b5e97}
+
+/* V4.25: distinct, collapsible source and export tools */
+.intel-panel{padding:15px 18px}
+.intel-panel[open]{padding-bottom:19px}
+.intel-summary{font-size:14px;color:#214d73;font-weight:800;cursor:pointer;padding:7px 0}
+.intel-panel .muted{font-size:12px;line-height:1.5}
+.intel-panel button{margin:6px 6px 6px 0}
+.intel-result{border:1px solid #d6e5ef;background:#f8fbfe;border-radius:10px;padding:12px;margin:10px 0;overflow-wrap:anywhere;font-size:12px}
+.intel-result strong{display:block;color:#1b3e5e;line-height:1.5}
+.intel-result a{margin:8px 0}
+.intel-result .source{font-size:12px;line-height:1.55;margin-top:9px}
+.intel-actions{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.intel-actions button{font-size:11px}
+.intel-check{display:flex;align-items:start;gap:8px;margin:8px 0;padding:9px;background:#f5f9fd;border:1px solid #d9e8f0;border-radius:9px;font-size:12px;line-height:1.4}
+.intel-check input{margin:1px 0 0;accent-color:#235e8b;flex:0 0 auto}
+.intel-check span{overflow-wrap:anywhere}
+#amazonState,#aiReviewState,#ameiseDraftState{overflow-wrap:anywhere;font-size:12px;line-height:1.55}
+#suggestTimes{margin:5px 0 14px}
+@media(max-width:700px){.intel-panel{padding:12px}.intel-actions{display:grid}.intel-actions button{text-align:left}}

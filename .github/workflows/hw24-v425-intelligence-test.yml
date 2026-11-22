@@ -1,0 +1,46 @@
+name: HW24 V4.25 Amazon KI Ameise article editor
+on:
+  push:
+    branches:
+      - feature/hw24-v425-amazon-ai-ameise-20261122
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate JS contracts and source integrations
+        run: node tests/hw24-v425-article-intelligence.test.cjs
+      - name: Validate PHP and JS
+        run: |
+          php -l api/jtl.php
+          php -l api/jtl-options.php
+          php -l api/curated.php
+          php -l api/ai-review.php
+          php -l api/ai-reviews.php
+          php -l api/amazon.php
+          node --check assets/hw24-article-editor.js
+          node --check assets/hw24-article-intelligence.js
+      - name: Validate HTML and package safety
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from html.parser import HTMLParser
+          class Audit(HTMLParser):
+              def __init__(self):super().__init__();self.ids=[];self.sources=[]
+              def handle_starttag(self,tag,attrs):
+                  fields=dict(attrs)
+                  if 'id' in fields:self.ids.append(fields['id'])
+                  if tag in ('script','link'):
+                      src=fields.get('src') or fields.get('href')
+                      if src and src.startswith('assets/'):self.sources.append(src.split('?')[0])
+          h=Path('artikelpflege.html').read_text()
+          x=Audit();x.feed(h)
+          assert len(x.ids)==len(set(x.ids)),'Duplicate DOM id: '+str([v for v in x.ids if x.ids.count(v)>1])
+          for path in x.sources:assert Path(path).is_file(),path
+          assert 'hw24_private' not in h
+          print('No duplicate ids; all local assets exist')
+          PY
+          test ! -e hw24_private/openai-review.php
+          test ! -e hw24_private/amazon/amazon_spapi.php
+          test ! -e hw24_private/db.php
