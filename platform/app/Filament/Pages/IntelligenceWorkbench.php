@@ -30,6 +30,7 @@ final class IntelligenceWorkbench extends Page
     #[Locked] public array $lookupState = [];
     #[Locked] public array $catalog = [];
     #[Locked] public array $keywords = [];
+    #[Locked] public array $catalogArchive = [];
     #[Locked] public array $pricing = [];
     #[Locked] public array $reviews = [];
     #[Locked] public array $archiveState = [];
@@ -48,7 +49,7 @@ final class IntelligenceWorkbench extends Page
     public function findArticle(LegacyReadBridge $bridge): void
     {
         $this->reset(['article','lookupState','catalog','keywords','pricing','reviews','archiveState',
-            'readiness','reviewResult','confirmPaid','confirmRecheck']);
+            'readiness','reviewResult','catalogArchive','confirmPaid','confirmRecheck']);
         $id = trim($this->identifier);
         if (!preg_match('/^[\pL\pN][\pL\pN._\/-]{1,63}$/uD',$id)) {
             $this->lookupState=['ok'=>false,'message'=>'Bitte eine gültige EAN, HAN oder Artikelnummer eingeben.'];
@@ -123,6 +124,33 @@ final class IntelligenceWorkbench extends Page
             'has_more'=>($raw['has_next_page']??false)===true,
             'error'=>mb_substr((string)($raw['error']??''),0,120),
             'items'=>$items,
+        ];
+    }
+
+    public function loadAmazonArchive(LegacyReadBridge $bridge): void
+    {
+        $ean=$this->ean();
+        if($ean===null)return;
+        $r=$bridge->fetch('amazon.archive',['ean'=>$ean,'limit'=>10]);
+        $raw=is_array($r['data']??null)?$r['data']:[];
+        $snapshots=[];
+        if(($r['ok']??false)===true && is_array($raw['snapshots']??null)){
+            foreach(array_slice($raw['snapshots'],0,10) as $row){
+                if(!is_array($row)||!is_numeric($row['id']??null))continue;
+                $snapshots[]=[
+                    'id'=>(int)$row['id'],
+                    'date'=>mb_substr((string)($row['fetched_at_utc']??''),0,40),
+                    'count'=>is_numeric($row['count']??null)?(int)$row['count']:null,
+                ];
+            }
+        }
+        $this->catalogArchive=[
+            'ok'=>($r['ok']??false)===true,
+            'http'=>$r['http_status']??null,
+            'snapshots'=>$snapshots,
+            'message'=>($r['ok']??false)===true
+                ?'Historische Katalog-Snapshots geladen. Keine Amazon-Liveabfrage, keine Seller-Angebote.'
+                :'Die neue Amazon-Archiv-GET-Schnittstelle wurde auf LIVE noch nicht gesondert bereitgestellt oder antwortet nicht.',
         ];
     }
 
