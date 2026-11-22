@@ -1,0 +1,57 @@
+name: HW24 isolated Laravel 13 Filament 5 foundation
+on:
+  push:
+    branches: [feature/hw24-platform-laravel13-filament5-20261122]
+  pull_request:
+    paths: [platform/**, .github/workflows/hw24-platform-foundation.yml]
+permissions:
+  contents: read
+jobs:
+  safe-foundation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: mbstring, pdo_sqlite, sqlite3, curl, xml, dom, fileinfo
+          coverage: none
+          tools: composer:v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Safe price-contract tests, no framework boot required
+        run: |
+          php platform/scripts/verify-price-contract.php
+          bash -n platform/ops/check-host-readonly.sh
+          find platform/app platform/config platform/database platform/routes -name '*.php' -print0 | xargs -0 -n 1 php -l
+      - name: Validate composer manifest and no secrets
+        working-directory: platform
+        run: |
+          composer validate --no-check-publish
+          test ! -e .env
+          test ! -e vendor
+          test ! -e composer.lock
+      - name: Install only in temporary GitHub runner, never in the user's Plesk server
+        working-directory: platform
+        run: |
+          composer update --no-interaction --no-progress --prefer-dist
+          cp .env.example .env
+          touch database/database.sqlite
+          php artisan key:generate
+          php artisan migrate --force
+          php artisan test
+          php artisan about --only=environment
+      - name: Compile isolated UI assets
+        working-directory: platform
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run build
+      - name: Validate protected integration design
+        run: |
+          grep -q "private const PATHS" platform/app/Services/LegacyReadBridge.php
+          grep -q "withoutRedirecting" platform/app/Services/LegacyReadBridge.php
+          grep -q "'writes_enabled'=>false" platform/config/hw24_legacy.php
+          grep -q "'openai_auto_calls'=>false" platform/config/hw24_legacy.php
+          grep -q "'amazon_auto_calls'=>false" platform/config/hw24_legacy.php
+          test ! -e platform/.env.production
