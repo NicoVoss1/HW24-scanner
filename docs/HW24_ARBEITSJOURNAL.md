@@ -1203,3 +1203,28 @@ Die separate `protected_dirs.id=1` für `plesk-stat` auf `domains.id=1` ist **ni
 **Bestandsbackups (privat auf Server behalten):** vor Test-Deploy Test-Webroot `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz` SHA256 `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26`; vor Auth-Rename Test-Plesk-pd `/root/hw24-backups/test-plesk-auth-yideOvRf/plesk-pd.tar.gz` SHA256 `a7aacc096055021c0447d4fd1ca20eeeec459dd0cdb3d72f8fc012ff692d107f`; unmittelbar vor gezieltem Altuser-Delete `/root/hw24-backups/test-pd-cleanup-4lfU4lrd/d..httpdocs.before`. Kein direktes Restore alter Passwortdatei ohne genaue Statusdiagnose, da diese den alten Benutzer erneut freischalten würde.
 
 **Nächster Projektabschnitt separat:** Auf `https://test-artikelmanager.hairworld24.de` in privatem Browserfenster mit `nvoss` → `📂 Auswertungen` → `Alle letzten Prüfungen` optional die UI bestätigen. Die *produktive* `https://artikelmanager.hairworld24.de` hat noch den Legacy-PHP-Code und zeigt daher noch nicht die historischen `hw24-test`-KI-Prüfungen unter `nvoss`. Ein Live-Deploy erst nach separater Planung, eigener Live-Webroot-/Plesk-Auth-Absicherung und ausdrücklicher Entscheidung; keine automatische Merge-Aktion auf `deploy/staging`, da Live/Test diesen Branch verwenden.
+
+
+### 22.11.2026 · LIVE-ZIEL ERREICHT: NVOSS kann historische 3 KI-Berichte + beide Scan-Stapel auf PRODUKTIV lesen
+
+**Unmittelbarer Nutzer-PuTTY-Nachweis des manuellen Test-zu-LIVE-Code-Rollouts** `HW24_LIVE_HISTORY_FIX`, abschließende Ausgabe:
+- `=== HW24 LIVE: HISTORISCHE DATEN AKTIVIEREN ===`
+- `Private Benutzerzuordnung: OK`
+- `Live-Dateistand und Zugriffsschutz: OK`
+- **LIVE-Rückfallsicherung:** `/root/hw24-backups/live-history-AJZy3nZS` (Originale der drei alten PHP-Dateien).
+- Vier Dateien vor dem Kopieren gegen exakte Git-Blob-Hashes und PHP8.5-Syntax kontrolliert: `scanliste.php`, `ai-reviews.php`, `ai-review.php`, `hw24-actor-identity.php`.
+- `Vier PHP-Dateien erfolgreich auf LIVE bereitgestellt`; anonymer GET auf LIVE-Archiv weiterhin `HTTP 401`.
+- **Echte HTTPS-GET unter LIVE-Basic-`nvoss`:** `LIVE KI-Berichte: 3` (exakt drei historische) und `LIVE offene Scanlisten-Stapel: 2` (beide), beide Abfragen mit verdeckter interaktiver Passwortabfrage.
+- `=== LIVE-HISTORIE ERFOLGREICH AKTIVIERT ===`, `3 KI-Berichte und 2 Scanlisten unter nvoss sichtbar`, `Keine Artikel- oder Datenbankaenderungen`.
+
+**Ziel erfüllt:** Die zuvor ausschließlich auf TEST funktionierende read_aliases-Zuordnung `nvoss=>['nvoss','hw24-test']` gilt jetzt bei den **produktiven LIVE-APIs** unter `https://artikelmanager.hairworld24.de`. Die historische SQL-Provenienz bleibt vollständig erhalten (keine Updates an alten `actor`- oder `created_by`-Feldern). Der getrennte Test-Basic-Login wurde ebenfalls korrekt abgesichert: `hw24-test` 401, `nvoss` 200. Das ursprüngliche Ziel des Nutzers war **LIVE**, nicht ein bloßes Test-Ziel; dies wurde gegenüber dem Nutzer ausdrücklich anerkannt.
+
+**Live-PHP-Blob-Stand (aus bestandenem Skript-Postcheck):**
+- `api/scanliste.php` `1a19331fc030ef473d05cc0b94fee92fd2d436ea`
+- `api/ai-reviews.php` `41bfe53eba6f4392e4f0f48e92828fa004ffe311`
+- `api/ai-review.php` `aba03b6146a34698bae71fe622671945019d2db5`
+- `api/hw24-actor-identity.php` `cb2722952bd0cad9680d919630e4b2a06ba367fc`
+
+**Noch wichtig, nicht als erledigt darstellen:** Die vier PHP-Dateien wurden *direkt auf den produktiven Webroot* kopiert; GitHub-Branch `deploy/staging` wurde dabei **noch nicht** geändert. Plesk-Git verwaltet den LIVE-Webroot manuell aus diesem Branch, sodass ein späterer Plesk-Deploy diese vier LIVE-Dateien zurück auf Legacy setzen könnte. Vor künftigen Webroot-Git-Deploys muss die bereits verifizierte Vierdateien-Änderung kontrolliert im Deploymentbranch verankert werden, ohne PR37 pauschal (CI-/Testkonfigurationsdateien) zu mergen. Dazu gesonderte, eng begrenzte Repo-Änderung planen und tatsächliches Branch-HEAD gegenprüfen. Nicht ohne Risikoanalyse und gesonderte Freigabe einen Live-Deploy auslösen. Die ursprüngliche Nutzeraufgabe (LIVE-Archiv sichtbar) ist jedoch bereits erfolgreich abgeschlossen; keine weiteren Test-Basic-Befehle nötig.
+
+**Offener UX-Schritt nur falls User weiter Probleme meldet:** Echter Browsercheck auf `https://artikelmanager.hairworld24.de`, oben `📂 Auswertungen` → `Alle letzten Prüfungen` (kein EAN-Filter), dort drei historische Berichte. HTTPS-Backend mit Live-Basic `nvoss` ist belegt; Browseranzeige noch nicht unabhängig verifiziert. Keine neuen OpenAI-Kosten erzeugt.
