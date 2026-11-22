@@ -64,3 +64,21 @@ Die Standardumgebung ist absichtlich **SQLite**, `QUEUE_CONNECTION=sync`, `MAIL_
 7. Keine Änderungen an `deploy/staging`-/Live-Domain ohne separaten ausdrücklich freigegebenen Release.
 
 Referenzen: [Laravel 13 Deployment](https://laravel.com/framework/docs/deployment), [Filament 5 Installation](https://filamentphp.com/docs/5.x/introduction/installation), [Shopify GraphQL](https://shopify.dev/docs/api/admin-graphql/latest/queries/productVariants), [JTL Preisermittlung](https://guide.jtl-software.com/jtl-wawi/artikel/preisermittlung-in-jtl-wawi/).
+
+
+## Erste echte Console-Funktionen (GitHub-Featurebranch, 22.11.2026)
+
+Neu implementiert, **noch nicht auf Plesk veröffentlicht**:
+- Filament-5-Adminpanel unter `/admin` mit privater Laravel-Benutzeranmeldung.
+- Fail-closed Zugriff: nur die in der **privaten** `.env` konfigurierte Adresse `HW24_ADMIN_EMAIL` darf das Filament-Panel verwenden. Ohne Konfiguration kein freigegebener Anwender.
+- `/admin/artikel` sucht über die vorhandene Legacy-JTL-GET-API nach EAN, HAN oder JTL-Artikelnummer. Höchstens 15 Trefferdaten, nur freigegebene Anzeigeattribute; keine SQL-Schreiboperation und kein Massenabruf.
+- Amazon Catalog GET nur nach bewusstem Knopfdruck, OpenAI-Historie nur lesend nach Knopfdruck; keine automatische kostenauslösende OpenAI-Analyse. Andere Kanäle bleiben zunächst explizit nicht verifiziert.
+- `LegacyReadBridge` erlaubt ausschließlich die bewährte Legacy-Live-Referenz `https://artikelmanager.hairworld24.de` als Quelle. Die Bridge arbeitet erst, wenn die private Laravel-`.env` die gültigen HTTP-Basic-Zugangsdaten für die Live-Referenz enthält; niemals im öffentlichen GitHub.
+- API-Zustände und HTTP-Fehler werden angezeigt. Brutto-VK wird nicht aus Netto ohne bestätigten Steuerkontext geraten.
+- Automatisierte Fail-Closed-/Gastzugriffstests unter `tests/Feature/IntelligenceConsoleSafetyTest.php`.
+
+**Abnahme/Installation:** GitHub Actions bestätigt nur Kompilierung und Tests des Featurebranches, keine Live-/Plesk-Integration. Test-Domain **erst** auf Laravel ändern, wenn `artikelmanager.hairworld24.de` nachweislich den Legacy-V4.25-Stand bereitstellt und im angemeldeten Browser mit API funktioniert. V4.25 wurde auf **test** bereits nachweislich deployed, auf **live** liegt im Gespräch noch kein Abschlussprotokoll vor. Die vorhandene Plesk-Git-Bereitstellung auf der Testdomain darf **nicht** einfach auf den Framework-Branch geändert werden: Das Feature-Verzeichnis `platform/` könnte sonst im alten Website-Webroot liegen und private Anwendungsdateien exponieren.
+
+**Keine neue Subdomain, keine neue MariaDB:** später private Laravel-App im bestehenden Webspace, eigene lokale SQLite-Datei nur für Laravel-Login/Anwendungsmetadaten (nicht für JTL-Daten), Plesk-Test-Webroot ausschließlich auf `platform/public`, PHP 8.4. Filament Panel Builder ist laut Hersteller für den ersten Start grundsätzlich ohne eigene Node-/npm-Buildkette nutzbar; eigene UI-Tailwind-/Vite-Anpassungen erfordern später einen Asset-Build. Initiale Installation der PHP-Pakete muss mit `/opt/plesk/php/8.4/bin/php` als **nicht-root** erfolgen. Die private Datei `.env` enthält `APP_ENV=production`, `APP_DEBUG=false`, `APP_URL=https://test-artikelmanager.hairworld24.de`, `HW24_ADMIN_EMAIL`, `HW24_LEGACY_URL` und die Basic-Auth-Credentials. Der Operator wird nur lokal über `artisan make:filament-user` angelegt.
+
+**Unverändert:** alle Legacy-APIs, JTL-Wawi, WMS, MariaDB-Spiegel, KI-Archiv, Live-/Test-Plesk-Webroots, Branch `deploy/staging`, GitHub-Defaultbranch `main`, Plesk-Git-Einstellungen.
