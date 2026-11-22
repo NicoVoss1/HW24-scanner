@@ -295,3 +295,45 @@
 - **Ameise:** Aktuelle Artikelnummer/EAN und Revision werden vor Export erneut aus JTL/Curated gelesen. Nur ausgewählte, dauerhaft bestätigte, konservativ auf Ameise geprüfte Stammdatenfelder als Ein-Zeilen-CSV. Liefer-/Beschaffungs-/Statuswerte bis zum separaten Ameise-Feldmapping ausgeschlossen. Kein Live-Schreibzugriff.
 - **GitHub:** [PR #34](https://github.com/NicoVoss1/HW24-scanner/pull/34) in `deploy/staging` gemerged, **SHA `444453471b0fd27c73dcc7929f5e17f1d9239c52`**, [CI #44964900380](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44964900380) grün. Live-`main` nicht deployt. Keine privaten Credentials oder SQL-Migration.
 - **Nächster Schritt:** Plesk TEST `deploy/staging` Pull/Bereitstellen, direkt `artikelpflege.html?ean=3474630337398`, einmalige manuelle Amazon-Suche und ggf. Fehlerphase melden, kostenfreien KI-Archivabruf testen, Dropdowns und freigegebene Ameise-Datei prüfen. JTL-Brutto-VK erst nach Windows-Datenmapping. [Detaillierte Releaseanleitung](./HW24_V425_ARTIKELPFLEGE_RELEASE_20261122.md).
+
+
+---
+
+## 22.11.2026 · PuTTY-Framework-Rollout: bestätigte Einzelereignisse und Fehlerursache
+
+**Quelle:** Bediener-Ausgaben aus PuTTY/SSH und direkt abgefragte GitHub-Daten; alle technischen Befunde differenziert nach tatsächlicher Verifikation. Die nachfolgenden Einträge ergänzen historische Abschnitte **append-only**, ohne diese rückwirkend zu ändern.
+
+| Schritt | Tatsächlicher Vorgang | Ergebnis und Beleg | Status |
+| --- | --- | --- | --- |
+| 01 | Bestehende Infrastruktur per PuTTY überprüft | Ubuntu 22.04.5, Plesk, PHP CLI 8.1, Plesk PHP 8.3/8.4/8.5, Composer 2.11.2, Git 2.34.1, freie Kapazität ca. 914 GB; Node/npm im PATH nicht verfügbar | **BESTÄTIGT, read-only** |
+| 02 | PHP-8.4-Eignung konkret geprüft | Plesk-Handler `plesk-php84-fpm` und `-fpm-dedicated` aktiv; `pdo_mysql`, `pdo_sqlite`, `sqlite3`, `intl`, `zip` vorhanden | **BESTÄTIGT, read-only** |
+| 03 | Domain-/Webroot-Aufteilung kontrolliert | Bestehende getrennte Legacy-Live-/Test-Artikelmanager-Webroots und gemeinsame Subscription; keine dritte Subdomain benötigt | **BESTÄTIGT, read-only** |
+| 04 | Plesk-Git-Quellen abgerufen | Live: `HW24-scanner` auf `main`, Test: `HW24-scanner.git` auf `deploy/staging`; beide `manual` | **BESTÄTIGT, damaliger Zustand** |
+| 05 | Sieben Test-Webdateien mit GitHub V4.25-BLOB-SHA abgeglichen | 5 OK, `artikelpflege.html` und `api/jtl.php` abweichend; Test-Plesk-Git zeigte zu diesem Zeitpunkt V4.24-Commit `f51ab672...` | **BESTÄTIGT, damals V4.24** |
+| 06 | Bestehende Testsite vor V4.25-Deploy geschützt | Lesbares privates Test-Webroot-Archiv mit UTC-Zeitstempel angelegt; Archivdatei unter Root-Backupablage, nicht im öffentlichen Webroot | **BESTÄTIGT** |
+| 07 | Test-Git-Pull und manuelle V4.25-Bereitstellung | `plesk ext git --fetch` und `--deploy` erfolgreich; zuvor geforderter SHA `444453471b0fd27c73dcc7929f5e17f1d9239c52` geprüft; nachher `artikelpflege.html`, `api/jtl.php` OK | **BESTÄTIGT, Code/Dateihash** |
+| 08 | Anonyme HTTPS-Prüfung von Live und Test | Je Domain `/`, `/api/jtl.php?ean=3474630337398` und `/api/ai-reviews.php`: insgesamt 6 × HTTP **401** | **BESTÄTIGT, Zugriffsschutz an abgefragten URLs** |
+| 09 | Live-Git-Branch auf Legacy V4.25 umgestellt | Neue PuTTY-Ausgabe: Live `Active branch: deploy/staging`, Plesk `--get-last-commit` = `444453471b0fd27c73dcc7929f5e17f1d9239c52` | **BESTÄTIGT, Git-Branch/Commit**; **Live-Webroot-Hashes und angemeldeter Browser-E2E weiter OFFEN** |
+| 10 | Isolierten Framework-Klon vorbereitet | Ein privates App-Verzeichnis mit `repo/.git` existiert auf Plesk; Git-Klon unter Betreiber-Site-Systembenutzer `nicovoss` | **BESTÄTIGT, Dateien existieren**, tatsächlicher Git-HEAD noch nicht abgefragt |
+| 11 | Prüfung des Git-HEAD im ursprünglichen Installationsskript | `git -C ... rev-parse HEAD` wurde als `root` auf fremdbesessenes Repo angewandt; Terminal meldete `fatal: detected dubious ownership` | **BESTÄTIGT, Fehlerursache der Git-Prüfung** |
+| 12 | Wirkung auf PuTTY | Ursprünglicher Befehl `set -euo pipefail` wurde in der interaktiven Root-Shell eingegeben und konnte nach Git-Fehler die Shell und PuTTY-Sitzung beenden | **WAHRSCHEINLICHE Ursache für Schließen des Fensters**; kein gezielter Serverdienst-Absturz nachgewiesen |
+| 13 | Laravel-PHP-Abhängigkeiten auf Server | Im privaten Repo fehlt `platform/vendor`; Composer-Installation somit **nicht** erfolgt | **BESTÄTIGT** |
+| 14 | GitHub Framework-Pilot unabhängig entwickelt | [Draft PR #36](https://github.com/NicoVoss1/HW24-scanner/pull/36), Laravel 13 + Filament 5, Admin-Login/Allowlist, read-only JTL-Artikelsuche, explizite Amazon-/KI-GET-Buttons und API-Konfigurationsdashboard; Feature-Commit `980bcce75a0a3516b7b6364fae5a0fa6aab8d112` | **VERIFIZIERT GitHub, noch nicht Plesk-ausgeführt** |
+| 15 | GitHub Actions für Console-Fundament | [CI #44972633923](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44972633923) und [Legacy-Regression #44972633843](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44972633843) `success` für Commit `980bcce...` | **VERIFIZIERT CI**, keine Plesk-Live-API-Tests |
+| 16 | Cross-Chat-Übergabe eingerichtet | [`docs/HW24_HANDOVER.md`](./HW24_HANDOVER.md) als kurzer, verbindlicher Fortschrittsstand und Protokollregel für neue Chats geschrieben | **VERIFIZIERT GitHub**, Commit `81130adfe12233a868648149ea711b2de8eb15b1` |
+
+### Präzise Fehlerbehebung ohne Neustart oder unkontrollierte Rechteausweitung
+
+- Bestehenden Klon **nicht nochmals klonen oder löschen**.
+- `git` immer unter dem **Eigentümer des geklonten Repositorys** ausführen; `runuser -u nicovoss -- git -C "$app/repo" rev-parse HEAD`, nicht als Root mit globaler `safe.directory`-Ausnahme. Erwarteter Head für bisher installierten Klon: `980bcce75a0a3516b7b6364fae5a0fa6aab8d112`, **bis zur nächsten PuTTY-Ausgabe OFFEN**.
+- Shellskripte mit `set -euo pipefail` in **separatem** `bash <<'MARKER'`-Prozess, nicht direkt in die interaktive PuTTY-Root-Shell einfügen. Abbruch und Fehlercode sollen sichtbar bleiben.
+- `composer install` ausschließlich als Site-Benutzer mit explizitem PHP 8.4, im isolierten `repo/platform`. Aktuell noch **nicht ausgeführt**. Der Pilot führt mangels `composer.lock` eine Auflösung aus; vor reproduzierbarem Release Lockfile und Package-Validierung festlegen.
+- Keine Änderung am PHP-Webhandler/DocumentRoot der Testdomain und keine Laravel-Datenbankmigration, bis Legacy V4.25 auf Live durch Webroot-Hash und authentifizierte Funktionsprüfung bestätigt ist.
+
+### Projektregeln ab sofort
+
+1. **JEDER relevante Schritt** in GitHub als neuer chronologischer Tagebucheintrag: auch Einzelprüfungen, Abbrüche, Sicherungen, Deployments, Prüfergebnisse, Codeänderungen, CI und Rollbacks. **Nicht nur Abschlussmeilensteine.**
+2. Für neue Chats zuerst [Kurz-Übergabe](./HW24_HANDOVER.md) und diesen Eintrag lesen; keine zurückliegenden Prüfschritte unnötig wiederholen.
+3. Jeder Eintrag: Datum, ausführender Kontext, Soll/Ist, **wirklich beobachtetes** Resultat, Beleg, Status, Sicherheitsrisiko und exakt nächste Aktion. Nach relevanten Änderungen Kurz-Übergabe und [Projektstand](./HW24_PROJEKTSTAND_AKTUELL.md) aktualisieren.
+4. GitHub-Änderungen durch echten Commit nachweisen. Keine Geheimnisse, Token, privaten Konfigurationsinhalte, Server-Zugangsdaten oder SQL-Dumps in das **öffentliche** Repo.
+5. Keine automatischen Datenbank-Schreibzugriffe oder unkontrollierten Plesk-/Live-Deployments.
