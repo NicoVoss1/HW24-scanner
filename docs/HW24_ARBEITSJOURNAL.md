@@ -603,3 +603,12 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 **Gegenstand dieses Schritts:** Nur Diagnose, noch **keine** ACL-/chmod-/Plesk-DocumentRoot-/Git-/PHP-FPM-Veränderung. Die alte Live-V4.25-Anwendung muss vor Umstellung der Testdomain noch im Browser mit Anmeldung und JTL-/Amazon-/KI-Funktionen geprüft werden. Die Plesk-Git-Altbereitstellung auf Test bleibt manuell auf Legacy-Webroot.
 
 **Exakt nächster Schritt:** (1) Read-only Paket-/Dateisystemprüfung `acl`, `findmnt`, `getfacl/setfacl`, plus Übersicht vorhandener `public/css`, `public/js`, `public/fonts`-Verzeichnisse; (2) erst dann gesonderten, klein begrenzten ACL-Freigabe- und Rollback-Befehl für ausschließlich öffentliche Assets bereitstellen. Angemeldeten Legacy-Live-Browser-E2E parallel nachweisen.
+
+
+### 22.11.2026 · ACL-Tool-Vorbereitung als nächster einziger Betreiberbefehl dokumentiert
+
+- **GitHub-Dokumentation:** [`HW24_PREFLIGHT_FILAMENT_TESTDOMAIN_20261122.md`](./HW24_PREFLIGHT_FILAMENT_TESTDOMAIN_20261122.md) um die bestätigten FPM-Test-vHost-Identitäten, statische Datei-ACL-Strategie, Rollback-Anforderung und Installationsprüfung des Ubuntu-Pakets `acl` ergänzt. Runbook-Commit `0be23d499be097fe5583391fe49a31140ee64878`.
+- **Extern bestätigt:** Ubuntu-22.04-Standardpaket `acl` stellt die Dienstprogramme `getfacl` und `setfacl` bereit (Ubuntu-Paketdateiliste). Diese ermöglichen eng begrenzte individuelle Webserver-Asset-Freigaben statt grobem `chmod -R 755` auf das private Laravel-Repository.
+- **Nächster Betreiber-Schritt, noch NICHT ausgeführt:** `HW24_ACL_TOOLS` prüft vorhandene ACL-Werkzeuge, installiert nur falls sie fehlen `acl` mit Ubuntu apt, zeigt `findmnt`-Dateisystemtyp/-Mount-Optionen; **ändert keine vorhandenen Laravel-Zugriffsrechte**. Dies ist eine transparente Systempaketinstallation, kein automatischer Deploy.
+- **Danach, nur nach erneutem Lognachweis:** root-private Sicherung bestehender ACLs, dann minimale Durchquerungs-ACLs der benötigten übergeordneten privaten Verzeichnisse und Lese-ACLs ausschließlich für `platform/public/css`, `public/js`, `public/fonts`, anschließend als nginx/www-data echte Lesbarkeit testen. **Keine ACL-Lesefreigabe auf `.env`, SQLite, App-Code.**
+- **Weiterhin unerledigt:** angemeldeter Legacy-Live-End-to-End-Test und vollständig dokumentiertes Plesk-Git-/DocumentRoot-Rollback. Weder Testdomain noch Live bereits geändert.
