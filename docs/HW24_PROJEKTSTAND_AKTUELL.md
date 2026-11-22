@@ -1,3 +1,20 @@
+
+## NEUESTE BESTÄTIGUNG · Filament Admin-Berechtigung geprüft (22.11.2026)
+
+**Erfolgreiche Tinker/CLI-Read-only-Prüfung auf dem privaten Plesk-Laravel-Projekt:**
+- `Administrator vorhanden: OK` durch Suche nach privater `HW24_ADMIN_EMAIL` in der isolierten SQLite-`users`-Tabelle.
+- `Filament-Zugriff freigegeben: OK` durch tatsächlichen Aufruf von `canAccessPanel(Filament::getPanel("admin"))`.
+- `=== PRÜFUNG ABGESCHLOSSEN ===` und Rückkehr zur SSH-Shell. **Admin ist also erstellt und serverseitig berechtigt.**
+- Persönliche E-Mail, Passwort, APP_KEY und sämtliche HTTP-Basic/API-Secrets werden **nicht** im öffentlichen GitHub-Protokoll veröffentlicht.
+
+**Nicht verifiziert:** Login im Browser und die Erreichbarkeit unter `test-artikelmanager.hairworld24.de/admin`, da bestehender Test-vHost noch Legacy. Ebenfalls noch ausstehend: angemeldeter E2E-Funktionstest der Live-V4.25-Artikelpflege (JTL/Amazon/KI), Plesk Test-vHost DocumentRoot/PHP-FPM/Git-Deploy-Verhalten, Laravel-GET-Bridge zu Legacy-Live.
+
+**EXAKT NÄCHSTER SCHRITT:** Authentifizierten Legacy-Live-Funktionstest durchführen und die Plesk-Testdomain-Konfiguration rein lesend prüfen. Erst bei erfolgreichem Test den Rollout der neuen Oberfläche mit separat dokumentiertem Rollback planen. **Keine neue Admin-/DB-Initialisierung und keine Test-Webroot-Umstellung ohne Gate.**
+
+[Chronologisches Arbeitsjournal](./HW24_ARBEITSJOURNAL.md), Dokumentations-Commit `88cdc61e5e52d184e30a841c970b93b7ef8723a8`.
+
+---
+
 ## NEUESTER STATUS · 22.11.2026 · FILAMENT ADMIN ANGELEGT
 
 **Bestätigt durch neue PuTTY-Ausgabe:** `HW24_ADMIN_EMAIL` ist privat in Laravel-.env gesetzt, `artisan config:clear` erfolgreich und interaktive `artisan make:filament-user`-Anlage mit verdecktem Passwort meldete **Success!**. Script `ADMINISTRATOR EINRICHTUNG ABGESCHLOSSEN`. Admin-E-Mail und Passwort werden **nicht** im öffentlichen GitHub veröffentlicht. PHP/Laravel/Filament, SQLite-Migrationen und Assets waren bereits erfolgreich eingerichtet.
