@@ -1,3 +1,18 @@
+## AKTUELLSTER LIVE-BROWSERBEFUND · Legacy V4.25 JTL erfolgreich, Amazon nur Cache, KI noch offen (22.11.2026)
+
+**Bestätigt durch zwei Betreiber-Screenshots auf `artikelmanager.hairworld24.de`:**
+- Live-Artikelpflege öffnet **EAN 3474630337398**, zeigt grünen `Aktueller JTL-Snapshot und HW24-Entwurf geöffnet`-Hinweis sowie die Artikeldaten `Matrix Socolor Beauty - 6C - Dunkelblond kupfer - (90 ml)`, Marke Matrix, JTL-Spiegelbestand **0**, **EK netto** laut JTL **1,50 €**, HW24-Entwurf Rev. 0. **Keine Echtzeit-WMS-Bestandsaussage und kein Brutto-Verkaufspreisnachweis.**
+- Amazon-EAN-Katalog: **0 Treffer aus bestehendem Cache** (Screenshot sagt ausdrücklich `kein neuer SP-API-Abruf`, Stand 21.11.2026 23:45:51). Amazon-Titelsuche: **10 Kandidaten aus Cache**, EAN-Identität jeweils nicht bestätigt. **Nicht** als gematchte ASINs oder aktuelle Händlerpreise behandeln.
+- OpenAI-KI-Berichte ist auf Screenshot **eingeklappt**; noch kein GET-/Archiv-Ergebnis nachgewiesen. Kein kostenpflichtiger KI-POST gestartet.
+- Die **Live-Domain** ist in der Kopfzeile irreführend als `INTELLIGENCE · TEST` beschriftet. Später als reine UI-Korrektur berücksichtigen, nicht versehentlich den Legacy-Rollout auf den falschen Branch umstellen.
+- **Legacy-Live-Browsergate ist TEILWEISE erfolgreich**: JTL-Leseanzeige bestätigt; Amazon-Cache-Komponente sichtbar; frische Amazon-API-/OpenAI-Archiv-Funktion noch offen. Die bisherigen Live-Git-Dateihashes und die erfolgreiche öffentliche Asset-ACL-Freigabe sind bereits bestätigt.
+
+**Genau nächste Benutzeraktion:** Den Live-Bereich `OpenAI Intelligence · KI-Berichte` öffnen und einen Screenshot des **bestehenden kostenfreien Archivstatus** senden; falls kein archivierter Bericht existiert, ist die klare `kein Bericht`-Meldung ebenfalls ein verwertbarer Befund. Einen erneuten Amazon-SP-API-Abruf nicht aus einer Titelsuche oder einem Cache-Treffer ableiten; nur bei Bedarf manuell testen und tatsächliche Cache/Live-Quellenmeldung unterscheiden. **Noch kein Plesk-Testdomain-Webrootwechsel.** Vor Cutover bleibt die Plesk-Git-/DocumentRoot-/Auth-/Rollback-Abnahme erforderlich.
+
+[Vollständiger chronologischer Browserbefund](./HW24_ARBEITSJOURNAL.md), Commit `1b3d618d72082a90c4eb844131c2a9411e360f4e`.
+
+---
+
 ## AKTUELLSTER NACHWEIS · Öffentliche Asset-ACLs erfolgreich, private Daten gesperrt (22.11.2026)
 
 **Betreiber hat den vorbereiteten `HW24_PUBLIC_ACL`-Block erfolgreich ausgeführt.** Root-private `getfacl`-Sicherung wurde vor dem Ändern der Rechte angelegt (UTC 02:22:45, privates Root-Backupverzeichnis; genaue Datei nur im Betreiberterminal). Auf Elternverzeichnissen `hw24-console-private`, `repo`, `platform`, `public` wurden für `nginx`/`www-data` ausschließlich Durchquerungsrechte (`--x`) und auf `public/{css,js,fonts}` ausschließlich Lese-/Traverserechte (`rX`) eingerichtet.
