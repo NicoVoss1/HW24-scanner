@@ -25,6 +25,8 @@ final readonly class ChannelPrice
         public ?string $customerGroup = null,
         public ?string $offerId = null,
         public ?string $publicationStatus = null,
+        public ?string $displayedAmount = null,
+        public ?bool $taxIncluded = null,
     ) {
         if (!in_array($channel, self::CHANNELS, true) ||
             !in_array($type, self::TYPES, true) ||
@@ -32,16 +34,16 @@ final readonly class ChannelPrice
             !preg_match('/^[A-Z]{3}$/D', $currency)) {
             throw new InvalidArgumentException('Invalid channel, price kind, status, or currency');
         }
-        foreach (['gross' => $gross, 'net' => $net] as $key => $value) {
+        foreach (['gross' => $gross, 'net' => $net, 'displayed' => $displayedAmount] as $key => $value) {
             if ($value !== null &&
                 (!preg_match('/^(?:0|[1-9][0-9]{0,9})(?:\.[0-9]{1,4})?$/D', $value))) {
                 throw new InvalidArgumentException('Invalid decimal price: '.$key);
             }
         }
-        if ($status === 'verified' && (!$source || !$observedAt || ($gross === null && $net === null))) {
+        if ($status === 'verified' && (!$source || !$observedAt || ($gross === null && $net === null && $displayedAmount === null))) {
             throw new InvalidArgumentException('Verified price requires value, provenance and observation time');
         }
-        if ($status === 'unavailable' && ($gross !== null || $net !== null)) {
+        if ($status === 'unavailable' && ($gross !== null || $net !== null || $displayedAmount !== null)) {
             throw new InvalidArgumentException('Unavailable price must not claim a value');
         }
     }
@@ -56,6 +58,8 @@ final readonly class ChannelPrice
             'account'=>$this->account, 'tax_country'=>$this->taxCountry,
             'customer_group'=>$this->customerGroup, 'offer_id'=>$this->offerId,
             'publication_status'=>$this->publicationStatus,
+            'displayed_amount'=>$this->displayedAmount,
+            'tax_included'=>$this->taxIncluded,
         ];
     }
 }
