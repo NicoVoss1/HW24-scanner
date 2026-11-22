@@ -23,6 +23,7 @@ jobs:
       - name: Safe price-contract tests, no framework boot required
         run: |
           php platform/scripts/verify-price-contract.php
+          php platform/scripts/verify-gross-calculation.php
           bash -n platform/ops/check-host-readonly.sh
           find platform/app platform/config platform/database platform/routes -name '*.php' -print0 | xargs -0 -n 1 php -l
       - name: Validate composer manifest and no secrets
