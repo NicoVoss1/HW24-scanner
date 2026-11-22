@@ -578,3 +578,28 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 - **Projektstatus:** [HW24_PROJEKTSTAND_AKTUELL.md](./HW24_PROJEKTSTAND_AKTUELL.md) aktualisiert, Commit `ab23ade6fa1ee63591c1d61ad51b29b65812adcf`.
 - **Nicht ausgeführt:** Plesk-Konfiguration, chmod/ACL, Git-Deploy, Webroot-Verlagerung, PHP-FPM-Neustart, API-Zugriff oder Datenbankmigration.
 - **Nächster echter Betreiber-Schritt:** `HW24_POOL_READ` ausführen und Terminalausgabe übermitteln; außerdem authentifizierten Legacy-Live JTL/Amazon/KI-Test bestätigen. Danach präzisen Sicherheits- und Rollbackplan für Asset-Zugriff und Test-Webroot prüfen.
+
+
+### 22.11.2026 · PHP-8.5-FPM-Pool und Unix-Gruppen für Testdomain eindeutig identifiziert
+
+**Quelle:** Neue vollständig abgeschlossene Betreiber-PuTTY-Ausgabe des rein lesenden Prüfblocks `HW24_POOL_READ`.
+
+| Einzelschritt | Tatsächliche Beobachtung | Status |
+| --- | --- | --- |
+| 80 · Site-Benutzer | `nicovoss`: UID 10003, Hauptgruppe `psacln` (GID 1003), keine weitere Ergänzungsgruppe in Ausgabe | **BESTÄTIGT** |
+| 81 · Nginx-Prozessnutzer | `nginx`: UID 991, Gruppen `nginx` (996) und `psaserv` (1002) | **BESTÄTIGT** |
+| 82 · Apache-Prozessnutzer | `www-data`: UID 33, Gruppen `www-data` (33) und `psaserv` (1002) | **BESTÄTIGT** |
+| 83 · Plesk-Gruppen | `psacln` GID 1003, `psaserv` GID 1002; Nginx/Apache gehören `psaserv` an, **nicht** `psacln` | **BESTÄTIGT** |
+| 84 · Test-vHost-FPM-Pool | Konkret gefundene Testdomain-Pooldatei; nur `user=nicovoss`, `group=psacln`, `listen.owner=root`, `listen.group=psaserv`, `listen.mode=0660` gelesen | **BESTÄTIGT** |
+| 85 · Private Verzeichnisrechte | `platform`, `platform/public`, `platform/public/css` je **0700 nicovoss:psacln** | **BESTÄTIGT** |
+| 86 · Öffentlich vorgesehenes CSS | `platform/public/css/filament/filament/app.css` **0600 nicovoss:psacln** | **BESTÄTIGT** |
+| 87 · Private Anwendungsdaten | `platform/.env` und `platform/database/database.sqlite` beide **0600 nicovoss:psacln** | **BESTÄTIGT, nicht inhaltlich ausgelesen** |
+| 88 · Prüfabschluss | `=== PRUEFUNG ABGESCHLOSSEN ===`, Rückkehr zum PuTTY-Prompt | **BESTÄTIGT, read-only** |
+
+**Technischer Befund:** Der Testdomain-PHP-8.5-FPM-Prozess wird explizit als **App-Eigentümer `nicovoss`** mit Gruppe `psacln` ausgeführt. Deshalb kann der PHP-FPM-Prozess die private Laravel-`.env` und SQLite-Datei weiterhin lesen, obwohl beide 0600 sind; es besteht kein Grund, diese Dateien zu öffnen. Der FPM-Unix-Socket ist für Gruppe `psaserv` (Modus 0660) freigegeben, zu der nginx und Apache gehören. Die eigentliche Sperre betrifft **statische** Laravel-`public/css`, `public/js`, `public/fonts` und die nötige Verzeichnisdurchquerung durch `nginx` / `www-data`. Diese Prozesse gehören nicht zur Eigentümergruppe `psacln`; bislang waren für sie `index.php`, `app.css` und `app.js` **GESPERRT**.
+
+**Bevorzugter sicherer Weg:** Gezielt nur Nginx-/Apache-Worker mit minimalen **POSIX-ACL-Leserechten für öffentliche CSS/JS/Fonts** und Traverserechten auf die erforderlichen privaten Elternverzeichnisse versehen. **Keine** pauschale Rekursion über gesamtes `platform/`, kein `chmod -R 755`, keine Freigabe von `platform/.env`, `database.sqlite`, `storage`, `vendor` oder privatem Anwendungscode. Für die ACL-Werkzeuge wurden im vorigen Check keine Executables im PATH gefunden; Paketverfügbarkeit/Dateisystemunterstützung vor späterer gezielter ACL-Änderung prüfen. ACL-Änderungen erfordern Rollback-Dokumentation.
+
+**Gegenstand dieses Schritts:** Nur Diagnose, noch **keine** ACL-/chmod-/Plesk-DocumentRoot-/Git-/PHP-FPM-Veränderung. Die alte Live-V4.25-Anwendung muss vor Umstellung der Testdomain noch im Browser mit Anmeldung und JTL-/Amazon-/KI-Funktionen geprüft werden. Die Plesk-Git-Altbereitstellung auf Test bleibt manuell auf Legacy-Webroot.
+
+**Exakt nächster Schritt:** (1) Read-only Paket-/Dateisystemprüfung `acl`, `findmnt`, `getfacl/setfacl`, plus Übersicht vorhandener `public/css`, `public/js`, `public/fonts`-Verzeichnisse; (2) erst dann gesonderten, klein begrenzten ACL-Freigabe- und Rollback-Befehl für ausschließlich öffentliche Assets bereitstellen. Angemeldeten Legacy-Live-Browser-E2E parallel nachweisen.
