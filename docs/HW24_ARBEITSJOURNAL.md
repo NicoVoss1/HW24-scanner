@@ -64,6 +64,58 @@ curl --silent --show-error --max-time 10 --proto '=https' --output /dev/null --w
 
 Keine `.env`-Dateien öffnen oder ausgeben. HTTP 401/403 ohne Anmeldedaten ist für BasicAuth erwartbar. 200/302/Fehler gesondert prüfen, nicht blind deployen. Bitte Resultate der Befehle ohne private Zugangsdaten zurückgeben; sie werden vor jeder weiteren Änderung ausgewertet.
 
+## Betreiberergebnisse 2026-11-22 / ausgewertet am 2026-11-23
+
+### S008 | HeidiSQL SQL A: Server-/Datenbankinventur | **belegt**
+Vom Betreiber zurückgemeldeter Wert: `DB_NAME()=eazybusiness`, SQL Server `14.0.2150.2`, **Express Edition (64-bit)**. Sichtbar: **1.176 Tabellen, 969 Views, 10.907 Spalten**. Datenbankidentität damit für die Phase-1-Abfragen bestätigt. Vollständiger Schema-/Column-Export noch **nicht** durchgeführt. Versionsfamilie SQL Server 2017; Microsoft nennt für SQL Server 2017 Express maximal **10 GB relationale Datendateien pro Datenbank** (Transaktionslog-Dateigröße nicht mit diesem Limit gleichsetzen). Quelle: https://learn.microsoft.com/en-us/sql/sql-server/editions-and-components-of-sql-server-2017?view=sql-server-ver17
+
+### S009 | HeidiSQL SQL B: Dateigröße | **Ergebnis fehlt**
+Der Betreiber hat die SQL-Anweisung, aber **keine Ergebniszeilen** für `sys.database_files` übermittelt. Keine Aussage über aktuellen Füllstand, verfügbaren Platz, ob nahe 10 GB oder über die Gesamtgröße möglich. **Nicht** als SQL-Fehler interpretieren. Wird in Phase 2 erneut abgefragt (separat Datendateien und Logs).
+
+### S010 | HeidiSQL SQL C: 40 größte Tabellen | **belegt**
+Ungefähre Zeilenzahlen laut `sys.partitions` (kein exakter COUNT):
+- `Sync.tScxLogeintrag` **1.123.710**;
+- `Amazon.tVCSSelfInvoiceLogeintrag` **462.577**;
+- `SCX.tCategoryAttributeValue` **239.840**;
+- `SCX.tCategory` **169.800**;
+- `dbo.ebay_xx_categories` **120.604**;
+- `Amazon.tAmazonabgleichLogsitzung` **82.095**;
+- `dbo.tKunde_suche` **74.961**;
+- `SCX.tOfferPrice` **30.522**;
+- `dbo.tArtikelShop` **17.856**;
+- `dbo.tArtikelHistory` **9.134**;
+- `dbo.tWarenLagerPlatzArtikel` **6.295**.
+Die vollständigen 40 Tabellen sind im Betreiber-Chat erfasst, **nicht** als private Rohdaten in diesem öffentlichen Journal gespiegelt. Priorität: Artikel-, Preis-, Bestands- und Marktplatzschemata zuerst; große Log-/Kategorie-/Belegtabellen nicht blind im 15-Minuten-Takt voll exportieren. Einige Tabellen sind geschäftlich/privatsphärisch sensibel und benötigen vor Spiegelung Klassifizierung.
+
+### S011 | HeidiSQL SQL D: CDC/Isolation | **teilweise belegt**
+`eazybusiness` Compatibility-Level **140**, Recovery Model **SIMPLE**,
+`is_cdc_enabled=False`,
+`is_read_committed_snapshot_on=False`,
+`snapshot_isolation_state_desc=OFF`.
+**Das separate Ergebnis `change_tracking_aktiv` wurde nicht übermittelt.**
+Daher Change Tracking **nicht als an/aus behaupten**. Vor Replikation Versions- und JTL-Kompatibilität sowie Konsistenzstrategie prüfen; **keine** CDC-/CT-/Snapshot-Einstellungen ohne JTL-Freigabe ändern.
+
+### S012 | HeidiSQL SQL E: Schemas | **belegt**
+Beispiele: `dbo` 653, `Amazon` 66, `SCX` 61, `Ticketsystem` 49,
+`FulfillmentNetwork` 44, `pps` 43, `Verkauf` 41, `WMS` 40,
+`Rechnung` 22, `Shipping` 22, `Artikel` 11, `Ebay` 9, `BI` 8.
+Die Aufteilung unterstreicht Beziehungen über mehrere Schemas; eine monolithische UI pro Datenbanktabelle ist nicht zielführend.
+
+### S013 | PuTTY TEST-Server-Sicherheitsdiagnose | **belegt**
+Befehl ausgeführt UTC `2026-11-22T23:11:35Z`, Shell-User `root`.
+- Privater installierter TEST Git-HEAD `5eae5be7e8dc05298dba56ed37267cfc76622d20` bestätigt.
+- Lokaler Branch-Name `feature/hw24-platform-laravel13-filament5-20261122`. Branch-Label ist nicht gleichbedeutend mit HEAD-Zielstand.
+- Git-Status nur **untracked**: `platform/composer.lock`, `platform/public/css/`, `platform/public/fonts/`, `platform/public/js/`. Nicht löschen/resetten oder aus `git status` auf Funktionsfehler schließen; Build-Artefakte können für App erforderlich sein.
+- Plesk-DocumentRoot TEST: `.../hw24-console-private/repo/platform/public` erwartungsgemäß.
+- Anonymer `GET https://test-artikelmanager.hairworld24.de/admin/artikel` HTTP **401**. Entspricht einer aktiven Zugangshürde, beweist allein jedoch nicht vollständige Benutzer-/API-Autorisierung.
+- **Kein** Browser-Login-/End-to-End-Test, keine LIVE-Gleichheit und keine neue DB-Replikation hiermit bestätigt.
+
+### S014 | Sicherheitsbewertung und Folgearbeit | **Code vorbereitet**
+- Kein weiterer Fast-Forward nötig. Bestehende `5eae5be...`-Installation unangetastet lassen.
+- Neuer ausschließlich lesender Phase-2-Abfragesatz `platform/ops/jtl-heidisql-phase2-readonly.sql` im isolierten GitHub-PR #46 angelegt. Er fragt DB-Dateigrößen inkl. `FILEPROPERTY`, CT-Status samt Anzahl getrackter Tabellen, Primary-Key-Metadaten relevanter Tabellen sowie Artikel-/Bestands-/Offer-Spaltenstruktur ab.
+- **Ausführung auf HeidiSQL und PuTTY noch offen; Ergebnis nicht voraussetzen.** Besonders SQL-B-Größe und Change-Tracking-Status sind als Nächstes zwingend. Keine JTL-Tabellenfreigaben, SQL-Rechte, CDC, CT oder Snapshots aktivieren.
+- PR #46 ist weiterhin **Draft** und noch nicht auf TEST/LIVE installiert. Offen: Entwurfsprüfung, bestätigter Browser-E2E-Test, Abnahme der 15-Minuten-Deltastrategie, Schutz sensibler Quellen.
+
 ## Fachlich beschlossene Zielarchitektur
 
 1. **JTL eazybusiness** bleibt maßgebliche SQL-Server-Datenbank; zunächst nur Leseinventur, DB-Backup/Wiederherstellung als getrennte Aufgabe prüfen.
@@ -80,4 +132,4 @@ Keine `.env`-Dateien öffnen oder ausgeben. HTTP 401/403 ohne Anmeldedaten ist f
 - **C** Ergebnisse, Abweichungen und Risiken im Journal festhalten; gegebenenfalls Versionsvergleich des Test-/Live-Codes.
 - **D** Nur kleine, rollbackfähige Änderungen isoliert vorbereiten, GitHub CI + Browser-E2E prüfen und Betreiberfreigabe für Deployment einholen.
 
-**Nächster Nachweis:** Tatsächliche Ergebnisse der HeidiSQL-Abfragen SQL A–E sowie READ-ONLY PuTTY-Diagnose. Noch keine produktive Replikation.
+**Nächster Nachweis:** Betreiber-Ausgabe von Phase-2-HeidiSQL: Dateigrößen, Change-Tracking-Status, Quellschlüssel und Spalten-Metadaten. Keine produktive Replikation oder Server-Änderung.
