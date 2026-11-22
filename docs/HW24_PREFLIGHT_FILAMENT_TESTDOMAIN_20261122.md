@@ -59,3 +59,67 @@ Die Ausgabe enthält keine Secrets oder private Konfigurationsinhalte. Sie prüf
 7. Jeder tatsächliche Schritt samt PuTTY-/Browser-Befund, Zeitpunkt, SHA/Commit und Rückfallinformation ins öffentliche [Arbeitsjournal](./HW24_ARBEITSJOURNAL.md) **ohne** Passwörter, persönliche Admin-Mail, Tokens oder Konfigurationsdatei-Inhalte protokollieren.
 
 Referenzen: [Laravel 13 Support](https://laravel.com/framework/docs/13.x/releases), [Plesk Document Root](https://support.plesk.com/hc/en-us/articles/12377087631255-How-to-change-the-document-root-for-a-single-domain-on-Plesk), [Plesk Git Deployment](https://docs.plesk.com/en-US/obsidian/administrator-guide/website-management/git-support.75824/).
+
+
+## Nachtrag 22.11.2026: Preflight tatsächlich durchgeführt, PHP 8.5 kompatibel
+
+Betreiber-PuTTY-Ausgabe bestätigt **PHP 8.5.13**, `composer check-platform-reqs --no-dev` **durchgehend success**, Laravel **13.43.0** unter PHP 8.5 und alle **vier Filament-Adminrouten**. Ein PHP-Handlerwechsel ist **nicht erforderlich** allein wegen der Versionsnummer. Der tatsächliche FPM-HTTP-Boot ist dadurch noch nicht belegt.
+
+**Dateisystem:** `repo/`, `platform/`, `public/` und sämtliche CSS-Asset-Zwischenverzeichnisse derzeit **0700** für Site-Owner. `public/index.php` und `public/css/filament/filament/app.css` **0600**. PHP-FPM kann als Owner Dateien lesen; ein eigenständiger Webserver-Worker kann damit **nicht automatisch** die öffentlichen CSS-/JS-/Schriften ausliefern. Eigentümer/ACL der Webserver-Prozesse sind noch nicht geprüft. `.env` und SQLite müssen weiterhin privat auf 0600 bleiben. **Niemals chmod -R 755 auf gesamtes Laravel-Verzeichnis**.
+
+### Nächster strikt read-only Webserver-/Rechtecheck
+
+```bash
+bash <<'HW24_WEB_ACCESS'
+set -u
+
+app="/var/www/vhosts/hairworld24.de/hw24-console-private/repo/platform"
+css="$app/public/css/filament/filament/app.css"
+js="$app/public/js/filament/filament/app.js"
+
+echo "=== HW24 WEB-ACCESS-PRUEFUNG ==="
+
+echo "1. Aktive nginx-Worker-Benutzer:"
+ps -eo user=,args= | awk '/nginx: worker process/ {print $1}' | sort -u
+
+echo "2. Aktive Apache-Worker-Benutzer:"
+ps -eo user=,comm= | awk '$2=="apache2" && $1!="root" {print $1}' | sort -u
+
+echo "3. PHP-FPM-Pool-Benutzer (nur Namen):"
+ps -eo user=,args= | awk '/php-fpm: pool/ {print $1}' | sort -u
+
+echo "4. Lesbarkeit aus Sicht des App-Eigentuemers:"
+for file in "$app/public/index.php" "$css" "$js"; do
+  if runuser -u nicovoss -- test -r "$file"; then
+    echo "OK: $(basename "$file") fuer App-Eigentuemer"
+  else
+    echo "BLOCKIERT: $(basename "$file") fuer App-Eigentuemer"
+  fi
+done
+
+echo "5. Lesbarkeit fuer HTTP-Worker (falls www-data existiert):"
+if id www-data >/dev/null 2>&1; then
+  for file in "$css" "$js"; do
+    if runuser -u www-data -- test -r "$file"; then
+      echo "OK: $(basename "$file") fuer www-data"
+    else
+      echo "BLOCKIERT: $(basename "$file") fuer www-data"
+    fi
+  done
+else
+  echo "www-data nicht vorhanden; aktiven nginx/Apache-Worker gesondert pruefen"
+fi
+
+echo "6. ACL-Werkzeug vorhanden:"
+command -v getfacl || true
+command -v setfacl || true
+
+echo "=== PRUEFUNG ABGESCHLOSSEN; KEINE AENDERUNGEN ==="
+HW24_WEB_ACCESS
+```
+
+Der Ablauf liest weder `.env` noch Datenbankinhalte oder Passwörter, ändert keine Benutzer-/Dateirechte und führt keinen Deploy aus. Bei anderem Webserver-Worker als `www-data` die konkrete Identität nach Auswertung der `ps`-Ausgabe entsprechend prüfen. **Erst dann** gezielte ACL-/Mode-Freigaben für den öffentlichen Assetpfad und notwendige Traverse-Rechte planen, ohne App-Private-Dateien lesbar zu machen.
+
+**Weiterhin erforderlich vor dem Cutover:** Authentifizierter Browser-E2E auf der alten Live-V4.25-Domain (JTL, Amazon, vorhandenes KI-Archiv) sowie ein Rollback der bestehenden Testdomain und Entkopplung des alten manuellen Git-Deploy-Ziels.
+
+[Einzelbeleg im Journal](./HW24_ARBEITSJOURNAL.md), ursprünglicher Prüfprotokoll-Commit `1d0a3e55b1a5c8e59ced2e665687ce11984520f6`.
