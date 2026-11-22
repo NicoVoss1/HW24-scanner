@@ -1,3 +1,72 @@
+## STOP · ALTER TEST-BASIC USER WIRD TROTZ UMBENENNUNG NOCH AKZEPTIERT (22.11.2026)
+
+**Neue tatsächliche PuTTY-Evidenz** des Benutzers:
+- Neuer HTTP-Basic-User `nvoss` auf TEST: `KI-Berichte unter nvoss: 3`, `Offene Scanlisten-Stapel unter nvoss: 2`; `NVOSS HTTPS-TEST ERFOLGREICH`.
+- **Negativtest unter ehemaligem Test-User `hw24-test`: `Alter Testbenutzer: HTTP 200`, `STOP: Alter Zugang nicht wie erwartet gesperrt`**. Das ist ein tatsächliches bestehendes Zugriffsproblem. Nie als 401 oder sichere vollständige Deaktivierung darstellen. Plesk-SQL hatte bereits unmittelbar nach `protdir -u /` im Test-Schutz-Objekt nur `nvoss` und die unveränderte Account-Referenz nachgewiesen, daher effective Auth vs. Plesk-Metadaten explizit differenzieren.
+- GUI-Nutzer sagt, Prüfhistorie im „neuen nvoss“ fehle, „nur unter Test noch“. Codebridge PR37 liegt **ausschließlich auf TEST**; LIVE `artikelmanager.hairworld24.de` ist noch alter `deploy/staging`-PHP-Code, obwohl Live-Basic bereits `nvoss` heißt. Die Browseroberfläche `index.html` lädt `assets/hw24-ai-history.js` und `assets/hw24-ai-cost.js`. Button `📂 Auswertungen` → `Alle letzten Prüfungen` auf **TEST** fragt die dort bewiesenen drei Berichte an; `Aktuelle EAN` filtert hingegen.
+
+Offizielle Referenzen: [Plesk vHost-pd-Passwortdateien](https://doc.plesk.com/en-US/obsidian/administrator-guide/web-hosting/website-directory-structure/virtual-host-structure-linux.68806/), [Plesk nginx/Apache Webserver-Konfigpfade](https://doc.plesk.com/en-US/obsidian/administrator-guide/web-servers/apache-and-nginx-web-servers-linux/plesk-for-linux-apache-and-nginx-configuration-files.68678/), [Plesk Apache-Änderungen können verzögert aktiviert werden](https://support.plesk.com/hc/en-us/articles/12377516833559-Apache-settings-are-not-applied-immediately-in-Plesk). Die Ursache ist **noch nicht festgelegt**, daher kein Neustart, kein direktes Editieren von `pd`- oder `.htpasswd`-Dateien und keine neue Plesk-Benutzer- oder Passwortänderung.
+
+### GENAU NÄCHSTER EINZELNER PuTTY-BLOCK: Read-only effective TEST-Basic-Dateien und Webserver-Konfiguration prüfen
+
+```bash
+bash <<'HW24_BASIC_AUTH_TRACE'
+set -euo pipefail
+
+domain="test-artikelmanager.hairworld24.de"
+sys="/var/www/vhosts/system/$domain"
+root="/var/www/vhosts/hairworld24.de/test-artikelmanager.HAIRWORLD24.de"
+
+echo "=== HW24 TEST: PLESK-BASIC NUR LESEN ==="
+echo "Plesk-Konten fuer Schutz-ID 9:"
+plesk db -Ne "
+SELECT pu.login
+FROM pd_users pu
+JOIN protected_dirs pd ON pd.id=pu.pd_id
+WHERE pd.id=9 AND pd.dom_id=10 AND pd.dom_type='domain'
+ORDER BY pu.login;
+"
+
+echo "=== TEST: USERNAMEN IN PD-DATEIEN (KEINE PASSWORTHASHES) ==="
+test -d "$sys/pd"
+found=0
+while IFS= read -r -d '' file; do
+  found=1
+  old=nein
+  new=nein
+  if LC_ALL=C grep -aq '^hw24-test:' "$file"; then old=JA; fi
+  if LC_ALL=C grep -aq '^nvoss:' "$file"; then new=JA; fi
+  printf '%s: hw24-test=%s nvoss=%s\n' \
+    "${file#"$sys/"}" "$old" "$new"
+done < <(find "$sys/pd" -maxdepth 2 -type f -print0)
+if [ "$found" -eq 0 ]; then
+  echo "ACHTUNG: Keine regulaeren pd-Dateien gefunden."
+fi
+
+echo "=== TEST: WIRKSAME AUTH-DATEIREFERENZEN ==="
+for file in "$sys"/conf/*.conf "$root/.htaccess" "$root/api/.htaccess"; do
+  if [ -f "$file" ]; then
+    refs="$(grep -Ei '^[[:space:]]*(auth_basic_user_file|AuthUserFile)[[:space:]]' "$file" || true)"
+    if [ -n "$refs" ]; then
+      echo "Konfigurationsdatei: $file"
+      printf '%s\n' "$refs"
+    fi
+  fi
+done
+
+echo "=== DIAGNOSE ABGESCHLOSSEN: KEINE AENDERUNGEN ==="
+echo "Keine Hashzeilen, Kennwoerter, Benutzer- oder Dateiaenderungen"
+HW24_BASIC_AUTH_TRACE
+```
+
+**Sicherheitsgrenze:** Der Befehl gibt aus den Plesk-`pd`-Passwortdateien **nur** boolesche Fundwerte für zwei bekannte Logins aus, keine verschlüsselten Passwort-Hashzeilen. Die Auth-Konfiguration wird auf Dateireferenzdirektiven gefiltert, enthält daher Dateipfade, nicht Secrets. Keine Neustarts und keine mutierenden Vorgänge. Nach der Ausgabe Plesk-/Apache-/nginx-spezifischen sicheren Fix anhand der realen Userdateien bestimmen. Bereits bestehendes privates Test-Plesk-`pd`-TAR `/root/hw24-backups/test-plesk-auth-yideOvRf/plesk-pd.tar.gz` SHA256 `a7aacc096055021c0447d4fd1ca20eeeec459dd0cdb3d72f8fc012ff692d107f` und Test-Webroot-TAR `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz` SHA256 `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26` unverändert behalten.
+
+**Browser-Check unabhängig von SSH:** Im privaten/neuen Browserfenster explizit `https://test-artikelmanager.hairworld24.de` und **nicht** die produktive `https://artikelmanager.hairworld24.de` öffnen; `nvoss` anmelden, `📂 Auswertungen` → `Alle letzten Prüfungen` anklicken. Auf der Produktivdomain wird das alte KI-Archiv bis zu einer eigens sicher freigegebenen PR37-Code-Bereitstellung (separater Review/Merge/Deploy) nicht vereinigt.
+
+[Chronologischer kritischer Journal-Eintrag](./HW24_ARBEITSJOURNAL.md), Commit `a5dfa5a75ca92df531219c80f1252e46ab0de93c`. [Aktueller Handover](./HW24_HANDOVER.md), Commit `a09ffdd09b9ef6190fdfbefb90e69332e0b908bf`.
+
+---
+
 ## JETZT TECHNISCH BESTÄTIGT · TEST-LOGIN `nvoss` LIEST 3 KI-BERICHTE UND 2 SCAN-STAPEL (22.11.2026)
 
 **Neuer tatsächlicher PuTTY-Nachweis `HW24_NVOSS_GET_VERIFY`:** Mit HTTP Basic `nvoss` und verdeckter interaktiver Passworteingabe funktionieren nach Plesk-Test-Basic-Umbenennung sowohl `GET /api/ai-reviews.php?limit=50` (`KI-Berichte unter nvoss: 3`) als auch `GET /api/scanliste.php?op=batches` (`Offene Scanlisten-Stapel unter nvoss: 2`). Abschluss `NVOSS HTTPS-TEST ERFOLGREICH`, `Keine Daten veraendert`. **Historischer Actor `hw24-test` verbleibt unverändert in MariaDB, ist aber über die explizite private `read_aliases`-Delegation unter dem neuen Test-Login `nvoss` sichtbar.** KEIN SQL-UPDATE, KEIN KI-POST, KEIN LIVE-DEPLOY.
