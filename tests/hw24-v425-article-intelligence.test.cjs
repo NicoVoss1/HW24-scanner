@@ -76,4 +76,18 @@ assert(intel.includes('blob=new Blob'),'Only a local proof CSV, not a JTL write'
 assert(!intel.includes('/api/jtl-sync.php'),'No JTL SQL writes');
 assert(options.includes("'Versandklasse'")&&options.includes("'Steuerklasse'"),'Observed real dropdowns');
 assert(curated.includes("expected_revision"),'Curated revision safety preserved');
+// Missing JTL article type/currency get explicitly labeled suggestions, NEVER fake source values.
+const suggestionFn=editor.match(/function standardProposal\(key,old,approved\)\{[\s\S]*?\n\}/);
+assert(suggestionFn,'Missing default proposal helper');
+const standardProposal=new Function("const val=x=>String(x??'').trim();"+suggestionFn[0]+';return standardProposal;')();
+assert.equal(standardProposal('Artikeltyp','',null),'Normaler Artikel');
+assert.equal(standardProposal('Währung','',null),'EUR');
+assert.equal(standardProposal('Währung','USD',null),'','Never overwrite an existing JTL currency');
+assert.equal(standardProposal('Artikeltyp','Stückliste',null),'','Never overwrite an existing JTL article type');
+assert.equal(standardProposal('Währung','','CHF'),'','Never overwrite an already approved currency');
+assert.equal(standardProposal('Brutto-VK','',null),'','Never propose unverified gross prices');
+assert(editor.includes('state.initial.set(key,approved!==null?approved:val(old));'),
+ 'Proposal must remain a visible unsaved change against original JTL value');
+assert(editor.includes('Nicht als JTL-Originalwert nachgewiesen'),
+ 'Default proposals clearly marked as not confirmed from JTL');
 console.log('HW24 V4.25: Amazon/KI source panels, source-based gross price, dropdowns, reviewed Ameise CSV PASS');
