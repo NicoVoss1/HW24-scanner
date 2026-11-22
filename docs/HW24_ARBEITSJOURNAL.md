@@ -1284,3 +1284,29 @@ Die separate `protected_dirs.id=1` für `plesk-stat` auf `domains.id=1` ist **ni
 **Bewusst noch offen und nicht als erfüllt ausgeben:** Ein authentifizierter LIVE-EAN-/JTL-Lese- und Artikelpflege-Browsertest (Referenz EAN `3474630337398`, erwartete JTL-ID `1428`, ASIN `B091J3HV6B`), die manuell ausgelöste Amazon-Selling-Partner-API-Katalogprüfung und der Laravel-/Filament-Login via HTTP nach Test-DocumentRoot-Umstellung. Fehlender EAN-Katalogtreffer beweist nicht fehlende verknüpfte ASIN. PR #39, PR #41 und PR #36 weiterhin **Draft/nicht deployed**; neueste PHP-Anwendungsänderungen nur in GitHub. Zwischen CI-Grün und echter Plesk-HTTP-Abnahme strikt unterscheiden.
 
 **Nächster Schritt:** genau **ein** authentifizierter HTTPS-GET auf `https://artikelmanager.hairworld24.de/api/jtl.php?ean=3474630337398` mit interaktiver/verdeckter Passwortabfrage (keine Secrets im Chat/Repo/Shell-History). Rückgabefelder nur gefiltert anzeigen. Danach Browserartikelpflege und die ausdrückliche manuelle Amazon-GET-Abfrage ansehen. Erst bei erfolgreicher E2E-Abnahme die weitere Legacy-PR-#39/#41-Testbereitstellung und die isolierte Laravel-Testdomain unter Rollback planen; Live unverändert.
+
+
+## 22.11.2026 · LIVE-JTL-API-E2E unter nvoss ERFOLGREICH
+
+**Echter Betreiber-PuTTY-Nachweis per authentifiziertem HTTPS GET**, **nach** bestandenem read-only Plesk-Preflight. Befehl `curl -fsS --user nvoss "https://artikelmanager.hairworld24.de/api/jtl.php?ean=3474630337398"` mit verdeckt angefordertem Passwort; Antwort lokal per Python gefiltert. Tatsächliche, vom Betreiber gepostete Ausgabe:
+
+```text
+JTL-Status: current_snapshot
+Snapshot: 2026-11-22 17:17:09.691101
+Alter (Minuten): 13
+JTL-ID: 1428
+EAN: 3474630337398
+ASIN: B091J3HV6B
+VK netto: 11.7647
+VK brutto: None
+Amazon JTL-Preis: 14.0000
+eBay JTL-Preis: 11.0000
+Steuerklasse-ID: 1
+Lieferstatus-ID: 1
+Fuellmenge: 90.0000000000000
+LIVE-JTL-PRUEFUNG ERFOLGREICH
+```
+
+**Befund:** Die LIVE-API und die HTTP-Basic-Berechtigung `nvoss` funktionieren tatsächlich; der Spiegel ist zum Prüfzeitpunkt 13 Minuten alt und genau **ein eindeutiger Artikel** mit erwarteter JTL-ID 1428 und erwarteter JTL-ASIN wird bereitgestellt. `fMassMenge` ist weiterhin technisch mit vielen Dezimalstellen gespeichert, sodass PR39-Darstellungsnormalisierung weiterhin benötigt wird. Ein **belegter JTL-Standard-Bruttopreis fehlt**; die tatsächliche Originalquelle muss zuerst über read-only Windows-SQL-JTL ermittelt werden, ohne `fAmazonVK` fälschlich als Standard-Brutto-VK oder LIVE-Angebotspreis zu deklarieren. `fEbayPreis` ist noch keinem der beiden eBay-Konten eindeutig zugeordnet. Live-/Test-Webroots und SQL-Daten wurden durch den GET nicht geändert.
+
+**Nächste Freigabe-Gates:** Amazon Catalog GET auf **LIVE** einmal manuell prüfen (`api/amazon.php?ean=3474630337398`, ggf. Cache/kein EAN-Treffer trotz vorhandener JTL-ASIN), Anzeige in `artikelpflege.html` mit vorhandenen KI-Archivinfos, dann abgesicherter Testdomain-Framework-HTTP-/Filament-Login. Das neue direkte ASIN-API-Modul `api/amazon-asin.php` aus PR39 ist **noch nicht** live installiert. PR39/PR41 bleiben Draft; PR36 bleibt isolierter Pilot. **Keinen Live-Merge/-Deploy vor separater Testabnahme.**
