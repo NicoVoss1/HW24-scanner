@@ -37,6 +37,22 @@ if (!preg_match('/^[0-9]{1,12}$/D',$id) ||
     !preg_match('/^(?:[0-9]{8}|[0-9]{12}|[0-9]{13}|[0-9]{14})$/D',$ean)) {
     answer(400,['ok'=>false,'error'=>'invalid_article_identifier']);
 }
+// Optional field pagination for the later Laravel/Filament read-only bridge.
+// Existing legacy UI omits these parameters and receives the full small
+// per-article field list (never an unbounded multi-article search).
+$offset=0;$pageLimit=null;
+if(isset($_GET['limit'])){
+    $limitText=trim((string)$_GET['limit']);
+    $offsetText=trim((string)($_GET['offset']??'0'));
+    if(!preg_match('/^[1-9][0-9]{0,2}$/D',$limitText) || (int)$limitText>100 ||
+       !preg_match('/^(?:0|[1-9][0-9]{0,5})$/D',$offsetText)) {
+        answer(400,['ok'=>false,'error'=>'invalid_pagination']);
+    }
+    $pageLimit=(int)$limitText;
+    $offset=(int)$offsetText;
+}elseif(isset($_GET['offset'])){
+    answer(400,['ok'=>false,'error'=>'pagination_limit_required']);
+}
 $cfgPath=dirname(__DIR__,2).'/hw24_private/db.php';
 if (!is_file($cfgPath)) answer(503,['ok'=>false,'error'=>'mirror_not_configured']);
 
@@ -170,12 +186,16 @@ try {
         'ebay_jtl_value'=>$priceValue($raw['fEbayPreis']??$article['ebay_preis']),
         'ebay_jtl_source'=>'dbo.tArtikel.fEbayPreis'
     ];
+    $totalFields=count($fields);
+    $visibleFields=$pageLimit===null?$fields:array_slice($fields,$offset,$pageLimit);
     answer(200,[
         'ok'=>true, 'status'=>'current_snapshot',
         'article_id'=>$article['jtl_article_id'], 'artikelnummer'=>$article['artikelnummer'],
         'ean'=>$article['ean'],'snapshot_at'=>$ready['last_completed_utc'],
         'age_minutes'=>(int)$ready['age_minutes'],
-        'fields'=>$fields, 'field_count'=>count($fields),
+        'fields'=>$visibleFields,'field_count'=>$totalFields,
+        'returned_count'=>count($visibleFields),'offset'=>$offset,
+        'has_more'=>$pageLimit!==null && ($offset+count($visibleFields))<$totalFields,
         'source_summary'=>$sourceSummary,'prices'=>$prices,
         'scope'=>'article_only_read_only',
         'note'=>'Originalfelder nur aus dem JTL-Spiegel; zugehörige Tabellen erscheinen nur, wenn die Windows-Synchronisation sie bereits geliefert hat. Fehlende eBay-Kontopreise und Shopify-Livepreise bleiben ungeklärt.'
