@@ -31,6 +31,7 @@ jobs:
           bash -n platform/ops/migrate-source-catalog-isolated.sh
           bash -n platform/ops/verify-legacy-readbridge-live.sh
           bash -n platform/ops/verify-filament-https-release-gates-readonly.sh
+          bash -n platform/ops/verify-plesk-cutover-mechanics-readonly.sh
           python3 - <<'PY'
           from pathlib import Path
           raw=Path('platform/ops/verify-filament-https-release-gates-readonly.sh').read_text()
