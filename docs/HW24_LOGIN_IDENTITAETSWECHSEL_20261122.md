@@ -1,3 +1,50 @@
+## WICHTIGE KORREKTUR · 22.11.2026 · Git SHA bereits richtig, vorheriges Branch-Skript NICHT erneut ausführen
+
+**Benutzer-PuTTY-Ausgabe:** `HW24_PR37_BRANCH_ONLY` hat das Backup erfolgreich geprüft, nur auf Test `git --fetch` und `--update -active-branch ...` ausgeführt. Der tatsächliche Plesk-`--get-last-commit`-Output beginnt mit `commit c2cc4e1dc054da00f01087e7221659cf54a9a482` und enthält danach **Autor, Datum, Nachricht**. Der im alten Skript verwendete Vergleich nach `tr -d '\r\n'` ist **FALSCH**: Er vergleicht den gesamten zusammengeklebten Block statt der reinen 40-stelligen SHA. Daher der scheinbare `STOP: Unerwarteter Commit`. **Der angezeigte SHA war korrekt.**
+
+**Fehlerbehandlung:** Das alte Skript hat danach `Branch-Rueckstellung versucht` ausgegeben. **NICHT BELEGT**, ob die Rückstellung der Plesk-Test-Git-Metadaten erfolgreich war, da der eigentliche `--update`-Ausgang ins private Log ging und `|| true` verwendet wurde. Kein `--deploy` wurde im Skript aufgerufen. Die drei Test-Webroot-Dateien müssen trotzdem separat erneut nur lesend geprüft werden. **Nicht noch einmal das alte `HW24_PR37_BRANCH_ONLY`-Skript ausführen.**
+
+### JETZT EINZIG AUSFÜHREN: Read-only Status nach dem Abbruch
+
+```bash
+bash <<'HW24_PR37_STATUS'
+set -euo pipefail
+
+domain="test-artikelmanager.HAIRWORLD24.de"
+repo="HW24-scanner.git"
+root="/var/www/vhosts/hairworld24.de/$domain"
+
+echo "=== HW24 PR37: TEST-STATUS NACH ROLLBACK-VERSUCH ==="
+
+plesk ext git --info -domain "$domain" -name "$repo" |
+  grep -E '^(Deployment path|Deployment mode|Active branch):'
+
+echo "=== Test-Webroot PHP-Dateien (nur Hashes) ==="
+for file in api/scanliste.php api/ai-reviews.php api/ai-review.php; do
+  if test -f "$root/$file"; then
+    printf '%s: ' "$file"
+    git hash-object "$root/$file"
+  else
+    echo "$file: NICHT VORHANDEN"
+  fi
+done
+
+if test -f "$root/api/hw24-actor-identity.php"; then
+  echo "Neue Owner-Hilfe im Test-Webroot: VORHANDEN"
+else
+  echo "Neue Owner-Hilfe im Test-Webroot: NICHT VORHANDEN"
+fi
+
+echo "=== STATUS GELADEN: KEINE AENDERUNG AUSGEFUEHRT ==="
+HW24_PR37_STATUS
+```
+
+**Für jede spätere Plesk-Commitprüfung:** Nur die SHA aus der Zeile `commit <40 hex>` extrahieren, z. B. per `sed -nE 's/^commit[[:space:]]+([0-9a-f]{40}).*/\1/p'`. Das alte `tr -d '\r\n'`-Vergleichsmuster nicht verwenden. Keine neue Bereitstellung, bis der aktuelle Test-Git-Branch nach dem versuchten Rollback verifiziert ist.
+
+[Einzeljournal](./HW24_ARBEITSJOURNAL.md), Commit `7329b6c88cedda64a6ec93969a7b0b6d2fd636fe`.
+
+---
+
 ## 22.11.2026 · Test-Webroot-Backup erfolgreich, PR37 Git-Diff auf 7 Dateien eingegrenzt
 
 **Betreiber-PuTTY-Erfolg:** Test-Webroot gesichert unter `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz`, TAR-Dateiinhaltscheck bestanden, SHA-256 `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26`. Live/Test/Basic-Anmeldung unberührt. Backup ist **nicht** automatisch ein Backup der Plesk-HTTP-Basic-Konfiguration oder der MariaDB-Datenbank.
