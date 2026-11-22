@@ -1,3 +1,43 @@
+## JETZT TECHNISCH BESTÄTIGT · TEST-LOGIN `nvoss` LIEST 3 KI-BERICHTE UND 2 SCAN-STAPEL (22.11.2026)
+
+**Neuer tatsächlicher PuTTY-Nachweis `HW24_NVOSS_GET_VERIFY`:** Mit HTTP Basic `nvoss` und verdeckter interaktiver Passworteingabe funktionieren nach Plesk-Test-Basic-Umbenennung sowohl `GET /api/ai-reviews.php?limit=50` (`KI-Berichte unter nvoss: 3`) als auch `GET /api/scanliste.php?op=batches` (`Offene Scanlisten-Stapel unter nvoss: 2`). Abschluss `NVOSS HTTPS-TEST ERFOLGREICH`, `Keine Daten veraendert`. **Historischer Actor `hw24-test` verbleibt unverändert in MariaDB, ist aber über die explizite private `read_aliases`-Delegation unter dem neuen Test-Login `nvoss` sichtbar.** KEIN SQL-UPDATE, KEIN KI-POST, KEIN LIVE-DEPLOY.
+
+**Bereits bestätigt:** Test-Plesk `protdir -u '/'`-Rename via offizielle CLI erfolgreich mit gleicher Account-Referenz, alte Test-Basic-Zeile weg, HTTP 401 für anonyme GETs; PR37-Code nur auf Test deployed (4 BLOB-Hashes, 4 PHP8.5-Lints), privater Owner-Alias `0600` unter `hw24_private`, vorheriger alter Login las 3 KI-Berichte und 1 Stapel; jetzt neuer Login 3 Berichte und 2 Stapel. Test-Webroot- und Plesk-Auth-Backups mit SHA256 vorhanden. **Nicht als erledigt deklarieren:** tatsächlicher Browser-UI-Smoketest und expliziter negativer alter-Login-HTTPS-Test.
+
+### Genau nächster einzelner Qualitätstest: Alter Test-Basic-Login muss verweigert werden
+
+```bash
+bash <<'HW24_OLD_BASIC_DENY'
+set -euo pipefail
+
+url="https://test-artikelmanager.hairworld24.de/api/ai-reviews.php"
+echo "=== HW24: ALTER TEST-BENUTZER MUSS ABGEWIESEN WERDEN ==="
+echo "Bitte bisheriges Passwort von hw24-test NUR verdeckt in curl eingeben."
+
+status="$(curl --silent --show-error \
+  --basic --user hw24-test \
+  --max-time 20 --proto '=https' \
+  --output /dev/null --write-out '%{http_code}' \
+  "$url")"
+
+echo "Alter Test-Benutzer: HTTP $status"
+if [ "$status" != "401" ]; then
+  echo "STOP: Alter Login ist nicht wie erwartet gesperrt."
+  exit 1
+fi
+echo "=== PASS: ALTER TEST-BENUTZER HAT KEINEN API-ZUGANG ==="
+echo "Keine Benutzer, Daten oder Dateien veraendert"
+HW24_OLD_BASIC_DENY
+```
+
+**Hinweis:** `curl --user hw24-test` ohne Passwortzeichen in Shellargumenten fordert interaktiv verdeckt auf; falsche/fehlende Eingabe kann auch 401 ergeben. Da zuvor das **korrekte** alte Passwort bereits für den anonymen vorherigen Login und nach Rename derselbe Passwort-Account getestet wurde, kann die Prüfung mit dem bekannten alten Passwort als gezielter Negativtest verwendet werden. Für eine unabhängige, stärkere Bestätigung zusätzlich Plesk-`pd_users`-SQL und/oder Webserver-Protokolle heranziehen. Nur HTTP-Status ausgeben, keine Passwort-Hashes oder JSON-Antworten.
+
+**Nächster Browsercheck durch Nutzer:** `https://test-artikelmanager.hairworld24.de` unter `nvoss` aufrufen, KI-Archiv 3 und Scanliste 2 offene Stapel visuell prüfen. Kein Test von schreibenden POST-Endpunkten in Produktionsdaten ohne ausdrückliche Freigabe. Das Live-System `https://artikelmanager.hairworld24.de` bleibt Code-alt und unverändert; späteren PR37-Live-Merge/Deploy gesondert freigeben. Auch Laravel-/Filament-Cutover strikt getrennt.
+
+[Arbeitsjournal](./HW24_ARBEITSJOURNAL.md), Commit `1ccfd3bdf167a2fe93575e0c3aeab8b1bf3262a5`. [Projektübergabe](./HW24_HANDOVER.md), Commit `172324d99d74ea52170e40f68ca7d43bcee9874e`.
+
+---
+
 ## PLESK-BASIC-RENAME AUF TEST ERFOLGREICH · 22.11.2026
 
 **PuTTY-Beleg des Betreibers:** Plesk bestätigte `SUCCESS: Update of protected URL '/' completed.` nach `plesk bin protdir -u '/' -domain test-artikelmanager.hairworld24.de -update_user hw24-test -user_name nvoss`. Skript-Nachchecks: `TESTBENUTZER ERFOLGREICH UMBENANNT`, `Neuer Benutzer: nvoss`, gleiche `account_id`-Referenz wie vorher, alte Test-PD-Login-Zeile verschwunden, anonymer HTTPS-GET weiterhin **401**. Private read_aliases-PHP-Funktion `nvoss => [nvoss,hw24-test]` vorher ebenfalls geprüft. Beide Root-Sicherungsprüfsummen bestanden. **Kein SQL-Daten-Update und kein Live-Deploy.**
