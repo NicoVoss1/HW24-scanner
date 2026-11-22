@@ -1,3 +1,5 @@
+**NEUESTER RUNBOOK:** [PHP-8.5-Plesk-Testdomain-Preflight (read-only)](./HW24_PREFLIGHT_FILAMENT_TESTDOMAIN_20261122.md) ist im GitHub-`main` dokumentiert (Commit `dd8410488564defcfae8a8a74769700aec2c9711`). **Dies ist der genau nächste PuTTY-Schritt; noch nicht ausgeführt.** Die Legacy-Live-App muss vor dem Cutover zusätzlich angemeldet mit JTL/Amazon/KI getestet werden. Kein voreiliger Plesk-Handlerwechsel, da Laravel 13 PHP 8.5 grundsätzlich unterstützt.
+
 ## NEUESTER TECHNIKSTAND · 22.11.2026 · Plesk-Test-vHost vor Domain-Cutover geprüft
 
 **Betreiberbestätigung via PuTTY:**
