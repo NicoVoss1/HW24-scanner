@@ -1,3 +1,20 @@
+## AKTUELLSTER NACHWEIS · Öffentliche Asset-ACLs erfolgreich, private Daten gesperrt (22.11.2026)
+
+**Betreiber hat den vorbereiteten `HW24_PUBLIC_ACL`-Block erfolgreich ausgeführt.** Root-private `getfacl`-Sicherung wurde vor dem Ändern der Rechte angelegt (UTC 02:22:45, privates Root-Backupverzeichnis; genaue Datei nur im Betreiberterminal). Auf Elternverzeichnissen `hw24-console-private`, `repo`, `platform`, `public` wurden für `nginx`/`www-data` ausschließlich Durchquerungsrechte (`--x`) und auf `public/{css,js,fonts}` ausschließlich Lese-/Traverserechte (`rX`) eingerichtet.
+
+**Ausführliche Betreiber-Sicherheitsprüfung:**
+- `nginx: ASSETS LESBAR, PRIVATE DATEIEN GESPERRT`
+- `www-data: ASSETS LESBAR, PRIVATE DATEIEN GESPERRT`
+- Geprüft: Filament CSS und JS **lesbar**, `platform/.env`, SQLite und `public/index.php`-Quelltext **nicht lesbar** durch diese HTTP-Worker. FPM führt Laravel als Besitzer `nicovoss` aus.
+- `=== PUBLIC-ACL ERFOLGREICH ===`. **Legacy-Webroots, Plesk, PHP-FPM, Git-Bereitstellung und JTL/MariaDB wurden nicht umgeschaltet.**
+- Keine Default-ACL eingerichtet; **nach jeder späteren Asset-Publikation erneut Dateilesbarkeit prüfen**. Root-private ACL-Sicherung nicht löschen; Rücknahme per `setfacl --restore` nur mit dem exakt vom Betreiber protokollierten Pfad.
+
+**Damit ist die bisher nachgewiesene ACL-Blockade behoben.** Nicht verwechselt werden darf das mit einem erfolgreichen Filament-Web-Browserstart: Laravel ist weiter nur privat installiert und noch nicht dem Testdomain-Webroot zugeordnet. **Vor Plesk-Cutover verpflichtend:** (1) authentifizierter Legacy-Live-V4.25-Browser-E2E mit JTL-Referenz-EAN, manuellem Amazon-Katalog-GET und archiviertem OpenAI-GET (kein KI-POST), (2) reversibler Plesk-Testdomain-Webroot-/altes Git-Deployment-/SSL-/Basic-Auth-/PHP-FPM-Rolloutplan. Keinen ungesicherten Wechsel durchführen.
+
+[Chronologischer Einzelbeleg](./HW24_ARBEITSJOURNAL.md), Dokumentations-Commit `888ebe9f549a7a500dde0502edb6722e25da4a1a`.
+
+---
+
 ## NEUESTE BESTÄTIGUNG · ACL-Paket installiert (22.11.2026)
 
 **Betreiber-Ausgabe:** Ubuntu-22.04-`acl 2.3.1-1` erfolgreich installiert, `/usr/bin/getfacl` und `/usr/bin/setfacl` vorhanden, privates Laravel-Dateisystem ist `ext4` (rw). Das Betriebssystem meldet zusätzlich **ausstehenden Kernel-/Diensteneustart** (laufend 5.15.0-202, verfügbar 5.15.0-204); das ist ein getrennter Wartungsbedarf. **Kein Reboot, keine Dienstrestarte und kein `apt autoremove`** während des Laravel-Rollouts.
