@@ -1,3 +1,15 @@
+## AKTUELLSTE KI-ARCHIV-PRÜFUNG · 22.11.2026 · historischer Review #1 nachgewiesen, Live zeigt 0
+
+**Historischer Primärnachweis in der Projektakte:** Am 21.11.2026 lag eine authentifizierte `GET /api/ai-reviews.php`-Antwort mit `ok=true`, `stored=true`, `count=1`, Review-ID **1** und EAN **8027483835211** (Selective Professional ONcare Leave-in Daily Hydrating Spray, 275 ml) vor. Dieser Bericht war damals gespeichert und lesbar. **Aktueller Live-Browser** zeigt am 22.11. in `/index.html` nur `0 gespeicherte KI-Analysen`, bei **4 kostenmäßig gezählten KI-Prüfungen** (0,0053 USD Schätzung).
+
+**Ursachenanalyse des tatsächlichen GitHub-`deploy/staging`-Quellcodes:** `api/ai-reviews.php` liest ausschließlich Actor-gebundene MariaDB-Berichte aus `hw24_ai_reviews`, `WHERE actor=?` anhand der HTTP-Basic-Identität. `api/ai-review.php` zählt Modellkosten **separat** in `hw24-ai-usage.json` und schreibt den SQL-Review erst nach der Kostenbuchung. `assets/hw24-ai-history.js` zeigt bei `reviews:[]` zu allgemein `Noch keine dauerhaften KI-Ergebnisse`, obwohl dies zunächst nur „keine Berichte für den aktuellen Actor/Filter“ bedeutet. Die Domain-/Login-Identitätsabweichung und DB-Zustand sind **noch nicht belegt**.
+
+**EINZIG NÄCHSTE AUSFÜHRBARE AKTION:** [Read-only MariaDB-Audit](./HW24_AI_ARCHIVE_AUDIT_20261122.md) in PuTTY ausführen, das nur Gesamtzeilen, unterschiedliche Actor, EAN-Zahl, anonymisierte Counts und Existenz des historischen Berichts #1 ausgibt. **Noch nicht ausgeführt**. Erst danach DB-/Login-Scope-Ursache bestimmen und eine sichere **explizit autorisierte Admin-Gesamtarchivansicht** entwickeln, ohne `WHERE actor=?` global zu entfernen und ohne kostenpflichtige KI-Abfrage. Kein Legacy-Webroot-/Plesk-Testdomain-Cutover bis zur Freigabe. Der angeschlossene Browser war in dieser Sitzung für direkte Tool-Abfrage nicht verfügbar.
+
+[Einzelbefunde](./HW24_ARBEITSJOURNAL.md), [Archivdiagnose](./HW24_AI_ARCHIVE_AUDIT_20261122.md) (letzter Diagnose-Commit `1499a6ea8705b9987e95d7f0c5946ece8710cb68`).
+
+---
+
 ## NEUSTER LIVE-KI-ARCHIV-BEFUND · 0 Berichte bei 4 gezählten Prüfungen (22.11.2026)
 
 **Neuer Betreiber-Screenshot der Live-Expertenansicht** `artikelmanager.hairworld24.de/index.html`: Der Dialog `KI-Auswertungen · HW24-Prüfarchiv` öffnet sich, meldet jedoch `0 gespeicherte KI-Analysen` und `Noch keine dauerhaften KI-Ergebnisse`. Die gesonderte Kostenanzeige zeigt **4 Prüfungen im Monat**, geschätzt **0,0053 USD**, letzte geschätzte **0,0014 USD**, **1/25 heute**. Diese Anzeige ist **keine OpenAI-Rechnung** und keine Garantie, dass ein Bericht dauerhaft gespeichert wurde.
