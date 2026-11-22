@@ -42,3 +42,31 @@ HW24_READONLY
 
 ## Wichtige Sicherheitsregel
 GitHub-Repository ist öffentlich. In dieser Datei deshalb ausschließlich allgemeine Werkzeuge und Prozessregeln. Keine Hostnames interner Systeme, Ports, persönlichen Kontonamen, Datenbank-Passwörter, Tokens, API-Schlüssel, geheimen Dateipfade oder SQL-Dumps ins öffentliche Repository schreiben.
+
+## Read-only Ergebnis vom 22.11.2026 (vom Betreiber in PuTTY bestätigt)
+
+- Ubuntu 22.04.5 LTS; SSH mit administrativer Berechtigung; Plesk ist installiert.
+- Standard-PHP-CLI: **8.1.2** und daher **nicht** für Laravel 13 verwenden.
+- Gesonderte Plesk-CLI-Binaries: **8.3.37**, **8.4.28**, **8.5.13**; im abgefragten Erweiterungssatz keine fehlenden Extensions. Für das isolierte Pilotprojekt **/opt/plesk/php/8.4/bin/php** fest wählen.
+- Composer **2.11.2**, Git **2.34.1** vorhanden.
+- Node/npm **nicht im SSH-PATH**; dies beweist nicht, dass Plesk intern keine Node-Version installiert hat. Frontend-Build in CI oder separate Node-Installation erst nach Projektisolation planen.
+- Speicherplatz auf Root-Filesystem: ca. **914 GB frei**. Keine Aussage über RAM-Kapazität oder Performance für 100.000 Artikel.
+- **Noch ungeprüft:** Plesk-PHP-8.4-FPM-Handler (erste Ausgabe war auf 30 Zeilen begrenzt), PHP-8.4-SQLite-Erweiterungen (pdo_sqlite/sqlite3), Domain/vHost-Zuordnung, isolierter DocumentRoot, Auth/ACL und Node-Build-Strategie. Kein Plesk-Deploy, keine Laravel-/Filament-Installation.
+- Sicherheitsbeachtung: Originalausgabe enthielt Infrastruktur-Kennungen. **Absichtlich nicht in das öffentliche GitHub-Repository übernommen.**
+
+### Nur-lesender nächster PuTTY-Check
+
+```bash
+printf '\n=== HW24 Pilot: fehlende Voraussetzungen ===\n'
+printf '\nPHP 8.4 Datenbank-/Hilfserweiterungen:\n'
+/opt/plesk/php/8.4/bin/php -r 'foreach(["pdo_sqlite","sqlite3","pdo_mysql","intl","zip","gd","bcmath"] as $e){echo $e,": ",(extension_loaded($e)?"OK":"FEHLT/OPTIONAL"),PHP_EOL;}'
+printf '\nPlesk PHP-8.4-Handler:\n'
+plesk bin php_handler --list | grep -E 'plesk-php84-(fpm|fpm-dedicated)' || true
+printf '\nVorhandene HW24-Domains/Subdomains (Namen nur bei Bedarf weitergeben):\n'
+plesk bin site --list | grep -Ei 'hairworld24|artikelmanager' || true
+printf '\nNode-Binaries außerhalb des PATH:\n'
+for f in /usr/bin/node /usr/local/bin/node /opt/plesk/node/*/bin/node; do if [ -x "$f" ]; then "$f" --version; fi; done
+printf '\n=== Nur-lesender Check fertig ===\n'
+```
+
+**Noch keine** Installations- oder Hoständerungsbefehle ausführen. Nach diesem Ergebnis private Subdomain/DocumentRoot-Plan und gesonderten SSH/Plesk-Systembenutzer festlegen. Composer und Artisan **nie** mit der alten Standard-PHP-8.1-CLI und nach Möglichkeit nicht als root starten.
