@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 
 use App\Services\LegacyReadBridge;
 use App\Domain\Jtl\SourceSnapshot;
+use App\Domain\Jtl\ArticleCard;
 use Filament\Pages\Page;
 use Livewire\Attributes\Locked;
 
@@ -52,17 +53,7 @@ final class ArticleLookup extends Page
         $matches = [];
         foreach (array_slice(is_array($raw['matches'] ?? null) ? $raw['matches'] : [], 0, 15) as $row) {
             if (! is_array($row)) continue;
-            $matches[] = [
-                'jtl_article_id' => (string) ($row['jtl_article_id'] ?? ''),
-                'artikelnummer' => (string) ($row['artikelnummer'] ?? ''),
-                'ean' => (string) ($row['ean'] ?? ''),
-                'han' => (string) ($row['han'] ?? ''),
-                'artikelname' => (string) ($row['artikelname'] ?? ''),
-                'hersteller' => (string) ($row['hersteller'] ?? ''),
-                'bestand' => $row['bestand'] ?? null,
-                'netto_vk' => $row['netto_vk'] ?? null,
-                'netto_ek' => $row['netto_ek'] ?? null,
-            ];
+            $matches[] = ArticleCard::fromMatch($row);
         }
         $this->lookup = [
             'ok' => (bool) ($result['ok'] ?? false),
