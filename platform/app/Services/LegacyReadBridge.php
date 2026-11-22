@@ -23,6 +23,10 @@ final class LegacyReadBridge
         'amazon.pricing' => 'api/amazon-pricing.php',
         'ai.history' => 'api/ai-reviews.php',
         'ai.budget' => 'api/ai-review.php', // GET only, never billable POST
+        // Strictly read-only legacy scan batches, scoped by existing Basic-Auth actor.
+        // Mutations (create, scan, review, CSV/Import) remain in the original site.
+        'scan.batches' => 'api/scanliste.php',
+        'scan.items' => 'api/scanliste.php',
     ];
 
     public function fetch(string $service, array $parameters = []): array

@@ -85,6 +85,18 @@
             <a class="hw24-link" href="{{ route('filament.admin.pages.dashboard') }}">Zum Management-Cockpit</a>
         </header>
 
+        <nav aria-label="Bisherige HW24-Funktionen" style="margin-top:15px;padding:15px 18px;border:1px solid #b9d0e5;border-radius:13px;background:#f3f8fe">
+            <strong style="font-size:13px;color:#194a76;display:block;margin-bottom:7px">Bisherige Arbeitsfunktionen sind weiterhin verfügbar</strong>
+            <p style="font-size:12px;line-height:1.6;margin:0 0 11px;color:#405970">Bis zur vollständigen Migration kannst Du KI-Analysen, Scan-Stapel, JTL-Ameise-Entwürfe und Amazon-Recherche im bestehenden geschützten Artikelmanager weiter nutzen.</p>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+                <a class="hw24-link" href="https://artikelmanager.hairworld24.de/artikelpflege.html" target="_blank" rel="noopener noreferrer" style="background:#174d78;color:white">Vollständige Artikelpflege &amp; KI-Abfrage</a>
+                <a class="hw24-link" href="{{ url('/admin/scanliste') }}" style="background:#e1effa;color:#194a76">Scanliste hier öffnen</a>
+                <a class="hw24-link" href="{{ url('/admin/werkzeuge') }}" style="background:#e1effa;color:#194a76">Alle bisherigen Werkzeuge</a>
+                <a class="hw24-link" href="https://artikelmanager.hairworld24.de/index.html" target="_blank" rel="noopener noreferrer" style="background:#e1effa;color:#194a76">Amazon &amp; JTL-Ameise</a>
+            </div>
+            <small style="font-size:11px;display:block;margin-top:9px;color:#5b728a">Externe Links führen zur bestehenden LIVE-Anwendung und starten selbst keine kostenpflichtigen KI- oder Amazon-Abfragen.</small>
+        </nav>
+
         <div class="hw24-stack">
             <section class="hw24-panel" aria-labelledby="hw24-search-heading">
                 <div class="hw24-panel-head"><h3 id="hw24-search-heading">01 · Artikel finden</h3><span class="hw24-chip">JTL · nur lesend</span></div>
