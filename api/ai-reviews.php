@@ -16,10 +16,32 @@ function send(int $status,array $data): never {
 if(($_SERVER['REQUEST_METHOD']??'')!=='GET'){
  header('Allow: GET');send(405,['ok'=>false,'error'=>'method_not_allowed']);
 }
+/**
+ * Private Plesk-only allowlist. Without it, cross-actor archive access
+ * fails closed. Ordinary Basic-authenticated users stay actor-scoped.
+ */
+function archiveAdminAllowed(string $actor): bool {
+ $path=dirname(__DIR__,2).'/hw24_private/ai-archive-admin.php';
+ if(!is_file($path)||!is_readable($path))return false;
+ try{$cfg=require $path;}catch(Throwable $e){
+  error_log('HW24 archive admin config unavailable: '.get_class($e));
+  return false;
+ }
+ if(!is_array($cfg)||!isset($cfg['allowed_basic_users'])||
+    !is_array($cfg['allowed_basic_users']))return false;
+ foreach($cfg['allowed_basic_users'] as $allowed){
+  if(is_string($allowed)&&$allowed!==''&&hash_equals($allowed,$actor))return true;
+ }
+ return false;
+}
 $actor=trim((string)($_SERVER['PHP_AUTH_USER']??$_SERVER['REMOTE_USER']??$_SERVER['REDIRECT_REMOTE_USER']??''));
 if($actor===''||strlen($actor)>180)send(403,['ok'=>false,'error'=>'authentication_required']);
 if(($_SERVER['HTTPS']??'')!=='on'&&($_SERVER['HTTP_X_FORWARDED_PROTO']??'')!=='https')
  send(403,['ok'=>false,'error'=>'https_required']);
+$scope=(string)($_GET['scope']??'mine');
+if(!in_array($scope,['mine','all'],true))send(400,['ok'=>false,'error'=>'invalid_scope']);
+$isAdmin=archiveAdminAllowed($actor);
+if($scope==='all'&&!$isAdmin)send(403,['ok'=>false,'error'=>'archive_admin_required']);
 $ean=trim((string)($_GET['ean']??''));
 if($ean!==''&&!preg_match('/^[0-9]{8,14}$/D',$ean))
  send(400,['ok'=>false,'error'=>'invalid_ean']);
@@ -57,11 +79,13 @@ try{
   ]);
  if($isSummary){
    $marks=implode(',',array_fill(0,count($eans),'?'));
+   $where=$scope==='all'?"ean IN ($marks)":"actor=? AND ean IN ($marks)";
+   $summaryParams=$scope==='all'?$eans:array_merge([$actor],$eans);
    $sql="SELECT a.ean,a.id,a.ai_status,a.model,a.created_at_utc,agg.review_count
     FROM (SELECT ean,MAX(id) AS latest_id,COUNT(*) AS review_count
-      FROM hw24_ai_reviews WHERE actor=? AND ean IN ($marks) GROUP BY ean) agg
+      FROM hw24_ai_reviews WHERE $where GROUP BY ean) agg
     JOIN hw24_ai_reviews a ON a.id=agg.latest_id";
-   $q=$db->prepare($sql);$q->execute(array_merge([$actor],$eans));
+   $q=$db->prepare($sql);$q->execute($summaryParams);
    $summaries=[];
    foreach($q->fetchAll() as $row){
     $summaries[$row['ean']]=['review_id'=>(int)$row['id'],
@@ -69,12 +93,18 @@ try{
        'at_utc'=>$row['created_at_utc'],'model'=>$row['model']];
    }
    send(200,['ok'=>true,'stored'=>true,'summary'=>true,
-     'source'=>'hw24_ai_reviews','summaries'=>$summaries]);
+     'source'=>'hw24_ai_reviews','scope'=>$scope==='all'?'administrator_all':'authenticated_user',
+     'admin_all_available'=>$isAdmin,'summaries'=>$summaries]);
  }
   $query='SELECT id,ean,article_name,model,ai_status,review_json,input_json,
         usd_cost,tokens_input,tokens_cached,tokens_output,created_at_utc
-        FROM hw24_ai_reviews WHERE actor=?';
- $params=[$actor];
+        FROM hw24_ai_reviews';
+ $params=[];
+ if($scope==='mine'){
+  $query.=' WHERE actor=?';$params[]=$actor;
+ }else{
+  $query.=' WHERE 1=1'; // Authorized operator only: checked before DB access.
+ }
  if($ean!==''){$query.=' AND ean=?';$params[]=$ean;}
  if($before!==null){$query.=' AND id<?';$params[]=$before;}
  $query.=' ORDER BY id DESC LIMIT '.(int)$limit;
@@ -93,7 +123,8 @@ try{
       'cached'=>(int)$row['tokens_cached'],'output'=>(int)$row['tokens_output']],
    'created_at_utc'=>$row['created_at_utc']];
  }
- send(200,['ok'=>true,'stored'=>true,'scope'=>'authenticated_user',
+ send(200,['ok'=>true,'stored'=>true,'scope'=>$scope==='all'?'administrator_all':'authenticated_user',
+   'admin_all_available'=>$isAdmin,
    'ean_filter'=>$ean,'count'=>count($reviews),
    'next_before_id'=>count($reviews)===$limit?(int)end($reviews)['id']:null,
    'reviews'=>$reviews]);
