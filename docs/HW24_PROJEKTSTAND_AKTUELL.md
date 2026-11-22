@@ -1,3 +1,15 @@
+## VERIFIZIERTE ARCHIV-DATEN · 22.11.2026 · ALLE 3 BERICHTE EXISTIEREN
+
+**PuTTY-MariaDB-`SELECT` erfolgreich:** `hw24_ai_reviews` enthält **3** Berichte unter **1** Benutzerzuordnung für **3** verschiedene EANs. **Review ID 1 / EAN 8027483835211 vorhanden: JA**. Jüngster Review UTC `2026-11-22 01:31:34.913848`. **Kein gelöschtes/leeres Datenbankarchiv!** Live-Browser `/index.html` zeigt dennoch `0`.
+
+**Quellcode-Status:** `api/ai-reviews.php` fragt mit `WHERE actor=?` ausschließlich aktuelle HTTP-Basic-Kennung ab. Die einzige bestehende Datenbank-Actor-Kennung ist noch nicht mit dem Live-Browser-Login verglichen. Das ist der wichtigste verbleibende sichere Diagnoseschritt, nicht mehr die Prüfung, ob überhaupt Berichte existieren. Das getrennte OpenAI-Kostenledger zählt 4 Aufrufe; diese sind nicht notwendigerweise 4 archivierte Berichte.
+
+**GENAU NÄCHSTER PuTTY-SCHRITT:** [`HW24_ACTOR_MATCH` im KI-Archiv-Read-only-Runbook](./HW24_AI_ARCHIVE_AUDIT_20261122.md) (**noch nicht ausgeführt**). Benutzer gibt nur seinen echten **Live-Browser-HTTP-Basic-Anmeldenamen** verdeckt in PuTTY ein, **kein Passwort**. Das Skript führt parameterisierten `SELECT COUNT(*) WHERE actor=?` aus und gibt nur Gesamtzahl / passende / fremde Anzahl aus; keine Namen oder Secrets. Danach zielgerichtete Lösung: Betreiber-Admin-Gesamtarchiv mit **serverseitiger Autorisierung**, bestehender Normalnutzer-`actor`-Scope bleibt unangetastet. Keine KI-POSTs, keine Mutation der 3 archivierten Daten, kein vorzeitiger Plesk-Testdomain-Cutover.
+
+[Archiv-Audit](./HW24_AI_ARCHIVE_AUDIT_20261122.md), Runbook-Commit `79561ed5e3ffc3e4a1e855189819adeba58ab6d3`; [Arbeitsjournal](./HW24_ARBEITSJOURNAL.md), Datenprüf-Commit `0186b16f11b05be120cc988aae2fdc12ac26d4be`.
+
+---
+
 ## AKTUELLSTE KI-ARCHIV-PRÜFUNG · 22.11.2026 · historischer Review #1 nachgewiesen, Live zeigt 0
 
 **Historischer Primärnachweis in der Projektakte:** Am 21.11.2026 lag eine authentifizierte `GET /api/ai-reviews.php`-Antwort mit `ok=true`, `stored=true`, `count=1`, Review-ID **1** und EAN **8027483835211** (Selective Professional ONcare Leave-in Daily Hydrating Spray, 275 ml) vor. Dieser Bericht war damals gespeichert und lesbar. **Aktueller Live-Browser** zeigt am 22.11. in `/index.html` nur `0 gespeicherte KI-Analysen`, bei **4 kostenmäßig gezählten KI-Prüfungen** (0,0053 USD Schätzung).
