@@ -466,3 +466,20 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 **Exakt nächster Schritt:** Read-only Auth-Gate der neuen privaten SQLite-Anwendung ohne Ausgabe der Admin-E-Mail: Benutzerzahl, Übereinstimmung `users.email` mit `HW24_ADMIN_EMAIL` und Panel-Login-Routen, danach den vorhandenen Legacy-Live-Artikelmanager **angemeldet** mit Referenz-EAN und API-Funktionen im Browser testen. Vor dem Umschalten der Testdomain Plesk-DocumentRoot/PHP-8.4-FPM und die bestehende manuelle Plesk-Git-Deploymentkopplung absichern, sonst könnte die neue Laravel-App ungewollt überschrieben bzw. privat gespeicherter Code öffentlich werden. **Noch keine Domainumstellung, kein JTL-Write, keine API-Secret-Übernahme.**
 
 **Pflicht:** Erfolg, weitere Tests und auch Fehler weiterhin sofort in GitHub festhalten.
+
+
+### 22.11.2026 · Filament-Administrator und Panel-Allowlist erfolgreich geprüft
+
+**BESTÄTIGT durch neue PuTTY-Ausgabe**, nach der vorangegangenen erfolgreichen interaktiven Filament-Adminanlage. Kommando lief als Site-Benutzer über Plesk PHP 8.4 und Laravel Tinker im privaten Framework-`platform`:
+
+| Schritt | Prüfkriterium | Tatsächliche Ausgabe | Status |
+| --- | --- | --- | --- |
+| 56 · Laravel-Admin in eigener SQLite | Benutzer per `App\Models\User::query()->where("email", config("hw24_legacy.admin_email"))->first()` gegen private Allowlist gesucht | `Administrator vorhanden: OK` | **BESTÄTIGT** |
+| 57 · Filament-Panel-Berechtigung | `Filament::getPanel("admin")` und `$user->canAccessPanel($panel)` | `Filament-Zugriff freigegeben: OK` | **BESTÄTIGT** |
+| 58 · Abschluss Read-only Adminprüfung | `=== PRÜFUNG ABGESCHLOSSEN ===`; Rückkehr an PuTTY-Prompt | **BESTÄTIGT** |
+
+**Datenschutz:** Das persönliche Admin-E-Mail-Postfach wird bewusst nicht im öffentlichen Repository veröffentlicht; nur Boolesche Ergebnisse werden protokolliert. Der passwortbasierte Browserlogin selbst ist **noch nicht getestet**. Beide Domain-Webroots wurden durch diese Laravel-Tinker-Abfrage nicht verändert.
+
+**Bereits bestätigt:** Laravel 13.43.0/Filament 5.12.0, vier Admin-Routen, private produktionskonfigurierte `.env` und APP_KEY, 4 ausgeführte SQLite-Migrationen, Filament-Assets sowie erfolgreiche Benutzeranlage und Panel-Allowlist. Legacy-Live-Artikelmanager auf `deploy/staging` V4.25 und vier kritische Webroot-Datei-Hashes OK, anonymer HTTP-Zugriff auf die geprüften Endpunkte 401. **Noch offen:** authentifizierter E2E-Live-Legacy-Test (JTL-Artikel EAN, Amazon-/KI-Lesewege) und getrennte Plesk-Test-vHost-Zielkonfiguration/DocumentRoot/PHP-Handler, danach erst sicherer Testdomain-Cutover.
+
+**Exakt nächste Aktion:** Live-Legacy-Artikelpflege im angemeldeten Browser mit Referenz-EAN öffnen und tatsächliche JTL-Artikelanzeige, Amazon-Katalog manuell sowie OpenAI-Archiv kostenlos testen. Parallel vor jeder Änderung Plesk-Testdomain-DocumentRoot, PHP-Handler und alte Git-Deploy-Zielverzeichnisse **read-only** prüfen. Keine weiteren SQLite-Migrationen/Neuanlage von Admin, keine neue Domain/DB und keine Credentials ausgeben oder committen.
