@@ -91,6 +91,7 @@
             <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
                 <a class="hw24-link" href="https://artikelmanager.hairworld24.de/artikelpflege.html" target="_blank" rel="noopener noreferrer" style="background:#174d78;color:white">Vollständige Artikelpflege &amp; KI-Abfrage</a>
                 <a class="hw24-link" href="{{ url('/admin/intelligence') }}{{ $this->verifiedEan() !== null ? '?ean=' . urlencode($this->verifiedEan()) : '' }}" style="background:#d3edfa;color:#124a6d">KI-Archiv, neue KI-Prüfung &amp; Amazon-Recherche</a>
+                <a class="hw24-link" href="{{ url('/admin/lager-preise') }}{{ $this->verifiedEan() !== null ? '?ean=' . urlencode($this->verifiedEan()) : '' }}" style="background:#d3eff1;color:#135465">WMS &amp; Preisvergleich</a>
                 <a class="hw24-link" href="{{ url('/admin/scanliste') }}" style="background:#e1effa;color:#194a76">Scanliste hier öffnen</a>
                 <a class="hw24-link" href="{{ url('/admin/werkzeuge') }}" style="background:#e1effa;color:#194a76">Alle bisherigen Werkzeuge</a>
                 <a class="hw24-link" href="https://artikelmanager.hairworld24.de/index.html" target="_blank" rel="noopener noreferrer" style="background:#e1effa;color:#194a76">Amazon &amp; JTL-Ameise</a>
