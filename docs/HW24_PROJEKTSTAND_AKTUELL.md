@@ -1,3 +1,19 @@
+## NEUESTER SICHERER STAND · 22.11.2026 · PLESK TEST/LIVE EXAKT ZUGEORDNET
+
+**Vom Betreiber durch PuTTY-SQL bestätigt:**
+- **LIVE** `artikelmanager.hairworld24.de`, `domains.id=9`, Plesk Root-Schutz `protected_dirs.id=8`, aktiver Basic-Login ist bereits der gewünschte neue Name.
+- **TEST** `test-artikelmanager.hairworld24.de`, `domains.id=10`, Plesk Root-Schutz `protected_dirs.id=9`, aktiver Basic-Login hat noch den alten Namen.
+- Plesk `plesk-stat` `protected_dirs.id=1` **nicht anfassen**. Beide Domains `htype=vrt_hst`, `parentDomainId=5`. Plesk-Schema `protected_dirs.path`, **nicht** `name`.
+- KI-Archiv gesamt **3 Berichte** alle unter altem Login; Scanliste gesamt **2 Stapel**, davon je einer unter altem/neuem Login. Kein Datenverlust, aber Eigentümerfilter müssen beide lesen können.
+
+**Code vorbereitet und CI grün, NICHT deployed:** [Draft PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37) HEAD `c2cc4e1dc054da00f01087e7221659cf54a9a482` ist gegenüber `deploy/staging` isoliert, CI-Runs `44978357305`/`44978360796` erfolgreich. Private `read_aliases`-Allowlist wird erst auf dem Server angelegt und autorisiert. Neue KI- und Scan-Daten gehören weiter dem tatsächlich eingeloggten Nutzer; vorhandene historische `actor`/`created_by` bleiben erhalten. **Kein Account-Rename, kein Merge, kein Deploy oder Plesk-DocumentRoot-Wechsel passiert.**
+
+**GENAU NÄCHSTER PuTTY-Befehl:** [`HW24_AUTH_DEPLOY_PREFLIGHT`](./HW24_LOGIN_IDENTITAETSWECHSEL_20261122.md) nur lesend. Er zeigt Plesk-Git-Branch-/Deploy-Metadaten (ohne Remote-Zugangstoken) und Git-Blob-Hashes von `api/scanliste.php`, `api/ai-reviews.php`, `api/ai-review.php`, `api/hw24-actor-identity.php` in den bestehenden Live-/Test-Webroots. Erst mit diesem Nachweis private Webroot-Backup-/Rollback- und kontrollierte PR-Bereitstellung planen, **bevor** das bisherige Test-Basic-Konto gemäß offizieller Plesk-Protdir-CLI umbenannt wird. Keine Änderungen am bestehenden Live-Basic-Login oder am Statistikschutz. Separate Laravel-/Filament-Umstellung später.
+
+[Chronologischer Befund](./HW24_ARBEITSJOURNAL.md), Commit `009d1589aa49180041ca6e14d0ea9bbc46240bfc`; [Runbook mit nächstem Block](./HW24_LOGIN_IDENTITAETSWECHSEL_20261122.md), Commit `b55ee19bd2f53690572cdb8a4b3999694cdde6cb`.
+
+---
+
 ## JETZT BESTÄTIGT · Plesk-Schema mit `protected_dirs.path` (22.11.2026)
 
 **PuTTY-Read-only-Beleg:** `protected_dirs` enthält die Felder `id, non_ssl, ssl, realm, path, dom_id, dom_type, cgi_bin`; **kein** Feld `name`. `pd_users` hat `id,login,account_id,pd_id`, `domains` enthält `id,name,parentDomainId`. Die zuvor fehlgeschlagene Passwortschutz-Abfrage verwendete `pd.name` und muss zwingend durch `pd.path` ersetzt werden. **Keine Plesk-Einstellung geändert.**
