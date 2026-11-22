@@ -55,7 +55,7 @@ const notAutoImport=new Set([...protectedFields,'Lagerkommentar_1 [ZepCh]',
  'Lagerkommentar_2 [ZepCh]','Lagerkommentar_1 [ZepCh - WMS-ZepCh]',
  'Lagerkommentar_2 [ZepCh - WMS-ZepCh]']);
 let rec=null,ean='',jtl=null,source='none',pending=false;
-let manuallyChanged=new Set();
+let manuallyChanged=new Set(),confirmed={};
 let lists={
  warengruppe:['Haarfarben','Haarpflege','Haarstyling','Sammelkarten','Beauty','Haarschmuck'],
  artikeltyp:['Normaler Artikel','Kartonage','Mehrzweckgutschein'],
@@ -160,9 +160,12 @@ function createControl(container,key,type,read){
  }
  const foot=document.createElement('small');foot.className='note';
  const preset=defaults.get(key);
+ const reviewed=Object.prototype.hasOwnProperty.call(confirmed,key)&&val(confirmed[key])===value;
  foot.textContent=read?'Aus JTL/CSV anzeigen, niemals über den Ameise-Stammdatenentwurf zurückschreiben':
-  value?'Vorhandener Wert aus Quelle/Entwurf erhalten':
+  reviewed?'✓ Dauerhaft im HW24-Artikelstand freigegeben':
+  value?'Wert vorhanden, noch nicht dauerhaft freigegeben':
   preset?'Standardvorschlag Neuanlage: '+preset:'Kein geprüfter Wert';
+ if(reviewed){field.style.border='1px solid #73b990';field.style.background='#f3fbf5';}
  field.append(foot);container.append(field);
 }
 function render(){
@@ -183,7 +186,7 @@ function render(){
 }
 window.hw24ProfileOptions=setListFromRows;
 window.hw24ProfileScan=(id,record)=>{
- ean=val(id);rec=record||null;jtl=null;source=rec?.Status==='IM_CSV'?'csv':'none';pending=false;manuallyChanged.clear();
+ ean=val(id);rec=record||null;jtl=null;source=rec?.Status==='IM_CSV'?'csv':'none';pending=false;manuallyChanged.clear();confirmed={};
  render();
 };
 window.hw24ProfileJtl=response=>{
@@ -223,6 +226,11 @@ window.hw24ProfileJtl=response=>{
   pending=true;applyDefaults();
  }else render();
 };
+document.addEventListener('hw24:curated-applied',event=>{
+ const detail=event.detail||{};
+ if(detail.ean!==ean&&!((rec?.GTIN||rec?.EAN)===detail.ean))return;
+ confirmed=detail.fields||{};render();
+});
 window.hw24ProfileCurrent=record=>{rec=record||null;render()};
 window.hw24ProfileDefaults=newDefaults;
 window.hw24ProfileNotAutoImport=notAutoImport;

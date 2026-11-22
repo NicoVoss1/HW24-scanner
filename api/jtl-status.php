@@ -22,6 +22,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
 }
 $https=($_SERVER['HTTPS'] ?? '') !== '' && strtolower((string)$_SERVER['HTTPS']) !== 'off';
 if (!$https) jtlStatusReply(403,['ok'=>false,'error'=>'https_required']);
+$authUser=$_SERVER['PHP_AUTH_USER']??$_SERVER['REMOTE_USER']??$_SERVER['REDIRECT_REMOTE_USER']??'';
+if ($authUser==='') jtlStatusReply(403,['ok'=>false,'error'=>'site_authentication_required']);
 
 $result=[
     'ok'=>true,
@@ -36,7 +38,19 @@ $result=[
     'latest_snapshot_utc'=>null,
     'age_minutes'=>null,
     'latest_rows'=>null,
-    'next'=>'setup_db'
+    'next'=>'setup_db',
+    // These are capabilities of the VERSIONED Windows sync code, not an
+    // inference about independent third-party tasks on the Windows machine.
+    'pipeline_sources'=>[
+      'jtl_tArtikel'=>'implemented',
+      'jtl_tArtikelBeschreibung'=>'implemented',
+      'wms_lagerplaetze'=>'not_integrated',
+      'wms_bewegungen'=>'not_integrated',
+      'amazon_eigene_angebote'=>'not_integrated',
+      'ebay_angebotsvorlagen'=>'not_integrated',
+      'jtl_lieferanten'=>'not_integrated'
+    ],
+    'task_scheduler_verified'=>false
 ];
 $folder=dirname(__DIR__,2).'/hw24_private';
 $result['read_config']=is_file($folder.'/db.php')?'present':'missing';
