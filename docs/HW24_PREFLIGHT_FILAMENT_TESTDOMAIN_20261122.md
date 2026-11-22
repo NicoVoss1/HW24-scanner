@@ -187,3 +187,45 @@ HW24_POOL_READ
 Dieser Block verändert **keine** Dateirechte, legt **keine** ACL an, liest nur Unix-User-/Gruppen-IDs, ausgewählte Pool-`user/group`-Schlüssel und `stat`-Metadaten und gibt **keinen** `.env`-/SQLite-Inhalt aus. Keinen PHP-FPM-/Webserver-Neustart durchführen. Erst nach Analyse dieser Angaben eine minimal erforderliche, rückrollbare Asset-Freigabe und FPM-Trennung konzipieren.
 
 Weiterhin gilt: Keine Domain-Umstellung vor authentifiziertem Legacy-Live-Artikel-/Amazon-/KI-Funktionstest.
+
+
+## Bestätigt: echter Test-vHost-PHP-8.5-FPM-Pool und Webservergruppen
+
+Neue Betreiber-PuTTY-Ausgabe hat die noch offenen Poolmetadaten vollständig bestätigt:
+
+- `user=nicovoss`, `group=psacln` im tatsächlichen Plesk-PHP-8.5-FPM-Pool der **Testdomain**. PHP-FPM erhält damit die Besitzerrechte auf `.env` und Laravel-SQLite (beide 0600) und muss **keine** Gruppe `psaserv` in die Laravel-Konfigurationsdateien aufgenommen bekommen.
+- FPM-Socket: `listen.owner=root`, `listen.group=psaserv`, `listen.mode=0660`. Die aktiven Prozessnutzer `nginx` und `www-data` sind in `psaserv`, jedoch nicht in `psacln`.
+- Laravel `platform/`, `public/`, `public/css/` weiter 0700; statische Filament-CSS 0600. Damit ist die bisherige Lesesperre für Nginx/Apache hinsichtlich CSS/JS/Fonts **durch die Unix-Gruppenzuordnung erklärbar**; kein PHP-/Laravel-Fehler.
+- `getfacl` und `setfacl` wurden vorher im aktuellen PATH nicht gefunden. Das kostenlose Ubuntu-22.04-Paket `acl` liefert beide Programme: https://packages.ubuntu.com/jammy/amd64/acl/filelist.
+- Die Bestätigung steht im [Arbeitsjournal](./HW24_ARBEITSJOURNAL.md), Commit `ac9cbd70d710a301d19bd8f7001f65c266471fbf`.
+
+### Nächste kontrollierte Vorbereitungsaktion: ACL-Werkzeuge bereitstellen
+
+**Noch nicht ausgeführt.** Der folgende Block installiert **nur falls erforderlich** das freie Ubuntu-Paket `acl` als Root. Er **ändert keine Laravel-Dateirechte, kein Plesk-Domainsetting und keine bestehende JTL-Datenbank**. Da dies eine Systempaketinstallation ist, soll der Betreiber den Befehl bewusst freigeben und ausführen.
+
+```bash
+bash <<'HW24_ACL_TOOLS'
+set -euo pipefail
+echo "=== HW24 ACL-WERKZEUGE ==="
+
+if command -v getfacl >/dev/null 2>&1 &&
+   command -v setfacl >/dev/null 2>&1; then
+  echo "ACL-Werkzeuge bereits vorhanden"
+else
+  echo "Installiere ausschliesslich Ubuntu-Paket acl ..."
+  DEBIAN_FRONTEND=noninteractive     apt-get install -y --no-install-recommends acl
+fi
+
+command -v getfacl
+command -v setfacl
+
+echo "Dateisystem der privaten Laravel-App:"
+findmnt -T /var/www/vhosts/hairworld24.de/hw24-console-private   -no TARGET,FSTYPE,OPTIONS
+
+echo "=== ACL-VORBEREITUNG ABGESCHLOSSEN ==="
+HW24_ACL_TOOLS
+```
+
+**Danach (gesondert und nicht automatisch):** Vor jeder `setfacl`-Änderung eine root-private `getfacl`-Sicherung der ausgewählten Pfade einschließlich Verzeichnisse und Asset-Unterbäume sowie eine `setfacl --restore`-Rückfallanleitung erstellen. Für nginx und www-data ausschließlich **`--x` auf notwendige private Elternverzeichnisse** und **`r-x` auf die öffentlichen statischen `public/css`, `public/js`, `public/fonts`** verwenden; **keine Lese-ACL** auf `.env`, SQLite, `vendor`, `storage`, `app` oder andere Laravel-Privatquellen. Nach Prüfung die CSS/JS-Benutzer-Leseproben wiederholen. Der Frontcontroller `public/index.php` bleibt für PHP-FPM-Site-User erreichbar, ohne ihn für nginx als Quelltext freizugeben.
+
+**Weiteres Gate vor Webroot-Cutover:** alten Legacy-Live-Artikelmanager mit gültiger Anmeldung, JTL-Artikel, manuellem Amazon-GET und archiviertem KI-GET abnehmen; Plesk-Git-Deployment-Ziel/rollback dokumentieren; nur `platform/public` als Docroot wählen. Webserver-Static-Asset-Auslieferung unter Plesk erfolgt je nach nginx/Apache-Setup mit deren Prozessrechten. Offizielle Hinweise: https://laravel.com/framework/docs/13.x/deployment und https://docs.plesk.com/en-US/obsidian/customer-guide/websites-and-domains/hosting-settings/web-server-settings/apache-and-nginx-settings.72320/.
