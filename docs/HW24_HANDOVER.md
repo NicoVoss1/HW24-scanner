@@ -1,3 +1,15 @@
+## BESTÄTIGTER PLESK-ACCOUNTBEFUND · 22.11.2026
+
+**Root-geschützte Plesk-Accounts gefunden:** bisherige Basic-Kennung in `protected_dirs.id=9, dom_id=10, dom_type=domain, path leer, realm=hw24-test`; künftige Basic-Kennung in `protected_dirs.id=8, dom_id=9, dom_type=domain, path leer, realm=HW24 Artikelmanager`. Künftige Kennung zudem in gesondertem `plesk-stat`-Konto `pd.id=1, dom_id=1`; **statistischen Zugang keinesfalls umstellen**.
+
+**Noch nicht sicher:** Ob Plesk-Domain-ID 9 bzw. 10 der Test- oder Live-Host ist. Der Realm ist kein Beweis. Nächster einziger Schritt: [`HW24_PLESK_DOMAINS` read-only](./HW24_LOGIN_IDENTITAETSWECHSEL_20261122.md), Commit `8e4953e1c481fea5a9b90a267200bca977fee035`. Er fragt per tatsächlichen Plesk-Spalten `domains.id/name/htype/parentDomainId` und geschützte Konten 8/9 ab. **Kein Plesk-Rename, kein Deploy, keine Aliasdatei.**
+
+**Bestand unverändert:** 3 KI-Berichte unter bisheriger Kennung; 2 Scan-Stapel getrennt 1/1 bei alter/neuer Kennung. [Draft PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37), HEAD `c2cc4e1d`, erfolgreich CI #44978357305 / #44978360796, bereitet serverseitig privat autorisierte Dual-Owner-Sicht für Scanliste und KI-Archiv vor und protokolliert neue Schreibvorgänge beim aktuellen Login. **Noch nicht ausgerollt.** Kein Datenbank-UPDATE und kein KI-POST.
+
+[Einzelbeleg](./HW24_ARBEITSJOURNAL.md), Commit `840b57fdd04e9a448d7151978a67855edccea2b5`.
+
+---
+
 **WICHTIGE PRÄZISIERUNG DER NÄCHSTEN PLESK-AUTH-ABFRAGE:** `protected_dirs` besitzt `dom_type` und `dom_id`. Plesk-Subdomains können gesondert verwaltet sein; daher **erst** `pd_users` mit `protected_dirs` über `pd_id=id` für genau die zwei bekannten Basic-Namen prüfen, ohne voreiligen Join auf `domains`. Exakter geprüfter **read-only** Block `HW24_PLESK_AUTH_READ` steht **ganz oben** im [Login-Runbook](./HW24_LOGIN_IDENTITAETSWECHSEL_20261122.md), Commit `0c2b5d29abaed7487ae508c696a54d31d30eac1d`. Benutzername, `pd.id/dom_type/dom_id/path/realm` ausgeben, aber **keine** Passwörter oder Hashes. Danach erst Domain und Umbenennung planen. Keine Konten-/Git-/DB-Änderung geschehen.
 
 ## JETZT BESTÄTIGT · Plesk-Schema mit `protected_dirs.path` (22.11.2026)
