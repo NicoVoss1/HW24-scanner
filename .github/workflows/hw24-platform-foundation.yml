@@ -24,6 +24,11 @@ jobs:
         run: |
           php platform/scripts/verify-price-contract.php
           php platform/scripts/verify-gross-calculation.php
+          php -l platform/ops/verify-admin-routes-json.php
+          bash -n platform/ops/upgrade-test-legacy-workflows-ffonly.sh
+          bash -n platform/ops/upgrade-native-ai-amazon-scan-ffonly.sh
+          printf '%s\n' '[{"uri":"admin/scanliste"},{"uri": "admin/intelligence"},{"uri" : "admin/lager-preise"}]' | php platform/ops/verify-admin-routes-json.php admin/scanliste admin/intelligence admin/lager-preise
+          if printf '%s\n' '[{"uri": "admin/scanliste"}]' | php platform/ops/verify-admin-routes-json.php admin/lager-preise 2>/dev/null; then echo 'SECURITY FAIL: missing route accepted'; exit 2; fi
           php -l api/amazon-archive.php
           grep -q "if (\(\$_SERVER\['REQUEST_METHOD'\]??''\)!=='GET')" api/amazon-archive.php || grep -q "method_not_allowed" api/amazon-archive.php
           grep -q 'hw24_amazon_catalog_snapshots' api/amazon-archive.php
