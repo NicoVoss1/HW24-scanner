@@ -6,6 +6,7 @@ namespace Tests\Feature;
 use App\Filament\Pages\ArticleLookup;
 use App\Filament\Pages\WarehousePriceWorkbench;
 use App\Filament\Pages\IntelligenceWorkbench;
+use App\Filament\Pages\ScanWorkbench;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -177,4 +178,44 @@ final class ReusedLegacyEvidenceIntegrationTest extends TestCase
         Http::assertSent(fn($r)=>$r->method()==='GET'&&str_contains($r->url(),'/api/amazon-sellers.php'));
         Http::assertNotSent(fn($r)=>$r->method()==='POST');
     }
+    public function test_existing_scan_batch_uses_one_free_actor_scoped_ai_summary_get(): void
+    {
+        Http::fake(function($r){
+            $url=$r->url();
+            if(str_contains($url,'op=batches')){
+                return Http::response(['ok'=>true,'batches'=>[
+                    ['id'=>7,'label'=>'Eingang 01','created_at_utc'=>'','updated_at_utc'=>''],
+                ]],200);
+            }
+            if(str_contains($url,'op=items')){
+                return Http::response(['ok'=>true,'items'=>[
+                    ['ean'=>'3474630337398','artikelname'=>'Matrix 6C','scan_count'=>2],
+                    ['ean'=>'4006381333931','artikelname'=>'Anderes Produkt','scan_count'=>1],
+                ]],200);
+            }
+            if(str_contains($url,'/api/ai-reviews.php')){
+                return Http::response(['ok'=>true,'summary'=>true,'summaries'=>[
+                    '3474630337398'=>[
+                        'review_id'=>99,'count'=>1,'at_utc'=>'2026-11-22 21:00:00',
+                    ],
+                ]],200);
+            }
+            return Http::response(['ok'=>false],404);
+        });
+        Http::preventStrayRequests();
+        Livewire::test(ScanWorkbench::class)
+            ->call('loadBatches')
+            ->call('loadBatch',7)
+            ->call('loadBatchAiMarkers')
+            ->assertSet('batchAiStatus.ok',true)
+            ->assertSet('batchAiMarkers.3474630337398.id',99)
+            ->assertSee('Bereits geprüft')
+            ->assertSee('Kein bestätigter Archivtreffer');
+        Http::assertSentCount(3);
+        Http::assertSent(fn($r)=>$r->method()==='GET' &&
+            str_contains($r->url(),'summary=1') &&
+            str_contains($r->url(),'3474630337398'));
+        Http::assertNotSent(fn($r)=>$r->method()==='POST');
+    }
+
 }
