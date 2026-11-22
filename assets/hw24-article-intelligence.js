@@ -57,7 +57,7 @@ function propose(key,proposed,origin){
 function reset(){
  ++state.seq;state.article=null;state.ean='';state.amazon=[];
  state.aiLatest=null;state.ameise=null;state.ameiseChecks=[];
- for(const id of ['amazonResults','aiReviewResults','ameiseDraftFields'])$(id)?.replaceChildren();
+ for(const id of ['amazonResults','amazonKeywordResults','aiReviewResults','ameiseDraftFields'])$(id)?.replaceChildren();
  message('amazonState','Für diesen Artikel ist noch keine Amazon-Katalogabfrage gestartet.');
  message('aiReviewState','KI-Archiv wird nach der Artikelauswahl kostenfrei geprüft.');
  message('ameiseDraftState','Nur bestätigte Änderungen des aktuell gewählten JTL-Artikels exportieren.');
@@ -108,6 +108,36 @@ async function amazonLookup(){
    const info=el('p',box,'Katalogdaten sind Vorschläge. EAN, Farbton, Volumen und Einzel-/Mehrfachpackung vor Zuordnung kontrollieren.','muted');
    info.style.margin='8px 0';
    const actions=el('div',box,null,'intel-actions');
+   if(/^[A-Z0-9]{10}$/.test(id)){
+    const pricingBtn=el('button',actions,'Preisangebote anzeigen','secondary');
+    const pricingBox=el('div',box,null,'intel-pricing');
+    pricingBtn.type='button';
+    pricingBtn.onclick=async()=>{
+     pricingBtn.disabled=true;pricingBox.replaceChildren();
+     el('p',pricingBox,'Amazon-Angebotsdaten werden für ASIN '+id+' abgerufen …','muted');
+     try{
+      const res=await fetch('api/amazon-pricing.php?asin='+encodeURIComponent(id),
+        {credentials:'same-origin',cache:'no-store'});
+      const data=await res.json();
+      if(!res.ok||!data.ok)throw Error(apiError(data,res.status));
+      pricingBox.replaceChildren();
+      const count=Number(data.total_offer_count||0);
+      el('strong',pricingBox,'Amazon.de · '+count+' Angebote (Live-Abfrage)');
+      const prices=[...(data.buybox_prices||[]).map(x=>({...x,label:'Buy Box'})),
+        ...(data.lowest_prices||[]).map(x=>({...x,label:'Niedrigster Angebotspreis'}))];
+      if(!prices.length)el('p',pricingBox,'Keine vergleichbaren Preise von Amazon zurückgegeben.','muted');
+      for(const p of prices.slice(0,8)){
+       const v=p.listing_price||p.landed_price;
+       if(v&&Number.isFinite(Number(v.amount)))
+        el('div',pricingBox,p.label+': '+Number(v.amount).toLocaleString('de-DE',{
+          minimumFractionDigits:2,maximumFractionDigits:2})+' '+(v.currency||'')+
+          (p.fulfillment?' · '+p.fulfillment:''),'muted');
+      }
+      el('small',pricingBox,'Amazon-Angebotspreise sind keine JTL-Verkaufspreise. Keine Übernahme in JTL oder Shopify.','muted');
+     }catch(e){pricingBox.replaceChildren();el('p',pricingBox,'⚠ '+e.message,'muted');}
+     finally{pricingBtn.disabled=false}
+    };
+   }
    for(const [key,value] of [['ASIN',id],['Hersteller',item.brand||item.manufacturer],
       ['Artikelname',item.title]]){
     if(!val(value))continue;
@@ -122,6 +152,39 @@ async function amazonLookup(){
  }
 }
 $('amazonSearch').addEventListener('click',amazonLookup);
+$('amazonKeywordSearch').addEventListener('click',async()=>{
+ if(!available())return;
+ const seq=state.seq,name=present('Artikelname')||val(state.article?.artikelname);
+ const cleaned=name.replace(/[^\\p{L}\\p{N} .,_/()+-]/gu,' ').replace(/\\s+/g,' ').trim().slice(0,120);
+ const root=$('amazonKeywordResults');root.replaceChildren();
+ if(cleaned.length<3){el('p',root,'Für die Amazon-Titelsuche fehlt eine geeignete Produktbezeichnung.','muted');return}
+ $('amazonKeywordSearch').disabled=true;
+ el('p',root,'Amazon-Suche nach Produktnamen läuft (unverifizierte Identität) …','muted');
+ try{
+  const response=await fetch('api/amazon-keywords.php?q='+encodeURIComponent(cleaned),
+    {credentials:'same-origin',cache:'no-store'});
+  const data=await response.json();
+  if(seq!==state.seq)return;
+  if(!response.ok||!data.ok)throw Error(apiError(data,response.status));
+  root.replaceChildren();
+  el('strong',root,(Number(data.count)||0)+' zusätzliche Amazon-Kandidaten nach Produktname · '+
+    (data.source==='cache'?'bestehender Cache':'Live-Suche'));
+  for(const item of (data.items||[]).slice(0,10)){
+   if(!item||typeof item!=='object')continue;
+   const box=el('div',root,null,'intel-result');
+   el('strong',box,val(item.title)||'Ohne Titel');
+   const matched=Array.isArray(item.gtins)&&item.gtins.includes(state.ean);
+   el('p',box,'ASIN '+val(item.asin)+' · EAN '+(matched?'im Katalogkandidaten enthalten':
+    'nicht als identisch bestätigt')+' · Marke '+val(item.brand),'muted');
+   if(matched&&/^[A-Z0-9]{10}$/.test(val(item.asin))){
+    const btn=el('button',box,'ASIN als HW24-Vorschlag','secondary');
+    btn.type='button';btn.addEventListener('click',()=>propose('ASIN',item.asin,'Amazon-Titelsuche mit EAN-Nachweis'));
+   }
+  }
+  el('p',root,'Nur der tatsächlich belegte EAN-Abgleich erlaubt einen ASIN-Vorschlag. Andere Treffer sind Recherchehinweise.','muted');
+ }catch(e){if(seq===state.seq){root.replaceChildren();el('p',root,'⚠ '+e.message,'muted');}}
+ finally{$('amazonKeywordSearch').disabled=false;}
+});
 function paintAi(review){
  const root=$('aiReviewResults');root.replaceChildren();
  if(!review)return;
