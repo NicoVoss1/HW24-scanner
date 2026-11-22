@@ -155,7 +155,7 @@ $('amazonSearch').addEventListener('click',amazonLookup);
 $('amazonKeywordSearch').addEventListener('click',async()=>{
  if(!available())return;
  const seq=state.seq,name=present('Artikelname')||val(state.article?.artikelname);
- const cleaned=name.replace(/[^\\p{L}\\p{N} .,_/()+-]/gu,' ').replace(/\\s+/g,' ').trim().slice(0,120);
+ const cleaned=name.replace(/[^\p{L}\p{N} .,_\/()+-]/gu,' ').replace(/\s+/g,' ').trim().slice(0,120);
  const root=$('amazonKeywordResults');root.replaceChildren();
  if(cleaned.length<3){el('p',root,'Für die Amazon-Titelsuche fehlt eine geeignete Produktbezeichnung.','muted');return}
  $('amazonKeywordSearch').disabled=true;
