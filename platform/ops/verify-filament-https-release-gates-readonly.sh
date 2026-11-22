@@ -34,7 +34,7 @@ else
 fi
 echo '2. Plesk-Git-Veroeffentlichung nur auslesen'
 if gitinfo="$(plesk ext git --info -domain "$site" -name HW24-scanner.git 2>/dev/null)"; then
- git_summary="$(printf '%s\\n' "$gitinfo" | python3 -c '
+ git_summary="$(printf '%s\n' "$gitinfo" | python3 -c '
 import re,sys
 text=sys.stdin.read()
 mode=""
