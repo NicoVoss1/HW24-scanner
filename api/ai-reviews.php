@@ -18,6 +18,8 @@ if(($_SERVER['REQUEST_METHOD']??'')!=='GET'){
 }
 $actor=trim((string)($_SERVER['PHP_AUTH_USER']??$_SERVER['REMOTE_USER']??$_SERVER['REDIRECT_REMOTE_USER']??''));
 if($actor===''||strlen($actor)>180)send(403,['ok'=>false,'error'=>'authentication_required']);
+require_once __DIR__.'/hw24-actor-identity.php';
+$actor=hw24StoredActor($actor);
 if(($_SERVER['HTTPS']??'')!=='on'&&($_SERVER['HTTP_X_FORWARDED_PROTO']??'')!=='https')
  send(403,['ok'=>false,'error'=>'https_required']);
 $ean=trim((string)($_GET['ean']??''));
