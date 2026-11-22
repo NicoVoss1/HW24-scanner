@@ -70,13 +70,19 @@ case "$old" in
 esac
 case "$(gituser branch --show-current)" in
  feature/hw24-platform-laravel13-filament5-20261122|\
- feature/hw24-legacy-workflows-recovery-20261122)
+ feature/hw24-legacy-workflows-recovery-20261122|\
+ feature/hw24-native-ai-amazon-scan-20261122)
   : ;;
  *) echo 'STOP: Privater Git-Branch unerwartet';exit 2;;
 esac
 [ -z "$(gituser status --porcelain --untracked-files=no)" ] || {
  echo 'STOP: Getrackte lokale Code-Aenderungen vorhanden';exit 2;
 }
+origin="$(gituser remote get-url origin 2>/dev/null || true)"
+case "$origin" in
+ https://github.com/NicoVoss1/HW24-scanner|https://github.com/NicoVoss1/HW24-scanner.git) : ;;
+ *) echo 'STOP: GitHub-Origin nicht erwartetes privates Repository';exit 2 ;;
+esac
 for f in "$app/.env" "$app/composer.lock" "$app/vendor/autoload.php" "$app/database/database.sqlite";do
  [ -f "$f" ] && [ ! -L "$f" ] || { echo 'STOP: Private Datei fehlt oder ist Symlink';exit 2; }
 done
@@ -198,7 +204,6 @@ runuser -u "$owner" -- /bin/bash -c '
  "$2" artisan view:cache --no-interaction >/dev/null
  "$2" artisan route:list --path=admin --except-vendor --json > /dev/null
 ' hw24-native "$app" "$php"
-routes="$(runuser -u "$owner" -- "$php" "$app/artisan" route:list --path=admin --except-vendor --json)"
 # Parse Laravel route JSON by exact URI; ignore whitespace in JSON representation.
 routes="$(runuser -u "$owner" -- "$php" "$app/artisan" route:list --path=admin --except-vendor --json)"
 printf '%s' "$routes" | "$php" "$app/ops/verify-admin-routes-json.php" admin/intelligence admin/scanliste admin/werkzeuge admin/artikel admin/lager-preise
@@ -215,6 +220,10 @@ done
 after_http="$(curl -sS --max-time 10 --proto '=https' --output /dev/null --write-out '%{http_code}' "https://$site/admin/intelligence" 2>/dev/null)" || after_http='transport_error'
 case "$after_http" in 401|403) : ;; *)
  echo "STOP: Anonymer Basic-Auth-Schutz nach Update nicht nachweisbar: $after_http";exit 2;;
+esac
+wms_http="$(curl -sS --max-time 10 --proto '=https' --output /dev/null --write-out '%{http_code}' "https://$site/admin/lager-preise" 2>/dev/null)" || wms_http='transport_error'
+case "$wms_http" in 401|403) : ;; *)
+ echo "STOP: WMS-Preise ohne nachweisbaren Basic-Auth-Schutz: HTTP $wms_http";exit 2;;
 esac
 
 success=1
