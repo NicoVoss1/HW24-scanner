@@ -1,5 +1,8 @@
 # HW24 Artikelmanager · Hairworld24
 
+> **NEUESTE VERBINDLICHE PROJEKTÜBERGABE (22.11.2026):** [HW24_HANDOVER.md](docs/HW24_HANDOVER.md) · [Arbeitsjournal mit jedem einzelnen Schritt](docs/HW24_ARBEITSJOURNAL.md) · [Projektstand](docs/HW24_PROJEKTSTAND_AKTUELL.md). **Achtung:** Ältere Abschnitte dieser README beschreiben frühere V4.22/V4.24-Zustände. Der aktuelle Plesk-Live-Branch ist laut Nutzer bereits `deploy/staging` V4.25; Framework wurde privat geklont, aber wegen Git-Eigentümerprüfung noch nicht mit Composer installiert. **Zuerst die neue Übergabe lesen, nicht bei null anfangen.**
+
+
 > **Zuerst lesen, dann weiterarbeiten:** Wir starten nicht bei null. Backups, Plesk-Verzeichnisprüfung und GitHub-Deployabgrenzung wurden bereits bearbeitet. Die aktuelle, verbindliche Anwendungsbasis ist **V4.24 TEST** im Branch **`deploy/staging`** (PR #32, Commit `f51ab67240bd1bf0e5be25498269049a24748b85`). Diese GitHub-Version ist noch nicht nachweislich in Plesk bereitgestellt, nicht der ältere `main`-Quellcode. Dieser Defaultbranch dient vorerst als dauerhaft auffindbarer **Dokumentations-Einstieg**.
 
 ## 📌 Verbindliche Projektübersicht
