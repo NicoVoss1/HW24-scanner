@@ -7,6 +7,7 @@ use App\Filament\Pages\ArticleLookup;
 use App\Filament\Pages\ScanWorkbench;
 use App\Filament\Pages\LegacyWorkspace;
 use App\Filament\Pages\IntelligenceWorkbench;
+use App\Filament\Pages\WarehousePriceWorkbench;
 use App\Filament\Widgets\Hw24SystemOverview;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -34,7 +35,7 @@ final class AdminPanelProvider extends PanelProvider
             ->brandName('HW24 Intelligence Console')
             ->login()
             ->colors(['primary' => Color::Blue])
-            ->pages([Dashboard::class, ArticleLookup::class, IntelligenceWorkbench::class, ScanWorkbench::class, LegacyWorkspace::class])
+            ->pages([Dashboard::class, ArticleLookup::class, IntelligenceWorkbench::class, WarehousePriceWorkbench::class, ScanWorkbench::class, LegacyWorkspace::class])
             ->widgets([Hw24SystemOverview::class])
             ->middleware([
                 EncryptCookies::class,
