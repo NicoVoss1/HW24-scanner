@@ -80,3 +80,26 @@
 #amazonState,#aiReviewState,#ameiseDraftState{overflow-wrap:anywhere;font-size:12px;line-height:1.55}
 #suggestTimes{margin:5px 0 14px}
 @media(max-width:700px){.intel-panel{padding:12px}.intel-actions{display:grid}.intel-actions button{text-align:left}}
+
+/* V4.26: all original mirrored JTL article fields, collapsible and searchable */
+.source-channels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0 21px}
+.source-channel{border:1px solid #dce8f0;border-radius:9px;padding:12px;background:#f8fbfd;display:flex;flex-direction:column;gap:5px;min-width:0}
+.source-channel strong{font-size:12px;color:#244a67;overflow-wrap:anywhere}
+.source-channel-price{font-size:18px;font-weight:760;color:#183d5d}
+.source-channel small{color:#61778b;font-size:11px;line-height:1.35;overflow-wrap:anywhere}
+.source-filters{display:grid;grid-template-columns:minmax(0,2fr) minmax(190px,1fr);gap:12px;margin:12px 0}
+.source-filters label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700;color:#355a73}
+.source-filters input,.source-filters select{width:100%;font:inherit;font-size:13px;color:#193d55;border:1px solid #bacddc;border-radius:8px;padding:10px;background:#fff}
+.source-fields{overflow:auto;max-height:650px;border:1px solid #e1e8f0;border-radius:8px}
+.source-table{border-collapse:collapse;width:100%;font-size:12px;table-layout:fixed}
+.source-table th,.source-table td{padding:9px 10px;border-bottom:1px solid #e8edf1;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+.source-table th{background:#edf4f9;color:#254762;position:sticky;top:0}
+.source-table td:first-child{width:27%;color:#46667b}
+.source-table td:nth-child(2){width:27%}
+.source-table td:last-child{width:46%}
+.source-table code{font-size:11px;white-space:normal}
+.source-table small{font-size:10px;color:#698398}
+.source-table pre{font:inherit;white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f9fb;padding:8px;border-radius:5px;max-height:250px;overflow:auto}
+.source-table summary{font-size:11px;color:#20587b;cursor:pointer;margin-top:6px}
+.source-empty{color:#9a6c26}
+@media(max-width:700px){.source-channels,.source-filters{grid-template-columns:1fr}.source-table{min-width:680px}}
