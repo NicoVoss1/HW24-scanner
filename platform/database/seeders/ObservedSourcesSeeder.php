@@ -21,9 +21,9 @@ final class ObservedSourcesSeeder extends Seeder
         $columns=[
             // schema, table, field, SQL type, business group
             ['dbo','tArtikel','kArtikel','int','Artikelstamm'],
-            ['dbo','tArtikel','cBarcode','nvarchar','Artikelstamm'],
-            ['dbo','tArtikel','cArtNr','nvarchar','Artikelstamm'],
-            ['dbo','tArtikel','cASIN','nvarchar','Amazon'],
+            ['dbo','tArtikel','cBarcode',null,'Artikelstamm'],
+            ['dbo','tArtikel','cArtNr',null,'Artikelstamm'],
+            ['dbo','tArtikel','cASIN',null,'Amazon'],
             ['dbo','tArtikel','fVKNetto','decimal','Preise'],
             ['dbo','tArtikel','fAmazonVK','decimal','Amazon'],
             ['dbo','tArtikel','fEbayPreis','decimal','eBay'],
