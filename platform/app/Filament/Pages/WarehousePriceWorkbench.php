@@ -6,6 +6,8 @@ namespace App\Filament\Pages;
 use App\Domain\Jtl\ArticleCard;
 use App\Services\LegacyReadBridge;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Locked;
 
 /**
@@ -30,6 +32,8 @@ final class WarehousePriceWorkbench extends Page
     #[Locked] public int $wmsOffset=0;
     #[Locked] public array $amazonCatalog=[];
     #[Locked] public array $amazonMarket=[];
+    #[Locked] public array $ownOffers=[];
+    #[Locked] public array $ownOffersStatus=[];
 
     public function mount(): void
     {
@@ -40,7 +44,7 @@ final class WarehousePriceWorkbench extends Page
 
     public function findArticle(LegacyReadBridge $bridge): void
     {
-        $this->reset(['product','status','wms','movements','wmsOffset','amazonCatalog','amazonMarket']);
+        $this->reset(['product','status','wms','movements','wmsOffset','amazonCatalog','amazonMarket','ownOffers','ownOffersStatus']);
         $identifier=trim($this->identifier);
         if(!preg_match('/^[\pL\pN][\pL\pN._\/-]{1,63}$/uD',$identifier)){
             $this->status=['ok'=>false,'message'=>'Bitte gültige EAN, HAN oder Artikelnummer eingeben.'];
@@ -163,6 +167,71 @@ final class WarehousePriceWorkbench extends Page
     public function loadMoreWmsHistory(LegacyReadBridge $bridge): void
     {
         $this->wmsRequest($bridge,true);
+    }
+
+    /**
+     * Read previously verified, explicitly account-scoped seller-price observations
+     * from our isolated platform SQLite. NEVER infer from JTL platform hints.
+     */
+    public function loadVerifiedOwnOffers(): void
+    {
+        $this->reset(['ownOffers','ownOffersStatus']);
+        $ean=(string)($this->product['ean']??'');
+        if(!preg_match('/^(?:[0-9]{8}|[0-9]{12}|[0-9]{13}|[0-9]{14})$/D',$ean))return;
+        if(!Schema::hasTable('channel_price_observations')){
+            $this->ownOffersStatus=['ok'=>false,
+                'message'=>'Separater Plattform-Preisquellenkatalog fehlt. Keine aktiven Angebotswerte behaupten.'];
+            return;
+        }
+        $now=now('UTC');
+        try{
+            $records=DB::table('channel_price_observations')
+                ->where('ean',$ean)
+                ->whereIn('channel',['amazon','ebay','shopify'])
+                ->where('price_type','own_offer')
+                ->where('status','verified')
+                ->where('publication_status','active')
+                ->where('observed_at','>=',$now->copy()->subDay())
+                ->where(function($q)use($now){
+                    $q->whereNull('expires_at')->orWhere('expires_at','>',$now);
+                })
+                ->orderByDesc('observed_at')
+                ->limit(100)->get();
+        }catch(\Throwable){
+            $this->ownOffersStatus=['ok'=>false,'message'=>'Preisquellenkatalog derzeit nicht lesbar; keine falschen Angebotspreise.'];
+            return;
+        }
+        $seen=[];
+        foreach($records as $record){
+            $channel=(string)$record->channel;
+            $account=trim((string)$record->account);
+            $source=trim((string)$record->source);
+            $currency=(string)$record->currency;
+            $observed=(string)$record->observed_at;
+            $marketplace=trim((string)$record->marketplace);
+            if($account===''||$source===''||$observed===''||!preg_match('/^[A-Z]{3}$/D',$currency))continue;
+            $amount=$this->decimal($record->gross??null);
+            $priceType='VK brutto';
+            if($amount===null){$amount=$this->decimal($record->net??null);$priceType='VK netto';}
+            if($amount===null){$amount=$this->decimal($record->displayed_amount??null);$priceType='Angezeigter Angebotspreis (Steuerstatus unbekannt)';}
+            if($amount===null)continue;
+            $key=implode('|',[$channel,$account,$marketplace,(string)$record->offer_id]);
+            if(isset($seen[$key]))continue;
+            $seen[$key]=true;
+            $this->ownOffers[]=[
+                'channel'=>$channel,'account'=>mb_substr($account,0,100),
+                'marketplace'=>mb_substr($marketplace,0,32),
+                'offer_id'=>mb_substr((string)$record->offer_id,0,120),
+                'type'=>$priceType,'amount'=>$amount,'currency'=>$currency,
+                'source'=>mb_substr($source,0,255),
+                'date'=>mb_substr($observed,0,40),
+            ];
+            if(count($this->ownOffers)>=25)break;
+        }
+        $this->ownOffersStatus=['ok'=>true,'count'=>count($this->ownOffers),
+            'message'=>count($this->ownOffers)>0
+                ?'Zeitlich aktuelle, aktiv gemeldete eigene Angebote aus geprüften Plattform-Beobachtungen.'
+                :'Keine verifizierten, aktuellen und aktiven eigenen Amazon-, eBay- oder Shopify-Angebote im Plattform-Preisquellenkatalog.'];
     }
 
     public function loadAmazonCandidates(LegacyReadBridge $bridge): void
