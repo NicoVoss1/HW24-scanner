@@ -1,3 +1,18 @@
+# AKTUELLSTER PROJEKTSTAND · 22.11.2026 (nach PuTTY 01:46 UTC)
+
+**VERBINDLICHER EINSTIEG:** [Kurz-Übergabe für jeden neuen Chat](./HW24_HANDOVER.md) · [Chronologisches Arbeitsjournal](./HW24_ARBEITSJOURNAL.md) · [Zwei-Domain-Rollout](./HW24_TWO_DOMAIN_ROLLOUT_20261122.md). **Dieser neueste Stand ersetzt widersprechende frühere Planungsannahmen weiter unten.**
+
+- **Bestehende Live-Artikelmanager-Domain:** Plesk `Active branch: deploy/staging`, letzter Git-Commit exakt Legacy-V4.25 `444453471b0fd27c73dcc7929f5e17f1d9239c52`. Nutzer über PuTTY bestätigt. **Nicht damit gleichsetzen, dass Webroot-Hashes und angemeldete Live-API-Funktion bereits abgenommen wären.**
+- **Bestehende Testdomain:** Legacy-V4.25 per Plesk manuell deployt, zwei bisher abweichende V4.24-Dateien danach auf GitHub-V4.25-BLOB-Hash OK. Privates Backup der alten Testwebsite vorhanden.
+- **Sicherheit:** Je 3 nicht authentifizierte GETs auf Live und Test ergaben **HTTP 401** (gesamt 6). Weitere Pfad-/Browserabnahme bleibt offen.
+- **Laravel-/Filament-Pilot:** GitHub [Draft PR #36](https://github.com/NicoVoss1/HW24-scanner/pull/36), letzte Console-Basis `980bcce75a0a3516b7b6364fae5a0fa6aab8d112`, CI [#44972633923](https://github.com/NicoVoss1/HW24-scanner/actions/runs/44972633923) **grün**. Implementiert: geschützter Admin-Login, Artikel-JTL-GET, manuelle Amazon-/OpenAI-Archiv-GET, Dashboard; alle JTL-/WMS-/Shop-/API-Schreibzugriffe weiterhin deaktiviert.
+- **Plesk-Installation: TEILWEISE ERFOLGT.** Privates App-Verzeichnis und Git-Klon `repo/.git` vorhanden. Der frühere Installationsblock scheiterte **nach dem Klonen** bei `git -C ... rev-parse HEAD` als `root` wegen `fatal: detected dubious ownership` (Repo gehört Benutzer `nicovoss`). Durch `set -euo pipefail` in der interaktiven PuTTY-Shell wurde vermutlich die SSH-Sitzung beendet. **Composer-Pakete `platform/vendor` fehlen, Laravel noch nicht startfähig, Test-Webroot noch nicht umgestellt.**
+- **Nächster genau einziger Serverarbeitsschritt:** Vorhandenen Git-Klon als Eigentümer (`runuser -u nicovoss -- git -C ... rev-parse HEAD`) auf den erwarteten Commit prüfen und danach die isolierten Composer-Pakete mit `/opt/plesk/php/8.4/bin/php` **als Site-Benutzer** installieren. Nicht neu klonen, nicht als Root-Git über eine globale Ausnahme arbeiten, keine Datenmigration, Testdomain noch nicht umschalten.
+- **Betriebsziel:** Genau zwei bestehende Artikelmanager-Domains, keine neue Subdomain, keine neue MariaDB. Bestehende JTL-MariaDB/JTL-Wawi und Legacy-APIs bleiben unverändert. Laravel-eigene Daten später nur in eigenem privaten SQLite-Datenfile. Legacy-Brücke ist im Featurebranch auf `artikelmanager.hairworld24.de` gepinnt; Basic-Auth-Zugangsdaten nur private Server-`.env`.
+- **Ab sofort zwingend:** **Jeden einzelnen Test-, PuTTY-, Git-, Deploy-, Fehler- und Reparaturschritt** sofort im [Arbeitsjournal](./HW24_ARBEITSJOURNAL.md) als neue Zeile mit Datum, Soll/Ist, SHA, Resultat und nächstem Schritt protokollieren; nach einem Meilenstein Übergabe und Projektstand aktualisieren. Keine Secrets ins öffentliche GitHub.
+
+---
+
 ## 22.11.2026 · LARAVEL-13-/FILAMENT-5-FRAMEWORK-PILOT ISOLIERT GESTARTET
 
 - **Userauftrag:** Einheitliches, kostenfrei nutzbares Framework für 100.000 Artikel und JTL-Wawi/WMS, Amazon SP-API, OpenAI, eBay und Shopify. Alle vorhandenen APIs/Daten müssen erhalten bleiben; Netto-/Brutto-/Marktplatzpreise getrennt anzeigen.
