@@ -33,6 +33,7 @@ jobs:
           bash -n platform/ops/verify-filament-https-release-gates-readonly.sh
           bash -n platform/ops/verify-plesk-cutover-mechanics-readonly.sh
           bash -n platform/ops/cutover-testdomain-filament-with-rollback.sh
+          python3 -m py_compile platform/ops/diagnose-filament-testdomain-403-readonly.py
           python3 - <<'PY'
           from pathlib import Path
           text=Path('platform/ops/cutover-testdomain-filament-with-rollback.sh').read_text()
