@@ -612,3 +612,23 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 - **Nächster Betreiber-Schritt, noch NICHT ausgeführt:** `HW24_ACL_TOOLS` prüft vorhandene ACL-Werkzeuge, installiert nur falls sie fehlen `acl` mit Ubuntu apt, zeigt `findmnt`-Dateisystemtyp/-Mount-Optionen; **ändert keine vorhandenen Laravel-Zugriffsrechte**. Dies ist eine transparente Systempaketinstallation, kein automatischer Deploy.
 - **Danach, nur nach erneutem Lognachweis:** root-private Sicherung bestehender ACLs, dann minimale Durchquerungs-ACLs der benötigten übergeordneten privaten Verzeichnisse und Lese-ACLs ausschließlich für `platform/public/css`, `public/js`, `public/fonts`, anschließend als nginx/www-data echte Lesbarkeit testen. **Keine ACL-Lesefreigabe auf `.env`, SQLite, App-Code.**
 - **Weiterhin unerledigt:** angemeldeter Legacy-Live-End-to-End-Test und vollständig dokumentiertes Plesk-Git-/DocumentRoot-Rollback. Weder Testdomain noch Live bereits geändert.
+
+
+### 22.11.2026 · Ubuntu-ACL-Werkzeuge installiert; ext4 und Kernel-Wartungshinweis geprüft
+
+**BESTÄTIGT durch vollständige Nutzer-PuTTY-Ausgabe des Blocks `HW24_ACL_TOOLS`.**
+
+| Einzelschritt | Tatsächlich beobachtete Ausgabe | Status |
+| --- | --- | --- |
+| 89 · Werkzeug-Verfügbarkeit vorher | Skript nahm den Installationszweig, weil `getfacl` und `setfacl` zuvor nicht auffindbar waren | **BESTÄTIGT** |
+| 90 · Paketinstallation | `apt-get install -y --no-install-recommends acl`, Ubuntu Jammy-Paket `acl 2.3.1-1`, 38,5 kB Download, +205 kB Platte, 1 Paket installiert, 0 aktualisiert, 0 entfernt | **BESTÄTIGT, erfolgreich** |
+| 91 · ACL-Werkzeuge nach Installation | `/usr/bin/getfacl` und `/usr/bin/setfacl` | **BESTÄTIGT, vorhanden** |
+| 92 · Dateisystem | `findmnt -T`: ext4 auf `/`, Optionen `rw,relatime,discard,errors=remount-ro` | **BESTÄTIGT**; tatsächliches Setzen der ACL noch nicht getestet |
+| 93 · needrestart / Kernel-Stand | `Pending kernel upgrade!` laufend `5.15.0-202-generic`, verfügbar/erwartet `5.15.0-204-generic`. Mehrere Dienste zum späteren Neustart vorgemerkt/deferred | **BESTÄTIGT als Wartungshinweis**; kein automatischer Gesamtreboot im Log |
+| 94 · Abschluss | `=== ACL-VORBEREITUNG ABGESCHLOSSEN ===`, Root-Prompt erneut angezeigt | **BESTÄTIGT** |
+
+**Bewertung:** Das ACL-Toolpaket ist einsatzbereit; keine Laravel-Dateirechte, PHP-Handler, Git-Deployment-Ziele oder Datenbanken wurden durch den gezeigten Installationsblock geändert. Das Ubuntu-Paket meldete zusätzlich **bereits ausstehende** Kernel-/Service-Restarts; diese sind eine **separate** geplante Serverwartung, nicht für das aktuelle HW24-ACL-Vorhaben nötig. **Keinen `reboot`, kein `apt autoremove` und keine pauschalen Service-Restarts** ohne Wartungsfenster und Berücksichtigung der sonstigen Plesk-Websites/Dienste ausführen.
+
+**Sicherheitsregel:** Es werden ausschließlich **statische Dateien** unter `platform/public/css`, `platform/public/js`, `platform/public/fonts` für `nginx`/`www-data` durch gezielte ACLs lesbar gemacht; auf den zwingenden Elternverzeichnissen nur Durchquerung `--x`. **Keine Lese-ACL** auf `platform/public/index.php`, `platform/.env`, `database.sqlite` oder auf privaten Laravel-Quellcode. Vor der Änderung ist eine root-private `getfacl`-Sicherung zu erstellen, bei Fehlern sofort mit `setfacl --restore` rückgängig zu machen. Schreibrechte der beiden Webserverbenutzer ausdrücklich nicht vergeben. Erst danach per `runuser -u nginx/www-data -- test -r` tatsächlichen Zugriff auf CSS/JS und die **fortbestehende Sperre** von `.env`/SQLite prüfen.
+
+**Nächster Betreiber-Schritt:** Gezielte ACL-Freigabe *mit* Sicherung/Rollback auf der noch nicht öffentlich geschalteten Laravel-App; danach Plesk-Test-Webroot-/Git-Rollback-Konzept und **authentifizierter Legacy-V4.25-Live-JTL-/Amazon-/KI-Browsertest** vor Domainumstellung. Admin, SQLite und Composer werden nicht neu erstellt.
