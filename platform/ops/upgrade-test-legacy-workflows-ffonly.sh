@@ -157,18 +157,9 @@ cd "$1"
 "$2" artisan view:cache --no-interaction >/dev/null
 "$2" artisan route:list --path=admin --except-vendor
 ' hw24-panel "$app" "$php"
-# Route:list JSON formatting varies: parse exact URI instead of grep text.
+# Parse Laravel route JSON by exact URI; ignore whitespace in JSON representation.
 routes="$(runuser -u "$owner" -- "$php" "$app/artisan" route:list --path=admin --except-vendor --json)"
-printf '%s' "$routes" | "$php" -r '
-$rows=json_decode(stream_get_contents(STDIN),true,512,JSON_THROW_ON_ERROR);
-if(!is_array($rows))exit(2);
-foreach(array_slice($argv,1) as $uri){
- $found=false;
- foreach($rows as $row)if(is_array($row)&&($row["uri"]??null)===$uri) {$found=true;break;}
- if(!$found){fwrite(STDERR,"STOP: Filament-Route fehlt: ".$uri.PHP_EOL);exit(2);}
-}
-echo "OK: Beide Filament-Routen im JSON bestaetigt".PHP_EOL;
-' 'admin/scanliste' 'admin/werkzeuge'
+printf '%s' "$routes" | "$php" "$app/ops/verify-admin-routes-json.php" admin/scanliste admin/werkzeuge
 for f in "$app/.env" "$db";do
  for u in nginx www-data;do
   if runuser -u "$u" -- test -r "$f";then echo 'STOP: Private Datei nun lesbar';exit 2;fi
