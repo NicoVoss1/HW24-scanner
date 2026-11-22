@@ -123,7 +123,9 @@ final class ArticleLookup extends Page
             return;
         }
         $this->sourceRows=array_merge($this->sourceRows,$page['fields']);
-        $this->sourceNextOffset+=count($page['fields']);
+        // Advance by the original API page count, including filtered sensitive
+        // fields, or pagination could repeat/skip rows.
+        $this->sourceNextOffset+=(int)$page['returned_count'];
         $this->sourceState=[
             'ok'=>true,'snapshot_at'=>$page['snapshot_at'],
             'field_count'=>$page['field_count'],
