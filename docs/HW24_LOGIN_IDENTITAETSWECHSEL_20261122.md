@@ -1,3 +1,83 @@
+## MEILENSTEIN · PRIVATE OWNER-DELEGATION ANGELEGT UND GEPRÜFT (22.11.2026)
+
+**Direkte PuTTY-Ausgabe des Betreibers:** `HW24_PRIVATE_READ_ALIASES` erfolgreich mit `Private Datei sicher erstellt`, `Dateirechte: 600`, `nvoss: beide Datenzuordnungen freigegeben`, `hw24-test: bisherige Berechtigung erhalten`, `Fremdbenutzer: kein zusaetzlicher Zugriff`, `BENUTZERZUORDNUNG ERFOLGREICH` und `Plesk-Logins und Datenbank unveraendert`. Private `/var/www/vhosts/hairworld24.de/hw24_private/actor-aliases.php` wurde nur einmal angelegt, Owner `nicovoss:psacln`, Modus `0600`, PHP-CLI-Funktionsprüfung bestanden. Nicht in GitHub committen, nicht öffentlich machen.
+
+Die **Test-Website** enthält bereits PR37 mit vier verifizierten PHP-Blobs, vorher 4/4 PHP-Lint OK, anonyme 3/3 HTTPS 401 und authentifiziert unter bisherigem `hw24-test` genau **3** KI-Berichte und **1** offenen Scanlisten-Stapel. Der bestehende weitere `nvoss`-Stapel ist in SQL unverändert vorhanden. Der Test-Basic-Name ist **noch nicht** geändert. Die neue PHP-Delegation gestattet `nvoss` auch Änderungen an ehemals `hw24-test`-Scanlisten, protokolliert diese unter aktuellem Actor, und ist damit keine rein lesende Scanlisten-Freigabe.
+
+### NÄCHSTER EINZEL-PuTTY-BLOCK · TEST-Plesk-Basic-Schutz privat sichern; KEIN Benutzerwechsel
+
+Plesk dokumentiert Passwortschutzdateien unter `/var/www/vhosts/system/<domain>/pd` ([Plesk Virtual Host Structure](https://doc.plesk.com/en-US/obsidian/administrator-guide/web-hosting/website-directory-structure/virtual-host-structure-linux.68806/)). Ein manueller privater TAR-Snapshot dieser Dateien sowie ein nur lesender Export der beiden zusammengehörigen Plesk-Metadatentabellen verhindern die bisherige Lücke zwischen Webroot-Backup und einem späteren Login-Rename.
+
+```bash
+bash <<'HW24_PLESK_BASIC_BACKUP'
+set -euo pipefail
+umask 077
+
+domain="test-artikelmanager.hairworld24.de"
+pd="/var/www/vhosts/system/$domain/pd"
+base="/root/hw24-backups"
+
+echo "=== HW24 TEST-BASIC-SCHUTZ SICHERN ==="
+
+test -d "$pd" || {
+  echo "STOP: Plesk-pd-Verzeichnis fehlt. Keine Aenderung vorgenommen."
+  exit 1
+}
+test ! -L "$pd" || {
+  echo "STOP: Plesk-pd-Verzeichnis ist ein Symlink."
+  exit 1
+}
+
+count="$(plesk db -Ne "
+SELECT COUNT(*)
+FROM protected_dirs pd
+JOIN pd_users pu ON pu.pd_id=pd.id
+JOIN domains d ON d.id=pd.dom_id
+WHERE pd.id=9 AND pd.dom_id=10 AND pd.dom_type='domain'
+  AND d.name='$domain' AND pu.login='hw24-test'
+")"
+test "$count" = "1" || {
+  echo "STOP: Unerwartete Plesk-Zuordnung. Keine Aenderung."
+  exit 1
+}
+
+install -d -m 700 "$base"
+dest="$(mktemp -d "$base/test-plesk-auth-XXXXXXXX")"
+
+plesk db -Ne "
+SELECT pd.id,pd.dom_id,pd.dom_type,pd.realm,pd.path,
+       pu.id,pu.login,pu.account_id
+FROM protected_dirs pd
+JOIN pd_users pu ON pu.pd_id=pd.id
+WHERE pd.id=9 AND pd.dom_id=10 AND pd.dom_type='domain'
+  AND pu.login='hw24-test'
+" > "$dest/plesk-protected-dir-metadata.tsv"
+
+test -s "$dest/plesk-protected-dir-metadata.tsv"
+chmod 600 "$dest/plesk-protected-dir-metadata.tsv"
+
+tar --one-file-system -czf "$dest/plesk-pd.tar.gz" \
+  -C "/var/www/vhosts/system/$domain" pd
+chmod 600 "$dest/plesk-pd.tar.gz"
+tar -tzf "$dest/plesk-pd.tar.gz" >/dev/null
+
+echo "Private Sicherung: $dest"
+echo "Plesk-Metadaten: vorhanden"
+echo "Plesk-pd-Archiv: lesbar"
+sha256sum "$dest/plesk-pd.tar.gz"
+echo "=== TEST-PASSWORTSCHUTZ-SICHERUNG ERFOLGREICH ==="
+echo "Keine Benutzer, Websites, Passwoerter oder Daten geaendert"
+HW24_PLESK_BASIC_BACKUP
+```
+
+**Sicherheit:** Das `pd`-Archiv enthält möglicherweise *Passwort-Hashes und andere Authentifizierungsgeheimnisse*. Es bleibt ausschließlich in einem Root-geschützten `0700`-Ordner unter `/root/hw24-backups`, Archiv und SQL-Metadatendatei sind `0600`; **keine Auth-Dateien, Login-Hashes, SQL-Zeilen oder TAR-Dateien im Chat oder GitHub teilen.** Bitte nur Meldungen und den SHA256-Wert weitergeben. Bei nicht passendem Plesk-vHost-Pfad STOP, zuerst die realen Pfade ohne Geheimnisse inventarisieren. Der TAR-Snapshot + Metaexport sind für die gezielte Rückfalldiagnose und **kein vollständiges Plesk-Metadatenbank-Backup**.
+
+**Nach bestätigter Sicherung:** Erst die konkrete Root-`/`-Parametrisierung der offiziell dokumentierten Plesk-`protdir -u ... -domain ... -update_user ... -user_name ...`-CLI sicher ermitteln und die Reverse-Rename-/HTTP-401-Checks festlegen ([Plesk protdir-Dokumentation](https://docs.plesk.com/en-US/obsidian/cli-linux/using-command-line-utilities/protdir-site-directories-protection.39417/)); danach gesondert **nur das TEST-Konto** umbenennen. Das LIVE-Konto `nvoss` und Plesk-Statistikschutz bleiben unangetastet. Noch **kein** HTTP-GET unter Test-`nvoss` ausgeführt.
+
+[Journalbeleg](./HW24_ARBEITSJOURNAL.md), Commit `ddf35c68f8790af1fad3b56599b19bce91d2a00c`.
+
+---
+
 ## 22.11.2026 · AUTHENTIFIZIERTER PR37-TEST ERFOLGREICH, NEXT: PRIVATER Lese-OWNER-ALIAS
 
 **PuTTY-Gesamtnachweis:** Bereits auf TEST deployter PR37-Code mit vier verifizierten Git-BLOBs, PHP8.5-Syntax 4/4 grün, anonyme HTTPS-API-Anfragen 3/3 `HTTP 401`. Jetzt wurden mit dem bestehenden **Test-Basic-Benutzer** `hw24-test` die echten verschlüsselten HTTPS-GETs geprüft: `Historische KI-Berichte: 3` und `Offene Scanlisten-Stapel: 1`, `AUTHENTIFIZIERTER GET-TEST ERFOLGREICH`. Keine Passwortanzeige/JSON-Ausgabe, kein Schreibzugriff, keine OpenAI-Gebühren. Historischer SQL-Bestand: drei KI-Berichte (alt), zwei Scan-Stapel (einer alt, einer neu). **Kein Basic-Username-Wechsel bisher.**
