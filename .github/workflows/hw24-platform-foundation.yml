@@ -28,6 +28,7 @@ jobs:
           bash -n platform/ops/verify-filament-loopback-http.sh
           bash -n platform/ops/verify-testdomain-cutover-readonly.sh
           bash -n platform/ops/upgrade-private-framework-ffonly.sh
+          bash -n platform/ops/migrate-source-catalog-isolated.sh
           find platform/app platform/config platform/database platform/routes -name '*.php' -print0 | xargs -0 -n 1 php -l
       - name: Validate composer manifest and no secrets
         working-directory: platform
