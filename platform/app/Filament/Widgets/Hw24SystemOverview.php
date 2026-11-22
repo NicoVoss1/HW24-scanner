@@ -3,17 +3,14 @@ declare(strict_types=1);
 
 namespace App\Filament\Widgets;
 
-use App\Services\LegacyReadBridge;
 use Filament\Widgets\Widget;
-use Livewire\Attributes\Locked;
 
 /**
- * Operator-controlled management cockpit.
+ * Operator-oriented dashboard, not a simulated analytics dashboard.
  *
- * Rendering the dashboard never performs external HTTP or billable calls.
- * Only an explicit click loads one JTL reference article or its saved AI
- * history via the pinned read-only LIVE bridge. These observations are NOT
- * global JTL counts, current marketplace offers or verified shop prices.
+ * Values describe configured integration capabilities only. Rendering MUST
+ * remain local: no Amazon SP-API/OpenAI calls, legacy HTTP polling, SQL mirror
+ * bulk queries, or writes. Live evidence is loaded in ArticleLookup on demand.
  */
 final class Hw24SystemOverview extends Widget
 {
@@ -21,64 +18,40 @@ final class Hw24SystemOverview extends Widget
 
     protected int | string | array $columnSpan = 'full';
 
-    private const SAMPLE_EAN = '3474630337398';
+    protected static ?bool $isLazyLoaded = false;
 
-    #[Locked]
-    public array $jtl = [];
-
-    #[Locked]
-    public array $archive = [];
-
-    public function isBridgeConfigured(): bool
+    /** @return array<int, array{label:string,value:string,detail:string,phase:string}> */
+    public function connectionCards(): array
     {
-        return config('hw24_legacy.base_url') === 'https://artikelmanager.hairworld24.de'
+        $bridgeConfigured = config('hw24_legacy.base_url') === 'https://artikelmanager.hairworld24.de'
             && trim((string) config('hw24_legacy.user')) !== ''
             && trim((string) config('hw24_legacy.password')) !== '';
-    }
 
-    /** Exactly one manual read-only JTL GET, no background polling. */
-    public function inspectJtl(LegacyReadBridge $bridge): void
-    {
-        $result = $bridge->fetch('jtl.article', ['q' => self::SAMPLE_EAN]);
-        $raw = is_array($result['data'] ?? null) ? $result['data'] : [];
-        $matches = is_array($raw['matches'] ?? null) ? $raw['matches'] : [];
-
-        $verified = ($result['ok'] ?? false) === true
-            && ($raw['jtl_status'] ?? null) === 'current_snapshot'
-            && count($matches) === 1
-            && is_array($matches[0])
-            && (string) ($matches[0]['ean'] ?? '') === self::SAMPLE_EAN;
-
-        $article = $verified ? $matches[0] : [];
-        $this->jtl = [
-            'ok' => $verified,
-            'http' => $result['http_status'] ?? null,
-            'snapshot' => (string) ($raw['jtl_status'] ?? 'unbekannt'),
-            'at' => is_scalar($raw['snapshot_at'] ?? null)
-                ? (string) $raw['snapshot_at'] : null,
-            'ean' => self::SAMPLE_EAN,
-            'article' => (string) ($article['artikelname'] ?? ''),
-            'article_id' => (string) ($article['jtl_article_id'] ?? ''),
-            'stock' => is_numeric($article['bestand'] ?? null) ? (string) $article['bestand'] : null,
-            'net_price' => is_numeric($article['netto_vk'] ?? null) ? (string) $article['netto_vk'] : null,
-            'checked_at' => now()->format('d.m.Y H:i'),
-        ];
-    }
-
-    /** Reads existing historic records only. No OpenAI API or billing. */
-    public function inspectArchive(LegacyReadBridge $bridge): void
-    {
-        $result = $bridge->fetch('ai.history', ['ean' => self::SAMPLE_EAN, 'limit' => 5]);
-        $raw = is_array($result['data'] ?? null) ? $result['data'] : [];
-
-        $verified = ($result['ok'] ?? false) === true
-            && is_array($raw['reviews'] ?? null);
-        $this->archive = [
-            'ok' => $verified,
-            'http' => $result['http_status'] ?? null,
-            'count' => $verified ? count($raw['reviews']) : null,
-            'limited' => true,
-            'checked_at' => now()->format('d.m.Y H:i'),
+        return [
+            [
+                'label' => 'JTL-Wawi / MariaDB',
+                'value' => $bridgeConfigured ? 'Lesezugang eingerichtet' : 'Zugang fehlt',
+                'detail' => 'Aktualität und Artikelzahlen erst nach verifiziertem Quellenabruf.',
+                'phase' => $bridgeConfigured ? 'Konfiguriert' : 'Ausstehend',
+            ],
+            [
+                'label' => 'Amazon',
+                'value' => $bridgeConfigured ? 'Katalog abrufbar' : 'Zugang nicht geprüft',
+                'detail' => 'Nur auf Klick. Ein Katalogtreffer ist kein eigenes Verkäuferangebot.',
+                'phase' => 'Kein automatischer Abruf',
+            ],
+            [
+                'label' => 'KI-Archiv',
+                'value' => $bridgeConfigured ? 'Archivzugang eingerichtet' : 'Zugang fehlt',
+                'detail' => 'Historische Analysen nur lesend, keine kostenpflichtigen Aufrufe.',
+                'phase' => 'Nur auf Klick',
+            ],
+            [
+                'label' => 'Shopify / eBay',
+                'value' => 'Angebote nicht verifiziert',
+                'detail' => 'Eigene Konten, Angebotspreise und Verkaufstatus noch getrennt nachweisen.',
+                'phase' => 'In Vorbereitung',
+            ],
         ];
     }
 }
