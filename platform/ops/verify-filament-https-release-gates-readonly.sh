@@ -34,7 +34,7 @@ else
 fi
 echo '2. Plesk-Git-Veroeffentlichung nur auslesen'
 if gitinfo="$(plesk ext git --info -domain "$site" -name HW24-scanner.git 2>/dev/null)"; then
- echo "$gitinfo" | python3 -c '
+ git_summary="$(printf '%s\\n' "$gitinfo" | python3 -c '
 import re,sys
 text=sys.stdin.read()
 mode=""
@@ -49,7 +49,12 @@ elif mode in ("auto","automatic","automatic deployment"):
     print("WARNUNG: Automatisches Plesk-Git-Deployment aktiv; vor Cutover deaktivieren")
 else:
     print("HINWEIS: Git-Deploymentmodus aus --info nicht eindeutig auslesbar; manuell in Plesk verifizieren")
-'
+')"
+ echo "$git_summary"
+ case "$git_summary" in
+  OK:*) : ;;
+  *) warn 'Git-Deploymentmodus vor Plesk-Testdomain-Cutover klären' ;;
+ esac
  # Entire --info may contain private remote URLs or settings: never print it.
 else
  warn 'Plesk-Git-Repository-Einstellungen nicht per --info pruefbar'
@@ -65,7 +70,7 @@ if runuser -u "$owner" -- git -C "$repo" diff --quiet --exit-code &&
  pass 'Keine getrackten Git-Dateien lokal geaendert'
 else warn 'Lokale getrackte Framework-Aenderungen vorhanden';fi
 echo '4. Laravel-Konfiguration ohne geheime Werte (PHP als Site-User)'
-runuser -u "$owner" -- "$php" -r '
+php_summary="$(runuser -u "$owner" -- "$php" -r '
 chdir($argv[1]);
 require "vendor/autoload.php";
 $app=require "bootstrap/app.php";
@@ -98,7 +103,11 @@ if(filter_var($allow,FILTER_VALIDATE_EMAIL)){
  $exists=App\Models\User::query()->where("email",$allow)->exists();
  echo ($exists?"OK: ":"PRUEFEN: ")."Konfigurierter Filament-Admin existiert in privater SQLite\n";
 }
-' "$app" || warn 'Laravel-Boot oder Admin-Konfigurationsdiagnose fehlgeschlagen'
+' "$app" 2>/dev/null)" && {
+ printf '%s\n' "$php_summary"
+ issue_count="$(printf '%s\n' "$php_summary" | grep -c '^PRUEFEN:' || true)"
+ warnings=$((warnings+issue_count))
+} || warn 'Laravel-Boot oder Admin-Konfigurationsdiagnose fehlgeschlagen'
 echo '5. Webserver-ACLs und private Dateisperren'
 for user in nginx www-data; do
  if runuser -u "$user" -- test -r "$app/public/css/filament/filament/app.css" &&
