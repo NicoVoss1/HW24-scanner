@@ -772,3 +772,21 @@ COMPOSER_BIN="/opt/psa/var/modules/composer/composer.phar"
 - [HW24_HANDOVER.md](./HW24_HANDOVER.md) als Einstieg für neue Chats mit letztem Befund und nächstem Ausführungsschritt aktualisiert, Commit `d9fafc56472dde3ba1c1927f1b354a243b010d3d`.
 - [HW24_PROJEKTSTAND_AKTUELL.md](./HW24_PROJEKTSTAND_AKTUELL.md) analog aktualisiert, Commit `c190c32eaa4e11af5f03e0ee43afc5f5b5453c88`.
 - **Noch nicht getan:** Kein Live-HTTP-Actor direkt aus der Browser-Sitzung verglichen, keine Datenmigration, keine serverseitige Query-Rechteänderung, keine Testdomain-Umstellung und kein Live-Deploy. Erst das tatsächliche `HW24_ACTOR_MATCH`-Ergebnis bestimmt den nächsten Fix.
+
+
+### 22.11.2026 · ACTOR-MISMATCH BESTÄTIGT: 3 KI-Berichte für andere Zuordnung als das eingegebene Live-Basic-Login
+
+**Quelle:** Neue tatsächliche Betreiber-PuTTY-Ausgabe von `HW24_ACTOR_MATCH` gegen die bestehende produktive MariaDB `hw24_artikelmanager.hw24_ai_reviews`. Der Browser-Basic-Anmeldename wurde **verdeckt am Terminal** eingegeben, weder im GitHub-Repo noch hier protokolliert. Keine Passwörter oder Datensatzinhalte ausgegeben.
+
+| Schritt | Ist aus PuTTY | Status |
+| --- | --- | --- |
+| 133 · Archiv-Gesamtzahl | `Archivberichte gesamt: 3` | **BESTÄTIGT** |
+| 134 · Live-Basic-Kennung gegen `actor` verglichen | `Berichte fuer Live-Anmeldung: 0` | **BESTÄTIGT** |
+| 135 · Unter anderer Actor-Kennung gespeichert | `Andere Benutzerzuordnung: 3` | **BESTÄTIGT** |
+| 136 · Nur lesender Test beendet | `READ-ONLY-PRUEFUNG ERFOLGREICH`, `PRUEFUNG ABGESCHLOSSEN` | **BESTÄTIGT**, keine DB-Änderung |
+
+**Feststehende Ursache für den angegebenen Live-Login:** Der Archiv-Endpunkt `api/ai-reviews.php` filtert unter `WHERE actor=?`. Die drei gespeicherten Berichte befinden sich unter **einem anderen** `actor` als dem eingegebenen Live-HTTP-Basic-Anmeldenamen, deshalb zeigt die Oberfläche `0`. **Die Berichte sind nicht gelöscht.** Falls der tatsächlich vom Webserver übergebene HTTP-Actor von der vom Betreiber eingegebenen Kennung abweicht, wäre dessen gesonderte Prüfung möglich; die SQL-Zuordnung zu der eingegebenen Kennung ist jedenfalls eindeutig null.
+
+**Sicherheitsanforderung für die Korrektur:** Original-`actor`-Daten der drei Archivzeilen nicht ändern und vorhandenes Standardbenutzer-`WHERE actor=?` nicht abschalten. Eine explizit **serverseitig autorisierte** begrenzte Archivdelegation / Betreiber-Gesamtansicht bereitstellen; aktuelle HTTP-Basic-Kennung und autorisierter historischer Actor werden ausschließlich in einer **privaten Serverdatei** zugeordnet, niemals per ungeschütztem Query-Parameter, lokalem Browserstatus oder öffentlicher GitHub-Datei. Bestehende normale Benutzer sehen weiter nur ihre eigenen Berichte. Für die Brücke und neue Filament-Konsole keine zusätzliche KI-Anfrage auslösen.
+
+**Als nächstes:** Berechtigungsänderung im GitHub-Code auf isoliertem Featurebranch entwickeln, mit Tests und manuellem Rolloutgate; zuvor die bestehende Lese-Endpunkt-Implementierung und Test-Organisation prüfen. Ohne autorisierten Servereintrag bleibt der Legacy-Archivzugriff unverändert. **Noch keine produktive Codeänderung oder Plesk-Git-Bereitstellung.**
