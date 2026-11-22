@@ -15,6 +15,8 @@ function answer(int $code,array $data): never {
 }
 $actor=trim((string)($_SERVER['PHP_AUTH_USER']??$_SERVER['REMOTE_USER']??$_SERVER['REDIRECT_REMOTE_USER']??''));
 if($actor===''||strlen($actor)>180)answer(403,['ok'=>false,'error'=>'authenticated_user_required']);
+require_once __DIR__.'/hw24-actor-identity.php';
+$readOwners=hw24ReadableOwners($actor);
 if(($_SERVER['HTTPS']??'')!=='on'&&($_SERVER['HTTP_X_FORWARDED_PROTO']??'')!=='https')
  answer(403,['ok'=>false,'error'=>'https_required']);
 $method=(string)($_SERVER['REQUEST_METHOD']??'GET');
@@ -142,8 +144,9 @@ try {
 // The ledger lock protects against simultaneous paid duplicates from two browser tabs.
 try{
  $previousStmt=$reviewDb->prepare('SELECT id,model,review_json,input_json,usd_cost,created_at_utc
-  FROM hw24_ai_reviews WHERE actor=? AND ean=? ORDER BY id DESC LIMIT 1');
- $previousStmt->execute([$actor,$fields['ean']]);
+  FROM hw24_ai_reviews WHERE actor IN ('.implode(',',array_fill(0,count($readOwners),'?')).')
+  AND ean=? ORDER BY id DESC LIMIT 1');
+ $previousStmt->execute(array_merge($readOwners,[$fields['ean']]));
  $previous=$previousStmt->fetch();
 }catch(Throwable $e){
  error_log('HW24 AI duplicate lookup unavailable: '.get_class($e));

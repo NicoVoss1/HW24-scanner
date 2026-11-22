@@ -18,6 +18,8 @@ if(($_SERVER['REQUEST_METHOD']??'')!=='GET'){
 }
 $actor=trim((string)($_SERVER['PHP_AUTH_USER']??$_SERVER['REMOTE_USER']??$_SERVER['REDIRECT_REMOTE_USER']??''));
 if($actor===''||strlen($actor)>180)send(403,['ok'=>false,'error'=>'authentication_required']);
+require_once __DIR__.'/hw24-actor-identity.php';
+$readOwners=hw24ReadableOwners($actor);
 if(($_SERVER['HTTPS']??'')!=='on'&&($_SERVER['HTTP_X_FORWARDED_PROTO']??'')!=='https')
  send(403,['ok'=>false,'error'=>'https_required']);
 $ean=trim((string)($_GET['ean']??''));
@@ -57,11 +59,12 @@ try{
   ]);
  if($isSummary){
    $marks=implode(',',array_fill(0,count($eans),'?'));
+   $actorMarks=implode(',',array_fill(0,count($readOwners),'?'));
    $sql="SELECT a.ean,a.id,a.ai_status,a.model,a.created_at_utc,agg.review_count
     FROM (SELECT ean,MAX(id) AS latest_id,COUNT(*) AS review_count
-      FROM hw24_ai_reviews WHERE actor=? AND ean IN ($marks) GROUP BY ean) agg
+      FROM hw24_ai_reviews WHERE actor IN ($actorMarks) AND ean IN ($marks) GROUP BY ean) agg
     JOIN hw24_ai_reviews a ON a.id=agg.latest_id";
-   $q=$db->prepare($sql);$q->execute(array_merge([$actor],$eans));
+   $q=$db->prepare($sql);$q->execute(array_merge($readOwners,$eans));
    $summaries=[];
    foreach($q->fetchAll() as $row){
     $summaries[$row['ean']]=['review_id'=>(int)$row['id'],
@@ -73,8 +76,8 @@ try{
  }
   $query='SELECT id,ean,article_name,model,ai_status,review_json,input_json,
         usd_cost,tokens_input,tokens_cached,tokens_output,created_at_utc
-        FROM hw24_ai_reviews WHERE actor=?';
- $params=[$actor];
+        FROM hw24_ai_reviews WHERE actor IN ('.implode(',',array_fill(0,count($readOwners),'?')).')';
+ $params=$readOwners;
  if($ean!==''){$query.=' AND ean=?';$params[]=$ean;}
  if($before!==null){$query.=' AND id<?';$params[]=$before;}
  $query.=' ORDER BY id DESC LIMIT '.(int)$limit;
