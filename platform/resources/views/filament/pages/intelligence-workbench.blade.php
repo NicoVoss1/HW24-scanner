@@ -142,6 +142,44 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
                             <p>{{ $price['fulfillment'] ?: 'Fulfillment unbekannt' }}</p>
                         </div>
                     @endforeach
+                    @if(($pricing['ok']??false)===true)
+                        <div class="grid-amounts">
+                            @foreach([
+                                ['🏆 Buy Box', $pricing['buy_box']??null],
+                                ['💶 Niedrigster Amazon-Summarypreis', $pricing['lowest_summary']??null],
+                                ['🔎 Günstigster Einzelhändler (abgerufene)', $pricing['lowest_visible']??null]
+                            ] as [$title,$amount])
+                                <div class="item">
+                                    <p>{{ $title }}</p>
+                                    <h4>{{ $amount!==null ? number_format($amount['amount'],2,',','.') . ' '.$amount['currency'] : 'Nicht gemeldet' }}</h4>
+                                </div>
+                            @endforeach
+                        </div>
+                        <p class="technical">Stand: {{ $pricing['retrieved_at']??'unbekannt' }} UTC. {{ $pricing['returned']??0 }} Einzelangebote gelesen. Der günstigste Verkäufer kann von der Buy Box abweichen.</p>
+                        <h3 style="font-size:14px;font-weight:800;margin-top:16px">Amazon-Händler im Vergleich</h3>
+                        @foreach(($pricing['sellers']??[]) as $seller)
+                            <article class="item">
+                                <h4>{{ $seller['seller_name'] ?: 'Amazon-Verkäufer '.$seller['seller_id'] }}</h4>
+                                @if($seller['winner'])
+                                    <span class="badge">🏆 Buy-Box-Gewinner</span>
+                                @elseif($seller['eligible']===true)
+                                    <span class="badge" style="background:#fff1db;color:#90500e">Buy-Box-berechtigt</span>
+                                @else
+                                    <span class="badge" style="background:#eff2f6;color:#53677a">Buy Box ungeprüft</span>
+                                @endif
+                                <p><strong>{{ $seller['total']!==null ? number_format($seller['total']['amount'],2,',','.') . ' '.$seller['total']['currency'] : 'Gesamtpreis unbekannt' }}</strong>
+                                    · Artikelpreis {{ $seller['item']!==null ? number_format($seller['item']['amount'],2,',','.') . ' '.$seller['item']['currency'] : '?' }}
+                                    · Versand {{ $seller['shipping']!==null ? number_format($seller['shipping']['amount'],2,',','.') . ' '.$seller['shipping']['currency'] : '?' }}</p>
+                                <p>Seller-ID {{ $seller['seller_id'] }} · {{ $seller['fba']?'FBA':'Nicht als FBA gemeldet' }} · {{ $seller['prime']===true?'Prime':'Prime nicht bestätigt' }} · {{ $seller['feedback_percent']!==null ? number_format($seller['feedback_percent'],1,',','.').' % positive Bewertungen' : 'Bewertung nicht verfügbar' }} · {{ $seller['feedback_count']??'?' }} Bewertungen</p>
+                                <p>Versand aus {{ $seller['ships_from']??'unbekannt' }}, Bearbeitungsdauer {{ $seller['dispatch_min']??'?' }} bis {{ $seller['dispatch_max']??'?' }} Stunden (nicht garantierter Zustelltermin)</p>
+                                <a href="https://www.amazon.de/sp?seller={{ urlencode($seller['seller_id']) }}" target="_blank" rel="noopener noreferrer">Verkäuferprofil öffnen</a>
+                            </article>
+                        @endforeach
+                        @if(($pricing['sellers']??[])===[])
+                            <p class="warning">Amazon hat keine einzelnen Verkäufer übermittelt. Buy Box und niedrigster Summary-Preis können trotzdem getrennt vorliegen.</p>
+                        @endif
+                        <p class="technical">Die alte Amazon-Pricing-API archiviert detaillierte Händlerpreise nicht dauerhaft. Nur die explizite Abfrage zeigt den Zeitpunkt und die aktuell gemeldeten Angebote. Händler sind nicht automatisch Großhandelslieferanten.</p>
+                    @endif
                 </div>
             @endif
         </div>
