@@ -29,6 +29,7 @@ jobs:
           bash -n platform/ops/verify-testdomain-cutover-readonly.sh
           bash -n platform/ops/upgrade-private-framework-ffonly.sh
           bash -n platform/ops/upgrade-private-framework-cockpit-ffonly.sh
+          bash -n platform/ops/upgrade-test-article-layout-ffonly.sh
           python3 - <<'PY'
           from pathlib import Path
           s=Path('platform/ops/upgrade-private-framework-cockpit-ffonly.sh').read_text()
