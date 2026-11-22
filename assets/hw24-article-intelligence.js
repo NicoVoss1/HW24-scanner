@@ -68,7 +68,7 @@ document.addEventListener('hw24:article-loaded',ev=>{
  reset();state.article=ev.detail?.article||null;state.ean=val(state.article?.ean);
  if(!available())return;
  const seq=state.seq;
- readAiArchive(seq);
+ readAiArchive(seq).catch(()=>{}); // Fail closed when archive is unavailable.
 });
 document.addEventListener('hw24:article-curated-saved',()=>{
  state.ameise=null;state.ameiseChecks=[];
