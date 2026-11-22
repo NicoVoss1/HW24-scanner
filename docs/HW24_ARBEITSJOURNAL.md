@@ -1056,3 +1056,25 @@ Die separate `protected_dirs.id=1` für `plesk-stat` auf `domains.id=1` ist **ni
 **Sicherheits-/Rollback-Referenz:** Getestetes privates Test-Webroot-TAR `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz`, SHA256 `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26`. Dieses TAR enthält Webdateien, **nicht** separat die Plesk-HTTP-Basic-Kontenkonfiguration.
 
 **Genau nächstes Gate:** Plesk-PHP 8.5 `php -l` aller vier API-Dateien aus dem Test-Webroot und anonyme HTTPS-GET-Statusprüfung von `api/ai-reviews.php`, `api/scanliste.php` und `api/jtl.php` ausschließlich über Statuscode, **ohne Body-Inhalte und ohne API-POST**. Erwartet wird jeweils HTTP **401** (äußerer Plesk-Basic-Schutz). Falls Status anders oder PHP-Syntaxfehler, **STOP**, keine private Aliasdatei und keine Login-Umbenennung. Danach authentifizierten GET für den bisherigen Test-Basic-Benutzer prüfen (erwartet 3 KI-Reviews / 1 Scan-Stapel), private Mappingfreigabe (neue Kennung liest Alt+Neu) separat und mit passenden Rechten einrichten, HTTP-Basic-Konto vorher separat absichern, erst danach gezielt TEST umbenennen. Live-Webroot wird nicht geändert.
+
+
+### 22.11.2026 · PR #37 Test-Deployment: PHP-Syntax und externer HTTP-Basic-Schutz bestätigt
+
+**Betreiber-PuTTY-Nachweis:** `HW24_PR37_SECURITY` wurde erfolgreich abgeschlossen; ein rein lesender Check des Test-Webroots und drei anonymisierte (ohne Zugangsdaten) HTTPS-GET-Statusprüfungen.
+
+| Sicherheits-/PHP-Gate | Tatsächlich ausgegeben | Status |
+| --- | --- | --- |
+| `/opt/plesk/php/8.5/bin/php -l api/scanliste.php` | `No syntax errors detected` | **BESTANDEN** |
+| `/opt/plesk/php/8.5/bin/php -l api/ai-reviews.php` | `No syntax errors detected` | **BESTANDEN** |
+| `/opt/plesk/php/8.5/bin/php -l api/ai-review.php` | `No syntax errors detected` | **BESTANDEN** |
+| `/opt/plesk/php/8.5/bin/php -l api/hw24-actor-identity.php` | `No syntax errors detected` | **BESTANDEN** |
+| Unauthentifizierter GET `/api/scanliste.php` auf Test | `HTTP 401` | **BESTANDEN: äußerer Basic-Schutz** |
+| Unauthentifizierter GET `/api/ai-reviews.php` auf Test | `HTTP 401` | **BESTANDEN: äußerer Basic-Schutz** |
+| Unauthentifizierter GET `/api/jtl.php` auf Test | `HTTP 401` | **BESTANDEN: äußerer Basic-Schutz** |
+| Abschluss | `SICHERHEITSPRUEFUNG ERFOLGREICH`, `Keine Dateien, Konten oder Daten geaendert` | **BESTÄTIGT** |
+
+**Aussagegrenze:** HTTP 401 ohne Anmeldung beweist wirksame äußere Basic-Authentifizierungsbarriere an diesen drei Routen, aber noch **keine** funktionierende authentifizierte Datenbank-/Browserabfrage, keine Ende-zu-Ende-Validierung alter/neuer Data-Owner-Scopes und keinen Test des KI-Review-POST. Die privat konfigurierbare `read_aliases`-Datei wurde noch nicht erstellt, der Test-Basic-Login bleibt `hw24-test`, Live-Basic-Login `nvoss` unverändert. Bestehender Datenbestand weiter: 3 alte KI-Berichte, Scanliste 1 alter / 1 neuer Stapel, keine historischen UPDATEs.
+
+**Als nächstes genau EIN Betreiberblock:** Authentifizierte **GET-ONLY**-Abfrage beider Test-APIs mit aktuellem `hw24-test`-Login, ohne Passwort auf der Kommandozeile zu übergeben: `curl --user hw24-test` fragt das Passwort direkt verborgen ab. **Keine JSON-Rohdaten ausgeben**, sondern serverseitig per Plesk-PHP 8.5 aus HTTP-GET-JSON nur `ok`, Archivanzahl und offene Batch-Anzahl extrahieren; `set -o pipefail` und `curl --fail-with-body` aktivieren. Für das KI-Archiv sind 3 gespeicherte Reviews zu erwarten, für Scanlisten 1 Stapel **falls nicht geschlossen** (API filtert `closed_at_utc IS NULL`). Bei Abweichung keine Daten nachträglich ändern, sondern Ursache per Read-only-SQL oder API-Fehlercode prüfen. Anschließend erst private Zwei-Owner-Alias-Konfiguration und Plesk-Basic-Umbenennung mit getrenntem Rückfall-Gate.
+
+**Backup:** `/root/hw24-backups/test-login-pr37-auHITpmY/test-webroot.tar.gz`, SHA256 `679afdf53fc6520c9f7180919bf26e9b2470811b85c384bb97dede298e41dd26`, bestätigt. Test-PHP-Git-Blob-Hashes entsprechen dem gepinnten PR37-Commit `c2cc4e1dc054da00f01087e7221659cf54a9a482` (vier Dateien). [Draft PR #37](https://github.com/NicoVoss1/HW24-scanner/pull/37) bleibt unverändert, GitHub-CI zum SHA erfolgreich.
