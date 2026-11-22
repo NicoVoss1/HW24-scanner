@@ -1,3 +1,16 @@
+## AKTUELLSTE BETREIBERABNAHME · Private Laravel-Erstkonfiguration erfolgreich (22.11.2026)
+
+**Neuester Stand (gilt vor älteren historischen Hinweisen dieser Datei):** Der Betreiber hat auf Plesk im privaten Laravel-/Filament-Verzeichnis die Ersteinrichtung **vollständig und erfolgreich** ausgeführt. Private `.env` mit `APP_ENV=production`, `APP_DEBUG=false`, HTTPS-App-URL und Secure-Session erstellt (Dateimodus 0600). `artisan key:generate` bestätigte den neuen geheimen APP_KEY, **nicht im Repo**. Neue eigene private **SQLite-Datenbank** angelegt, ausschließlich vier Laravel-System-/Preistabellen migriert; alle vier im Status `[1] Ran`. `artisan filament:assets` erfolgreich. Ausgabe endete mit `=== HW24 ERSTKONFIGURATION ERFOLGREICH ===`. **Bestehende Testdomain, Live-Domain und JTL/MariaDB-Tabellen wurden dabei nicht umgeschaltet/verändert.**
+
+- **Abgeschlossen:** Git-Klon, Laravel 13.43.0, Filament 5.12.0, Composer, CLI-Routen (/admin, /admin/artikel, /admin/login), private .env/APP_KEY/SQLite, vier Migrationen, publizierte Filament-Assets. Live-Legacy-V4.25 vier kritische Datei-Hashes OK.
+- **Offen:** 1. Laravel-Filament-Admin-E-Mail nur lokal in `HW24_ADMIN_EMAIL` festlegen und lokalen Admin via `artisan make:filament-user` interaktiv anlegen. 2. Authentifizierten Legacy-Live-API-/Browser-Funktionstest JTL/Amazon/OpenAI abschließen. 3. GET-only Laravel-Bridge-Zugang zu Live-Legacy konfigurieren, ohne Geheimnisse zu teilen. 4. Testdomain nach Zugriffsschutz-/PHP-FPM-Prüfung ausschließlich auf `platform/public` umstellen und HTTP-Admin-Login verifizieren.
+- **Nicht:** nochmals klonen, Composer erneut installieren, bestehenden JTL-/MariaDB-Spiegel migrieren, OAuth/API-Schlüssel nach GitHub kopieren, dritte Subdomain oder weitere verwaltete MariaDB anlegen.
+- **Exakt nächste Betreiberaktion:** Interaktiver Filament-Admin mit privater Allowlist; alle Zugangsdaten bleiben im PuTTY-Terminal. Nie den Laravel-APP_KEY oder den .env-Inhalt ausgeben.
+
+[Einzelnachweis im Journal](./HW24_ARBEITSJOURNAL.md), Dokumentations-Commit `f0f0cb0cc19af24fab670552e4eac5e420218c1b`.
+
+---
+
 ## AKTUELLSTER BELEG · Laravel und Live-Stand betriebsseitig bestätigt (22.11.2026)
 
 - **Laravel CLI**: PHP 8.4 führt Laravel **13.43.0** fehlerfrei aus.
