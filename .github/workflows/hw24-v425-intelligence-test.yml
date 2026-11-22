@@ -26,6 +26,7 @@ jobs:
           node --check assets/hw24-article-editor.js
           node --check assets/hw24-source-core.js
           node --check assets/hw24-source-explorer.js
+          bash -n ops/hw24-live-test-preflight-readonly.sh
           node --check assets/hw24-article-intelligence.js
       - name: Validate HTML and package safety
         run: |
