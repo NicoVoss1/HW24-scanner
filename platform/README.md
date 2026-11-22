@@ -48,7 +48,7 @@ Die Standardumgebung ist absichtlich **SQLite**, `QUEUE_CONNECTION=sync`, `MAIL_
 | --- | --- | --- |
 | JTL Standard Netto-VK | vorhandener `api/jtl.php`-Spiegel | lesbar |
 | JTL Standard Brutto-VK | verifizierte Windows-SQL-Preis-/Steuer-/Kundengruppenzuordnung | **offen, Issue #33** |
-| Shopify | Admin GraphQL `ProductVariant.price` + barcode/SKU | angeschlossener Shopify-Shop lesbar, EAN 3474630337398: 14,00 EUR (ACTIVE, Sichtbarkeit nicht geprüft) |
+| Shopify | Admin GraphQL `ProductVariant.price` + barcode/SKU | angeschlossener Shopify-Shop lesbar, EAN 3474630337398: angezeigter Variantenpreis 14,00 EUR (ACTIVE, Sichtbarkeit/Steuerinklusion nicht geprüft). **Nicht automatisch Brutto** |
 | Amazon | vorhandene SP-API `amazon-pricing.php`, Catalog, später eigene Listings | auf Seite integrierter Code, **Live-Abnahme offen** |
 | eBay | JTL-eazyAuction-Datenabgleich oder eBay Sell Inventory/Offer API | **nicht verbunden/nicht verifiziert** |
 
