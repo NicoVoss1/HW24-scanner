@@ -48,3 +48,19 @@
 **Genau nächster Schritt:** Vorhandenen PHAR-Pfad prüfen, dann `runuser -u nicovoss -- /opt/plesk/php/8.4/bin/php /opt/psa/var/modules/composer/composer.phar ... install` im bestehenden isolierten `repo/platform` ausführen. **Nicht** den Shell-Wrapper mit PHP interpretieren; **nicht** neu klonen; **nicht** globale Git-Sicherheitsausnahmen eintragen; **nicht** bestehende Sites/DB verändern. Skript in Subshell ausführen und dann tatsächliche `vendor/autoload.php`-Existenz prüfen.
 
 Chronologisch auch in [Arbeitsjournal](./HW24_ARBEITSJOURNAL.md) dokumentiert, Commit `11ee6bdbfd6fee832149e16418ab720769053f2e`.
+
+
+## LETZTER BESTÄTIGTER MEILENSTEIN · Composer-Installation erfolgreich (22.11.2026)
+
+**Überholt die zuvor protokollierte Composer-Fehlermeldung.** Der private Laravel-/Filament-Klon ist unter dem erwarteten Git-HEAD `980bcce75a0a3516b7b6364fae5a0fa6aab8d112` vorhanden. Der Betreiber hat mit dem korrekten Plesk-Composer-`composer.phar` und explizit **PHP 8.4.28** als Subscription-Eigentümer die PHP-Abhängigkeiten erfolgreich installiert:
+
+- Composer **2.11.2**, Laravel Framework **13.43.0**, Filament **5.12.0**, Livewire **4.4.9**.
+- Ohne vorherige `composer.lock` im Repo **145 Versionen** aufgelöst und in einer privaten **serverlokalen Lockdatei** gespeichert; **112 Produktiv-Pakete** installiert (`--no-dev`).
+- Composer Autoloading und Laravel `artisan package:discover` erfolgreich. Die lokale Prüfung `vendor/autoload.php` bestand. PuTTY meldete ausdrücklich `=== INSTALLATION ERFOLGREICH ===` und blieb offen.
+- Keine Änderungen von Test-Webroot, Live-Domain oder bestehender JTL-Datenbank im Installerprotokoll.
+
+**NOCH OFFEN:** PHP-/Artisan-Runtime im Server isoliert prüfen (`artisan --version`, `route:list`), Composer-Lockfile nach Secret-Check als reproduzierbare Abhängigkeit versionieren, private Laravel-`.env` (APP_KEY, APP_DEBUG=false, HTTPS und ADMIN-Zugang), separate lokale SQLite für Laravel-Login, Filament-Assets, erste Admin-Benutzeranlage, Laravel-HTTP-Test. Die Legacy-Live-V4.25-**Webroot-Hashes und angemeldeter API-/Browser-E2E** bleiben vor dem Umschalten der Testdomain zu bestätigen.
+
+**NÄCHSTER GENAUER SCHRITT:** Isolierten Composer-Erfolg mit read-only Artisan-Befehlen und Live-Webroot-V4.25-Hashes absichern. Anschließend private Laravel-Konfiguration und nur isolierte SQLite-Migration anlegen. Kein Reclone, keine erneute Composer-Installation, kein zusätzlicher Vhost, kein bestehender JTL-Tabelleneingriff.
+
+[Vollständiges Einzelprotokoll](./HW24_ARBEITSJOURNAL.md), GitHub-Dokumentations-Commit `006fbf833d06b9dd89d5a663f653d75afd3444ee`.
