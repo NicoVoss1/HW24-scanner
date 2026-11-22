@@ -56,3 +56,21 @@ Beobachteter jüngster `dMod` im Dateiexport: 2026-11-23 00:05:56.90 (Zeitzone d
 2. Sicheren privaten Transfer der vorhandenen Artikel-CSV auf die TEST-Maschine planen. Nicht in `platform/public`, nicht ins GitHub-Repository.
 3. Erst **nach** CI und ausdrücklicher Bedienerabnahme mit `--input` einen Dry-Run des Staging-Skripts auf privater Maschine durchführen; danach optional isolierter `--apply`-Test mit checksum-gated neuer DB.
 4. Für echten periodischen Spiegel sind stabile Snapshot-/Lösch-/Änderungsregeln, kundendatenfreie Source-Allowlist, 15-Minuten-Job und gesonderte Backend-/UI-Integration erforderlich.
+
+## Nachtrag 2026-11-23: Rowversion-Konvertierung erfolgreich verifiziert
+
+Der Betreiber hat nach dem ursprünglichen Phase-6-CSV einen neuen direkten SQL-Server-SELECT geliefert:
+
+| kArtikel | DATALENGTH(bRowversion) | CONVERT(varchar(18),CONVERT(varbinary(8),bRowversion),1) |
+|---:|---:|---|
+| 3 | 8 | `0x0000000004C0BE42` |
+| 4 | 8 | `0x0000000004C0BE32` |
+| 6 | 8 | `0x0000000006122DA5` |
+| 7 | 8 | `0x0000000006122DA6` |
+| 8 | 8 | `0x0000000006122DA7` |
+
+**Auswertung:** Bei diesen fünf Artikeln existieren echte, 8 Byte lange Rowversion-Daten. Die direkte frühere `CONVERT(varchar(18), a.bRowversion,1)`-Anweisung hat im konkreten Export leere Felder geliefert. **Nachgewiesene Abhilfe:** `CONVERT(varchar(18), CONVERT(varbinary(8), a.bRowversion), 1)`. Beide SQL-SELECTs in `platform/ops/jtl-heidisql-phase6-article-export-readonly.sql` sind entsprechend berichtigt. Ein PHP-Regressionstest schützt die zwei SELECT-Varianten vor dem alten Muster.
+
+**Einschränkungen:** Die fünf Beispielzeilen verifizieren nicht die Daten sämtlicher 2.692 Artikel und auch nicht deren historische Rowversion zum Zeitpunkt des alten Exports. `platform/ops/jtl-heidisql-phase8-rowversion-verified-readonly.sql` enthält Aggregatprüfungen, Join-Kardinalität und den lesenden Vergleich der SQL Server Funktionen `@@DBTS` / `MIN_ACTIVE_ROWVERSION()`; Betreiber-Ausführung noch offen. Die bereits erzeugte **private SQLite-Pilotdatei enthält weiterhin die alten leeren Rowversion-Felder** und darf nicht als Delta-Basis benutzt werden. Keinerlei automatische Delta-Synchronisation aktiviert.
+
+**Sichere Folge:** Für einen zusammengehörigen neuen Artikelstand SQL 2 der korrigierten Phase 6 erneut **als neuen privaten CSV-Export** ausführen. Nicht neue Rowversion-Werte unkontrolliert in ein altes Artikeldatenabbild einfügen. Geprüfte Quelle und Ziel mit SHA256 protokollieren, ohne Geschäftsdaten in GitHub zu schreiben.
