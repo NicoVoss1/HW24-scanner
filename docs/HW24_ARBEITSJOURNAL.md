@@ -1381,3 +1381,19 @@ upstream_status: None
 - Der Betreiber hat parallel erneut `platform/ops/verify-filament-loopback-http.sh` ausgeführt und mit `GET /admin/login HTTP 200`, nicht authentifizierte `/admin` und `/admin/artikel` jeweils `HTTP 302`, Filament CSS/JS jeweils `HTTP 200`, Abschluss `LARAVEL/FILAMENT LOOPBACK: HTTP TEST BESTANDEN` bestätigt. Das ist ein **nur lokal gehosteter HTTP-Test** auf `127.0.0.1`, noch kein öffentliches HTTPS-/Browser-Login.
 - Keine produktiven Webroot-, JTL-, SQL-, eBay-, Shopify- oder Amazon-Angebotsänderungen. Die manuell hinzugefügte TEST-`api/amazon-asin.php` ist weiterhin **nicht** im alten Git-Stagingdeployment; künftig sauber sichern/entkoppeln.
 - **Nächster Release-Gate:** sichere Inventur der Plesk-Git-Testdomain und Rückfallmöglichkeit, danach ggf. kontrollierter Wechsel **nur Testdomain** auf isoliertes Filament-`platform/public`. Vor der Umstellung dokumentierte Testdomain-Wiederherstellung, Basic-Auth, SSL, PHP-FPM/open_basedir und Laravel-Login prüfen; kein PR36-Merge in `deploy/staging`.
+
+
+## 22.11.2026 · Testdomain-Plesk-Pre-Cutover-Protokoll: ein erwarteter Framework-Code-Rueckstand
+
+**Betreiber-PuTTY-Ausgabe** des read-only `platform/ops/verify-testdomain-cutover-readonly.sh` vom **22.11.2026 18:40:40 UTC**:
+
+- Plesk-Test-vHost-DocumentRoot ist weiterhin `/var/www/vhosts/hairworld24.de/test-artikelmanager.HAIRWORLD24.de`. Bestehende Test-Artikelpflege noch intakt; manuell eingespielter Amazon-ASIN-Endpunkt liegt im bisherigen Testroot.
+- Plesk `ext git --get-last-commit` meldet für `HW24-scanner.git` Commit **`c2cc4e1dc054da00f01087e7221659cf54a9a482`** (Test-Regressionstest 03:56 Uhr). Dieser Plesk-Git-Metastand weicht von GitHub `deploy/staging` **`bd58ea909c8807f274a4bb9a5759de0d43ef9ee3`** ab und ist laut GitHub-Compare divergiert. **Keinen unvorbereiteten Plesk-Pull/Deploy ausführen**, weil er zuvor manuell korrigierte Test-Dateien oder die alte Live-Historie ueberschreiben koennte.
+- Privater Laravel-Git-Klon liegt auf **`980bcce75a0a3516b7b6364fae5a0fa6aab8d112`**. Die neue `platform/app/Domain/Jtl/SourceSnapshot.php` ist **noch nicht** im installierten Klon. `git diff` fuer getrackte lokale Dateien **sauber**.
+- `artisan`, `platform/public/index.php`, `vendor/autoload.php`, private `.env`, private `database/database.sqlite`, Filament CSS/JS sind vorhanden. Weder Datenbankinitialisierung noch Admin-Neuanlage erforderlich.
+- Anonyme HTTPS-Zugriffe auf Live-/Test-`api/jtl.php` weiter **401/401**. Testabschluss `PRE-CUTOVER ENDE: 1 Abweichung(en)`: erwarteter fehlender neuester Framework-Quellcode; sonst kein Fehler.
+- Bereits zuvor separat vom Betreiber belegt: Filament-Testloopback `GET /admin/login = 200`, `/admin` und `/admin/artikel` anonym `302`, CSS und JS `200`; GTIN-Konflikt Amazon EAN `3474636989348` gegen JTL `3474630337398` nach Typfix auf TEST bestaetigt.
+
+**GitHub-Diff geprueft:** Ausgehend von privatem Commit `980bcce` ist der Framework-Draft-Commit `a26a64d09597e41523e224c557bb1d4e39bdf052` ein **Fast-Forward mit 19 Commits**, lediglich 13 Quell-/Test-/Dokumentationsdateien unter `platform/` und einem CI-Workflow betroffen. Insbesondere **kein** `composer.json`, `composer.lock`, private `.env` oder SQLite im Diff.
+
+**Vorbereitet, noch nicht auf Plesk ausgefuehrt:** Sicherheitsbewusstes Skript `platform/ops/upgrade-private-framework-ffonly.sh` auf GitHub-Featurebranch PR36. Prueft gegebene alte/neue SHA, Branch, Origin, sauberen Index, path-whitelist und Commit-Abstammung, sichert SHA-Rueckfallreferenz root-privat, fuehrt ausschließlich Fast-Forward des privaten Framework-Repositories als Site-User aus, vergleicht .env/SQLite/composer.lock bytegenau vor/nach und prueft PHP-Lint/Admin-Routen. **Kein Composer, keine Migration, kein Domain-/Plesk-Git-/Live-Deploy.** Nach Betreiber-Nachweis erst separaten Schema-Test und Test-vHost-FPM-/HTTPS-Cutover mit Rueckfallplan abnehmen.
