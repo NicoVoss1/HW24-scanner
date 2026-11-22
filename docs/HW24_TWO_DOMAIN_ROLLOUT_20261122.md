@@ -251,3 +251,11 @@ Die nächste PuTTY-Ausgabe bestätigte `runuser -u nicovoss -- git ... rev-parse
 - Nächster Schritt: ausschließlich privaten, autorisierten Filament-Admin anlegen; Legacy-Live angemeldet testen; erst dann Testdomain auf ausschließlich `platform/public` umstellen.
 
 [Nachweis im Arbeitsjournal](./HW24_ARBEITSJOURNAL.md) · Commit `f0f0cb0cc19af24fab670552e4eac5e420218c1b`.
+
+### Ergänzung 22.11.2026: Filament-Administrator privat eingerichtet
+
+Betreiber bestätigt erfolgreiche Anlage des ersten Filament-Adminusers via `artisan make:filament-user`; `HW24_ADMIN_EMAIL` wurde privat in `.env` gespeichert, Laravel-Konfiguration erfolgreich geleert, interaktive Anlage meldete **Success!**. Persönliche E-Mail und Passwort sind **nicht** im öffentlichen GitHub dokumentiert.
+
+**Noch keine öffentliche Admin-URL**: Die URL ist nur in Laravel-Routen/Filament-Bestätigung angegeben, die Testdomain wurde **nicht** umgeschaltet. Als nächstes read-only lokalen Datenbank- und Allowlist-Status prüfen, dann Legacy-Live angemeldet mit JTL/Amazon/KI testen und Testdomain-DocumentRoot-/Git-Deploymentmechanik sicher abnehmen.
+
+[Schritte 50–55 im Journal](./HW24_ARBEITSJOURNAL.md), Commit `95246e6a8a9e2cb499454c4bdad4bcd6c3eb4307`.
