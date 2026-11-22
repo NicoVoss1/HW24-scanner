@@ -362,6 +362,20 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 3. Privater CSV-Transfer **außerhalb des DocumentRoots** zum TEST-Server nach Bedienerfreigabe. `php platform/ops/jtl-article-csv-stage.php --input=/PRIVATE/datei` zunächst nur Dry-Run. Für optionales `--apply` vorher schriftliche Prüfsumme und Zielpfad abstimmen, nie vorhandene TEST/LIVE SQLite-Datenbank überschreiben.
 4. Quelle nach Vollständigkeit und Performance testen; WMS/per-Lager-, Shopify- und SCX-Preis-Spiegel getrennt und nur mit verifizierten Quellbeziehungen aufbauen; dann nächtliche Reconciliation und 15-minütigen Delta-Job absichern.
 
+### S048 | Echter, isolierter JTL-Artikeldatenpilot lokal erstellt | **private ChatGPT-Datei, NICHT auf Server**
+- Auf Basis der vom Betreiber übermittelten 19-spaltigen, vollständigen Phase-6-Datei wurde lokal eine **private separate SQLite-Stagingdatei** `HW24_JTL_Artikel_Isolierter_Pilot_2026-11-23.sqlite` erzeugt. Ort: geschützte aktuelle Chat-Dateiablage, **nicht** GitHub, **nicht** TEST-Server, **nicht** Plesk, **nicht** bestehende Laravel-/Legacy-DB, **nicht** Windows/JTL.
+- Verfahren: Python-Standardbibliothek SQLite, neue Datenbank mit `jtl_article_stage` (PK `jtl_article_id`, sonst String-/NULL-Rohfelder) und `stage_manifest` (Quellsystem eazybusiness/dbo.tArtikel, Quell-Checksum, Zeilenzahl, UTC-Erzeugung, `is_consistent_cross_table_snapshot=0`, `production_or_test_deployed=0`). Transaktional angelegt; Prüfsummen/Importstatus mitgespeichert.
+- Tatsächlich im neuen SQLite geprüft: **2.692** Stagingzeilen, **2.692** eindeutige Artikel-IDs, **223** Barcodewerte mit führender Null weiterhin erhalten, **738** fehlende Barcodes inkl. 20 NULL korrekt abgebildet, `PRAGMA integrity_check=ok`.
+- Dateigröße **352.256 Bytes**. Die Datei wurde dem Betreiber in diesem Chat als privater Download bereitgestellt. **Kein** Upload der sensiblen Geschäftsdaten in das öffentliche GitHub-Repository.
+- **Wichtig:** Diese tatsächliche lokale Python-Stagingprobe ist unabhängig vom neuen **PHP**-CLI-Stagingwerkzeug. Für das PHP-Werkzeug liegen GitHub-CI-Tests mit synthetischen Datensätzen vor, aber kein auf dem Betreiber-TEST-Server durchgeführter Import. Keine falsche Gleichsetzung mit produktivem 15-Minuten-Sync oder live Filament-Anzeige.
+
+### S049 | GitHub-CI für letzte Code-/Journalfassung | **belegt**
+- Draft PR #46 Git HEAD `6a3c239fd90421dd8fbbe63d200c5f5219e704c8`:
+  - `HW24 isolated Laravel 13 Filament 5 foundation`: **success** https://github.com/NicoVoss1/HW24-scanner/actions/runs/45084873188
+  - `HW24 V4.25 Amazon KI Ameise article editor`: **success** https://github.com/NicoVoss1/HW24-scanner/actions/runs/45084873183
+- Der CI-Lauf erfolgte auf dem GitHub-Runner, **nicht** auf dem Betreiber-Server. Lokale Anwendung, private JTL-Datenbank und API-Freigaben sind davon unberührt. Die neuen PHP-Stagingtests laufen als Teil der getesteten Laravel-Konfiguration, die Job-Prüfungen wurden erfolgreich abgeschlossen.
+- **Nächster Schritt bleibt:** Phase-7-HeidiSQL Rowversion/Bestandsdiagnose; sichere private Dateiübertragung und TEST-Pilot-Ausführung mit Bedienerfreigabe. Keine Merge-/Deployfreigabe aus CI-Erfolg allein ableiten.
+
 ## Fachlich beschlossene Zielarchitektur
 
 1. **JTL eazybusiness** bleibt maßgebliche SQL-Server-Datenbank; zunächst nur Leseinventur, DB-Backup/Wiederherstellung als getrennte Aufgabe prüfen.
