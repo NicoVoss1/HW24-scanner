@@ -1,3 +1,15 @@
+## AKTUELLSTE SERVERPRÜFUNG · PHP-FPM-Testdomain gehört nicovoss (22.11.2026)
+
+**PuTTY bestätigt und im Arbeitsjournal protokolliert:** PHP-8.5-FPM-Pool der bestehenden Testdomain läuft unter `user=nicovoss`, `group=psacln`; Socket `listen.owner=root`, `listen.group=psaserv`, `listen.mode=0660`. `nginx` und `www-data` sind in `psaserv`, nicht `psacln`. Daraus folgt: FPM kann die privaten Laravel-Dateien unter Eigentümerrechten öffnen, aber die statischen `public/css`, `public/js` und `public/fonts` sind Nginx/Apache im Moment nicht lesbar (vorher explizit getestet). Die private `.env` und SQLite bleiben korrekt `0600` für `nicovoss`.
+
+**Änderungsstrategie:** Verzeichnisdurchquerung für nginx/www-data selektiv erlauben und nur statische öffentliche Assets lesbar machen, idealerweise mit POSIX-ACL. Keinesfalls gesamtes privates `platform`/Repository per `chmod -R` öffnen. Prüfe als Nächstes nur Paketverfügbarkeit von `acl`, Dateisystem und vorhandene `public/{css,js,fonts}`-Verzeichnisse, **ohne** Plesk/Webserver-Einstellungen zu verändern. Für die tatsächliche Rechteänderung separaten Rollback-/Backuppunkt und nachfolgende Zugriffsprobe vorsehen.
+
+**Andere verbleibende Freigabe:** Live-V4.25-Artikelmanager wurde bisher auf Git-/Dateiebene, **noch nicht angemeldet mit JTL/Amazon/OpenAI** abgenommen. Vor der Testdomain-Umstellung Pflicht. Die bestehende Plesk-Git-Test-Bereitstellung ist weiter `deploy/staging` manuell im alten Test-Webroot.
+
+[Arbeitsjournal](./HW24_ARBEITSJOURNAL.md) mit Prüfschritten 80–88, Commit `ac9cbd70d710a301d19bd8f7001f65c266471fbf`.
+
+---
+
 ## AKTUELLSTE BESTÄTIGTE PRÜFUNG · nginx/www-data können Laravel-Assets nicht lesen (22.11.2026)
 
 **Server-PuTTY nachgewiesen:** Die Webserver-Nutzer `nginx`, `www-data` und sichtbare PHP-FPM-Poolprozesse `www-data` wurden ermittelt. `public/index.php`, Filament `app.css` und `app.js` sind für `nicovoss` **LESBAR**, für `nginx` und `www-data` **GESPERRT**. Vorherige `namei`-Prüfungen zeigten auf dem privaten Laravel-Pfad Verzeichnisse mit `0700` und Dateien mit `0600`. `getfacl`/`setfacl` wurden nicht im PATH gefunden. **Kein Laravel-Laufzeitfehler:** PHP 8.5.13, Composer-Requirements, Laravel 13.43.0 und 4 Filament-Routen waren zuvor OK.
