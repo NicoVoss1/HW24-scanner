@@ -451,6 +451,29 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - Neu: platform/ops/jtl-private-sqlite-pilot-review.sql mit read-only QA-Abfragen für privaten kombinierten SQLite-Piloten und Integritätsprüfung. Keine privaten Geschäftsdaten eingecheckt.
 - Bereits in GitHub vorhandene PHP-Importer und Tests bleiben opt-in, nicht live. Nächster Schritt: aktuelle Phase-10-HeidiSQL-Werte und ein frischer, vollständig korrigierter Phase-6-Artikel-CSV mit gültigen Rowversions; vor produktivem Sync Snapshot-/Transaktions-/Lösch-/Auftragsreservekonzept prüfen. CI für letzten GitHub-HEAD separat ermitteln.
 
+## Betreiberergebnisse Phase 10: Quell-Reconciliation und WMS-Verfügbarkeitsprüfung (2026-11-23)
+
+### S062 | Direkter JTL-Quellabgleich: 71 Lagerzeilen ohne Artikelstamm | **HeidiSQL bestätigt**
+- `DB_NAME()=eazybusiness`; `dbo.tlagerbestandProLagerLagerartikel`: 12.717 Lagerzeilen. In `dbo.tArtikel` fehlen zu **71** Lagerzeilen aktuell tatsächlich die Artikelstammsätze; **12** verschiedene `kArtikel`-IDs betroffen, darunter **8** positive Lagerzeilen mit zusammen **24** Rohbestandseinheiten.
+- Exakte Gruppenergebnisse (Artikel-ID : Lagerzeilen / Rohbestand / Sperre): `1:3/7/0`; `2:6/3/0`; `5:3/9/0`; `5275:3/0/0`; `5748:7/1/0`; `5766:7/1/0`; `5900:7/1/0`; `5901:7/2/0`; `5902:7/0/0`; `5903:7/0/0`; `5904:7/0/0`; `5942:7/0/0`.
+- Das bestätigt die zuvor lokal festgestellten Orphans **gegen die momentane JTL-Quelle**, nicht bloß anhand zweier zeitlich versetzter CSV-Dateien. Keine Ursache der Stammsatzlücken bewiesen. **Kein automatisches Löschen/Umnummerieren**, kein Verkauf ohne gültigen Stammsatz; die 71 Quellzeilen bleiben im isolierten Lagerfaktenspiegel separat sichtbar.
+
+### S063 | JTL-Artikel ohne Lagerzuordnung | **HeidiSQL bestätigt**
+- `dbo.tArtikel` hat **2.692** aktuelle Stammsätze; davon **32** ohne eine Zeile in `dbo.tlagerbestandProLagerLagerartikel`. Zuvor nur in altem Artikel-/neuem Lagerdatei-Join sichtbar, jetzt unabhängig direkt in JTL bestätigt.
+- Keine Interpretation dieser 32 als defekt, gelöscht oder Bestand=0: können unter Umständen nicht lagergeführte/virtuelle Typen sein, aber Artikeltyp und Ursache bleiben **offen**. Im Spiegel als `no_warehouse_assignment` kennzeichnen, nicht stillschweigend entfernen.
+
+### S064 | WMS-Lager 4 Rohbestand und Sperre | **HeidiSQL bestätigt**
+- `kWarenlager=4` (`WMS-ZepCh+Bug`): **2.670** Lagerzeilen, `SUM(fBestand)=13.561`, `SUM(fVerfuegbarGesperrt)=404`, `SUM(fAuslieferungGesperrt)=0`.
+- **172** Zeilen `fVerfuegbarGesperrt<>0` und **0** Zeilen `fVerfuegbarGesperrt>fBestand`. Rechenwert `13.561 - 404 = 13.157` wäre eine **bloße Differenz zweier Rohsummen**, noch kein belegter frei verkaufbarer Bestand, keine bestätigte Reservierung in offenen Aufträgen. Noch nicht in Amazon/eBay/Shopify als Angebotsmenge ausspielen.
+- Beim Rohbestand der zehn Lager zusammen `13.639` sind `24` Einheiten orphanbezogen; eine ungeprüfte Summierung kann nicht gleichzeitig die 71 Orphan-Zeilen verwerfen und trotzdem 13.639 als nur gemappte Ware bezeichnen.
+- Ziel-UI: `Quellrohbestand`, `JTL-Verfügbarkeitssperre (Rohfeld)`, `Aufträge/Reserviert (noch ungeklärt)`, `externe Kanalmengen (noch ungeklärt)` strikt getrennt und mit Quellen-/Zeitstempel.
+
+### S065 | GitHub: Phase 11 prüft tatsächliche Verfügbarkeits-/Auftragslogik | **neu erstellt, noch nicht ausgeführt**
+- `platform/ops/jtl-heidisql-phase11-availability-order-metadata-readonly.sql`: SQL 0 DB_NAME, SQL 1 Metadaten zu `Verkauf.tAuftragPosition`, `Verkauf.tAuftragPositionEckdaten`, `dbo.tArtikelHistory`, `dbo.tWarenLagerPlatzArtikel`, `dbo.tLagerbestandShop` und bisherigem Lagerbestand; SQL 2 verifizierbare FKs, SQL 3 begrenzte System-Spaltensuche nach Lager-/Reservierungs-/Sperr-/Bestandsfeldern, SQL 4 Aggregat nur WMS-Lager 4, SQL 5 Orphans aggregiert pro Warenlager.
+- **Keine** Kunden, Auftrags- oder Rechnungszeilen ausgelesen, keine PII, keine Preis-/Bestandsdaten in öffentliche GitHub-Quellen übernommen, kein SQL-Schreibzugriff. `Verkauf.tAuftragPosition` bleibt gemäß Quellvertrag `restricted_order` / `not_approved`.
+- Nach SQL 1-3 erst weitere ausschließlich aggregierte Belegdaten für Auftragsreservierung planen. Keine falschen Joins mit Kunden-/Anschriftstabellen, kein 15-Minuten-Sync oder Live-Anzeige.
+- Der zuvor erstellte kombinierte private SQLite-Spiegel vom 23.11. bleibt unverändert und ist **nicht** an TEST/LIVE angeschlossen. Für einen neuen kohärenten Artikelstand muss weiterhin `platform/ops/jtl-heidisql-phase6-article-export-readonly.sql` SQL 2 mit korrigierter Rowversion privat erneut exportiert werden.
+
 ## Fachlich beschlossene Zielarchitektur
 
 1. **JTL eazybusiness** bleibt maßgebliche SQL-Server-Datenbank; zunächst nur Leseinventur, DB-Backup/Wiederherstellung als getrennte Aufgabe prüfen.
@@ -467,4 +490,4 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - **C** Ergebnisse, Abweichungen und Risiken im Journal festhalten; gegebenenfalls Versionsvergleich des Test-/Live-Codes.
 - **D** Nur kleine, rollbackfähige Änderungen isoliert vorbereiten, GitHub CI + Browser-E2E prüfen und Betreiberfreigabe für Deployment einholen.
 
-**Nächster Nachweis:** HeidiSQL Phase 10 SQL 0-4 für aktuelle 71 Lagerzeilen ohne Artikelstamm, Artikel ohne Lager und Sperrbestandskontext; danach neuer korrigierter Phase-6-Artikel-CSV mit gültigen Rowversions. Privater kombinierter SQLite-Pilot ist erstellt, kein TEST/LIVE-Deploy und kein 15-Minuten-Job.
+**Nächster Nachweis:** Phase-11-HeidiSQL SQL 0–5 für reservierungsrelevante Quelltabellen, Schlüssel und anonymisierte WMS-Sperrverteilung. Zusätzlich neuer Phase-6-Artikel-CSV mit korrigierten Rowversions, um den bestehenden privaten Datenpiloten später sicher als neue Datei zu erneuern. Keine Änderungen an JTL, TEST oder LIVE.
