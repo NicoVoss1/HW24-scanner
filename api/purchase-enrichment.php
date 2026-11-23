@@ -191,15 +191,15 @@ try{
            'last_item_id'=>$last,'has_more'=>count($items)===100]);
     }
     if($op==='lease'&&$method==='POST'){
-        // No cron or shared unbounded worker. Per-actor DB-lock throttle limits
-        // simultaneous browser tabs, not just one particular UI instance.
+        // ONE shared workspace throttle prevents API bursts across all
+        // simultaneous authenticated users, not merely browser tabs.
         $db->beginTransaction();
         $db->prepare('INSERT IGNORE INTO hw24_purchase_amazon_throttle
-            (created_by,next_allowed_utc) VALUES (?,NULL)')->execute([$actor]);
+            (scope_key,next_allowed_utc) VALUES (?,NULL)')->execute(['shared_workspace']);
         $t=$db->prepare('SELECT next_allowed_utc,
             CASE WHEN next_allowed_utc>UTC_TIMESTAMP(6) THEN 1 ELSE 0 END AS blocked
-            FROM hw24_purchase_amazon_throttle WHERE created_by=? FOR UPDATE');
-        $t->execute([$actor]);$throttle=$t->fetch();
+            FROM hw24_purchase_amazon_throttle WHERE scope_key=? FOR UPDATE');
+        $t->execute(['shared_workspace']);$throttle=$t->fetch();
         $next=$throttle['next_allowed_utc']??null;
         if($throttle && (int)$throttle['blocked']===1){
             $db->commit();
@@ -208,24 +208,23 @@ try{
         }
         // Recover final timed-out jobs; do not leave them leased forever.
         $stale=$db->prepare('SELECT id,ean FROM hw24_purchase_amazon_jobs
-             WHERE created_by=? AND status="leased" AND attempt_count>=4
+             WHERE status="leased" AND attempt_count>=4
              AND lease_until_utc<=UTC_TIMESTAMP(6) FOR UPDATE');
-        $stale->execute([$actor]);
+        $stale->execute();
         foreach($stale->fetchAll() as $dead){
             $db->prepare('UPDATE hw24_purchase_amazon_jobs SET
                 status="blocked",last_error_code="lease_expired_max_attempts",
                 leased_by=NULL,lease_token=NULL,lease_until_utc=NULL
-                WHERE id=? AND created_by=?')->execute([(int)$dead['id'],$actor]);
+                WHERE id=?')->execute([(int)$dead['id']]);
             enqueueEvent($db,(int)$dead['id'],$actor,$dead['ean'],'blocked',null,'lease_expired');
         }
         $s=$db->prepare('SELECT id,ean,attempt_count FROM hw24_purchase_amazon_jobs
-             WHERE created_by=?
-               AND ((status IN ("queued","retry")
+             WHERE ((status IN ("queued","retry")
                     AND (next_attempt_utc IS NULL OR next_attempt_utc<=UTC_TIMESTAMP(6)))
                    OR (status="leased" AND lease_until_utc<=UTC_TIMESTAMP(6)))
                AND attempt_count<4
              ORDER BY requested_at_utc ASC,id ASC LIMIT 1 FOR UPDATE');
-        $s->execute([$actor]);$job=$s->fetch();
+        $s->execute();$job=$s->fetch();
         if(!$job){
             $db->commit();enqueueReply(200,['ok'=>true,'ready'=>false,'reason'=>'queue_empty_or_delayed']);
         }
@@ -236,14 +235,14 @@ try{
              status="leased",attempt_count=attempt_count+1,
              leased_by=?,lease_token=?,lease_until_utc=DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 180 SECOND),
              last_attempt_at_utc=UTC_TIMESTAMP(6),last_error_code=NULL
-             WHERE id=? AND created_by=?')
-          ->execute([$actor,$leaseId,$job['id'],$actor]);
+             WHERE id=?')
+          ->execute([$actor,$leaseId,$job['id']]);
         $db->prepare('UPDATE hw24_purchase_amazon_throttle
              SET next_allowed_utc=DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 10 SECOND)
-             WHERE created_by=?')->execute([$actor]);
+             WHERE scope_key=?')->execute(['shared_workspace']);
         enqueueEvent($db,(int)$job['id'],$actor,$job['ean'],'leased','amazon_catalog','browser_worker');
         $db->commit();
-        enqueueReply(200,['ok'=>true,'ready'=>true,'job_id'=>(int)$job['id'],
+        enqueueReply(200,['ok'=>true,'scope'=>'shared_workspace','ready'=>true,'job_id'=>(int)$job['id'],
              'ean'=>$job['ean'],'lease_token'=>$leaseId,
              'attempt_count'=>(int)$job['attempt_count']+1,'minimum_next_claim_seconds'=>10]);
     }
