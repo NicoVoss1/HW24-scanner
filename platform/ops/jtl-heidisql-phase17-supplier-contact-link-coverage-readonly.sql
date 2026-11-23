@@ -64,11 +64,13 @@ GROUP BY l.kLieferant,l.cAktiv
 HAVING COUNT_BIG(a.kAnsprechpartner)>0
 ORDER BY COUNT_BIG(a.kAnsprechpartner) DESC,l.kLieferant;
 
--- 4. OPTIONAL PRIVATE TWO-NAME VERIFICATION (not a public data export).
--- Search only the operator-named Maike/Andre representatives.
--- The same person may appear under multiple suppliers; never pick first row.
--- No phone/email/address fields.
-SELECT TOP (30)
+-- 4. OPTIONAL PRIVATE VERIFICATION OF TWO JTL CONTACT IDs.
+-- After selecting IDs from an operator-owned JTL UI/private reference CSV,
+-- replace the NULL constants locally; by default returns ZERO rows.
+-- No names or person identifiers are embedded in this public SQL script.
+DECLARE @ContactIdA int = NULL;
+DECLARE @ContactIdB int = NULL;
+SELECT
     l.kLieferant AS jtl_supplier_id,
     l.cLiefNr AS supplier_number_raw,
     l.cFirma AS supplier_company_raw,
@@ -83,13 +85,7 @@ SELECT TOP (30)
         AS contact_rowversion_hex
 FROM dbo.tansprechpartner AS a
 JOIN dbo.tlieferant AS l ON l.kLieferant=a.kLieferant
-WHERE (
-    a.cVorName COLLATE Latin1_General_CI_AI LIKE N'%Maike%'
- OR a.cVorName COLLATE Latin1_General_CI_AI LIKE N'%Andre%'
- OR a.cVorName COLLATE Latin1_General_CI_AI LIKE N'%Andi%'
- OR a.cName COLLATE Latin1_General_CI_AI LIKE N'%Brede%'
- OR a.cName COLLATE Latin1_General_CI_AI LIKE N'%Lud%'
-)
+WHERE a.kAnsprechpartner IN (@ContactIdA,@ContactIdB)
 ORDER BY l.kLieferant,a.kAnsprechpartner;
 
 -- 5. OPTIONAL PRIVATE MINIMAL CONTACT CATALOG for later controlled
