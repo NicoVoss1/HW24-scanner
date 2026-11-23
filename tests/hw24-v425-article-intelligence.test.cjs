@@ -48,7 +48,12 @@ assert(intel.includes("api/ai-review.php"),'Manual OpenAI review available');
 assert(intel.includes("'X-HW24-Previous-Review'"),'Rechecks use expected review id');
 assert(intel.includes("'X-HW24-Approval':'confirmed'"),'Paid review requires approval');
 assert(review.includes("HTTP_X_HW24_PREVIOUS_REVIEW"),'Server protects repeat payment');
-assert(archive.includes("WHERE actor=?"),'Archive is actor-scoped');
+assert(archive.includes("authentication_required"),'Shared archive must still require authenticated user');
+assert(archive.includes("WHERE ean IN ($marks) GROUP BY ean"),'Shared archive summary uses the common product research source');
+assert(archive.includes("FROM hw24_ai_reviews WHERE 1=1"),'Shared archive reads common research rather than per-user copies');
+assert(archive.includes("'scope'=>'shared_workspace'"),'Shared scope must be explicit to clients');
+assert(!archive.includes("WHERE actor=?"),'Authenticated shared archive must not silently filter to one operator');
+assert(!archive.includes("'actor'=>$actor"),'Shared response must not reveal the author identity');
 assert(intel.includes('api/curated.php?ean='),'Ameise only loads approved drafts');
 assert(intel.includes("expected")||intel.includes('approved.revision!==staged.revision'),
  'Must reject stale approved draft before CSV');
