@@ -61,7 +61,7 @@ for(const token of ['jtl_mirror','scan_draft','jtl_mirror',
   'jtl_net_purchase_price_snapshot_not_lot_cost','current_snapshot','stale',
   'ai_costs','usd_cost','next_before_id','has_more',
   'tokens_input','tokens_cached','tokens_output',
-  'same_actor_and_ean_historical']){
+  'shared_workspace_same_ean_historical']){
   assert(api.includes(token),'missing purchasing API source/cost '+token);
 }
 console.log('HW24 purchase checklist contracts: passed');
