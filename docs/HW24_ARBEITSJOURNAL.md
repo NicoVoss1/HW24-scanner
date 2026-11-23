@@ -530,6 +530,31 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - Bei guten Ergebnissen im nächsten Schritt `dbo.tlagerbestand` als zusätzliche **private, isolierte, vollständig quellengetreue** Spiegel-Komponente vorsehen: `kArtikel` primär, Rowversion + raw `fInAuftraegen`, `fVerfuegbar`, `fLagerbestand`, `fVerfuegbarGesperrt`, `fProduktionGesperrt` mit Quell-Zeitstempel. Nicht in öffentliche GitHub-Daten einchecken; JTL-Test/Live bleibt unberührt.
 - TEST-Live-Deployment, 15-Minuten-Job, Schema-Index-Änderungen, Order-Zeilenkopie und API-Writes bleiben deaktiviert.
 
+## Betreiberergebnisse Phase 13: JTL-Verfügbarkeitsgleichung und 929-Einheiten-Abweichung (2026-11-23)
+
+### S074 | Zentrale JTL-Verfügbarkeit: Formel für 2.691 von 2.692 Artikeln bestätigt | **HeidiSQL geprüft**
+- `DB_NAME()=eazybusiness`; `dbo.tlagerbestand` **2.692/2.692** Zeilen mit gültiger 8-Byte-Rowversion. 32 Artikel haben `fInAuftraegen>0`, 0 negativ; **2** Artikel mit `fVerfuegbar<0`. Global `SUM(fLagerbestand)=14568`, `SUM(fVerfuegbar)=14107`, `SUM(fInAuftraegen)=55`, `SUM(fVerfuegbarGesperrt)=407`, `SUM(fProduktionGesperrt)=406`.
+- Hypothese per Artikel: `fLagerbestand - fVerfuegbarGesperrt - fInAuftraegen = fVerfuegbar`. **2691** Zeilen stimmen exakt, **1** Artikel weicht ab; Residuum über alle `SUM(fLagerbestand-fVerfuegbarGesperrt-fInAuftraegen-fVerfuegbar)=-1`. Auf Summenebene ergibt 14568 - 407 - 55 = **14106**, die JTL-Quellsumme `fVerfuegbar` lautet **14107**. Beim Ausnahmeartikel ist JTL-`fVerfuegbar` nach dieser Hypothese also **eine Einheit höher** als die Formel.
+- Das ist **kein Beweis einer allgemeingültigen Formel**, insbesondere nicht für Webshop-/Marketplace-Verkaufsmengen oder andere JTL-Stände. Der Ausreißer muss mit echten Quellfeldern / Rowversion identifiziert werden, nicht auf 0 korrigiert. `fProduktionGesperrt` (406) **nicht** nochmals pauschal abziehen: Überlappung mit `fVerfuegbarGesperrt` noch offen.
+
+### S075 | 929 Einheiten Abweichung erklärt durch ID-Abdeckung, nicht gemeinsame Lagerartikel | **HeidiSQL bestätigt**
+- `FULL OUTER` global `dbo.tlagerbestand` (PK `kArtikel`) versus nach `kArtikel` summierte `dbo.tlagerbestandProLagerLagerartikel`: **2704** Artikel-IDs in Vereinigung; **2660** gemeinsame IDs, **32** globale Artikel ohne Warenlagerzeile, **12** Warenlager-IDs ohne globale Bestandszeile.
+- Von den **2660 gemeinsamen Artikel-IDs weicht keine** in `fLagerbestand` versus `SUM(fBestand)` ab (SQL 4 TOP(20) lieferte **nur Header**). Die gemeinsame Summe ist auf beiden Seiten **13615**.
+- **32** nur-globalen IDs haben **953** Rohbestandseinheiten; **12** nur-Warenlager-IDs haben **24** Rohbestandseinheiten. Daher globale Summe **13615+953=14568**, Warenlager-Summe **13615+24=13639**, Differenz **953-24=929** vollständig rechnerisch erklärt. Ursache für Existenz der 32/12 unterschiedlichen ID-Gruppen nicht bewiesen. **Nicht** „953 zusätzlich zu WMS“ oder „24 doppelt“ unterstellen; kein source write, keine stille Bereinigung.
+- Die früher belegten **71** Lagerzeilen zu den zwölf Warenlager-only IDs sind weiterhin als separate Rohdatensätze im privaten Spiegel zu halten. Global-only (32) mit Bestandswerten dürfen nicht als physisch zugeordnet oder frei verfügbar etikettiert werden. Status-/Artikeltyp-Abgleich später.
+
+### S076 | Virtuelle und Shop-Lager, Bewegungsindex | **HeidiSQL bestätigt**
+- `dbo.tLagerbestandVirtuell` SQL-5-Gruppierung nach `nLagerBeachten` lieferte **keine Zeilen**, also derzeit keine virtuellen Bestandsdatensätze in dieser Quelle. Das ist keine allgemeine Aussage über alle denkbaren externen/virtuellen Bestandsquellen.
+- `SELECT COUNT_BIG(*) FROM dbo.tLagerbestandShop` ergibt **0**. Diese Tabelle liefert aktuell keine Kanalmengen und ist kein Beleg dafür, dass Amazon/eBay/Shopify keine aktiven Angebote haben.
+- `dbo.tArtikelHistory` Indexmetadaten: `IX_tArtikelHistory_kArtikel` führt `kArtikel` als erste und `dGebucht` als dritte Index-Schlüsselspalte; weiterer Index enthält `dGebucht` als Include-Feld. Ohne Index-/Ausführungsplan keine garantierte Aussage zu optimierter Datumssuche. Kein SQL-Index/Schema verändert.
+- **Wichtig:** `dbo.tlagerbestand` bietet Rowversion und Originalwerte zu `fInAuftraegen`/`fVerfuegbar`; das rechtfertigt eine künftige **private schreibgeschützte** neue Quellkomponente, aber keinen aktuellen TEST/LIVE-Push.
+
+### S077 | GitHub Phase 14: 1 Einzelfall und 32 zentrale Artikel identifizieren | **Skript erstellt, Betreiber-Ausführung offen**
+- `platform/ops/jtl-heidisql-phase14-availability-anomaly-and-global-stock-readonly.sql`, SQL 0–6, nur lesende SQL-SELECTs und technisch begrenzte Artikel-IDs/Bestandsfelder.
+- SQL 1: **ein** Formelausreißer mit Rohfeldwerten, beobachteter Rowversion und Residuum; SQL 2: nur-globaler Bestand 32/953 plus Sperr-/Auftragsaggregate; SQL 3: TOP 15 global-only Artikel nach Rohbestand; SQL 4: zwei negative JTL-Verfügbarkeiten; SQL 5: **Überlappung** Produktion-/Verfügbarkeitssperrkennzeichen; SQL 6: **OPTIONAL** neuer privater Export der 2.692 aktuellen Zentralbestände (12 Originalfelder inklusive `bRowversion` als Hex) für eine spätere isolierte Spiegelkomponente. Kein neuer privater CSV durch Code selbst und kein Deploy.
+- **Empfohlene Betreiberaktion:** Zuerst SQL 0–5 jeweils separat in HeidiSQL ausführen; anschließend neuen privaten CSV (SQL 6) und korrigierten Artikel-CSV erst bei gewünschtem vollständigem Stage-Refresh erzeugen. Die ältere lokale SQLite-Pilotdatei bleibt unverändert.
+- Weiterhin nicht freigegeben: Schema-/JTL-Schreibzugriffe, automatischer 15-Minuten-Sync, Lösch-/Korrekturlogik, Fremd-API-Änderung, TEST-/LIVE-Deploy und direkte Nutzung unvalidierter Verfügbarkeitswerte für Verkaufskanäle.
+
 ## Fachlich beschlossene Zielarchitektur
 
 1. **JTL eazybusiness** bleibt maßgebliche SQL-Server-Datenbank; zunächst nur Leseinventur, DB-Backup/Wiederherstellung als getrennte Aufgabe prüfen.
@@ -546,4 +571,4 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - **C** Ergebnisse, Abweichungen und Risiken im Journal festhalten; gegebenenfalls Versionsvergleich des Test-/Live-Codes.
 - **D** Nur kleine, rollbackfähige Änderungen isoliert vorbereiten, GitHub CI + Browser-E2E prüfen und Betreiberfreigabe für Deployment einholen.
 
-**Nächster Nachweis:** Phase-13-HeidiSQL SQL 0–7 für dbo.tlagerbestand.fInAuftraegen, Artikel-genauen Rohbestands-/Verfügbarkeitsabgleich, Full-Outer-Lagervergleich, virtuelle Bestandsaggregate und direkte Shop-Lagerzählung. Erst nach belegter Formel ein neuer privater Spiegel-Export; noch keine JTL-/TEST-/LIVE-/API-Änderung.
+**Nächster Nachweis:** Phase-14-HeidiSQL SQL 0–5: identifiziere den 1 Formelausreißer, prüfe die 32 global-only Artikel mit 953 Rohbestandseinheiten, zwei negative Verfügbarkeiten und die Überlappung von Produktion-/Verfügbarkeitssperre. Danach optional neuer privater Zentralbestands- und korrigierter Artikel-CSV. JTL, TEST, LIVE und bisherige APIs bleiben unangetastet.
