@@ -236,38 +236,95 @@ final class IntelligenceWorkbench extends Page
             'message'=>'Amazon-Angebotsdaten mit Buy Box, günstigstem sichtbarem Gesamtpreis und Seller-Feedback. Keine automatische Lieferanten- oder eigene Angebotsidentität.'];
     }
 
+    /** Current product archive. The historic actor scope remains the legacy service account. */
     public function loadAiArchive(LegacyReadBridge $bridge): void
     {
         $ean=$this->ean();
         if($ean===null)return;
-        $this->reset(['reviews','archiveState','reviewResult','confirmPaid','confirmRecheck']);
-        $r=$bridge->fetch('ai.history',['ean'=>$ean,'limit'=>10]);
+        $this->loadAiArchivePage($bridge,$ean,null,false);
+    }
+
+    /**
+     * Read the full history within the existing Legacy Basic-Auth actor.
+     * This is NOT a cross-user admin operation or proof that older actors
+     * have no records. It makes old records browsable without an EAN.
+     */
+    public function loadAiArchiveAll(LegacyReadBridge $bridge): void
+    {
+        $this->loadAiArchivePage($bridge,null,null,false);
+    }
+
+    /** Page backwards without re-running OpenAI or querying another user's archive. */
+    public function loadOlderAiArchive(LegacyReadBridge $bridge): void
+    {
+        if(($this->archiveState['ok']??false)!==true)return;
+        $cursor=$this->archiveState['more']??null;
+        if(!is_int($cursor)||$cursor<1)return;
+        $ean=($this->archiveState['mode']??'')==='all'?null:$this->ean();
+        if(($this->archiveState['mode']??'')==='ean'&&$ean===null)return;
+        $this->loadAiArchivePage($bridge,$ean,$cursor,true);
+    }
+
+    private function loadAiArchivePage(
+        LegacyReadBridge $bridge,
+        ?string $ean,
+        ?int $beforeId,
+        bool $append
+    ): void {
+        if(!$append){
+            $this->reset(['reviews','archiveState','reviewResult','confirmPaid','confirmRecheck']);
+        }
+        $params=['limit'=>20];
+        if($ean!==null)$params['ean']=$ean;
+        if($beforeId!==null)$params['before_id']=$beforeId;
+        $r=$bridge->fetch('ai.history',$params);
         $raw=is_array($r['data']??null)?$r['data']:[];
-        if(($r['ok']??false)!==true || !is_array($raw['reviews']??null)){
-            $this->archiveState=['ok'=>false,'http'=>$r['http_status']??null,
-                'message'=>'KI-Archiv konnte nicht geladen werden. Keine neue KI-Anfrage erfolgt.'];
+        if(($r['ok']??false)!==true||!is_array($raw['reviews']??null)){
+            $this->archiveState=[
+                'ok'=>false,'http'=>$r['http_status']??null,
+                'count'=>count($this->reviews),
+                'mode'=>$ean===null?'all':'ean','more'=>null,
+                'message'=>'KI-Archiv derzeit nicht lesbar. Bisher geladene Berichte bleiben erhalten; es wurde keine neue KI-Abfrage gestartet.',
+            ];
             return;
         }
-        foreach(array_slice($raw['reviews'],0,10) as $row){
+        $known=array_fill_keys(array_column($this->reviews,'id'),true);
+        foreach(array_slice($raw['reviews'],0,20) as $row){
             if(!is_array($row))continue;
             $id=(int)($row['id']??0);
-            if($id<1)continue;
+            if($id<1||isset($known[$id]))continue;
+            $known[$id]=true;
             $body=is_array($row['review']??null)?$row['review']:[];
             $facts=is_array($body['productFacts']??null)?$body['productFacts']:[];
+            $tokens=is_array($row['tokens']??null)?$row['tokens']:[];
             $this->reviews[]=[
-                'id'=>$id,'status'=>mb_substr((string)($row['status']??''),0,45),
+                'id'=>$id,
+                'ean'=>mb_substr((string)($row['ean']??''),0,20),
+                'article_name'=>mb_substr((string)($row['article_name']??''),0,600),
+                'status'=>mb_substr((string)($row['status']??''),0,45),
                 'model'=>mb_substr((string)($row['model']??''),0,80),
                 'date'=>mb_substr((string)($row['created_at_utc']??''),0,40),
                 'cost'=>is_numeric($row['usd_cost']??null)?(float)$row['usd_cost']:null,
+                'tokens_input'=>max(0,(int)($tokens['input']??0)),
+                'tokens_cached'=>max(0,(int)($tokens['cached']??0)),
+                'tokens_output'=>max(0,(int)($tokens['output']??0)),
                 'reason'=>mb_substr((string)($body['reason']??''),0,2500),
                 'manufacturer'=>mb_substr((string)($facts['manufacturer']??''),0,180),
                 'title'=>mb_substr((string)($facts['suggestedTitle']??''),0,600),
                 'group'=>mb_substr((string)($body['suggestedWarengruppe']??''),0,150),
             ];
         }
-        $this->archiveState=['ok'=>true,'http'=>$r['http_status']??null,
-            'count'=>count($this->reviews),'more'=>$raw['next_before_id']??null,
-            'message'=>'Vorhandene Berichte ausschließlich aus dem historischen Archiv gelesen.'];
+        $next=$raw['next_before_id']??null;
+        $next=is_numeric($next)&&(int)$next>0?(int)$next:null;
+        $this->archiveState=[
+            'ok'=>true,'http'=>$r['http_status']??null,
+            'mode'=>$ean===null?'all':'ean',
+            'scope'=>'legacy_authenticated_actor',
+            'count'=>count($this->reviews),'more'=>$next,
+            'message'=>$ean===null
+                ?'Archiv des verbundenen Legacy-Benutzerkontos: letzte Prüfungen aller EANs, nicht alle Benutzer oder ältere Datenbanken.'
+                :'Gespeicherte KI-Prüfungen zur ausgewählten EAN aus dem verbundenen Legacy-Benutzerkonto.',
+        ];
     }
 
     public function inspectAiBudget(LegacyReadBridge $bridge): void
