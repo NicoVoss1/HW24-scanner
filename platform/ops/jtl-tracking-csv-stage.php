@@ -13,7 +13,7 @@ function optionsTracking(array $args): array {
     $out=[];
     foreach ($args as $arg) {
         if ($arg==='--apply') { $out['apply']=true; continue; }
-        if (!preg_match('/^--([a-z-]+)=(.+)$/D',$arg,$m) || isset($out[$m[1]]) ||
+        if (!preg_match('/^--([a-z0-9-]+)=(.+)$/D',$arg,$m) || isset($out[$m[1]]) ||
             !in_array($m[1],['input','db','sha256','expected-count'],true)) failTracking('unbekannte oder doppelte Option');
         $out[$m[1]]=$m[2];
     }
