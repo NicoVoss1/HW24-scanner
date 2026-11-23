@@ -398,6 +398,33 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - Die ältere private SQLite-Pilotdatei vom 23.11. bleibt **unverändert**, weiterhin keine brauchbaren Rowversion-Werte. Kein Rollout und keine Synchronisation.
 - GitHub-Publikation enthält nur SQL-Struktur, fünf technische Hex-Testwerte, Code und aggregierte Qualitätsbefunde, nicht vollständige Artikel-/Preisdaten, Kontodaten, Logins oder Credentials.
 
+## Betreiberergebnisse Phase 7/8: Rowversion und Lagerdatensätze (2026-11-23)
+
+### S054 | Vollständige Rowversion- und Lagerzählung | **Betreiber-SQL bestätigt**
+- `dbo.tArtikel`: `artikel_gesamt=2692`, `gueltige_rowversions=2692`, je `DATALENGTH(bRowversion)=8`: **100 %** der Artikel besitzen physisch einen 8-Byte-Rowversion-Wert. Das ist die **Quellbestätigung**, nicht ein bereits reparierter CSV-Export.
+- `dbo.tlagerbestandProLagerLagerartikel`: `lagerdatensaetze=12717`, `bestand_nicht_null=1532` Zeilen mit `fBestand<>0` (ca. 12,05 % der Lagerzeilen). Die übrigen **11.185** Zeilen haben numerisch `fBestand=0` (da die Spalte NOT NULL ist).
+- **Unbedingt nicht verwechseln:** Die 1.532 Werte sind **Lager-Artikel-Schlüsselpaare**, keine 1.532 unterschiedlichen verkäuflichen Artikel. Pro Artikel kann es mehrere Warenlager geben, einschließlich negativem Bestand. Anzahl Artikel mit nonzero-Lagerbestand, Summen je Lager und Bedeutung der Sperrbestände noch offen.
+- Frühere `dbo.tArtikel.nLagerbestand=0` bei 2.692 Artikeln beweist **nicht** einen leeren Lagerbestand, da jetzt in der separaten Lagerbestandstabelle 1.532 Nonzero-Zeilen belegt sind.
+- Die Original-Datei/Pilot-DB aus Phase 6 enthält weiter leere `jtl_rowversion_hex`; erst ein neuer **vollständiger** CSV-Export mit korrigierter SQL-Cast-Anweisung würde die Rowversion-Werte als Text enthalten.
+
+### S055 | GitHub: Phase 9 für echten Warenlager-Datentransfer | **Code vorbereitet, HeidiSQL-Ausführung offen**
+- Neue `platform/ops/jtl-heidisql-phase9-warehouse-export-readonly.sql`: SQL 0 DB-Sicherung, SQL 1 Anzahl Nonzero/Positiv/Negativ und 8-Byte-Rowversions der Lagerzeilen, SQL 2 Aggregation je Warenlager mit Name (ohne Adresse/Personen), SQL 3 Anzahl eindeutiger Artikel mit Lagerbestand ungleich null, SQL 4 TOP-25 Lagerdatenvorschau, SQL 5 **vollständiger Lager-CSV-SELECT**, SQL 6 verwaiste Lagerartikelzuordnungen zählen.
+- SQL 5 enthält genau sechs Felder: `jtl_article_id`, `jtl_warehouse_id`, `jtl_stock_raw`, `jtl_available_blocked_raw`, `jtl_shipping_blocked_raw`, `jtl_rowversion_hex`. Der originale SQL Server `bRowversion` wird per `CONVERT(varchar(18),CONVERT(varbinary(8),...,1)` als Hextext ausgegeben; keine heimliche Mengen-/Steuer-/Preisberechnung.
+- Die Quelle `dbo.tlagerbestandProLagerLagerartikel` wurde über Phase 3 in JTL mit dem PK (`kArtikel`,`kWarenlager`) bestätigt. Export darf nur privat lokal auf dem Betreiber-Rechner gespeichert werden, nicht im öffentlichen GitHub/DocumentRoot.
+- **Achtung:** Separat abgefragte JTL-Artikel-/Lager-CSV liefern **keinen** transaktionskonsistenten gemeinsamen Snapshot; keine Live-Reservierung/Bestellverfügbarkeit oder vollständiger WMS-Bestand dadurch bewiesen.
+
+### S056 | GitHub: privater Lager-Stagingimporter und Tests | **Code erstellt, noch NICHT auf Betreiber-TEST ausgeführt**
+- Neu `platform/ops/jtl-warehouse-csv-stage.php`: unabhängiges PHP-CLI-Tool, Standard `validate_only` ohne irgendeine SQL-Verbindung oder Schreibaktion; überprüft exakt sechs Header, (kArtikel,kWarenlager) Eindeutigkeit, reine Dezimalwerte ohne Float-Umwandlung, Rowversion-Format, Positiv-/Negativ-/Null-Bestandszeilen, Artikel- und Lager-ID-Anzahl.
+- Expliziter `--apply` benötigt `--input`, Quell-`--sha256`, `--expected-count` und neuen `--db`-Pfad. Nur neue PRIVATE SQLite-Datei in vorhandenem 0700-Verzeichnis außerhalb GitHub-/App-Verzeichnis; vorhandene Dateien nicht überschreiben; SQL-Integritätscheck/Zeilenzahl; Originalmengen als TEXT, Rowversion als Text. Keine JTL-DML, keine Amazon/Shopify/eBay-API, kein Scheduler.
+- Neu `platform/tests/Unit/JtlWarehouseCsvStageTest.php`: synthetische Tests für Dry-Run, korrekt vorzeichenbehaftete Stockwerte, SHA-Gate, zusammengesetzte Eindeutigkeit, kein Überschreiben, Null-/fehlerhafte Rowversionsperre. CI-Ergebnis für aktuellen GitHub-HEAD separat nachweisen.
+- Beide Staging-Datenbanken (Artikel und Lager) bleiben **getrennte Privatpiloten**, noch nicht mit einer live Filament-Ansicht oder synchronisierendem Dienst verbunden.
+
+### S057 | Nächste konkrete Betreiberaufgabe | **offen**
+1. Phase-9-HeidiSQL `SQL 0–4 und 6` einzeln laufen lassen; die Ausgabe klärt Warenlager, Anzahl unterschiedlicher Artikel mit fBestand<>0, Rohmengen, Sperrbestände und Warehouse-Rowversion.
+2. Danach `SQL 5` nur als neue private lokale CSV exportieren, Header und Semikolon beachten; keine Rohbestände in GitHub veröffentlichen. Bei Bedarf kann der private Export später als Chat-Datei bereitgestellt werden.
+3. Neu korrigierte **Phase-6-SQL-2** für 2.692 Artikel wieder als eigenen privaten Export speichern; ältere SQLite-Pilotdatei **nicht** überschreiben. Kein 15-Minuten-Job bis Watermarks, transaktionssicheres Delta, Löschbehandlung und Laufzeit belegt sind.
+4. Nach grünem CI: isolierte lokale QA, dann Betreiberfreigabe für höchstens privaten TEST-Staging-Dry-Run. Im JTL/TEST/LIVE wurde durch diese GitHub-Arbeit keine Datenbank geändert.
+
 ## Fachlich beschlossene Zielarchitektur
 
 1. **JTL eazybusiness** bleibt maßgebliche SQL-Server-Datenbank; zunächst nur Leseinventur, DB-Backup/Wiederherstellung als getrennte Aufgabe prüfen.
@@ -414,4 +441,4 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - **C** Ergebnisse, Abweichungen und Risiken im Journal festhalten; gegebenenfalls Versionsvergleich des Test-/Live-Codes.
 - **D** Nur kleine, rollbackfähige Änderungen isoliert vorbereiten, GitHub CI + Browser-E2E prüfen und Betreiberfreigabe für Deployment einholen.
 
-**Nächster Nachweis:** Phase-8-HeidiSQL Aggregatprüfung (8-Byte-Rowversion für alle Artikel + Join-Eindeutigkeit), Phase-7 SQL 5 Bestandsvergleich; optional erneuter vollständiger Phase-6-SQL-2-CSV-Export mit korrigiertem Rowversionformat. CI danach überprüfen. Keine LIVE-/JTL-Schreibaktion.
+**Nächster Nachweis:** Phase-9-HeidiSQL aggregierte Warenlager-/Lagerbestandszahlen (SQL 0–4 und 6), danach vollständigen privaten Lager-CSV (SQL 5) und frisch korrigierten Artikel-CSV (Phase 6 SQL 2) sichern. Erst dann private Test-Staging-Validierung. JTL/TEST/LIVE unverändert.
