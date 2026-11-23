@@ -44,8 +44,25 @@ try {
     [$code]=$again=launch(['--input='.$csv,'--db='.$db,
         '--expected-count=1','--sha256='.$dry['sha256'],'--apply']);
     if ($code===0) throw new RuntimeException('stage silently overwrote prior snapshot');
+
+    // Negative test: a broken second row must remove any temporary SQLite file.
+    // This protects personal order and tracking data even when validation aborts.
+    $bad=$folder.'/invalid.csv';
+    $bf=fopen($bad,'wb');
+    fputcsv($bf,$headers,';','"','');
+    fputcsv($bf,$record,';','"','');
+    $malformed=$record;$malformed[7]='invalid-state-id';
+    fputcsv($bf,$malformed,';','"','');
+    fclose($bf);chmod($bad,0600);
+    [$badCode,$badOut,$badErr]=launch(['--input='.$bad,'--db='.$folder.'/must-not-exist.sqlite',
+        '--expected-count=2','--sha256='.hash_file('sha256',$bad),'--apply']);
+    if ($badCode===0 || file_exists($folder.'/must-not-exist.sqlite')
+        || glob($folder.'/.tracking-stage-*')!==[]) {
+        throw new RuntimeException('invalid CSV leaked staging database or was accepted');
+    }
+    echo "HW24 tracking-stage smoke passed: invalid CSV leaves no temporary customer data\n";
     echo "HW24 tracking-stage smoke passed: 1 package / 1 event; no overwrite\n";
 } finally {
-    foreach ([$db,$csv] as $file) if (is_file($file)) unlink($file);
+    foreach ([$db,$csv,$folder.'/invalid.csv',$folder.'/must-not-exist.sqlite'] as $file) if (is_file($file)) unlink($file);
     rmdir($folder);
 }
