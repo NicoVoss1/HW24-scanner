@@ -115,6 +115,14 @@ CREATE TABLE IF NOT EXISTS hw24_purchase_amazon_events (
     KEY ix_purchase_amazon_events_job (job_id,id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Per authenticated HW24 actor: one claim at most every 10 seconds.
+-- Browser-side pacing is additional, not a security boundary.
+CREATE TABLE IF NOT EXISTS hw24_purchase_amazon_throttle (
+    created_by VARCHAR(180) NOT NULL,
+    next_allowed_utc DATETIME(6) NULL,
+    PRIMARY KEY(created_by)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- SQL grants for hw24_private/scanlist-db.php DB account need a separate
 -- reviewed operator approval. Do NOT grant DDL or SQL Server rights.
 -- No demo contacts or automatically assigned JTL supplier/contact IDs.
