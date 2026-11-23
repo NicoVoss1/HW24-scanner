@@ -296,7 +296,8 @@ async function saveScan(task){
        unit_net:raw,vat_percent:Number(rate),expected_cost_updated_at:null});await detail(state.purchase.purchase.id)}
    catch(e){priceError=' · Stückpreis noch nicht gespeichert: '+errorMsg(e)}
  }
- if(!state.amazonDone.has(task.ean))queueAmazon(task.ean);
+ if(item && (item.resolution!=='existing'||!item.manufacturer||!item.article_name_display))
+   queueAmazon(task.ean).catch(e=>queueMessage('Scan wurde gespeichert, Amazon-Vormerkung offen: '+errorMsg(e)));
  status('✓ '+task.ean+' gespeichert. Gesamtmenge dieser EAN: '+(state.items.find(x=>x.ean===task.ean)?.quantity||r.item?.scan_count||1)+priceError,Boolean(priceError));
  $('ean').value='';$('ean').focus();
 }
@@ -318,32 +319,140 @@ async function retry(){
  try{await saveScan(task)}catch(e){status('Erneutes Senden fehlgeschlagen: '+errorMsg(e),true)}
  finally{state.busy=false;$('retryPending').disabled=false;paintPending()}
 }
-function queueAmazon(ean){
- if(state.amazonDone.has(ean)||state.amazonQueue.includes(ean))return;
- if(state.amazonQueue.length>=25){$('amazonStatus').textContent='Amazon-Warteschlange pausiert (25 EAN). Weitere Prüfungen in der bisherigen Scanliste fortsetzen.';return}
- state.amazonQueue.push(ean);runAmazon();
+function queueMessage(message){$('amazonStatus').textContent=message}
+const queuePost=(op,data)=>call('api/purchase-enrichment.php',op,data);
+async function queueGet(op,params={}){
+ const r=await fetch('api/purchase-enrichment.php?'+new URLSearchParams({op,...params}),
+   {credentials:'same-origin',cache:'no-store'});
+ let data;try{data=await r.json()}catch(_){throw Error('Ungültige Queue-Antwort (HTTP '+r.status+')')}
+ if(!r.ok||!data.ok)throw Error(data.error||'HTTP '+r.status);
+ return data;
+}
+async function refreshQueue(){
+ if(!state.purchase){state.amazonJobs.clear();return}
+ const id=state.purchase.purchase.id;
+ const data=await queueGet('queue',{purchase_id:id});
+ if(!state.purchase||state.purchase.purchase.id!==id)return;
+ state.amazonJobs=new Map((data.jobs||[]).map(x=>[x.ean,x]));
+ const c=data.counts||{};
+ $('queueSummary').textContent='Amazon: '+(c.queued||0)+' vorgemerkt · '+(c.leased||0)+
+  ' in Bearbeitung · '+(c.retry||0)+' später erneut · '+(c.completed||0)+
+  ' abgeschlossen · '+(c.blocked||0)+' manuell prüfen · '+(c.missing||0)+
+  ' ohne Anfrage. Nach Browser-Schließen bleiben die Aufträge gespeichert.';
+ render();
+}
+async function queueAmazon(ean,manual=false){
+ const p=state.purchase;
+ if(!p||!p.items.some(i=>i.ean===ean&&i.quantity>0))
+   throw Error('Produkt gehört nicht zum aktuell ausgewählten Einkauf. Bitte zuerst scannen.');
+ const job=state.amazonJobs.get(ean);
+ if(manual&&job&&job.status==='completed'){
+   if(!confirm('Für '+ean+' trotz vorhandenem Amazon-Snapshot erneut abfragen?'))return;
+   await queuePost('requeue',{job_id:Number(job.id),confirm:true});
+ }else if(manual&&job&&job.status==='blocked'){
+   if(!confirm('Gesperrte Amazon-Abfrage '+ean+' ausdrücklich erneut versuchen?'))return;
+   await queuePost('requeue',{job_id:Number(job.id),confirm:true});
+ }else{
+   await queuePost('enqueue',{purchase_id:p.purchase.id,ean});
+ }
+ await refreshQueue();
+ queueMessage('Amazon-Anfrage für '+ean+' gespeichert oder bereits vorhanden. EAN-Scans können ohne Wartezeit weiterlaufen.');
+ if($('autoRunAmazon').checked)runAmazon();
+}
+async function enqueueAll(){
+ const p=state.purchase;if(!p)return;
+ if(!confirm('Alle noch nicht in JTL bestätigten Artikel dieses Einkaufs in der persistenten Amazon-Warteschlange vormerken? Keine sofortigen Massenabrufe.'))return;
+ $('enqueueAll').disabled=true;let after=0,added=0,visited=0;
+ try{
+   for(let part=0;part<35;part++){
+     const r=await queuePost('enqueue_batch',{purchase_id:p.purchase.id,after_item_id:after});
+     added+=Number(r.created||0);visited+=Number(r.received||0);after=Number(r.last_item_id||after);
+     queueMessage('Amazon-Warteschlange: '+visited+' Scanpositionen geprüft, '+added+' neu vorgemerkt …');
+     if(!r.has_more)break;
+   }
+   await refreshQueue();
+   queueMessage('✓ Sammelvormerkung: '+visited+' Positionen geprüft, '+added+' neue Amazon-Aufträge. Abfrage erfolgt einzeln mit Drosselung.');
+   if($('autoRunAmazon').checked)runAmazon();
+ }catch(e){queueMessage('Sammelvormerkung teilweise durchgeführt. Fortschritt bleibt gespeichert: '+errorMsg(e));}
+ finally{$('enqueueAll').disabled=false}
 }
 async function runAmazon(){
- if(state.amazonBusy)return;state.amazonBusy=true;
- while(state.amazonQueue.length){
-   const ean=state.amazonQueue[0];
-   $('amazonStatus').textContent='Amazon-Katalog für '+ean+' wird geprüft … Warteschlange: '+state.amazonQueue.length;
-   try{
-     const r=await fetch('api/amazon.php?ean='+encodeURIComponent(ean),
-        {credentials:'same-origin',cache:'no-store'});
-     const d=await r.json();
-     if(!r.ok||!d.ok)throw Error(d?.error||'HTTP '+r.status);
-     state.amazonDone.add(ean);state.amazonQueue.shift();
-     const first=Array.isArray(d.items)?d.items[0]:null;
-     $('amazonStatus').textContent=ean+': '+(d.count||0)+' Amazon-Katalogtreffer ('+(d.source==='cache'?'Archiv-Cache':'Live-Abfrage')+
-       '). '+(d.count===1?'Möglicher Artikel: '+v(first?.item_name||first?.name||first?.title).slice(0,90):
-       'Identität bei mehreren oder null Treffern bitte manuell prüfen.')+' Kein JTL-Schreibzugriff.';
-   }catch(e){$('amazonStatus').textContent='Amazon nicht bestätigt: '+errorMsg(e)+
-       '. Scan und Einkauf bleiben gespeichert. Weitere Amazon-Abfragen angehalten.';
-     state.amazonQueue.length=0;break}
-   await new Promise(resolve=>setTimeout(resolve,1600));
+ if(state.queueBusy||state.queuePaused||!state.purchase)return;
+ state.queueBusy=true;$('resumeAmazon').disabled=true;$('pauseAmazon').disabled=false;
+ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+ try{
+   while(!state.queuePaused&&state.purchase){
+     let lease;
+     try{lease=await queuePost('lease',{})}
+     catch(e){queueMessage('Amazon-Warteschlange nicht erreichbar: '+errorMsg(e));break}
+     if(!lease.ready){
+       if(lease.reason==='rate_limited'){await sleep(11000);continue}
+       queueMessage('Keine sofort fälligen Amazon-Aufträge. Später erneut starten; bereits vorgemerkte EANs bleiben gespeichert.');
+       break;
+     }
+     let response=null,source='',snapshot=null,errorCode='amazon_api_error';
+     queueMessage('Amazon prüft '+lease.ean+' über vorhandene SP-API und Cache. Bearbeiter ist das angemeldete Konto.');
+     try{
+       const r=await fetch('api/amazon.php?ean='+encodeURIComponent(lease.ean),
+          {credentials:'same-origin',cache:'no-store'});
+       response=await r.json();
+       if(!r.ok||!response.ok){
+         errorCode=Number(response?.upstream_status)===429||r.status===429?
+            'amazon_rate_limited':'amazon_api_error';
+         throw Error(response?.error||'Amazon HTTP '+r.status);
+       }
+       snapshot=response.snapshot_id;
+       source=response.source;
+       if(!Number.isInteger(Number(snapshot))||Number(snapshot)<1||!['live','cache'].includes(source)){
+         errorCode='invalid_response';throw Error('Unvollständiger Amazon-Snapshot');
+       }
+     }catch(e){
+       if(errorCode==='amazon_api_error' && (e instanceof TypeError||e?.name==='AbortError'))
+         errorCode='network_error';
+       queueMessage('Amazon-Abfrage '+lease.ean+' nicht erfolgreich: '+errorMsg(e)+'. Terminierter Wiederholungsversuch wird protokolliert.');
+     }
+     try{
+       await queuePost('ack',{job_id:Number(lease.job_id),lease_token:lease.lease_token,
+         success:Boolean(response?.ok&&snapshot&&source),
+         ...(response?.ok&&snapshot&&source?{snapshot_id:Number(snapshot),source}:
+              {error_code:errorCode})});
+     }catch(e){
+       queueMessage('Amazon-Verarbeitung nicht bestätigt: '+errorMsg(e)+'. Die serverseitige Lease wird später erneut geprüft.');
+       break;
+     }
+     try{await refreshQueue()}catch(e){queueMessage('Amazon-Ergebnis gespeichert. Anzeige-Aktualisierung offen: '+errorMsg(e))}
+     if(state.queuePaused)break;
+     await sleep(11000); // server additionally enforces ≥10 seconds per authenticated actor
+   }
+ }finally{
+   state.queueBusy=false;$('resumeAmazon').disabled=false;$('pauseAmazon').disabled=true;
  }
- state.amazonBusy=false;
+}
+async function loadAiCosts(){
+ const p=state.purchase;if(!p){$('aiCostSummary').textContent='Bitte einen Einkauf wählen.';return}
+ const id=p.purchase.id;
+ $('aiCostSummary').textContent='Gespeicherte KI-Ausgaben zum Ankauf werden gelesen …';
+ const data=await read('ai_costs',{purchase_id:id});
+ if(!state.purchase||state.purchase.purchase.id!==id)return;
+ const t=data.totals||{},usd=Number(t.usd_total||0);
+ $('aiCostSummary').textContent='Historisch archiviert: '+(t.calls||0)+' OpenAI-Abfragen zu EANs dieses Einkaufs · '+
+   usd.toLocaleString('de-DE',{style:'currency',currency:'USD',minimumFractionDigits:4,maximumFractionDigits:6})+
+   ' · Tokens Eingabe '+(t.tokens_input||0)+', Cache '+(t.tokens_cached||0)+
+   ', Ausgabe '+(t.tokens_output||0)+
+   '. Zuordnung nur über EAN und angemeldeten Benutzer, nicht zwingend diesem Einkauf wirtschaftlich zuzurechnen.';
+ const root=$('aiCostRows');root.replaceChildren();
+ const reviews=(data.reviews||[]).slice(0,30);
+ for(const r of reviews){
+   el('p',String(r.created_at_utc||'Datum unbekannt')+' UTC · EAN '+r.ean+
+      ' · '+(r.model||'Modell offen')+' · '+(r.status||'Status offen')+
+      ' · '+Number(r.usd_cost||0).toLocaleString('de-DE',
+           {style:'currency',currency:'USD',minimumFractionDigits:4,maximumFractionDigits:6})+
+      ' · Tokens '+Number(r.tokens_input||0)+' / '+Number(r.tokens_cached||0)+' / '+
+      Number(r.tokens_output||0),root);
+ }
+ if(data.truncated||data.reviews?.length>30)
+   el('p','Es werden nur die jüngsten 30 Einzelbelege angezeigt; die Gesamtsumme umfasst alle passenden archivierten Abfragen.',root);
+ state.aiCostPurchase=id;
 }
 function csvCell(value){let s=String(value??'');if(/^[=+\-@\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}
 function exportCsv(){
@@ -417,7 +526,13 @@ $('purchaseSelect').onchange=ev=>detail(Number(ev.target.value)||0).catch(e=>sta
 $('refresh').onclick=async()=>{try{await contacts();await purchases();if(state.purchase)await detail(state.purchase.purchase.id);status('Aktualisiert.')}catch(e){status(errorMsg(e),true)}};
 $('scanForm').addEventListener('submit',scan);$('retryPending').onclick=retry;$('exportCsv').onclick=exportCsv;
 $('historyButton').onclick=()=>history().catch(e=>$('sourceResults').textContent=errorMsg(e));
-$('amazonButton').onclick=()=>{const ean=v($('sourceEan').value);if(!valEAN(ean)){status('Gültige EAN eingeben.',true);return}state.amazonDone.delete(ean);queueAmazon(ean)};
+$('amazonButton').onclick=()=>{const ean=v($('sourceEan').value);
+ if(!valEAN(ean)){status('Gültige EAN eingeben.',true);return}
+ queueAmazon(ean,true).catch(e=>queueMessage('Amazon-Anfrage nicht vorgemerkt: '+errorMsg(e)))};
+$('enqueueAll').onclick=enqueueAll;
+$('resumeAmazon').onclick=()=>{state.queuePaused=false;runAmazon()};
+$('pauseAmazon').onclick=()=>{state.queuePaused=true;queueMessage('Amazon-Bearbeitung pausiert. Angefangene Anfragen werden noch protokolliert.');};
+$('autoRunAmazon').onchange=()=>{if($('autoRunAmazon').checked){state.queuePaused=false;runAmazon()}else state.queuePaused=true};
 init();
 })();
 </script></body></html>
