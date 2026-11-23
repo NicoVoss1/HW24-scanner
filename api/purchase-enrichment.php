@@ -94,20 +94,19 @@ try{
           q.last_snapshot_id,q.last_catalog_at_utc,q.last_error_code,q.completed_at_utc,
           q.next_attempt_utc
           FROM hw24_purchase_amazon_jobs q
-          WHERE q.created_by=?
-          AND EXISTS(SELECT 1 FROM hw24_scan_items i
+          WHERE EXISTS(SELECT 1 FROM hw24_scan_items i
             WHERE i.batch_id=? AND i.ean=q.ean AND i.review_state<>"removed")
           ORDER BY q.requested_at_utc DESC LIMIT 3000');
-        $q->execute([$actor,$batch]);$jobs=$q->fetchAll();
+        $q->execute([$batch]);$jobs=$q->fetchAll();
         $counts=['queued'=>0,'leased'=>0,'retry'=>0,'completed'=>0,'blocked'=>0,'missing'=>0];
         foreach($jobs as $j)if(isset($counts[$j['status']]))$counts[$j['status']]++;
         $s=$db->prepare('SELECT COUNT(*) FROM hw24_scan_items i
             WHERE i.batch_id=? AND i.review_state<>"removed"
             AND NOT EXISTS(SELECT 1 FROM hw24_purchase_amazon_jobs q
-              WHERE q.created_by=? AND q.ean=i.ean)');
-        $s->execute([$batch,$actor]);$counts['missing']=(int)$s->fetchColumn();
+              WHERE q.ean=i.ean)');
+        $s->execute([$batch]);$counts['missing']=(int)$s->fetchColumn();
         enqueueReply(200,['ok'=>true,'purchase_id'=>$purchaseId,
-          'jobs'=>$jobs,'counts'=>$counts,'source'=>'hw24_purchase_amazon_jobs',
+          'jobs'=>$jobs,'counts'=>$counts,'scope'=>'shared_workspace','source'=>'hw24_purchase_amazon_jobs',
           'processing'=>'browser_worker_only; durable when tab is closed']);
     }
     if($op==='events'&&$method==='GET'){
@@ -118,13 +117,17 @@ try{
             WHERE batch_id=? AND ean=? AND review_state<>"removed" LIMIT 1');
         $s->execute([$batch,$ean]);
         if(!$s->fetchColumn())throw new RuntimeException('scan_item_not_found',404);
-        $s=$db->prepare('SELECT e.event_type,e.event_actor,e.source_kind,
+        // Personal actor stays in the immutable admin audit, not on this
+        // general shared-product UI. Authenticated users see source, action,
+        // status and UTC dates without exposing coworker account names.
+        $s=$db->prepare('SELECT e.event_type,e.source_kind,
             e.detail_code,e.occurred_at_utc
             FROM hw24_purchase_amazon_events e
-            WHERE e.created_by=? AND e.ean=?
+            WHERE e.ean=?
             ORDER BY e.id DESC LIMIT 50');
-        $s->execute([$actor,$ean]);
-        enqueueReply(200,['ok'=>true,'ean'=>$ean,'events'=>$s->fetchAll()]);
+        $s->execute([$ean]);
+        enqueueReply(200,['ok'=>true,'scope'=>'shared_workspace','ean'=>$ean,
+            'events'=>$s->fetchAll()]);
     }
     if($op==='enqueue'&&$method==='POST'){
         $purchaseId=enqueueId($body['purchase_id']??null);
