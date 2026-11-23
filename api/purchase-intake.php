@@ -112,7 +112,7 @@ function purchaseDetails(PDO $pdo,int $id,string $actor): array {
     ],'source'=>'existing_hw24_scanliste',
        'jtl_mirror'=>[
           'snapshot_at_utc'=>$meta['last_completed_utc']??null,
-          'age_minutes'=>$meta['age_minutes']===null?null:(int)$meta['age_minutes'],
+          'age_minutes'=>!isset($meta['age_minutes'])?null:(int)$meta['age_minutes'],
           'is_fresh'=>$meta && (int)$meta['age_minutes']>=0 && (int)$meta['age_minutes']<=45
        ]];
 }
