@@ -190,9 +190,11 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
         <div class="body">
             <p class="minor">Vorhandene Berichte lesen, Modell, Begründung, Produktvorschläge und historische Kosten nachvollziehen. Diese Aktion verursacht keine OpenAI-Kosten.</p>
             <div class="row">
-                <button type="button" class="action" wire:click="loadAiArchive" wire:loading.attr="disabled" wire:target="loadAiArchive" @disabled($article === [])>Gespeichertes KI-Archiv laden</button>
-                <span class="technical">Maximal zehn Berichte je Abruf</span>
+                <button type="button" class="action" wire:click="loadAiArchive" wire:loading.attr="disabled" wire:target="loadAiArchive" @disabled($article === [])>KI-Archiv zur aktuellen EAN</button>
+                <button type="button" class="action secondary" wire:click="loadAiArchiveAll" wire:loading.attr="disabled" wire:target="loadAiArchiveAll">Alle letzten KI-Prüfungen anzeigen</button>
+                <span class="technical">20 Berichte je Seite · kostenloser Archivabruf</span>
             </div>
+            <p class="minor">Die Gesamtübersicht funktioniert ohne eingegebene EAN. Sie zeigt ausschließlich das verbundene Legacy-Benutzerkonto. Historien anderer Benutzer oder früherer Datenbanken sind noch nicht automatisch zusammengeführt.</p>
             @if($archiveState !== [])
                 <p class="warning {{ ($archiveState['ok'] ?? false) ? 'ok' : '' }}" role="status">
                     {{ $archiveState['message'] }} HTTP {{ $archiveState['http'] ?? '—' }}
@@ -200,8 +202,9 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
                 </p>
                 @foreach($reviews as $report)
                     <div class="item" wire:key="hw24-ai-{{ $report['id'] }}">
-                        <h4>Bericht #{{ $report['id'] }} · {{ $report['status'] }}</h4>
-                        <p>{{ $report['date'] }} UTC · {{ $report['model'] }} · Historische Kosten {{ $report['cost'] !== null ? number_format($report['cost'],6,',','.') . ' USD' : 'unbekannt' }}</p>
+                        <h4>Bericht #{{ $report['id'] }} · {{ $report['status'] }} · {{ $report['article_name'] ?: 'Produktname nicht gespeichert' }}</h4>
+                        <p>EAN {{ $report['ean'] ?: 'nicht hinterlegt' }} · {{ $report['date'] }} UTC · {{ $report['model'] }} · Gespeicherte Kostenberechnung {{ $report['cost'] !== null ? number_format($report['cost'],6,',','.') . ' USD' : 'unbekannt' }}</p>
+                        <p class="technical">Tokenverbrauch: {{ $report['tokens_input'] }} Eingabe · {{ $report['tokens_cached'] }} gecacht · {{ $report['tokens_output'] }} Ausgabe. Kosten sind aus API-Tokenverbrauch und konfigurierten Tarifen berechnet, keine bestätigte OpenAI-Rechnung.</p>
                         @if($report['reason']) <p><strong>Prüfbegründung:</strong> {{ $report['reason'] }}</p> @endif
                         @if($report['manufacturer'] || $report['title'] || $report['group'])
                             <p><strong>Vorschläge:</strong> Hersteller {{ $report['manufacturer'] ?: 'offen' }};
@@ -210,6 +213,9 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
                         @endif
                     </div>
                 @endforeach
+                @if(($archiveState['ok'] ?? false) && ($archiveState['more'] ?? null))
+                    <button type="button" class="action secondary" wire:click="loadOlderAiArchive" wire:loading.attr="disabled" wire:target="loadOlderAiArchive">Weitere ältere Archivberichte laden</button>
+                @endif
             @endif
             <div class="divider">
                 <h3 style="font-weight:800;font-size:14px">Neue KI-Prüfung bewusst starten</h3>
