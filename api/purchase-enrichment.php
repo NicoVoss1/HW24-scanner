@@ -40,9 +40,9 @@ function enqueueEvent(PDO $db,int $jobId,string $actor,string $ean,string $type,
       VALUES (?,?,?,?,?,?,?)')
       ->execute([$jobId,$actor,$ean,$type,$actor,$source,$detail]);
 }
-function enqueueOwnedPurchase(PDO $db,int $purchaseId,string $actor): int {
+function enqueueOwnedPurchase(PDO $db,int $purchaseId,string $actor,bool $allowClosed=false): int {
     $s=$db->prepare('SELECT p.batch_id FROM hw24_purchase_headers p
-      WHERE p.id=? AND p.created_by=? AND p.status="open"');
+      WHERE p.id=? AND p.created_by=?'.($allowClosed?'':' AND p.status="open"'));
     $s->execute([$purchaseId,$actor]);$batch=$s->fetchColumn();
     if($batch===false)throw new RuntimeException('purchase_not_found_or_closed',404);
     return (int)$batch;
@@ -88,7 +88,7 @@ try{
       PDO::ATTR_EMULATE_PREPARES=>false,PDO::ATTR_TIMEOUT=>5]);
     if($op==='queue'&&$method==='GET'){
         $purchaseId=enqueueId($_GET['purchase_id']??null);
-        $batch=enqueueOwnedPurchase($db,$purchaseId,$actor);
+        $batch=enqueueOwnedPurchase($db,$purchaseId,$actor,true);
         $q=$db->prepare('SELECT q.id,q.ean,q.status,q.requested_by,q.requested_at_utc,
           q.attempt_count,q.last_attempt_at_utc,q.last_source,
           q.last_snapshot_id,q.last_catalog_at_utc,q.last_error_code,q.completed_at_utc,
@@ -112,7 +112,7 @@ try{
     }
     if($op==='events'&&$method==='GET'){
         $purchaseId=enqueueId($_GET['purchase_id']??null);
-        $batch=enqueueOwnedPurchase($db,$purchaseId,$actor);
+        $batch=enqueueOwnedPurchase($db,$purchaseId,$actor,true);
         $ean=enqueueEan($_GET['ean']??null);
         $s=$db->prepare('SELECT id FROM hw24_scan_items
             WHERE batch_id=? AND ean=? AND review_state<>"removed" LIMIT 1');
@@ -150,19 +150,68 @@ try{
         enqueueReply(200,['ok'=>true,'job_id'=>$jobId,'ean'=>$ean,
              'status'=>$status,'new_job'=>$created,'source'=>'purchase_scan']);
     }
+    if($op==='enqueue_batch'&&$method==='POST'){
+        $purchaseId=enqueueId($body['purchase_id']??null);
+        $batch=enqueueOwnedPurchase($db,$purchaseId,$actor);
+        $after=$body['after_item_id']??0;
+        if(!is_int($after)||$after<0)throw new InvalidArgumentException('invalid_cursor');
+        // One bounded transaction per 100 scan positions, safe to resume
+        // after a dropped connection; unique(actor,ean) prevents duplicates.
+        $s=$db->prepare('SELECT id,ean,resolution FROM hw24_scan_items
+             WHERE batch_id=? AND id>? AND review_state<>"removed"
+             ORDER BY id ASC LIMIT 100');
+        $s->execute([$batch,$after]);$items=$s->fetchAll();
+        $created=0;$skipped=0;$last=$after;
+        $db->beginTransaction();
+        $upsert=$db->prepare('INSERT IGNORE INTO hw24_purchase_amazon_jobs
+             (created_by,ean,requested_by) VALUES (?,?,?)');
+        $find=$db->prepare('SELECT id FROM hw24_purchase_amazon_jobs
+             WHERE created_by=? AND ean=?');
+        foreach($items as $row){
+            $last=(int)$row['id'];
+            if(!in_array($row['resolution'],['new_candidate','unverified'],true)){
+                $skipped++;continue;
+            }
+            $ean=enqueueEan((string)$row['ean']);
+            $upsert->execute([$actor,$ean,$actor]);
+            if($upsert->rowCount()===1){
+                $find->execute([$actor,$ean]);$jobId=(int)$find->fetchColumn();
+                enqueueEvent($db,$jobId,$actor,$ean,'queued',null,'purchase_batch_request');
+                $created++;
+            }else $skipped++;
+        }
+        $db->commit();
+        enqueueReply(200,['ok'=>true,'purchase_id'=>$purchaseId,
+           'received'=>count($items),'created'=>$created,'skipped'=>$skipped,
+           'last_item_id'=>$last,'has_more'=>count($items)===100]);
+    }
     if($op==='lease'&&$method==='POST'){
         // No cron or shared unbounded worker. Per-actor DB-lock throttle limits
         // simultaneous browser tabs, not just one particular UI instance.
         $db->beginTransaction();
         $db->prepare('INSERT IGNORE INTO hw24_purchase_amazon_throttle
             (created_by,next_allowed_utc) VALUES (?,NULL)')->execute([$actor]);
-        $t=$db->prepare('SELECT next_allowed_utc FROM hw24_purchase_amazon_throttle
-            WHERE created_by=? FOR UPDATE');
-        $t->execute([$actor]);$next=$t->fetchColumn();
-        if($next!==null&&$next!==false&&strtotime((string)$next)>time()){
+        $t=$db->prepare('SELECT next_allowed_utc,
+            CASE WHEN next_allowed_utc>UTC_TIMESTAMP(6) THEN 1 ELSE 0 END AS blocked
+            FROM hw24_purchase_amazon_throttle WHERE created_by=? FOR UPDATE');
+        $t->execute([$actor]);$throttle=$t->fetch();
+        $next=$throttle['next_allowed_utc']??null;
+        if($throttle && (int)$throttle['blocked']===1){
             $db->commit();
             enqueueReply(200,['ok'=>true,'ready'=>false,'reason'=>'rate_limited',
                 'next_allowed_utc'=>$next]);
+        }
+        // Recover final timed-out jobs; do not leave them leased forever.
+        $stale=$db->prepare('SELECT id,ean FROM hw24_purchase_amazon_jobs
+             WHERE created_by=? AND status="leased" AND attempt_count>=4
+             AND lease_until_utc<=UTC_TIMESTAMP(6) FOR UPDATE');
+        $stale->execute([$actor]);
+        foreach($stale->fetchAll() as $dead){
+            $db->prepare('UPDATE hw24_purchase_amazon_jobs SET
+                status="blocked",last_error_code="lease_expired_max_attempts",
+                leased_by=NULL,lease_token=NULL,lease_until_utc=NULL
+                WHERE id=? AND created_by=?')->execute([(int)$dead['id'],$actor]);
+            enqueueEvent($db,(int)$dead['id'],$actor,$dead['ean'],'blocked',null,'lease_expired');
         }
         $s=$db->prepare('SELECT id,ean,attempt_count FROM hw24_purchase_amazon_jobs
              WHERE created_by=?
