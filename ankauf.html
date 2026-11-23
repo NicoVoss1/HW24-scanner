@@ -198,17 +198,22 @@ async function startPurchase(){
 }
 async function saveScan(task){
  const r=await call('api/scanliste.php','scan',{batch_id:task.batch_id,ean:task.ean,event_key:task.event_key});
- savePending(null);paintPending();
- await detail(state.purchase.purchase.id);
+ savePending(null);paintPending(); // Server has ACKnowledged the idempotent event.
+ if(!state.purchase||Number(state.purchase.purchase.batch_id)!==task.batch_id){
+   status('✓ Scan für den ursprünglichen Ankauf gespeichert. Zum betreffenden Ankauf zurückwechseln.',true);return;
+ }
+ try{await detail(state.purchase.purchase.id)}
+ catch(e){status('✓ Scan bereits gespeichert. Nur die Anzeige konnte nicht neu geladen werden: '+errorMsg(e)+'. Bitte aktualisieren, nicht erneut scannen.',true);return}
  const item=state.items.find(x=>x.ean===task.ean&&x.quantity>0);
  const raw=v($('defaultCost').value),rate=v($('defaultVat').value);
+ let priceError='';
  if(item&&item.unit_net_cents===null&&raw!==''&&rate!==''){
    try{await post('price_set',{purchase_id:state.purchase.purchase.id,scan_item_id:Number(item.scan_item_id),
        unit_net:raw,vat_percent:Number(rate),expected_cost_updated_at:null});await detail(state.purchase.purchase.id)}
-   catch(e){status('Stück gezählt, aber Standardpreis nicht übernommen: '+errorMsg(e),true)}
+   catch(e){priceError=' · Stückpreis noch nicht gespeichert: '+errorMsg(e)}
  }
  if(!state.amazonDone.has(task.ean))queueAmazon(task.ean);
- status('✓ '+task.ean+' gespeichert. Gesamtmenge dieser EAN: '+(state.items.find(x=>x.ean===task.ean)?.quantity||r.item?.scan_count||1));
+ status('✓ '+task.ean+' gespeichert. Gesamtmenge dieser EAN: '+(state.items.find(x=>x.ean===task.ean)?.quantity||r.item?.scan_count||1)+priceError,Boolean(priceError));
  $('ean').value='';$('ean').focus();
 }
 async function scan(evt){
@@ -273,15 +278,19 @@ function exportCsv(){
 }
 async function history(){
  const ean=v($('sourceEan').value);if(!valEAN(ean)){$('sourceResults').textContent='Bitte gültige EAN eingeben.';return}
- const [ai,amazon]=await Promise.allSettled([
+ const [ai,amazon,legacy]=await Promise.allSettled([
  fetch('api/ai-reviews.php?ean='+encodeURIComponent(ean)+'&limit=5',{credentials:'same-origin',cache:'no-store'}).then(r=>r.json()),
- fetch('api/amazon-archive.php?ean='+encodeURIComponent(ean)+'&limit=5',{credentials:'same-origin',cache:'no-store'}).then(r=>r.json())
+ fetch('api/amazon-archive.php?ean='+encodeURIComponent(ean)+'&limit=5',{credentials:'same-origin',cache:'no-store'}).then(r=>r.json()),
+ fetch('api/historie.php?include_legacy=1&ean='+encodeURIComponent(ean),{credentials:'same-origin',cache:'no-store'}).then(r=>r.json())
  ]);
  let parts=[];
  if(ai.status==='fulfilled'&&ai.value.ok)parts.push('KI-Archiv: '+(ai.value.count||0)+' geladene Analysen (nur gespeicherte Belege)');
  else parts.push('KI-Archiv derzeit nicht lesbar');
  if(amazon.status==='fulfilled'&&amazon.value.ok)parts.push('Amazon-Kataloghistorie: '+(amazon.value.count||0)+' gespeicherte Abfragen');
  else parts.push('Amazon-Archiv derzeit nicht lesbar');
+ if(legacy.status==='fulfilled'&&legacy.value.ok)
+   parts.push('Historische Excel-Belege: '+(legacy.value.total_returned||0)+' Treffer');
+ else parts.push('Historischer Excel-Datenspiegel derzeit nicht lesbar');
  $('sourceResults').textContent=ean+' · '+parts.join(' · ')+'. Details und bewusste KI-Neuanalyse im bestehenden Artikelmanager.';
 }
 async function init(){
