@@ -1,5 +1,8 @@
 # HW24 Intelligence Hub: Hersteller-/Artikelsuche, Amazon-Warteschlange und OpenAI-Kosten
 
+**ARCHITEKTUR-AKTUALISIERUNG 24.11.2026:** Die neuere Betreiberentscheidung zur **gemeinsamen Produkt- und API-Datenhaltung für alle authentifizierten HW24-Teammitglieder** ersetzt in diesem älteren Dokument alle Aussagen, nach denen jeder Benutzer seinen eigenen KI-Produktbericht, Amazon-Katalogcache oder eine eigene EAN-Warteschlange erhalten soll. Benutzer sind nur für Berechtigungen, Einkaufsbeleg-Zuordnung und Audit zu unterscheiden. Maßgeblich: [HW24_SHARED_WORKSPACE_SINGLE_SOURCE_OF_TRUTH_2026-11-24.md](HW24_SHARED_WORKSPACE_SINGLE_SOURCE_OF_TRUTH_2026-11-24.md). Die 8 noch nicht installierten Kauf-/Amazon-Tabellen müssen mit den *neuen* workspace-eindeutigen EAN- und Throttle-Keys geprüft werden. Keine automatische Schemaumstellung.
+
+
 **Entwicklungsstand 24.11.2026**, Branch `feature/hw24-mirror-audit-preflight-20261122`, Draft-PR #46.
 **Kein TEST-/LIVE-Deployment, keine manuelle MariaDB-Migration ausgeführt, keine tatsächlichen Amazon-/OpenAI-HTTP-Calls gegen private Plesk-Konfigurationen nachgewiesen.**
 
