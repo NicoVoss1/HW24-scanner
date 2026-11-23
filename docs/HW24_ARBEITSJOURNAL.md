@@ -502,6 +502,34 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - Keine DML/DDL, kein Direct SQL Server-Zugang durch ChatGPT, kein Auftragszeilen- oder Kundendatenimport, keine Aktivierung bestehender APIs/Jobs. Operative Ausführung in HeidiSQL durch Betreiber, danach Status-Fachmapping nur anhand bewiesener Werte.
 - Das neue Skript ist **kein** 15-Minuten-Sync, keine Produktivanbindung, kein Ersatz für getrennte Auftrag-/Reservierungs-/WMS-Lagerplatz- und Kanalmengenvalidierung.
 
+## Betreiberergebnisse Phase 12: JTL-Zentralbestand, Auftragsaggregate und Bewegungshistorie (2026-11-23)
+
+### S070 | Echte globale Bestandsquelle und Primärschlüssel | **HeidiSQL bestätigt**
+- Datenbank `eazybusiness`. `dbo.tlagerbestand` hat **PK(kArtikel)** und **2.692** Zeilen. Spalten `fLagerbestand`, `fLagerbestandEigen`, `fVerfuegbar`, `fVerfuegbarGesperrt`, `fZulauf`, `fAufEinkaufsliste`, `dLieferdatum`, **`fInAuftraegen`**, `fAuslieferungGesperrt`, `fProduktionGesperrt`, `bRowversion` sind real als physische Felder bestätigt.
+- Globale Quellaggregate: **1.544** Zeilen mit `fLagerbestand<>0`, **1.450** mit `fVerfuegbar<>0`. `SUM(fLagerbestand)=14.568`, `SUM(fLagerbestandEigen)=14.568`, `SUM(fVerfuegbar)=14.107`, `SUM(fVerfuegbarGesperrt)=407`, `SUM(fAuslieferungGesperrt)=0`, `SUM(fProduktionGesperrt)=406`. `SUM(fInAuftraegen)` wurde **NOCH NICHT** abgefragt.
+- Frühere zehn Warenlager `SUM(fBestand)=13.639`, `SUM(fVerfuegbarGesperrt)=404`; arithmetische Unterschiede zur globalen Tabelle **+929** Rohbestand und **+3** Sperrwerte. Quellen können unterschiedlichen Datenstands-/Berechnungsregeln folgen; nichts hinzuaddieren oder automatisch angleichen.
+- Die Differenz `fLagerbestand - fVerfuegbar=461`; abzüglich globaler Sperre 407 bleibt **54** als rechnerischer Rest. **Hypothese**: `fInAuftraegen` oder weitere JTL-Regeln erklären diesen Rest. Keine Formel freigegeben, bevor per Artikel UND im Aggregat getestet.
+- `dbo.tLagerbestandVirtuell`: Schlüssel `kLagerbestandVirtuell`, Unique(`kArtikel`,`iModuleId`), mit `nLagerBeachten`, `fBestand`, `fZulauf`, `dGeandert`, `bRowversion`. Noch keine Rohdaten/Verknüpfungssemantik; virtuelle Bestände dürfen nicht automatisch zum physischen Bestand addiert werden.
+- `dbo.tLagerbestandShop`: PK(`kShop`,`cArtNr`). Die SQL-4-Gruppierung gab **nur Header und keine Datenzeilen** zurück. Das spricht für aktuell leere Tabelle, muss bei Bedarf mit direktem `COUNT_BIG(*)` bestätigt werden. Keine Interpretation als leeres Shopify-/Amazon-/eBay-Sortiment.
+
+### S071 | Order-Eckdaten/Reservierungskennzeichen | **nur aggregierte HeidiSQL-Ergebnisse**
+- `Verkauf.tAuftragPositionEckdaten`: `nAuftragStatus=0` in **allen 9.040** abgefragten Positions-Eckdaten; Raw-Typen 0 (3.315 Zeilen), 3 (5.722 ohne Umlagerung, 3 mit Umlagerung); `nVersandSperre=false` in den Gruppen. Ohne Status-Dictionary **nicht** schließen, alle Aufträge seien offen oder abgeschlossen.
+- **11** Positionen mit `fAnzahlOffen>0`, Gesamt `SUM(fAnzahlOffen)=22` Rohmengeneinheiten; `SUM(fAnzahlGeliefert)=6.810` (kumuliert/historisch, nicht neu ausgeliefert). Die 3 Umlagerungspositionen haben 0 offene und 6 gelieferte Rohmengen. Typ 0: 4 offene Zeilen / 6 Menge; Typ 3: 7 offene /16 Menge.
+- `Verkauf.tAuftragPosition` über bestätigten FK `kAuftragPosition` zu Eckdaten: ebenfalls 9.040 Positionszeilen, 0 Eckdaten fehlen; **9.036** `nReserviert=true`, nur **4** false. Trotz historischer `nReserviert=true`-Kennzeichen haben nur 11 Positionen offene Mengen. **Nicht** 9.036 als offene Reservierungen oder 22 als gesicherten aktuellen Lager-4-Reservierungsbestand interpretieren.
+- Kundendaten, Adressen, Auftragsreferenzen, Rechnungssummen/Preis-Einzelzeilen wurden nicht exportiert. Verbindung/Status-Fachlogik bleibt gesperrt bis Quellenbestätigung.
+
+### S072 | Bewegungshistorie 14 Tage | **aggregiert und ohne Identifikatoren**
+- `dbo.tArtikelHistory` Datumsauswertung vom 09.11. bis 20.11.2026 (11 Tage mit Bewegungen): 58/23/18/35/52/19/83/118/101/108/22 Zeilen nach Tagen 09/10/11/12/13/14/16/17/18/19/20.
+- Gesamtergebnis im gelieferten Fenster: **637** Bewegungszeilen, `SUM(fAnzahl)=+500` Rohmengeneinheiten. Am 20.11. 22 Bewegungen mit Netto `-5`; am 10.11. 23 mit `-16`. Diese Bewegungsmenge ist kein gesicherter globaler Bestandszuwachs und kein Ersatz für aktuelle verfügbare Mengen. Keine Buchungsart/Bewegungsart-Zuordnung bisher.
+- Historische `fReserviert`/`fVerfuegbar` bleiben separat von aktuellen `dbo.tlagerbestand`-Werten. Künftiger UI-Reiter `Bewegungshistorie` nutzt eigene Provenienz und Benutzerdatenschutz.
+
+### S073 | GitHub Phase 13: aktuelle Bestände und Reservierungen gegentesten | **CODE vorbereitet, Betreiber-Ausführung offen**
+- Neu `platform/ops/jtl-heidisql-phase13-availability-reconciliation-readonly.sql` (SQL 0–7). Nur SELECT, keine JTL-Schreibzugriffe.
+- SQL 1: erstmalig `fInAuftraegen` summieren, globale Sperr-/Verfügbarkeits- und negative Mengen prüfen, Rowversion-Anzahl. SQL 2: mögliche Rohformel **pro kArtikel** rein diagnostisch testen, kein Verkaufen/Schreiben. SQL 3: **FULL OUTER** globaler kArtikel-PK gegen aggregierte Warenlager-Quelle und fehlende IDs/Differenzmengen zählen. SQL 4: TOP-20 Produkt-ID-Differenzen (ohne Namen/EAN/Kunden); SQL 5: virtuelle Rohwerte nach anonymisiertem nLagerBeachten; SQL 6: Leerzustand tLagerbestandShop direkt zählen; SQL 7: nur sys.indexes-Metadaten zur Historie-Performance.
+- SQL 2 ist ausdrücklich eine **Hypothesenprüfung**, keine bestätigte JTL-formel; fProduktionGesperrt, Bestellstatus, Fulfillment/FBA, inAuftraegen und Sperrlogik bislang nur als getrennte Quellfelder gesichert.
+- Bei guten Ergebnissen im nächsten Schritt `dbo.tlagerbestand` als zusätzliche **private, isolierte, vollständig quellengetreue** Spiegel-Komponente vorsehen: `kArtikel` primär, Rowversion + raw `fInAuftraegen`, `fVerfuegbar`, `fLagerbestand`, `fVerfuegbarGesperrt`, `fProduktionGesperrt` mit Quell-Zeitstempel. Nicht in öffentliche GitHub-Daten einchecken; JTL-Test/Live bleibt unberührt.
+- TEST-Live-Deployment, 15-Minuten-Job, Schema-Index-Änderungen, Order-Zeilenkopie und API-Writes bleiben deaktiviert.
+
 ## Fachlich beschlossene Zielarchitektur
 
 1. **JTL eazybusiness** bleibt maßgebliche SQL-Server-Datenbank; zunächst nur Leseinventur, DB-Backup/Wiederherstellung als getrennte Aufgabe prüfen.
@@ -518,4 +546,4 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - **C** Ergebnisse, Abweichungen und Risiken im Journal festhalten; gegebenenfalls Versionsvergleich des Test-/Live-Codes.
 - **D** Nur kleine, rollbackfähige Änderungen isoliert vorbereiten, GitHub CI + Browser-E2E prüfen und Betreiberfreigabe für Deployment einholen.
 
-**Nächster Nachweis:** Phase-12-HeidiSQL SQL 0–7 zur Bestätigung von dbo.tlagerbestand-Schlüsseln, JTL-Verfügbarkeitsfeldern, anonymisierten Order-Reservierungs-Statusverteilungen und 14-tägiger Lagerbewegungs-Aggregation. Zusätzlich neuer korrigierter Phase-6-Artikel-CSV mit Rowversions; bestehender privater SQLite-Pilot bleibt unberührt. Keine Änderungen an JTL, TEST oder LIVE.
+**Nächster Nachweis:** Phase-13-HeidiSQL SQL 0–7 für dbo.tlagerbestand.fInAuftraegen, Artikel-genauen Rohbestands-/Verfügbarkeitsabgleich, Full-Outer-Lagervergleich, virtuelle Bestandsaggregate und direkte Shop-Lagerzählung. Erst nach belegter Formel ein neuer privater Spiegel-Export; noch keine JTL-/TEST-/LIVE-/API-Änderung.
