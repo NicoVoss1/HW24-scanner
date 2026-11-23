@@ -71,8 +71,11 @@ CREATE TABLE IF NOT EXISTS hw24_purchase_cost_audit (
     KEY ix_purchase_cost_audit (purchase_id,scan_item_id,id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Amazon work queue, durable across browser sessions; completely separate
--- from JTL stock and the existing SP-API catalog snapshot tables.
+-- Amazon work queue is ONE workspace-wide dataset; other authenticated
+-- users reuse the same EAN work/results. created_by/requested_by preserve
+-- who first requested it, never partition product data by user.
+-- Not installed automatically; all DDL requires DB backup + TEST approval.
+-- Queue is separate from JTL and the existing SP-API snapshot tables.
 CREATE TABLE IF NOT EXISTS hw24_purchase_amazon_jobs (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     created_by VARCHAR(180) NOT NULL,
@@ -93,8 +96,8 @@ CREATE TABLE IF NOT EXISTS hw24_purchase_amazon_jobs (
     last_error_code VARCHAR(64) NULL,
     completed_at_utc DATETIME(6) NULL,
     PRIMARY KEY(id),
-    UNIQUE KEY uq_purchase_amazon_actor_ean (created_by,ean),
-    KEY ix_purchase_amazon_ready (created_by,status,next_attempt_utc,requested_at_utc)
+    UNIQUE KEY uq_purchase_amazon_workspace_ean (ean),
+    KEY ix_purchase_amazon_ready (status,next_attempt_utc,requested_at_utc)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Audit is separate from catalog snapshots, which do not contain a user ID.
@@ -111,16 +114,18 @@ CREATE TABLE IF NOT EXISTS hw24_purchase_amazon_events (
     detail_code VARCHAR(64) NULL,
     occurred_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     PRIMARY KEY(id),
-    KEY ix_purchase_amazon_events_actor (created_by,ean,occurred_at_utc),
+    KEY ix_purchase_amazon_events_ean (ean,occurred_at_utc),
+    KEY ix_purchase_amazon_events_actor (event_actor,occurred_at_utc),
     KEY ix_purchase_amazon_events_job (job_id,id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Per authenticated HW24 actor: one claim at most every 10 seconds.
+-- ONE shared quota for all authenticated users, not one limit per person.
+-- Prevent simultaneous users from stampeding the same Amazon SP-API.
 -- Browser-side pacing is additional, not a security boundary.
 CREATE TABLE IF NOT EXISTS hw24_purchase_amazon_throttle (
-    created_by VARCHAR(180) NOT NULL,
+    scope_key VARCHAR(32) NOT NULL,
     next_allowed_utc DATETIME(6) NULL,
-    PRIMARY KEY(created_by)
+    PRIMARY KEY(scope_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- SQL grants for hw24_private/scanlist-db.php DB account need a separate
