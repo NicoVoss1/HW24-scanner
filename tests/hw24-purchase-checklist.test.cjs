@@ -49,13 +49,17 @@ for(const s of ['DROP TABLE','ALTER TABLE','DELETE FROM','TRUNCATE TABLE',
 // endpoints must remain untouched and user-cost opt-in must stay separate.
 for(const token of ['purchaseSearch','manufacturerFilter','jtlFilter',
   'priceMin','priceMax','priceSort','filteredItems','article_name_display',
+  'catalogSearchForm','catalogQuery','catalogMaker','catalogPriceMin','catalogPriceMax',
+  'catalogMatches','searchCatalog',
   'article_number','han','manufacturer_source','queueAmazon','enqueueAll',
   'loadAiCosts','api/purchase-enrichment.php','refreshQueue','queuePost',
   'aiCostRows','queueSummary']){
   assert(html.includes(token),'missing purchase search/queue/audit feature '+token);
 }
 for(const token of ['jtl_mirror','scan_draft','jtl_mirror',
-  'hw24_jtl_articles','jtl_article_id','ai_costs','usd_cost',
+  'hw24_jtl_articles','jtl_article_id','article_search','netto_ek',
+  'jtl_net_purchase_price_snapshot_not_lot_cost','current_snapshot','stale',
+  'ai_costs','usd_cost',
   'tokens_input','tokens_cached','tokens_output',
   'same_actor_and_ean_historical']){
   assert(api.includes(token),'missing purchasing API source/cost '+token);
