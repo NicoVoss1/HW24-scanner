@@ -80,6 +80,41 @@ try {
                 'count'=>(int)$cached['item_count'],'items'=>summaries($data['items']??[]),'has_next_page'=>!empty($data['pagination']['nextToken'])]);
         }
     }
+    // One shared provider request per EAN across all authenticated users.
+    // If the six-hour snapshot is absent, acquire a DATABASE-SCOPED named
+    // lock and check the cache again: another user may have filled it while
+    // this request was waiting. This covers direct legacy GET as well as the
+    // browser-backed purchase queue, without any new Amazon credentials.
+    $stage='workspace_catalog_lock';
+    $lockKey='hw24cat_'.substr(hash('sha256',$marketplace.'|'.$ean),0,50);
+    $takeLock=$pdo->prepare('SELECT GET_LOCK(?,4)');
+    $takeLock->execute([$lockKey]);
+    if((int)$takeLock->fetchColumn()!==1){
+        reply(429,['ok'=>false,'error'=>'catalog_lookup_already_running',
+           'retry_after_seconds'=>5,'scope'=>'shared_workspace']);
+    }
+    register_shutdown_function(static function () use ($pdo,$lockKey): void {
+        try{
+            $release=$pdo->prepare('SELECT RELEASE_LOCK(?)');
+            $release->execute([$lockKey]);
+        }catch(Throwable $ignored){
+            // Session disconnect also releases the named lock.
+        }
+    });
+    $stage='workspace_cache_recheck';
+    $find->execute([$marketplace,$ean,$freshMinutes]);
+    $cached=$find->fetch();
+    if($cached){
+        $data=json_decode((string)$cached['response_json'],true);
+        if(is_array($data)){
+            $log=$pdo->prepare('INSERT INTO hw24_amazon_lookup_log(marketplace_id,searched_ean,outcome,http_status,snapshot_id) VALUES (?,?,?,?,?)');
+            $log->execute([$marketplace,$ean,'cache',200,$cached['id']]);
+            reply(200,['ok'=>true,'source'=>'cache','scope'=>'shared_workspace',
+               'snapshot_id'=>(int)$cached['id'],'fetched_at_utc'=>$cached['fetched_at_utc'],
+               'count'=>(int)$cached['item_count'],'items'=>summaries($data['items']??[]),
+               'has_next_page'=>!empty($data['pagination']['nextToken'])]);
+        }
+    }
     $stage='lwa_token';
     if (!function_exists('curl_init')) throw new RuntimeException('curl_unavailable');
     $ch=curl_init('https://api.amazon.com/auth/o2/token');
