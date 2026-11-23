@@ -2,6 +2,10 @@
 
 **Gültig ab:** 2026-11-23 · Projekt: HAIRWORLD24 / HW24-scanner · Repository: `NicoVoss1/HW24-scanner`
 
+## Aktueller Wiedereinstieg (Stand 24.11.2026)
+
+**Zuerst lesen:** [HW24_PROJEKTSTATUS_AKTUELL.md](HW24_PROJEKTSTATUS_AKTUELL.md). Dort stehen der aktuelle technische Stand, PR #49, die noch offenen Integrationsschritte und die verbindliche Reihenfolge. Dieses Journal bleibt der ausführliche kanonische Nachweis; der kompakte Projektstatus ergänzt es, ersetzt es nicht. **Keine automatische Live-Freigabe.**
+
 ## Zweck, verbindliche Arbeitsweise und Datenschutz
 
 Dieses Journal ist der dauerhafte **öffentliche GitHub-Code-/Planungsnachweis** für alle weiteren Chat-Sitzungen zum HW24 Artikelmanager. Am Beginn jedes Folgetermins **diese Datei zusammen mit den offenen PRs lesen**. Anschließend jeden abgeschlossenen oder begonnenen Schritt mit Datum (UTC/Europe-Berlin), Arbeitsschritt-ID, Umgebung (GitHub/TEST/LIVE/HeidiSQL/Windows/PuTTY), geprüftem Ausgangsstand, **tatsächlich ausgeführter** Aktion, Ergebnis/Beleg, Fehlern, verbliebenen Risiken und nächster Aktion **anhängen**. Keine unbestätigten Ergebnisse behaupten.
@@ -723,3 +727,29 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - **D** Nur kleine, rollbackfähige Änderungen isoliert vorbereiten, GitHub CI + Browser-E2E prüfen und Betreiberfreigabe für Deployment einholen.
 
 **Nächster Nachweis:** Phase 17 HeidiSQL SQL 0–3 für Lieferanten-/Ansprechpartner-Zuordnung und ggf. SQL 6 auf bereits vorhandene JTL-Einkaufscode-Muster; SQL 5 nur als PRIVATER Export auf geschütztem Gerät (nicht öffentlich posten). Nach Referenz-/Orphan-Prüfung in vorhandener HW24-MariaDB einen privaten JTL-Lieferanten-/Kontakt-Read-Adapter für Dropdowns integrieren; SQL-Migration und TEST-Deployment weiterhin nur nach Backup und ausdrücklicher Betreiberfreigabe. Amazon/OpenAI/Archiv per authentifiziertem Test getrennt abnehmen.
+
+
+## Kundenservice / Tracking Pilot – Fortsetzung 24.11.2026
+
+### S101 | GitHub-Bestandsaufnahme nach Betreiberwunsch „dauerhaftes Arbeitsjournal“ | **belegt**
+- Kanonische Dokumentation `docs/HW24_ARBEITSJOURNAL.md` am Beginn der Sitzung erneut geöffnet. Sie enthielt bereits S001–S100 und viele parallele Bestandsthemen; **kein zweites konkurrierendes Journal angelegt**.
+- Repo/PR #49 verifiziert: Branch `feature/hw24-customer-service-tracking-platform-20261124`, Basis `feature/hw24-mirror-audit-preflight-20261122`, Draft, **nicht** gemergt oder deployed. Auf dem zu Sitzungsbeginn gelesenen PR-HEAD `32c24ff1dcc7ded5890dda92e48069aee11440eb` lagen die read-only Track-&-Trace-Abfrage, private CSV→SQLite-Stagingroutine, Filament-Seite und freigeschalteter optionaler KI-Entwurf bereits vor.
+- Nach CI-Nachweis der vorangegangenen Implementierung: GitHub Actions Laravel-Foundation erfolgreich mit **85 Tests / 500 Assertions**; separate Support-Tracking-/Artikelmanager-Checks ebenfalls grün. Dieser Nachweis gilt **nur für den damals getesteten Commit**, nicht automatisch für spätere Änderungen.
+- Bestehende Dokumentation `platform/docs/HW24_KUNDENSERVICE_TRACKING_PILOT_20261124.md` gelesen; noch keine reale JTL-CSV-Testabnahme, automatische Replikation, TEST-Browserfreigabe oder Amazon-Nachrichtenversand belegt.
+
+### S102 | Isolierter privater Tracking-Import: sichere Fehlerbereinigung | **GitHub-Codeänderung**
+- Datei `platform/ops/jtl-tracking-csv-stage.php` im PR-#49-Zweig aktualisiert (Commit `0d62cf79ab63b4ec2f02ed91088691d9f4512773`): Fehler während einer laufenden Staging-Transaktion führen jetzt über eine Exception in die vorhandene Catch-/Rollback-/Unlink-Bereinigung und **nicht** per sofortigem `exit()` aus dem Prozess. Dadurch soll ein unvollständiger temporärer SQLite-Import mit Kundendaten nicht zurückbleiben.
+- Die Quell-CSV wird dabei nicht verändert, die bestehende produktive SQL-Server-Datenbank sowie die HW24-MariaDB werden nicht angesprochen. Keine Datei auf einem realen Kundenserver geändert.
+- `platform/scripts/verify-tracking-stage.php` um einen **Negativtest** mit absichtlich ungültiger Ereignis-ID erweitert (Commit `dc7e61469273dff2238a969b1b2f7b296036af4f`): Test erwartet fehlgeschlagenen Import, **keine** Zieldatei und **keine** übriggebliebene temporäre SQLite-Datei.
+- Testergebnis nach diesen neuen Commits im GitHub CI separat bestätigen; Commit-Erstellung ist noch kein Beleg, dass die Tests bestanden haben.
+
+### S103 | Neuer kurzer Projekt-Wiedereinstieg ohne Verlust des Langjournals | **GitHub-Datei angelegt**
+- Neues Statusdokument `docs/HW24_PROJEKTSTATUS_AKTUELL.md` (Commit `904b305bc80ced7cb406f2a54c03cb7a639af67a`) verlinkt die kanonische Journaldatei, den Pilot-PR #49 und die belegten/ungeprüften Funktionsstände.
+- Für den Hub gilt die bereits beschlossene **gemeinsame Artikel-/Produktdatenbasis für berechtigte Nutzer**: JTL-/Amazon-/OpenAI-Rechercheergebnisse, soweit rechtlich zulässig, sind gemeinsame geprüfte Quellbeobachtungen, **keine mehrfachen Benutzer-eigenen Artikeldatenspiegel**. Das Benutzer-Audit (wer/wann/Aktion) bleibt gesondert. Kundendaten sind anders als allgemeine Artikeldaten rollen- und datenschutzgerecht zu schützen.
+- Neues Gesprächsthema „Fortsetzung“ startet mit Statusblatt + **letzten** Journaleinträgen + aktuellem GitHub-PR-/CI-Stand. Neue Ergebnisse in beiden Dokumenten fortschreiben.
+
+### S104 | Nächster konkret abzuarbeitender Gate | **noch offen**
+- **Zuerst:** CI für PR #49 nach den S102/S103-Änderungen auf aktuellem Commit durchsehen. Nur ein grüner Gesamtstand qualifiziert die neue Importvalidierung für den nächsten Schritt.
+- **Dann:** abgesicherten Export einer realen Versandprobe aus der vorhandenen, ausschließlich lesenden JTL-View durchführen und den privaten Import/JTL-Abgleich im TEST verifizieren. Die vorhandene Abfrage ist auf 45 Tage/50.000 Zeilen begrenzt; damit keine Vollständigkeit oder ein echter 15-Minuten-Produktivsync nachgewiesen.
+- **Danach, nicht gleichzeitig:** gemeinsamen zentralen Tracking-Spiegel mit genau einer kontrollierten technischen JTL-Abfragepipeline und Benutzer-Metadaten-Audit implementieren, inklusive Fehler-/Wiederanlaufstrategie und separatem Datensicherheitskonzept. Anschließend auth-geschützten Browser-E2E-Test, optionalen KI-Einsatz und nur zulässige Amazon-Nachrichtenwege.
+- **Ausdrücklich unverändert:** JTL-Wawi, produktive HW24-MariaDB, alte Artikelmanager-APIs, Amazon-/Shopify-Verbindungen und alle Server-/Domain-Deployments. Kein „LIVE funktioniert“-Nachweis aus GitHub-Commits ableiten.
