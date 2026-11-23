@@ -193,13 +193,30 @@ try {
                 ON i.ean=r.ean AND i.batch_id=? AND i.review_state<>"removed"
               WHERE r.actor=?');
         $q->execute([(int)$p['batch_id'],$actor]);$total=$q->fetch();
-        $q=$pdo->prepare('SELECT r.id AS review_id,r.ean,r.article_name,r.model,
+        // Cursor pagination ensures every archived AI request can be read,
+        // without returning thousands of analysis records in one response.
+        $beforeRaw=$_GET['before_id']??null;
+        $before=null;
+        if($beforeRaw!==null){
+            if(!is_string($beforeRaw)||!preg_match('/^[1-9][0-9]{0,17}$/D',$beforeRaw))
+                throw new InvalidArgumentException('invalid_cursor');
+            $before=filter_var($beforeRaw,FILTER_VALIDATE_INT);
+            if($before===false||$before<1)
+                throw new InvalidArgumentException('invalid_cursor');
+        }
+        $sql='SELECT r.id AS review_id,r.ean,r.article_name,r.model,
                 r.ai_status AS status,r.usd_cost,r.tokens_input,r.tokens_cached,
                 r.tokens_output,r.created_at_utc
             FROM hw24_ai_reviews r INNER JOIN hw24_scan_items i
               ON i.ean=r.ean AND i.batch_id=? AND i.review_state<>"removed"
-            WHERE r.actor=? ORDER BY r.id DESC LIMIT 100');
-        $q->execute([(int)$p['batch_id'],$actor]);$rows=$q->fetchAll();
+            WHERE r.actor=?';
+        $params=[(int)$p['batch_id'],$actor];
+        if($before!==null){$sql.=' AND r.id<?';$params[]=$before;}
+        $sql.=' ORDER BY r.id DESC LIMIT 51';
+        $q=$pdo->prepare($sql);$q->execute($params);$rows=$q->fetchAll();
+        $hasMore=count($rows)>50;
+        if($hasMore)$rows=array_slice($rows,0,50);
+        $next=$hasMore&&$rows?(int)end($rows)['review_id']:null;
         purchaseReply(200,['ok'=>true,'purchase_id'=>$purchaseId,
           'source'=>'hw24_ai_reviews','scope'=>'same_actor_and_ean_historical',
           'totals'=>[
@@ -208,8 +225,8 @@ try {
             'tokens_input'=>(int)$total['tokens_input'],
             'tokens_cached'=>(int)$total['tokens_cached'],
             'tokens_output'=>(int)$total['tokens_output']
-          ],'reviews'=>$rows,'limit'=>100,
-          'truncated'=>(int)$total['calls']>100,
+          ],'reviews'=>$rows,'limit'=>50,'has_more'=>$hasMore,
+          'next_before_id'=>$next,
           'note'=>'Historische KI-Kosten zu EANs; nicht zwangsläufig während dieses Einkaufs entstanden.']);
     }
     if($op==='article_search'&&$method==='GET'){
