@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>HW24 · Einkaufscheckliste</title>
+<link rel="icon" href="assets/hw24-favicon.svg" type="image/svg+xml">
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#183650;background:#f1f6fb}
+*{box-sizing:border-box}body{margin:0}header{background:#11395e;color:#fff;padding:22px max(16px,calc((100vw - 1180px)/2))}
+header a{color:#d8ecff}header h1{font-size:clamp(1.4rem,3vw,2rem);margin:10px 0 4px}
+header p{font-size:14px;color:#e0eef9;max-width:870px;line-height:1.55}
+main{max-width:1180px;margin:14px auto;padding:0 12px 45px}
+section{border:1px solid #d4e2ec;background:white;border-radius:15px;padding:16px;margin:13px 0;box-shadow:0 3px 10px #173e6410}
+h2{font-size:1.17rem;margin:0 0 13px}p{line-height:1.55}
+.note{font-size:13px;color:#506b7e}.warn{color:#a64a19}.success{color:#176a48}
+.bar{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
+.field{flex:1 1 180px}.wide{flex:2 1 270px}
+label{font-weight:650;font-size:13px;display:block;margin-bottom:5px}
+input,select{font:inherit;width:100%;min-width:0;padding:11px;border:1px solid #a9becf;border-radius:9px;background:#fff}
+input:focus,select:focus{outline:3px solid #b7dff7}
+button{font:inherit;padding:11px 14px;border:0;border-radius:9px;background:#12629e;color:white;font-weight:700;cursor:pointer}
+button.secondary{background:#eaf2fa;color:#16547d;border:1px solid #b9d3e6}
+button:disabled{opacity:.48;cursor:not-allowed}
+input#ean{font-size:1.27rem;letter-spacing:.04em;padding:13px}
+.status{margin:10px 0;min-height:20px;font-weight:600}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:9px;margin:15px 0}
+.metric{border-radius:12px;border:1px solid #d3e3ee;padding:12px;background:#f7fbff}
+.metric small{color:#587187}.metric strong{font-size:1.42rem;display:block;margin:3px 0}
+.scroll{overflow:auto;border:1px solid #d7e4ef;border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:870px}
+th,td{text-align:left;vertical-align:middle;border-bottom:1px solid #e3edf2;padding:10px 8px;font-size:13px}
+th{background:#f0f6fc;white-space:nowrap}td small{color:#5b7186}
+td input,td select{padding:8px;font-size:13px}
+td .short{width:90px}td .money{width:105px}td button{padding:8px 11px;font-size:12px}
+.pill{display:inline-block;border-radius:20px;background:#e6eff7;padding:3px 8px;font-size:12px}
+.pill.new_candidate{background:#e1f3e6}.pill.unverified,.pill.multiple{background:#fff1d8}
+#purchaseCode{font-size:1.3rem;font-weight:800}
+@media(max-width:600px){section{padding:12px}.field{flex:1 1 100%}button{width:100%}}
+</style></head>
+<body><header><nav><a href="scanliste.html">← Bisherige Scanliste</a> · <a href="index.html">Artikelmanager</a></nav>
+<h1>📦 Einkaufscheckliste</h1>
+<p>Lieferant und Ansprechpartner auswählen, Einkaufs-ID erhalten, EAN mehrfach scannen und Stückkosten sowie Netto-/Bruttosummen erfassen. Wir nutzen die vorhandenen HW24-Scan-Stapel, nicht eine zweite Artikelverwaltung.</p></header>
+<main>
+<section><h2>1. Lieferantenkontakt und Einkaufs-ID</h2>
+<div class="bar"><div class="field wide"><label for="contactSelect">Bekannter Lieferantenkontakt</label><select id="contactSelect"><option value="">Kontakte laden …</option></select></div>
+<button id="startPurchase" type="button">Neuen Ankauf starten</button></div>
+<details style="margin-top:12px"><summary>Lieferantenkontakt erstmals hinterlegen</summary>
+<p class="note">Nur lokale Kontaktzuordnung. Eine direkte Synchronisation mit dem JTL-Lieferanten-/Kontaktstamm ist noch nicht verifiziert. Die Kürzel müssen je Konto eindeutig sein.</p>
+<div class="bar"><div class="field"><label for="supplier">Lieferant</label><input id="supplier" maxlength="180" placeholder="Lieferant aus JTL"></div>
+<div class="field"><label for="contact">Ansprechpartner</label><input id="contact" maxlength="180" placeholder="z. B. Maike Lüddecke"></div>
+<div class="field"><label for="prefix">Einkaufs-Kürzel</label><input id="prefix" maxlength="8" placeholder="ML, AB" autocapitalize="characters"></div>
+<button type="button" id="saveContact" class="secondary">Kontakt hinterlegen</button></div></details>
+<div class="bar" style="margin-top:14px"><div class="field wide"><label for="purchaseSelect">Vorhandene Ankäufe</label><select id="purchaseSelect"><option value="">Ankäufe laden …</option></select></div>
+<button id="refresh" type="button" class="secondary">Aktualisieren</button></div>
+<p id="purchaseCode" aria-live="polite">Noch kein Ankauf gewählt</p>
+<p class="note">Beispiel: <strong>ML202611-1</strong>, nächster Einkauf derselben Person im Monat <strong>ML202611-2</strong>. Die Nummer wird transaktionssicher serverseitig vergeben.</p>
+</section>
+<section><h2>2. Ware scannen und automatisch zählen</h2>
+<form id="scanForm" class="bar"><div class="field wide"><label for="ean">EAN/GTIN mit Scanner oder Kamera-Scanner erfassen</label>
+<input id="ean" inputmode="numeric" type="search" autocomplete="off" placeholder="EAN scannen und Enter" required></div>
+<button id="scanButton" type="submit">+1 Stück erfassen</button></form>
+<div class="bar" style="margin-top:12px"><div class="field"><label for="defaultCost">Optional: gleicher Stück-EK netto für neue Positionen (€)</label><input id="defaultCost" inputmode="decimal" placeholder="z. B. 1,20"></div>
+<div class="field"><label for="defaultVat">Umsatzsteuer nach Einkaufsbeleg</label><select id="defaultVat"><option value="">Bitte auswählen</option><option value="19">19 %</option><option value="7">7 %</option><option value="0">0 %</option></select></div></div>
+<p class="note">Wird ein Produkt fünfmal gescannt, erscheint es einmal mit Menge 5. Ein Standardstückpreis wird nur beim erstmaligen Anlegen einer unbepreisten Position übernommen; vorhandene Preise werden nicht überschrieben. Der Umsatzsteuersatz muss anhand des Belegs stimmen.</p>
+<div id="pendingBox" hidden><p class="warn">Ein Scan konnte nicht bestätigt werden. Bitte zuerst denselben Vorgang mit identischer Ereignis-ID erneut senden, damit keine Doppelzählung entsteht.</p>
+<button type="button" id="retryPending" class="secondary">Ausstehenden Scan sicher wiederholen</button></div>
+<p class="status" id="scanStatus" role="status" aria-live="polite">Noch kein Ankauf ausgewählt.</p>
+<p class="note" id="amazonStatus">Amazon-Katalog: Automatische Prüfung einmal je neu gescannter EAN nach erfolgreicher Speicherung, begrenzt und mit Cache. Kein KI-Kostenaufruf.</p></section>
+<section><h2>3. Stückzahlen und Einkaufswerte</h2>
+<div class="metrics"><div class="metric"><small>Unterschiedliche Artikel</small><strong id="uniqueCount">0</strong></div>
+<div class="metric"><small>Gesamtstückzahl</small><strong id="totalQuantity">0</strong></div>
+<div class="metric"><small>Gesamt EK netto</small><strong id="totalNet">0,00 €</strong></div>
+<div class="metric"><small>Gesamt EK brutto</small><strong id="totalGross">0,00 €</strong></div></div>
+<p class="warn note" id="unpricedNotice">Unbepreiste Positionen werden nicht als 0 € in den Gesamtsummen versteckt.</p>
+<div class="scroll"><table><thead><tr><th>EAN / Erkennung</th><th>Artikel</th><th>Menge</th><th>Stück-EK netto €</th><th>USt</th><th>Gesamt netto</th><th>Gesamt brutto</th><th>Aktion</th></tr></thead><tbody id="rows"><tr><td colspan="8">Ankauf auswählen, um Positionen zu laden.</td></tr></tbody></table></div>
+<div class="bar" style="margin-top:13px"><button id="exportCsv" type="button" class="secondary" disabled>📄 Einkaufscheckliste als CSV exportieren</button>
+<a href="scanliste.html">Zur bisherigen Artikelpflege, Amazon-/KI-Recherche und Ameise-Prüfdatei</a></div>
+<p id="exportStatus" class="note" role="status"></p>
+</section>
+<section><h2>4. Quellen und Historie ohne Datenverlust</h2>
+<p class="note">Ein Artikel kann bereits in JTL stehen, mehrfach vorkommen oder noch nicht angelegt sein. Das prüft die vorhandene Scanlisten-API. Amazon-Katalogdaten sind Produktvorschläge, keine gesicherte Lieferantenrechnung. KI-Historie wird nur auf ausdrücklichen Knopfdruck gelesen; eine neue kostenpflichtige KI-Prüfung erfolgt ausschließlich im bestehenden Artikelmanager.</p>
+<div class="bar"><div class="field wide"><label for="sourceEan">EAN für historische Daten</label><input id="sourceEan" placeholder="EAN aus aktueller Liste"></div>
+<button id="historyButton" type="button" class="secondary">Gespeicherte Amazon-/KI-Historie prüfen</button>
+<button id="amazonButton" type="button" class="secondary">Amazon-Katalog gezielt erneut prüfen</button></div>
+<p id="sourceResults" class="note" role="status">Historische Werte bleiben in den bisherigen HW24-Archiven.</p>
+<p class="note">PDF-, Bild- und Excel-Einkaufsbelege kommen im nächsten Ausbauschritt über eine separate Upload- und KI-Prüfschleuse mit Quellenansicht und Freigabe hinzu. Bis dahin können vorhandene EAN-CSV-Dateien in der bisherigen Scanliste eingelesen werden.</p>
+</section>
+</main>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id),v=x=>String(x??'').trim();
+const state={contacts:[],purchases:[],purchase:null,items:[],busy:false,amazonDone:new Set(),amazonQueue:[],amazonBusy:false};
+const euro=n=>new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(Number(n||0)/100);
+const pendingKey='hw24_purchase_scan_pending_v1';
+const valEAN=x=>{x=v(x);if(!/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(x)||/^0+$/.test(x))return false;
+let s=0,w=3;for(let i=x.length-2;i>=0;i--){s+=Number(x[i])*w;w=w===3?1:3}
+return (10-s%10)%10===Number(x.at(-1))};
+const errorMsg=e=>String(e?.message||e||'Unbekannter Fehler').slice(0,220);
+function status(s,err=false){$('scanStatus').textContent=s;$('scanStatus').className='status '+(err?'warn':'success')}
+async function call(path,op,fields){
+ const post=fields!==undefined;
+ const url=path+(post?'':'?'+new URLSearchParams({op,...(fields||{})}));
+ const response=await fetch(url,post?{method:'POST',credentials:'same-origin',cache:'no-store',
+ headers:{'Content-Type':'application/json','X-HW24-Approval':'confirmed'},body:JSON.stringify({op,...fields})}:
+ {credentials:'same-origin',cache:'no-store'});
+ let data;try{data=await response.json()}catch(_){throw Error('Ungültige API-Antwort oder Anmeldung fehlt (HTTP '+response.status+')')}
+ if(!response.ok||!data.ok)throw Error(data.error||'HTTP '+response.status);
+ return data;
+}
+const read=(op,params={})=>fetch('api/purchase-intake.php?'+new URLSearchParams({op,...params}),
+ {credentials:'same-origin',cache:'no-store'}).then(async r=>{let j;try{j=await r.json()}catch(_){throw Error('Einkaufs-API antwortet nicht mit JSON')};
+ if(!r.ok||!j.ok)throw Error(j.error||'HTTP '+r.status);return j});
+const post=(op,data)=>call('api/purchase-intake.php',op,data);
+function el(tag,text,parent){const node=document.createElement(tag);if(text!==undefined)node.textContent=text;parent?.append(node);return node}
+async function contacts(){
+ const r=await read('contacts');state.contacts=r.contacts||[];const select=$('contactSelect');select.replaceChildren();
+ el('option','Kontakt auswählen',select).value='';
+ for(const c of state.contacts){let o=el('option',c.supplier_label+' · '+c.contact_name+' ('+c.code_prefix+')',select);o.value=c.id}
+}
+async function purchases(selected){
+ const r=await read('purchases');state.purchases=r.purchases||[];
+ const pick=$('purchaseSelect');pick.replaceChildren();el('option','Ankauf auswählen',pick).value='';
+ for(const p of state.purchases){let o=el('option',p.code+' · '+p.contact+' · '+p.supplier,pick);o.value=p.id}
+ if(selected)pick.value=String(selected);
+ else if(state.purchase)pick.value=String(state.purchase.id);
+}
+function pending(){try{const x=JSON.parse(localStorage.getItem(pendingKey)||'null');
+ return x&&Number.isInteger(x.batch_id)&&x.batch_id>0&&valEAN(x.ean)&&/^[0-9a-f-]{36}$/i.test(x.event_key)?x:null}catch(_){return null}}
+function savePending(x){try{if(x)localStorage.setItem(pendingKey,JSON.stringify(x));else localStorage.removeItem(pendingKey)}catch(_){}}
+function paintPending(){$('pendingBox').hidden=!pending()}
+function render(){
+ const p=state.purchase;const totals=p?.totals||{};
+ $('purchaseCode').textContent=p?p.purchase.code+' · '+p.purchase.supplier+' / '+p.purchase.contact:'Noch kein Ankauf gewählt';
+ $('uniqueCount').textContent=totals.unique_products||0;
+ $('totalQuantity').textContent=totals.total_quantity||0;
+ $('totalNet').textContent=euro(totals.net_cents);
+ $('totalGross').textContent=euro(totals.gross_cents);
+ const u=totals.unpriced_quantity||0;
+ $('unpricedNotice').textContent=u>0?'⚠ '+u+' Stück ohne bestätigten Einkaufspreis. Die Summen zeigen nur bepreiste Positionen.':
+ '✓ Alle erfassten Stückzahlen besitzen einen bestätigten Einkaufspreis und einen USt-Satz. Die USt-Behandlung des Belegs bleibt zu prüfen.';
+ $('exportCsv').disabled=!p||!(p.items||[]).length;
+ const tbody=$('rows');tbody.replaceChildren();
+ if(!p||!p.items.length){el('tr',undefined,tbody).append(el('td','Noch keine Positionen',null));return}
+ for(const item of p.items){
+   if(!item.quantity)continue;
+   const tr=el('tr',undefined,tbody);
+   const identity=el('td',undefined,tr);
+   el('strong',item.ean,identity);el('div',item.resolution==='existing'?'JTL vorhanden':
+       item.resolution==='new_candidate'?'Neuanlage prüfen':
+       item.resolution==='multiple'?'Mehrfachtreffer': 'JTL-Abgleich noch offen',identity).className='pill '+item.resolution;
+   const name=el('td',undefined,tr);el('span',item.artikelname||'Bezeichnung offen',name);
+   if(item.artikelnummer)el('small',' · '+item.artikelnummer,name);
+   el('td',String(item.quantity),tr);
+   const priceCell=el('td',undefined,tr),unit=el('input',undefined,priceCell);
+   unit.type='text';unit.className='money';unit.inputMode='decimal';unit.placeholder='z. B. 1,20';
+   if(item.unit_net_cents!==null)unit.value=(item.unit_net_cents/100).toFixed(2).replace('.',',');
+   const vatCell=el('td',undefined,tr),vat=el('select',undefined,vatCell);vat.className='short';
+   el('option','USt?',vat).value='';
+   for(const rate of [19,7,0])el('option',rate+' %',vat).value=String(rate);
+   if(item.vat_percent!==null)vat.value=String(item.vat_percent);
+   el('td',item.line_net_cents===null?'offen':euro(item.line_net_cents),tr);
+   el('td',item.line_gross_cents===null?'offen':euro(item.line_gross_cents),tr);
+   const act=el('td',undefined,tr),button=el('button','Preis sichern',act);
+   button.type='button';button.onclick=async()=>{
+     if(!/^\d{1,7}(?:[,.]\d{1,2})?$/.test(v(unit.value))||vat.value===''){
+       status('Stück-EK muss ein positiver Dezimalbetrag sein und die USt muss gewählt werden.',true);return}
+     button.disabled=true;
+     try{await post('price_set',{purchase_id:p.purchase.id,scan_item_id:Number(item.scan_item_id),
+       unit_net:v(unit.value),vat_percent:Number(vat.value),expected_cost_updated_at:item.cost_updated_at||null});
+       await detail(p.purchase.id);status('Einkaufspreis gespeichert; Netto und Brutto aktualisiert.')}
+     catch(e){status('Preis konnte nicht gespeichert werden: '+errorMsg(e),true);await detail(p.purchase.id).catch(()=>{})}
+     finally{button.disabled=false}
+   };
+ }
+}
+async function detail(id){
+ if(!id){state.purchase=null;render();return}
+ const r=await read('detail',{purchase_id:id});state.purchase=r;state.items=r.items||[];render();
+ $('purchaseSelect').value=String(id);
+}
+async function createContact(){
+ const supplier=v($('supplier').value),contact=v($('contact').value),prefix=v($('prefix').value).toUpperCase();
+ if(!supplier||!contact||!/^[A-Z0-9]{2,8}$/.test(prefix)){status('Lieferant, Kontakt und eindeutiges Kürzel (2 bis 8 Zeichen) eingeben.',true);return}
+ if(!confirm('Lokalen Ansprechpartner '+contact+' für '+supplier+' unter Kürzel '+prefix+' hinterlegen? Dies erzeugt keinen JTL-Lieferantenkontakt.'))return;
+ try{const r=await post('contact_create',{supplier,contact,prefix});await contacts();
+ $('contactSelect').value=String(r.contact_id);status('Kontakt mit Kürzel '+prefix+' hinterlegt. JTL-Kontaktzuordnung bleibt separat.')}
+ catch(e){status('Kontakt nicht gespeichert: '+errorMsg(e),true)}
+}
+async function startPurchase(){
+ const id=Number($('contactSelect').value);
+ if(!id){status('Bitte zuerst einen Lieferantenkontakt auswählen.',true);return}
+ const name=state.contacts.find(x=>Number(x.id)===id);
+ if(!confirm('Neuen Ankauf für '+(name?.contact_name||'diesen Kontakt')+' anlegen? Die fortlaufende Nummer wird jetzt vergeben.'))return;
+ try{const r=await post('purchase_create',{contact_id:id});await purchases(r.purchase_id);await detail(r.purchase_id);
+ status('✓ Ankauf '+r.code+' angelegt. Jetzt EAN scannen oder vorhandene EAN-CSV in der Scanliste importieren.');
+ $('ean').focus()}
+ catch(e){status('Neuer Ankauf konnte nicht angelegt werden: '+errorMsg(e),true)}
+}
+async function saveScan(task){
+ const r=await call('api/scanliste.php','scan',{batch_id:task.batch_id,ean:task.ean,event_key:task.event_key});
+ savePending(null);paintPending();
+ await detail(state.purchase.purchase.id);
+ const item=state.items.find(x=>x.ean===task.ean&&x.quantity>0);
+ const raw=v($('defaultCost').value),rate=v($('defaultVat').value);
+ if(item&&item.unit_net_cents===null&&raw!==''&&rate!==''){
+   try{await post('price_set',{purchase_id:state.purchase.purchase.id,scan_item_id:Number(item.scan_item_id),
+       unit_net:raw,vat_percent:Number(rate),expected_cost_updated_at:null});await detail(state.purchase.purchase.id)}
+   catch(e){status('Stück gezählt, aber Standardpreis nicht übernommen: '+errorMsg(e),true)}
+ }
+ if(!state.amazonDone.has(task.ean))queueAmazon(task.ean);
+ status('✓ '+task.ean+' gespeichert. Gesamtmenge dieser EAN: '+(state.items.find(x=>x.ean===task.ean)?.quantity||r.item?.scan_count||1));
+ $('ean').value='';$('ean').focus();
+}
+async function scan(evt){
+ evt?.preventDefault();if(state.busy||!state.purchase)return;
+ if(pending()){status('Ein Scan ist noch unbestätigt. Bitte zuerst „Ausstehenden Scan wiederholen“ wählen.',true);paintPending();return}
+ const ean=v($('ean').value);if(!valEAN(ean)){status('EAN/GTIN mit gültiger Prüfziffer erforderlich.',true);return}
+ const task={batch_id:state.purchase.purchase.batch_id,ean,event_key:crypto.randomUUID()};
+ savePending(task);paintPending();state.busy=true;$('scanButton').disabled=true;
+ try{await saveScan(task)}catch(e){status('Scan nicht bestätigt: '+errorMsg(e)+'. Mit derselben Ereignis-ID wiederholen.',true)}
+ finally{state.busy=false;$('scanButton').disabled=false;paintPending()}
+}
+async function retry(){
+ const task=pending();if(!task)return;
+ if(!state.purchase||Number(state.purchase.purchase.batch_id)!==task.batch_id){
+   status('Zuerst den ursprünglichen Ankauf mit Stapel-ID '+task.batch_id+' auswählen.',true);return;
+ }
+ state.busy=true;$('retryPending').disabled=true;
+ try{await saveScan(task)}catch(e){status('Erneutes Senden fehlgeschlagen: '+errorMsg(e),true)}
+ finally{state.busy=false;$('retryPending').disabled=false;paintPending()}
+}
+function queueAmazon(ean){
+ if(state.amazonDone.has(ean)||state.amazonQueue.includes(ean))return;
+ if(state.amazonQueue.length>=25){$('amazonStatus').textContent='Amazon-Warteschlange pausiert (25 EAN). Weitere Prüfungen in der bisherigen Scanliste fortsetzen.';return}
+ state.amazonQueue.push(ean);runAmazon();
+}
+async function runAmazon(){
+ if(state.amazonBusy)return;state.amazonBusy=true;
+ while(state.amazonQueue.length){
+   const ean=state.amazonQueue[0];
+   $('amazonStatus').textContent='Amazon-Katalog für '+ean+' wird geprüft … Warteschlange: '+state.amazonQueue.length;
+   try{
+     const r=await fetch('api/amazon.php?ean='+encodeURIComponent(ean),
+        {credentials:'same-origin',cache:'no-store'});
+     const d=await r.json();
+     if(!r.ok||!d.ok)throw Error(d?.error||'HTTP '+r.status);
+     state.amazonDone.add(ean);state.amazonQueue.shift();
+     const first=Array.isArray(d.items)?d.items[0]:null;
+     $('amazonStatus').textContent=ean+': '+(d.count||0)+' Amazon-Katalogtreffer ('+(d.source==='cache'?'Archiv-Cache':'Live-Abfrage')+
+       '). '+(d.count===1?'Möglicher Artikel: '+v(first?.item_name||first?.name||first?.title).slice(0,90):
+       'Identität bei mehreren oder null Treffern bitte manuell prüfen.')+' Kein JTL-Schreibzugriff.';
+   }catch(e){$('amazonStatus').textContent='Amazon nicht bestätigt: '+errorMsg(e)+
+       '. Scan und Einkauf bleiben gespeichert. Weitere Amazon-Abfragen angehalten.';
+     state.amazonQueue.length=0;break}
+   await new Promise(resolve=>setTimeout(resolve,1600));
+ }
+ state.amazonBusy=false;
+}
+function csvCell(value){let s=String(value??'');if(/^[=+\-@\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}
+function exportCsv(){
+ const p=state.purchase;if(!p)return;
+ const header=['Einkauf-ID','Lieferant','Kontakt','EAN','JTL-Artikelnummer','JTL-Abgleich','Menge','Stück-EK netto','USt Prozent','Summe netto','Summe brutto'];
+ const rows=p.items.filter(x=>x.quantity>0).map(x=>[p.purchase.code,p.purchase.supplier,p.purchase.contact,x.ean,
+   x.artikelnummer||'',x.resolution,x.quantity,
+   x.unit_net_cents===null?'':(x.unit_net_cents/100).toFixed(2).replace('.',','),
+   x.vat_percent===null?'':x.vat_percent,
+   x.line_net_cents===null?'':(x.line_net_cents/100).toFixed(2).replace('.',','),
+   x.line_gross_cents===null?'':(x.line_gross_cents/100).toFixed(2).replace('.',',')]);
+ const text='\ufeff'+[header,...rows].map(r=>r.map(csvCell).join(';')).join('\r\n')+'\r\n';
+ const blob=new Blob([text],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='HW24_Ankauf_'+p.purchase.code+'_PRUEFLISTE.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);
+ $('exportStatus').textContent='Einkaufsliste exportiert. Keine JTL-Ameise- oder WMS-Buchungsdatei.';
+}
+async function history(){
+ const ean=v($('sourceEan').value);if(!valEAN(ean)){$('sourceResults').textContent='Bitte gültige EAN eingeben.';return}
+ const [ai,amazon]=await Promise.allSettled([
+ fetch('api/ai-reviews.php?ean='+encodeURIComponent(ean)+'&limit=5',{credentials:'same-origin',cache:'no-store'}).then(r=>r.json()),
+ fetch('api/amazon-archive.php?ean='+encodeURIComponent(ean)+'&limit=5',{credentials:'same-origin',cache:'no-store'}).then(r=>r.json())
+ ]);
+ let parts=[];
+ if(ai.status==='fulfilled'&&ai.value.ok)parts.push('KI-Archiv: '+(ai.value.count||0)+' geladene Analysen (nur gespeicherte Belege)');
+ else parts.push('KI-Archiv derzeit nicht lesbar');
+ if(amazon.status==='fulfilled'&&amazon.value.ok)parts.push('Amazon-Kataloghistorie: '+(amazon.value.count||0)+' gespeicherte Abfragen');
+ else parts.push('Amazon-Archiv derzeit nicht lesbar');
+ $('sourceResults').textContent=ean+' · '+parts.join(' · ')+'. Details und bewusste KI-Neuanalyse im bestehenden Artikelmanager.';
+}
+async function init(){
+ paintPending();try{await contacts();await purchases();status('Einkaufscheckliste bereit. Kontakt auswählen oder neuen Kontakt anlegen.')}
+ catch(e){status('Einkaufsmodul noch nicht freigegeben oder Datenbanktabellen fehlen: '+errorMsg(e)+
+ '. Die bisherige Scanliste bleibt nutzbar.',true)}
+}
+$('saveContact').onclick=createContact;$('startPurchase').onclick=startPurchase;
+$('purchaseSelect').onchange=ev=>detail(Number(ev.target.value)||0).catch(e=>status(errorMsg(e),true));
+$('refresh').onclick=async()=>{try{await contacts();await purchases();if(state.purchase)await detail(state.purchase.purchase.id);status('Aktualisiert.')}catch(e){status(errorMsg(e),true)}};
+$('scanForm').addEventListener('submit',scan);$('retryPending').onclick=retry;$('exportCsv').onclick=exportCsv;
+$('historyButton').onclick=()=>history().catch(e=>$('sourceResults').textContent=errorMsg(e));
+$('amazonButton').onclick=()=>{const ean=v($('sourceEan').value);if(!valEAN(ean)){status('Gültige EAN eingeben.',true);return}state.amazonDone.delete(ean);queueAmazon(ean)};
+init();
+})();
+</script></body></html>
