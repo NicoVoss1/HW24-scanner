@@ -282,8 +282,12 @@ function render(){
    const provenance=el('td',undefined,tr),job=state.amazonJobs.get(item.ean);
    el('div','JTL: '+(item.resolution==='existing'?'vorhanden':item.resolution==='new_candidate'?
        'kein Treffer im Scan-Snapshot':item.resolution==='multiple'?'mehrfach':'ungeprüft'),provenance);
+   if(p?.jtl_mirror?.snapshot_at_utc)
+     el('small','JTL-Quelle: '+p.jtl_mirror.snapshot_at_utc+' UTC'+
+       (p.jtl_mirror.is_fresh?' · aktuell':' · veraltet / nicht bestätigt'),provenance);
    if(job){
-     el('div','Amazon: '+job.status+' · '+(job.last_source||'noch keine Quelle'),provenance);
+     el('div','Amazon: '+job.status+' · '+(job.last_source?
+        job.last_source+' (Browsermeldung, Snapshot verifiziert)':'Quelle noch nicht belegt'),provenance);
      if(job.last_catalog_at_utc)el('small','Quelle: '+job.last_catalog_at_utc+' UTC',provenance);
      el('small','angefordert von '+job.requested_by+' · '+job.requested_at_utc+' UTC',provenance);
    }else el('small','Amazon: noch kein protokollierter Warteschlangenauftrag',provenance);
@@ -399,7 +403,10 @@ async function refreshQueue(){
   ' in Bearbeitung · '+(c.retry||0)+' später erneut · '+(c.completed||0)+
   ' abgeschlossen · '+(c.blocked||0)+' manuell prüfen · '+(c.missing||0)+
   ' ohne Anfrage. Nach Browser-Schließen bleiben die Aufträge gespeichert.';
- render();
+ // Do not discard a manually edited, still unsaved purchase price when
+ // an unrelated background Amazon query completes.
+ const active=document.activeElement;
+ if(!active?.closest?.('#rows'))render();
  if(!state.queueBusy&&!state.queuePaused&&$('autoRunAmazon').checked&&
       ((c.queued||0)+(c.retry||0)>0))runAmazon();
 }
