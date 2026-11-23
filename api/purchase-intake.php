@@ -47,16 +47,43 @@ function purchaseHeader(PDO $pdo,int $id,string $actor,bool $lock=false): array 
 }
 function purchaseDetails(PDO $pdo,int $id,string $actor): array {
     $p=purchaseHeader($pdo,$id,$actor);
+    // One-to-one article ID match ONLY, never take an arbitrary first EAN
+    // when multiple JTL articles share a barcode. Existing mirror is a
+    // possibly stale snapshot; always disclose its observation date.
+    $meta=$pdo->query("SELECT source_id,last_completed_utc,
+       TIMESTAMPDIFF(MINUTE,last_completed_utc,UTC_TIMESTAMP()) AS age_minutes
+       FROM hw24_jtl_sync_meta WHERE status='ready'
+       ORDER BY last_completed_utc DESC LIMIT 1")->fetch();
+    $sourceId=$meta['source_id']??null;
     $s=$pdo->prepare('SELECT i.id AS scan_item_id,i.ean,i.scan_count,i.resolution,i.artikelnummer,
-       i.artikelname,i.review_state,i.last_scanned_utc,
+       i.artikelname,i.review_state,i.last_scanned_utc,i.draft_json,
+       j.han AS jtl_han,j.hersteller AS jtl_manufacturer,
+       j.artikelname AS jtl_article_name,j.artikelnummer AS jtl_article_number,
        c.unit_net_cents,c.vat_percent,c.updated_at_utc AS cost_updated_at
        FROM hw24_scan_items i LEFT JOIN hw24_purchase_costs c
        ON c.purchase_id=? AND c.scan_item_id=i.id
+       LEFT JOIN hw24_jtl_articles j ON j.source_id=? AND j.jtl_article_id=i.jtl_article_id
        WHERE i.batch_id=? ORDER BY i.id ASC LIMIT 3001');
-    $s->execute([$id,(int)$p['batch_id']]);$rows=$s->fetchAll();
+    $s->execute([$id,$sourceId,(int)$p['batch_id']]);$rows=$s->fetchAll();
     if(count($rows)>3000)throw new RuntimeException('too_many_scan_positions',409);
     $net=0;$gross=0;$totalQty=0;$unpricedQty=0;$activeLines=0;
     foreach($rows as &$row) {
+        $draft=json_decode((string)($row['draft_json']??''),true);
+        if(!is_array($draft))$draft=[];
+        $jtlManufacturer=trim((string)($row['jtl_manufacturer']??''));
+        $jtlHan=trim((string)($row['jtl_han']??''));
+        $row['manufacturer']=$jtlManufacturer!==''?$jtlManufacturer:
+             trim((string)($draft['Hersteller']??''));
+        $row['manufacturer_source']=$jtlManufacturer!==''?'jtl_mirror':
+            ($row['manufacturer']!==''?'scan_draft':'unavailable');
+        $row['han']=$jtlHan!==''?$jtlHan:trim((string)($draft['HAN']??''));
+        $row['han_source']=$jtlHan!==''?'jtl_mirror':
+             ($row['han']!==''?'scan_draft':'unavailable');
+        $row['article_number']=$row['artikelnummer']?:($row['jtl_article_number']??'');
+        $row['article_name_display']=$row['artikelname']?:($row['jtl_article_name']??
+             ($draft['Artikelname']??''));
+        unset($row['draft_json'],$row['jtl_han'],$row['jtl_manufacturer'],
+              $row['jtl_article_name'],$row['jtl_article_number']);
         $removed=$row['review_state']==='removed';
         $qty=$removed?0:(int)$row['scan_count'];
         if($qty>0){$activeLines++;$totalQty+=$qty;}
@@ -82,7 +109,12 @@ function purchaseDetails(PDO $pdo,int $id,string $actor): array {
       'unique_products'=>$activeLines,'total_quantity'=>$totalQty,
       'unpriced_quantity'=>$unpricedQty,'net_cents'=>$net,
       'gross_cents'=>$gross,'complete'=>$unpricedQty===0
-    ],'source'=>'existing_hw24_scanliste'];
+    ],'source'=>'existing_hw24_scanliste',
+       'jtl_mirror'=>[
+          'snapshot_at_utc'=>$meta['last_completed_utc']??null,
+          'age_minutes'=>$meta['age_minutes']===null?null:(int)$meta['age_minutes'],
+          'is_fresh'=>$meta && (int)$meta['age_minutes']>=0 && (int)$meta['age_minutes']<=45
+       ]];
 }
 
 $actor=trim((string)($_SERVER['PHP_AUTH_USER']??$_SERVER['REMOTE_USER']??$_SERVER['REDIRECT_REMOTE_USER']??''));
@@ -145,6 +177,40 @@ try {
     }
     if($op==='detail'&&$method==='GET'){
         purchaseReply(200,purchaseDetails($pdo,purchaseId($_GET['purchase_id']??null),$actor));
+    }
+    if($op==='ai_costs'&&$method==='GET'){
+        $purchaseId=purchaseId($_GET['purchase_id']??null);
+        $p=purchaseHeader($pdo,$purchaseId,$actor);
+        // Costs are from previous, actor-scoped OpenAI archive requests
+        // associated solely by EAN. They are NOT purchases' material costs.
+        // MariaDB aggregate uses COUNT() and SUM() on persisted usage values.
+        $q=$pdo->prepare('SELECT COUNT(*) AS calls,
+              COALESCE(SUM(r.usd_cost),0) AS usd_total,
+              COALESCE(SUM(r.tokens_input),0) AS tokens_input,
+              COALESCE(SUM(r.tokens_cached),0) AS tokens_cached,
+              COALESCE(SUM(r.tokens_output),0) AS tokens_output
+              FROM hw24_ai_reviews r INNER JOIN hw24_scan_items i
+                ON i.ean=r.ean AND i.batch_id=? AND i.review_state<>"removed"
+              WHERE r.actor=?');
+        $q->execute([(int)$p['batch_id'],$actor]);$total=$q->fetch();
+        $q=$pdo->prepare('SELECT r.id AS review_id,r.ean,r.article_name,r.model,
+                r.ai_status AS status,r.usd_cost,r.tokens_input,r.tokens_cached,
+                r.tokens_output,r.created_at_utc
+            FROM hw24_ai_reviews r INNER JOIN hw24_scan_items i
+              ON i.ean=r.ean AND i.batch_id=? AND i.review_state<>"removed"
+            WHERE r.actor=? ORDER BY r.id DESC LIMIT 100');
+        $q->execute([(int)$p['batch_id'],$actor]);$rows=$q->fetchAll();
+        purchaseReply(200,['ok'=>true,'purchase_id'=>$purchaseId,
+          'source'=>'hw24_ai_reviews','scope'=>'same_actor_and_ean_historical',
+          'totals'=>[
+            'calls'=>(int)$total['calls'],
+            'usd_total'=>(string)$total['usd_total'],
+            'tokens_input'=>(int)$total['tokens_input'],
+            'tokens_cached'=>(int)$total['tokens_cached'],
+            'tokens_output'=>(int)$total['tokens_output']
+          ],'reviews'=>$rows,'limit'=>100,
+          'truncated'=>(int)$total['calls']>100,
+          'note'=>'Historische KI-Kosten zu EANs; nicht zwangsläufig während dieses Einkaufs entstanden.']);
     }
     if($op==='contact_create'&&$method==='POST'){
         $supplier=purchaseText($input['supplier']??null,180,'supplier');
