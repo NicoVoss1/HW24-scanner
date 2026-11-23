@@ -1,5 +1,7 @@
 # HW24 Intelligence Hub: Einkaufscheckliste – implementierter erster Funktionsstand
 
+**Erweiterung 24.11.2026:** Die erste Einkaufsversion wurde um Hersteller-/Artikelnummer-/EAN-/HAN-/Namensfilter, JTL-EK-Suche, reale gespeicherte OpenAI-Kosten mit Cursor-Seiten und eine persistent auditierte Amazon-Warteschlange ergänzt. Die separate Spezifikation liegt in [HW24_INTELLIGENCE_SEARCH_AMAZON_QUEUE_AI_COSTS_2026-11-24.md](HW24_INTELLIGENCE_SEARCH_AMAZON_QUEUE_AI_COSTS_2026-11-24.md). Die **manuelle, noch NICHT ausgeführte Migration** umfasst nun **acht additive Tabellen** (fünf Einkauf + drei Amazon-Queue), nicht mehr fünf. Auch diese Erweiterung ist nur Branch-Code, kein TEST-/LIVE-Deploy.
+
 **Datum:** 23.11.2026. **Stand:** Entwicklungsbranch / Draft-PR #46. **Noch nicht auf TEST oder LIVE ausgerollt; SQL-Migration nicht ausgeführt; keine realen Amazon-/OpenAI-Credential-Integrationstests erfolgt.**
 
 ## Ausgangspunkt und Excel-Frage
