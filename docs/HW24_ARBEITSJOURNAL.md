@@ -587,6 +587,30 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - **Keine** Auftrags-/Kunden-/Preisdatensätze exportieren, keine DML/DDL, keine Datenkorrektur oder automatische Verkaufsfreigabe. Quelleffekte/Statuskriterien für nicht zugeordnete Artikel sind weiter offen.
 - Neue Phase-6-SQL-2 **vollständige Artikelstamm-CSV mit korrigierter Rowversion** bleibt der nächste Baseline-Baustein, sofern ein gemeinsamer zukünftiger Delta-Spiegel geplant ist. Lösch-/Transaktions-/Watermark-Risiken und TEST-/LIVE-Cutover noch nicht freigegeben.
 
+## Betreiberergebnisse Phase 15: Verfügbarkeitsformel in aktueller JTL-Datenbank bestätigt (2026-11-23)
+
+### S083 | 2.692/2.692 Gleichheiten DIREKT in eazybusiness | **HeidiSQL nachgewiesen**
+- `DB_NAME()=eazybusiness`, `source_stock_rows=2692`. Zentrale Verfügbarkeits-Kontrollgleichung `fLagerbestand - fProduktionGesperrt - fInAuftraegen = fVerfuegbar`: **2692 Übereinstimmungen, null Abweichungen, Residuumssumme 0**.
+- Frühere Kandidatengleichung mit `fVerfuegbarGesperrt` statt `fProduktionGesperrt`: **2691 Gleichheiten und genau eine Abweichung**. Exakt dieselben Befunde wie aus der vollständigen privaten Phase-14-CSV, somit nun auch unabhängig direkt im SQL-Server belegt.
+- Die Relation ist für den geprüften Datenstand **arithmetisch vollständig bestätigt**, NICHT als JTL-internes Berechnungsverfahren oder als kanalübergreifende verkaufbare Menge bewiesen. Für den Spiegel `fVerfuegbar` **originalgetreu** führen; Kontrollgleichung und Residuum nur separat als QA-Feld, niemals eine abweichende JTL-Zahl heimlich korrigieren. Keine Minus-1-Behandlung durch automatische Korrektur.
+
+### S084 | Einziges Sperrfeld-Differenzpaar und Artikelstatus | **HeidiSQL nachgewiesen**
+- Artikel `kArtikel=5720`, aktiv `cAktiv=Y`, `nDelete=0`; Artikelstamm hat `nLagerbestand=0` (bekanntlich kein verlässliches globales Lagerfeld), `dMod=2026-03-23 20:48:49.71`.
+- Quelle `dbo.tlagerbestand`: `fLagerbestand=1`, `fVerfuegbar=1`, `fVerfuegbarGesperrt=1`, `fProduktionGesperrt=0`, `fInAuftraegen=0`, Rowversion `0x0000000005F6F54C`. Artikelstamm-RV `0x0000000006123209`, gesondert von Zentralbestand-RV gespeichert (unabhängige Tabellen, keine Gleichheit zu erwarten).
+- Warenlagerdiagnose `COUNT_BIG(*)=0`, `warehouse_stock_raw=0` für 5720. Somit **keine** physische Zuordnung in der geprüften Pro-Lager-Tabelle, obwohl ein positiver globaler Bestand und positive globale Verfügbarkeit vorliegen. Nicht als Artikeldefekt oder Lagerbestand einer konkreten Location ausgeben.
+- Historie `dbo.tArtikelHistory` SQL 5 für `kArtikel=5720`: **kein Datensatz** zurückgegeben; kein Nachweis einer aktuellen/historischen Bewegung dieses Artikels aus genau dieser Tabelle. Nicht als generelle Inaktivität oder Datenverlust interpretieren.
+
+### S085 | 32 aktive, nicht gelöschte Artikel ohne physische Lagerzuordnung | **HeidiSQL bestätigt**
+- Artikelstamm-Flags für **alle 32 global-only Artikel**: `cAktiv=Y`, `nDelete=0`, davon **22** mit positivem globalem Rohbestand. Rohbestände **953**, Original-JTL-`fVerfuegbar` **950**, `fInAuftraegen` **1**. Aus Phase 14 `fProduktionGesperrt=2` bestätigt: 953 - 2 - 1 = 950.
+- **Businessrisiko/UX-Regel:** Diese 32 Artikel sind im JTL-Artikelstamm aktiv und teils als zentral verfügbar ausgewiesen, haben aber keine einzige Zeile in `dbo.tlagerbestandProLagerLagerartikel`. Deshalb **nicht** in der UI als „in WMS-ZepCh+Bug / physisch eingelagert“ behaupten, nicht ohne Versand-/Shopregel als marketplace-ready erklären und nicht automatisch Lagerzuordnungen, Bestandswerte oder Verfügbarkeitsfelder verändern.
+- Noch offen: Handelt es sich um besondere Artikeltypen/Altmigration/Zuordnungslücken? Phase-15-Beleg reicht hierfür ausdrücklich **nicht**. Anzeigen: `JTL verfügbar (Original)` und `Warenlagerzuordnung: keine` als zwei separate Wahrheiten.
+
+### S086 | Nächster Umsetzungsschritt statt weiterer Testschleifen | **Export-Baseline offen**
+- Der **fachliche Kern der Quellverfügbarkeitskontrolle ist abgeschlossen** (2692/2692 im laufenden SQL Server). Kein weiterer Formel-Explorations-SQL-Zyklus erforderlich, solange keine neuen Abweichungen entstehen.
+- Jetzt SQL 2 des bereits bestehenden, korrigierten `platform/ops/jtl-heidisql-phase6-article-export-readonly.sql` in HeidiSQL erneut ausführen und als **NEUE private vollständige UTF-8/Semikolon-Datei mit Headern** sichern; 2.692 Artikel, 19 Felder, echte `0x`-Rowversions. Alte Stammdaten-Pilotdateien **NICHT** überschreiben. Artikelpreise/Nummern nur privat, nie ins öffentliche GitHub oder DocumentRoot.
+- Danach zunächst **lokaler isolierter QA-/Diff-Dry-Run** gegen den bestehenden privaten Drei-Quellen-Spiegel, Suchen nach Änderungen/fehlenden IDs, Rowversion-/Join-/Quelle-Zeitstempelkontrolle. Erst nach geprüfter Betreiberfreigabe weitere private neue Spiegelkopie; weder produktiver SQL-Server-Index noch JTL-DML, keine Änderung an TEST/LIVE/API, kein 15-Minuten-Job, kein Merge in main.
+- Die noch fehlenden Warenlagerzuordnungen (32 global-only vs. 12 lager-only), Amazon/eBay/Shopify-Kanalmengen und Wasserstands-/Delete-/Snapshot-Sicherheit bleiben separate Aufgaben, aber blockieren nicht das **private** QA des Artikelstammexports.
+
 ## Fachlich beschlossene Zielarchitektur
 
 1. **JTL eazybusiness** bleibt maßgebliche SQL-Server-Datenbank; zunächst nur Leseinventur, DB-Backup/Wiederherstellung als getrennte Aufgabe prüfen.
@@ -603,4 +627,4 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - **C** Ergebnisse, Abweichungen und Risiken im Journal festhalten; gegebenenfalls Versionsvergleich des Test-/Live-Codes.
 - **D** Nur kleine, rollbackfähige Änderungen isoliert vorbereiten, GitHub CI + Browser-E2E prüfen und Betreiberfreigabe für Deployment einholen.
 
-**Nächster Nachweis:** HeidiSQL Phase 15 SQL 0–4 zur unabhängigen Verifizierung von 2.692/2.692 Übereinstimmungen mit fProduktionGesperrt und zur fachlichen Untersuchung der 32 zentralen Artikel ohne Lagerzeile einschließlich 5720. SQL 5 (höchstens zwölf History-Zeilen) nur optional. Danach neuer korrigierter Phase-6-Stammdaten-CSV mit gültigen Artikel-Rowversions. JTL/TEST/LIVE/APIs unverändert.
+**Nächster Nachweis:** Korrigierten Phase-6-SQL-2-Artikelstammexport als NEUE private semikolongetrennte UTF-8-CSV mit 2.692 Artikelzeilen und 8-Byte-Rowversions erzeugen. Anschließend lokal Rowversion-/Stammdaten-Diff/QA gegen vorhandenen privaten Artikel+Lager+Zentralbestands-Piloten durchführen. Bestehende Dateien, JTL, TEST, LIVE, APIs und PR main bleiben unverändert.
