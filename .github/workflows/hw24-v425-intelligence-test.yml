@@ -11,6 +11,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate JS contracts and source integrations
         run: node tests/hw24-v425-article-intelligence.test.cjs
+      - name: Purchase checklist security and financial rules
+        run: |
+          php -l api/purchase-intake-domain.php
+          php -l api/purchase-intake.php
+          php tests/hw24-purchase-domain.test.php
+          node tests/hw24-purchase-checklist.test.cjs
       - name: Validate PHP and JS
         run: |
           php -l api/jtl.php
