@@ -212,6 +212,57 @@ try {
           'truncated'=>(int)$total['calls']>100,
           'note'=>'Historische KI-Kosten zu EANs; nicht zwangsläufig während dieses Einkaufs entstanden.']);
     }
+    if($op==='article_search'&&$method==='GET'){
+        // Read-only catalog search over the EXISTING last completed JTL
+        // mirror; never expose an empty/stale search as proof of no JTL item.
+        $needle=trim((string)($_GET['q']??''));
+        $maker=trim((string)($_GET['manufacturer']??''));
+        if((strlen($needle)>120)||(strlen($maker)>120)||
+           ($needle!==''&&mb_strlen($needle,'UTF-8')<2)||
+           ($maker!==''&&mb_strlen($maker,'UTF-8')<2)||
+           ($needle===''&&$maker===''))
+            throw new InvalidArgumentException('search_requires_at_least_two_characters');
+        $minRaw=trim((string)($_GET['price_min']??''));
+        $maxRaw=trim((string)($_GET['price_max']??''));
+        $min=$minRaw===''?null:purchaseCents($minRaw);
+        $max=$maxRaw===''?null:purchaseCents($maxRaw);
+        if($min!==null&&$max!==null&&$min>$max)
+            throw new InvalidArgumentException('invalid_price_range');
+        $meta=$pdo->query("SELECT source_id,last_completed_utc,last_row_count,
+            TIMESTAMPDIFF(MINUTE,last_completed_utc,UTC_TIMESTAMP()) AS age_minutes
+            FROM hw24_jtl_sync_meta WHERE status='ready'
+            ORDER BY last_completed_utc DESC LIMIT 1")->fetch();
+        if(!$meta)purchaseReply(200,['ok'=>true,'jtl_status'=>'not_connected',
+             'matches'=>[],'count'=>0,'snapshot_at_utc'=>null]);
+        $clauses=['source_id=?'];$params=[$meta['source_id']];
+        if($needle!==''){
+            $clauses[]='(LOCATE(?,artikelnummer)>0 OR LOCATE(?,ean)>0 OR
+                 LOCATE(?,han)>0 OR LOCATE(?,artikelname)>0 OR
+                 LOCATE(?,hersteller)>0)';
+            array_push($params,$needle,$needle,$needle,$needle,$needle);
+        }
+        if($maker!==''){
+            $clauses[]='LOCATE(?,hersteller)>0';
+            $params[]=$maker;
+        }
+        if($min!==null){$clauses[]='netto_ek>=?';$params[]=number_format($min/100,2,'.','');}
+        if($max!==null){$clauses[]='netto_ek<=?';$params[]=number_format($max/100,2,'.','');}
+        $sql='SELECT jtl_article_id,artikelnummer,ean,han,artikelname,hersteller,
+           netto_ek,netto_vk,synced_at_utc
+           FROM hw24_jtl_articles WHERE '.implode(' AND ',$clauses).'
+           ORDER BY artikelname,jtl_article_id LIMIT 61';
+        $stmt=$pdo->prepare($sql);$stmt->execute($params);
+        $results=$stmt->fetchAll();
+        $truncated=count($results)>60;
+        if($truncated)$results=array_slice($results,0,60);
+        $age=$meta['age_minutes']===null?null:(int)$meta['age_minutes'];
+        $fresh=$age!==null&&$age>=0&&$age<=45;
+        purchaseReply(200,['ok'=>true,'jtl_status'=>$fresh?'current_snapshot':'stale',
+          'snapshot_at_utc'=>$meta['last_completed_utc'],'age_minutes'=>$age,
+          'source'=>'hw24_jtl_articles','price_context'=>'jtl_net_purchase_price_snapshot_not_lot_cost',
+          'match_context'=>'matches_in_last_completed_mirror_not_global_proof',
+          'count'=>count($results),'truncated'=>$truncated,'matches'=>$results]);
+    }
     if($op==='contact_create'&&$method==='POST'){
         $supplier=purchaseText($input['supplier']??null,180,'supplier');
         $contact=purchaseText($input['contact']??null,180,'contact');
