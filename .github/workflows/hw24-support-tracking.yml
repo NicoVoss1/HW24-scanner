@@ -1,0 +1,36 @@
+name: HW24 support tracking read-only gate
+on:
+  pull_request:
+    paths:
+      - 'platform/app/Filament/Pages/CustomerServiceWorkbench.php'
+      - 'platform/app/Services/CustomerSupportDraftAi.php'
+      - 'platform/app/Services/TrackingSnapshotReader.php'
+      - 'platform/resources/views/filament/pages/customer-service-workbench.blade.php'
+      - 'platform/config/hw24_support.php'
+      - 'platform/ops/jtl-heidisql-phase18-tracking-export-readonly.sql'
+      - 'platform/ops/jtl-tracking-csv-stage.php'
+      - 'platform/scripts/verify-tracking-stage.php'
+      - 'platform/tests/Feature/CustomerServiceTrackingTest.php'
+      - '.github/workflows/hw24-support-tracking.yml'
+permissions:
+  contents: read
+jobs:
+  isolated-tracking-preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_sqlite, sqlite3, fileinfo
+          coverage: none
+      - name: Lint new PHP only
+        run: |
+          php -l platform/app/Filament/Pages/CustomerServiceWorkbench.php
+          php -l platform/app/Services/CustomerSupportDraftAi.php
+          php -l platform/app/Services/TrackingSnapshotReader.php
+          php -l platform/config/hw24_support.php
+          php -l platform/ops/jtl-tracking-csv-stage.php
+          php -l platform/tests/Feature/CustomerServiceTrackingTest.php
+      - name: Synthetic CSV import and no-overwrite gate
+        run: php platform/scripts/verify-tracking-stage.php
