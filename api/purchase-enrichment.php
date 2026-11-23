@@ -255,9 +255,9 @@ try{
         if(!is_bool($success))throw new InvalidArgumentException('invalid_result');
         $db->beginTransaction();
         $s=$db->prepare('SELECT id,ean,status,attempt_count FROM hw24_purchase_amazon_jobs
-            WHERE id=? AND created_by=? AND leased_by=? AND lease_token=?
+            WHERE id=? AND leased_by=? AND lease_token=?
             FOR UPDATE');
-        $s->execute([$id,$actor,$actor,$token]);$job=$s->fetch();
+        $s->execute([$id,$actor,$token]);$job=$s->fetch();
         if(!$job || $job['status']!=='leased')
             throw new RuntimeException('lease_not_current',409);
         $source=null;$snapshot=null;$catalogAt=null;$errorCode=null;
@@ -278,8 +278,8 @@ try{
                 status="completed",last_source=?,last_snapshot_id=?,
                 last_catalog_at_utc=?,last_error_code=NULL,completed_at_utc=UTC_TIMESTAMP(6),
                 leased_by=NULL,lease_token=NULL,lease_until_utc=NULL,next_attempt_utc=NULL
-                WHERE id=? AND created_by=?')
-               ->execute([$source,$snapshot,$catalogAt,$id,$actor]);
+                WHERE id=?')
+               ->execute([$source,$snapshot,$catalogAt,$id]);
             enqueueEvent($db,$id,$actor,$job['ean'],'completed',$source,'snapshot_verified');
         }else{
             $errorCode=$body['error_code']??'amazon_api_error';
@@ -294,8 +294,8 @@ try{
                 status=?,next_attempt_utc=CASE WHEN ?="retry"
                     THEN DATE_ADD(UTC_TIMESTAMP(6),INTERVAL '.$delay.' SECOND) ELSE NULL END,
                 last_error_code=?,leased_by=NULL,lease_token=NULL,lease_until_utc=NULL
-                WHERE id=? AND created_by=?')
-               ->execute([$next,$next,$errorCode,$id,$actor]);
+                WHERE id=?')
+               ->execute([$next,$next,$errorCode,$id]);
             enqueueEvent($db,$id,$actor,$job['ean'],$next,null,$errorCode);
         }
         $db->commit();
@@ -305,20 +305,28 @@ try{
     if($op==='requeue'&&$method==='POST'){
         $id=enqueueId($body['job_id']??null);
         if(($body['confirm']??null)!==true)throw new InvalidArgumentException('explicit_requeue_confirmation_required');
+        // Requeue is an explicit action by an authenticated employee who
+        // has this EAN in their own purchase, not a blanket change by job ID.
+        $purchaseId=enqueueId($body['purchase_id']??null);
+        $batch=enqueueOwnedPurchase($db,$purchaseId,$actor);
         $db->beginTransaction();
         $s=$db->prepare('SELECT ean,status FROM hw24_purchase_amazon_jobs
-            WHERE id=? AND created_by=? FOR UPDATE');
-        $s->execute([$id,$actor]);$job=$s->fetch();
+            WHERE id=? FOR UPDATE');
+        $s->execute([$id]);$job=$s->fetch();
         if(!$job)throw new RuntimeException('job_not_found',404);
+        $owns=$db->prepare('SELECT id FROM hw24_scan_items
+           WHERE batch_id=? AND ean=? AND review_state<>"removed" LIMIT 1');
+        $owns->execute([$batch,$job['ean']]);
+        if(!$owns->fetchColumn())throw new RuntimeException('scan_item_not_found',404);
         if($job['status']==='leased')throw new RuntimeException('job_in_progress',409);
         $db->prepare('UPDATE hw24_purchase_amazon_jobs SET
              status="queued",attempt_count=0,next_attempt_utc=NULL,
              leased_by=NULL,lease_token=NULL,lease_until_utc=NULL,last_error_code=NULL,
              requested_by=?,requested_at_utc=UTC_TIMESTAMP(6)
-             WHERE id=? AND created_by=?')->execute([$actor,$id,$actor]);
+             WHERE id=?')->execute([$actor,$id]);
         enqueueEvent($db,$id,$actor,$job['ean'],'requeued',null,'operator_confirmed');
         $db->commit();
-        enqueueReply(200,['ok'=>true,'job_id'=>$id,'status'=>'queued']);
+        enqueueReply(200,['ok'=>true,'scope'=>'shared_workspace','job_id'=>$id,'status'=>'queued']);
     }
     enqueueReply(404,['ok'=>false,'error'=>'unknown_operation']);
 }catch(InvalidArgumentException $e){
