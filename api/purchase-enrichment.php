@@ -89,7 +89,7 @@ try{
     if($op==='queue'&&$method==='GET'){
         $purchaseId=enqueueId($_GET['purchase_id']??null);
         $batch=enqueueOwnedPurchase($db,$purchaseId,$actor,true);
-        $q=$db->prepare('SELECT q.id,q.ean,q.status,q.requested_by,q.requested_at_utc,
+        $q=$db->prepare('SELECT q.id,q.ean,q.status,q.requested_at_utc,
           q.attempt_count,q.last_attempt_at_utc,q.last_source,
           q.last_snapshot_id,q.last_catalog_at_utc,q.last_error_code,q.completed_at_utc,
           q.next_attempt_utc
