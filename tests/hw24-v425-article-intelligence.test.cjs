@@ -48,7 +48,9 @@ assert(intel.includes("api/ai-review.php"),'Manual OpenAI review available');
 assert(intel.includes("'X-HW24-Previous-Review'"),'Rechecks use expected review id');
 assert(intel.includes("'X-HW24-Approval':'confirmed'"),'Paid review requires approval');
 assert(review.includes("HTTP_X_HW24_PREVIOUS_REVIEW"),'Server protects repeat payment');
-assert(archive.includes("WHERE actor=?"),'Archive is actor-scoped');
+assert(archive.includes("'scope'=>'shared_workspace'"),'All authenticated HW24 staff read the same product archive');
+assert(archive.includes("FROM hw24_ai_reviews WHERE ean IN ($marks)"),'Shared AI bulk summary must not be author-partitioned');
+assert(!archive.includes("WHERE actor=?"),'Archive is shared; original users remain in the append-only audit only');
 assert(intel.includes('api/curated.php?ean='),'Ameise only loads approved drafts');
 assert(intel.includes("expected")||intel.includes('approved.revision!==staged.revision'),
  'Must reject stale approved draft before CSV');
