@@ -109,7 +109,8 @@ Amazon-Abfragen im geöffneten Browser automatisch schrittweise bearbeiten (mind
 <button id="historyButton" type="button" class="secondary">Gespeicherte Amazon-/KI-Historie prüfen</button>
 <button id="amazonButton" type="button" class="secondary">Amazon-Katalog gezielt erneut prüfen</button></div>
 <div id="sourceResults" class="note" role="status">Historische Werte bleiben in den bisherigen HW24-Archiven.</div>
-<div class="bar" style="margin-top:14px"><button type="button" id="aiCostRefresh" class="secondary">💰 Gespeicherte KI-Kosten für diesen Ankauf anzeigen</button></div>
+<div class="bar" style="margin-top:14px"><button type="button" id="aiCostRefresh" class="secondary">💰 Gespeicherte KI-Kosten für diesen Ankauf anzeigen</button>
+<button type="button" id="aiCostMore" class="secondary" hidden>Weitere KI-Abfragen anzeigen</button></div>
 <p class="note" id="aiCostSummary" role="status">Gespeicherte OpenAI-Kosten zu EANs im Ankauf sind noch nicht geladen.</p>
 <div id="aiCostRows" class="note"></div>
 <p class="note">PDF-, Bild- und Excel-Einkaufsbelege kommen im nächsten Ausbauschritt über eine separate Upload- und KI-Prüfschleuse mit Quellenansicht und Freigabe hinzu. Bis dahin können vorhandene EAN-CSV-Dateien in der bisherigen Scanliste eingelesen werden.</p>
@@ -120,7 +121,7 @@ Amazon-Abfragen im geöffneten Browser automatisch schrittweise bearbeiten (mind
 'use strict';
 const $=id=>document.getElementById(id),v=x=>String(x??'').trim();
 const state={contacts:[],purchases:[],purchase:null,items:[],busy:false,
- amazonJobs:new Map(),queueBusy:false,queuePaused:false,aiCostPurchase:null};
+ amazonJobs:new Map(),queueBusy:false,queuePaused:false,aiCostPurchase:null,aiCostCursor:null};
 const euro=n=>new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(Number(n||0)/100);
 const pendingKey='hw24_purchase_scan_pending_v1';
 const valEAN=x=>{x=v(x);if(!/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(x)||/^0+$/.test(x))return false;
@@ -313,7 +314,7 @@ async function detail(id){
  if(!id){state.purchase=null;render();return}
  const previous=state.purchase?.purchase?.id;
  const r=await read('detail',{purchase_id:id});state.purchase=r;state.items=r.items||[];
- if(previous!==id){state.amazonJobs.clear();state.aiCostPurchase=null;}
+ if(previous!==id){state.amazonJobs.clear();state.aiCostPurchase=null;state.aiCostCursor=null;}
  refreshManufacturers();render();
  $('purchaseSelect').value=String(id);
  if(previous!==id){
@@ -498,31 +499,38 @@ async function runAmazon(){
    state.queueBusy=false;$('resumeAmazon').disabled=false;$('pauseAmazon').disabled=true;
  }
 }
-async function loadAiCosts(){
+async function loadAiCosts(append=false){
  const p=state.purchase;if(!p){$('aiCostSummary').textContent='Bitte einen Einkauf wählen.';return}
  const id=p.purchase.id;
+ if(append&&(!state.aiCostCursor||state.aiCostPurchase!==id))return;
+ const btn=$('aiCostMore');btn.disabled=true;
  $('aiCostSummary').textContent='Gespeicherte KI-Ausgaben zum Ankauf werden gelesen …';
- const data=await read('ai_costs',{purchase_id:id});
- if(!state.purchase||state.purchase.purchase.id!==id)return;
- const t=data.totals||{},usd=Number(t.usd_total||0);
- $('aiCostSummary').textContent='Historisch archiviert: '+(t.calls||0)+' OpenAI-Abfragen zu EANs dieses Einkaufs · '+
-   usd.toLocaleString('de-DE',{style:'currency',currency:'USD',minimumFractionDigits:4,maximumFractionDigits:6})+
-   ' · Tokens Eingabe '+(t.tokens_input||0)+', Cache '+(t.tokens_cached||0)+
-   ', Ausgabe '+(t.tokens_output||0)+
-   '. Zuordnung nur über EAN und angemeldeten Benutzer, nicht zwingend diesem Einkauf wirtschaftlich zuzurechnen.';
- const root=$('aiCostRows');root.replaceChildren();
- const reviews=(data.reviews||[]).slice(0,30);
- for(const r of reviews){
-   el('p',String(r.created_at_utc||'Datum unbekannt')+' UTC · EAN '+r.ean+
-      ' · '+(r.model||'Modell offen')+' · '+(r.status||'Status offen')+
-      ' · '+Number(r.usd_cost||0).toLocaleString('de-DE',
-           {style:'currency',currency:'USD',minimumFractionDigits:4,maximumFractionDigits:6})+
-      ' · Tokens '+Number(r.tokens_input||0)+' / '+Number(r.tokens_cached||0)+' / '+
-      Number(r.tokens_output||0),root);
- }
- if(data.truncated||data.reviews?.length>30)
-   el('p','Es werden nur die jüngsten 30 Einzelbelege angezeigt; die Gesamtsumme umfasst alle passenden archivierten Abfragen.',root);
- state.aiCostPurchase=id;
+ try{
+   const params={purchase_id:id};
+   if(append)params.before_id=String(state.aiCostCursor);
+   const data=await read('ai_costs',params);
+   if(!state.purchase||state.purchase.purchase.id!==id)return;
+   const t=data.totals||{},usd=Number(t.usd_total||0);
+   $('aiCostSummary').textContent='Historisch archiviert: '+(t.calls||0)+' OpenAI-Abfragen zu EANs dieses Einkaufs · '+
+     usd.toLocaleString('de-DE',{style:'currency',currency:'USD',minimumFractionDigits:4,maximumFractionDigits:6})+
+     ' · Tokens Eingabe '+(t.tokens_input||0)+', Cache '+(t.tokens_cached||0)+
+     ', Ausgabe '+(t.tokens_output||0)+
+     '. Zuordnung nur über EAN und angemeldeten Benutzer, nicht zwingend diesem Einkauf wirtschaftlich zuzurechnen.';
+   const root=$('aiCostRows');
+   if(!append)root.replaceChildren();
+   for(const r of data.reviews||[]){
+     el('p',String(r.created_at_utc||'Datum unbekannt')+' UTC · EAN '+r.ean+
+       ' · '+(r.model||'Modell offen')+' · '+(r.status||'Status offen')+
+       ' · '+Number(r.usd_cost||0).toLocaleString('de-DE',
+          {style:'currency',currency:'USD',minimumFractionDigits:4,maximumFractionDigits:6})+
+       ' · Tokens '+Number(r.tokens_input||0)+' / '+Number(r.tokens_cached||0)+' / '+
+       Number(r.tokens_output||0),root);
+   }
+   if(!root.childNodes.length)el('p','Noch keine archivierten OpenAI-Abfragen zu den EANs dieses Einkaufs.',root);
+   state.aiCostPurchase=id;
+   state.aiCostCursor=data.next_before_id||null;
+   btn.hidden=!data.has_more;
+ }finally{btn.disabled=false}
 }
 function csvCell(value){let s=String(value??'');if(/^[=+\-@\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}
 function exportCsv(){
@@ -608,6 +616,7 @@ async function init(){
 for(const id of ['purchaseSearch','priceMin','priceMax'])$(id).addEventListener('input',render);
 for(const id of ['manufacturerFilter','jtlFilter','priceSort'])$(id).addEventListener('change',render);
 $('aiCostRefresh').onclick=()=>loadAiCosts().catch(e=>$('aiCostSummary').textContent='KI-Kosten nicht verfügbar: '+errorMsg(e));
+$('aiCostMore').onclick=()=>loadAiCosts(true).catch(e=>$('aiCostSummary').textContent='Weitere KI-Abfragen nicht verfügbar: '+errorMsg(e));
 $('catalogSearchForm').addEventListener('submit',searchCatalog);
 $('saveContact').onclick=createContact;$('startPurchase').onclick=startPurchase;
 $('purchaseSelect').onchange=ev=>detail(Number(ev.target.value)||0).catch(e=>status(errorMsg(e),true));
