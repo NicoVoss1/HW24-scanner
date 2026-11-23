@@ -172,8 +172,11 @@ function filteredItems(items){
    return true;
  });
  if(sort==='price_up'||sort==='price_down')
-   rows.sort((a,b)=>((a.unit_net_cents===null?Number.MAX_SAFE_INTEGER:a.unit_net_cents)-
-     (b.unit_net_cents===null?Number.MAX_SAFE_INTEGER:b.unit_net_cents))*(sort==='price_up'?1:-1));
+   rows.sort((a,b)=>{
+     if(a.unit_net_cents===null)return b.unit_net_cents===null?0:1;
+     if(b.unit_net_cents===null)return -1;
+     return (a.unit_net_cents-b.unit_net_cents)*(sort==='price_up'?1:-1);
+   });
  if(sort==='name')rows.sort((a,b)=>String(a.article_name_display||'').localeCompare(String(b.article_name_display||''),'de'));
  return rows;
 }
@@ -256,7 +259,10 @@ async function detail(id){
  if(previous!==id){state.amazonJobs.clear();state.aiCostPurchase=null;}
  refreshManufacturers();render();
  $('purchaseSelect').value=String(id);
- if(previous!==id){refreshQueue().catch(e=>queueMessage('Warteschlange nicht verfügbar: '+errorMsg(e)));}
+ if(previous!==id){
+   refreshQueue().catch(e=>queueMessage('Warteschlange nicht verfügbar: '+errorMsg(e)));
+   loadAiCosts().catch(e=>$('aiCostSummary').textContent='KI-Archiv derzeit nicht lesbar: '+errorMsg(e));
+ }
 }
 async function createContact(){
  const supplier=v($('supplier').value),contact=v($('contact').value),prefix=v($('prefix').value).toUpperCase();
@@ -393,7 +399,7 @@ async function runAmazon(){
        queueMessage('Keine sofort fälligen Amazon-Aufträge. Später erneut starten; bereits vorgemerkte EANs bleiben gespeichert.');
        break;
      }
-     let response=null,source='',snapshot=null,errorCode='amazon_api_error';
+     let response=null,source='',snapshot=null,errorCode='amazon_api_error',catalogOk=false;
      queueMessage('Amazon prüft '+lease.ean+' über vorhandene SP-API und Cache. Bearbeiter ist das angemeldete Konto.');
      try{
        const r=await fetch('api/amazon.php?ean='+encodeURIComponent(lease.ean),
@@ -409,6 +415,7 @@ async function runAmazon(){
        if(!Number.isInteger(Number(snapshot))||Number(snapshot)<1||!['live','cache'].includes(source)){
          errorCode='invalid_response';throw Error('Unvollständiger Amazon-Snapshot');
        }
+       catalogOk=true;
      }catch(e){
        if(errorCode==='amazon_api_error' && (e instanceof TypeError||e?.name==='AbortError'))
          errorCode='network_error';
@@ -416,8 +423,8 @@ async function runAmazon(){
      }
      try{
        await queuePost('ack',{job_id:Number(lease.job_id),lease_token:lease.lease_token,
-         success:Boolean(response?.ok&&snapshot&&source),
-         ...(response?.ok&&snapshot&&source?{snapshot_id:Number(snapshot),source}:
+         success:catalogOk,
+         ...(catalogOk?{snapshot_id:Number(snapshot),source}:
               {error_code:errorCode})});
      }catch(e){
        queueMessage('Amazon-Verarbeitung nicht bestätigt: '+errorMsg(e)+'. Die serverseitige Lease wird später erneut geprüft.');
