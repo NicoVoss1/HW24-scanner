@@ -19,6 +19,7 @@ jobs:
           php tests/hw24-purchase-domain.test.php
           node tests/hw24-purchase-checklist.test.cjs
           node tests/hw24-purchase-enrichment.test.cjs
+          node tests/hw24-shared-intelligence-contract.test.cjs
           node tests/hw24-shared-research-contract.test.cjs
       - name: Validate PHP and JS
         run: |
