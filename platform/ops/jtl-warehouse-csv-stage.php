@@ -129,14 +129,15 @@ function warehouseSourceRows(string $input): array
                 }
             }
             $rawStock = (string)$row[2];
-            if ((float)$rawStock !== 0.0) {
+            // Classify signed decimal TEXT exactly, never by lossy float coercion.
+            $isZero = preg_match('/^-?0+(?:\\.0+)?$/D', $rawStock) === 1;
+            if (!$isZero) {
                 $stats['nonzero_raw_stock_rows']++;
-            }
-            if ((float)$rawStock > 0.0) {
-                $stats['positive_raw_stock_rows']++;
-            }
-            if ((float)$rawStock < 0.0) {
-                $stats['negative_raw_stock_rows']++;
+                if (str_starts_with($rawStock, '-')) {
+                    $stats['negative_raw_stock_rows']++;
+                } else {
+                    $stats['positive_raw_stock_rows']++;
+                }
             }
             $rv = (string)$row[5];
             if ($rv === '' || $rv === '\\N') {
