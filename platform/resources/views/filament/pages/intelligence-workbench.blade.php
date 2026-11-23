@@ -157,9 +157,14 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
                         </div>
                         <p class="technical">Stand: {{ $pricing['retrieved_at']??'unbekannt' }} UTC. {{ $pricing['returned']??0 }} Einzelangebote gelesen. Der günstigste Verkäufer kann von der Buy Box abweichen.</p>
                         <h3 style="font-size:14px;font-weight:800;margin-top:16px">Amazon-Händler im Vergleich</h3>
+                        @if(($pricing['seller_name_lookup']??'')==='seller_name_archive_unavailable')
+                            <p class="warning">Die gespeicherten Händlernamen konnten über die Legacy-Seller-API nicht geladen werden. Die Seller-IDs und Preise sind davon unabhängig vorhanden. Bitte Seller-Namen-Archiv und MariaDB-Zugriff prüfen.</p>
+                        @elseif(($pricing['verified_seller_names']??0)<count($pricing['sellers']??[]))
+                            <p class="minor">Nicht für alle Verkäufer existiert ein verifizierter Name im verbundenen Verkäuferarchiv. Unbekannte Namen werden nicht aus einer Seller-ID geraten.</p>
+                        @endif
                         @foreach(($pricing['sellers']??[]) as $seller)
                             <article class="item">
-                                <h4>{{ $seller['seller_name'] ?: 'Amazon-Verkäufer '.$seller['seller_id'] }}</h4>
+                                <h4>{{ $seller['seller_name'] ?: 'Händlername noch nicht verifiziert' }}</h4>
                                 @if($seller['winner'])
                                     <span class="badge">🏆 Buy-Box-Gewinner</span>
                                 @elseif($seller['eligible']===true)
