@@ -65,14 +65,30 @@ td .short{width:90px}td .money{width:105px}td button{padding:8px 11px;font-size:
 <div id="pendingBox" hidden><p class="warn">Ein Scan konnte nicht bestätigt werden. Bitte zuerst denselben Vorgang mit identischer Ereignis-ID erneut senden, damit keine Doppelzählung entsteht.</p>
 <button type="button" id="retryPending" class="secondary">Ausstehenden Scan sicher wiederholen</button></div>
 <p class="status" id="scanStatus" role="status" aria-live="polite">Noch kein Ankauf ausgewählt.</p>
-<p class="note" id="amazonStatus">Amazon-Katalog: Automatische Prüfung einmal je neu gescannter EAN nach erfolgreicher Speicherung, begrenzt und mit Cache. Kein KI-Kostenaufruf.</p></section>
+<p class="note" id="amazonStatus">Amazon-Katalog: Neue/unbekannte EANs werden in einer dauerhaften Warteschlange gespeichert. Ein lokaler, gedrosselter Bearbeiter nutzt die vorhandene Amazon-API. Kein KI-Kostenaufruf.</p>
+<div class="bar" style="margin-top:8px"><button type="button" id="enqueueAll" class="secondary">Fehlende Produkte gesammelt vormerken</button>
+<button type="button" id="resumeAmazon" class="secondary">▶ Amazon-Warteschlange abarbeiten</button>
+<button type="button" id="pauseAmazon" class="secondary" disabled>Bearbeitung pausieren</button></div>
+<label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-weight:500">
+<input type="checkbox" id="autoRunAmazon" checked style="width:auto">
+Amazon-Abfragen im geöffneten Browser automatisch schrittweise bearbeiten (mind. 10 Sekunden Abstand)</label>
+<p class="note" id="queueSummary">Warteschlange noch nicht geladen. Offene Anfragen bleiben auch nach dem Schließen des Browsers gespeichert; eine unbeaufsichtigte Server-Abarbeitung ist noch nicht aktiviert.</p></section>
 <section><h2>3. Stückzahlen und Einkaufswerte</h2>
 <div class="metrics"><div class="metric"><small>Unterschiedliche Artikel</small><strong id="uniqueCount">0</strong></div>
 <div class="metric"><small>Gesamtstückzahl</small><strong id="totalQuantity">0</strong></div>
 <div class="metric"><small>Gesamt EK netto</small><strong id="totalNet">0,00 €</strong></div>
 <div class="metric"><small>Gesamt EK brutto</small><strong id="totalGross">0,00 €</strong></div></div>
 <p class="warn note" id="unpricedNotice">Unbepreiste Positionen werden nicht als 0 € in den Gesamtsummen versteckt.</p>
-<div class="scroll"><table><thead><tr><th>EAN / Erkennung</th><th>Artikel</th><th>Menge</th><th>Stück-EK netto €</th><th>USt</th><th>Gesamt netto</th><th>Gesamt brutto</th><th>Aktion</th></tr></thead><tbody id="rows"><tr><td colspan="8">Ankauf auswählen, um Positionen zu laden.</td></tr></tbody></table></div>
+<div class="bar" style="margin:12px 0">
+<div class="field wide"><label for="purchaseSearch">Suche: Artikel, Name, Nummer, EAN, HAN</label><input id="purchaseSearch" type="search" placeholder="EAN / HAN / Artikelnummer / Produktname"></div>
+<div class="field"><label for="manufacturerFilter">Hersteller</label><select id="manufacturerFilter"><option value="">Alle Hersteller</option></select></div>
+<div class="field"><label for="jtlFilter">JTL-Artikelstatus</label><select id="jtlFilter"><option value="">Alle</option><option value="existing">Vorhanden</option><option value="new_candidate">Neuanlage prüfen</option><option value="multiple">EAN mehrfach</option><option value="unverified">Ungeprüft</option></select></div>
+<div class="field"><label for="priceMin">Stück-EK von (€)</label><input id="priceMin" inputmode="decimal" placeholder="z. B. 1,00"></div>
+<div class="field"><label for="priceMax">Stück-EK bis (€)</label><input id="priceMax" inputmode="decimal" placeholder="z. B. 2,00"></div>
+<div class="field"><label for="priceSort">Sortierung</label><select id="priceSort"><option value="scan">Scanreihenfolge</option><option value="price_up">EK aufsteigend</option><option value="price_down">EK absteigend</option><option value="name">Artikelname</option></select></div>
+</div>
+<p class="note" id="filterSummary">Die Kennzahlen oben beziehen sich auf den gesamten Ankauf, nicht nur die gefilterten Positionen.</p>
+<div class="scroll"><table><thead><tr><th>EAN / JTL-Status</th><th>Artikel / Hersteller / HAN</th><th>Menge</th><th>Stück-EK netto €</th><th>USt</th><th>Gesamt netto</th><th>Gesamt brutto</th><th>Quellen und Abfrage</th><th>Aktion</th></tr></thead><tbody id="rows"><tr><td colspan="9">Ankauf auswählen, um Positionen zu laden.</td></tr></tbody></table></div>
 <div class="bar" style="margin-top:13px"><button id="exportCsv" type="button" class="secondary" disabled>📄 Einkaufscheckliste als CSV exportieren</button>
 <a href="scanliste.html">Zur bisherigen Artikelpflege, Amazon-/KI-Recherche und Ameise-Prüfdatei</a></div>
 <p id="exportStatus" class="note" role="status"></p>
@@ -83,6 +99,9 @@ td .short{width:90px}td .money{width:105px}td button{padding:8px 11px;font-size:
 <button id="historyButton" type="button" class="secondary">Gespeicherte Amazon-/KI-Historie prüfen</button>
 <button id="amazonButton" type="button" class="secondary">Amazon-Katalog gezielt erneut prüfen</button></div>
 <div id="sourceResults" class="note" role="status">Historische Werte bleiben in den bisherigen HW24-Archiven.</div>
+<div class="bar" style="margin-top:14px"><button type="button" id="aiCostRefresh" class="secondary">💰 Gespeicherte KI-Kosten für diesen Ankauf anzeigen</button></div>
+<p class="note" id="aiCostSummary" role="status">Gespeicherte OpenAI-Kosten zu EANs im Ankauf sind noch nicht geladen.</p>
+<div id="aiCostRows" class="note"></div>
 <p class="note">PDF-, Bild- und Excel-Einkaufsbelege kommen im nächsten Ausbauschritt über eine separate Upload- und KI-Prüfschleuse mit Quellenansicht und Freigabe hinzu. Bis dahin können vorhandene EAN-CSV-Dateien in der bisherigen Scanliste eingelesen werden.</p>
 </section>
 </main>
