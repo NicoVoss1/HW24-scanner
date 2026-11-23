@@ -191,8 +191,8 @@ try {
               COALESCE(SUM(r.tokens_output),0) AS tokens_output
               FROM hw24_ai_reviews r INNER JOIN hw24_scan_items i
                 ON i.ean=r.ean AND i.batch_id=? AND i.review_state<>"removed"
-              WHERE r.actor=?');
-        $q->execute([(int)$p['batch_id'],$actor]);$total=$q->fetch();
+              WHERE 1=1');
+        $q->execute([(int)$p['batch_id']]);$total=$q->fetch();
         // Cursor pagination ensures every archived AI request can be read,
         // without returning thousands of analysis records in one response.
         $beforeRaw=$_GET['before_id']??null;
@@ -209,8 +209,8 @@ try {
                 r.tokens_output,r.created_at_utc
             FROM hw24_ai_reviews r INNER JOIN hw24_scan_items i
               ON i.ean=r.ean AND i.batch_id=? AND i.review_state<>"removed"
-            WHERE r.actor=?';
-        $params=[(int)$p['batch_id'],$actor];
+            WHERE 1=1';
+        $params=[(int)$p['batch_id']];
         if($before!==null){$sql.=' AND r.id<?';$params[]=$before;}
         $sql.=' ORDER BY r.id DESC LIMIT 51';
         $q=$pdo->prepare($sql);$q->execute($params);$rows=$q->fetchAll();
@@ -218,7 +218,7 @@ try {
         if($hasMore)$rows=array_slice($rows,0,50);
         $next=$hasMore&&$rows?(int)end($rows)['review_id']:null;
         purchaseReply(200,['ok'=>true,'purchase_id'=>$purchaseId,
-          'source'=>'hw24_ai_reviews','scope'=>'same_actor_and_ean_historical',
+          'source'=>'hw24_ai_reviews','scope'=>'shared_workspace_same_ean_historical',
           'totals'=>[
             'calls'=>(int)$total['calls'],
             'usd_total'=>(string)$total['usd_total'],
@@ -227,7 +227,7 @@ try {
             'tokens_output'=>(int)$total['tokens_output']
           ],'reviews'=>$rows,'limit'=>50,'has_more'=>$hasMore,
           'next_before_id'=>$next,
-          'note'=>'Historische KI-Kosten zu EANs; nicht zwangsläufig während dieses Einkaufs entstanden.']);
+          'note'=>'Gemeinsame historische KI-Kosten zu EANs aller HW24-Autoren; nicht zwangsläufig während dieses Einkaufs entstanden oder ihm finanziell zuzurechnen.']);
     }
     if($op==='article_search'&&$method==='GET'){
         // Read-only catalog search over the EXISTING last completed JTL
