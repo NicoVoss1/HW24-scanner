@@ -39,11 +39,13 @@ ORDER BY l.kArtikel;
 -- 3. Articles with no per-warehouse row (no barcode/price/name revealed).
 SELECT
  COUNT_BIG(*) AS article_master_total,
- COUNT_BIG(CASE WHEN NOT EXISTS (
-   SELECT 1 FROM dbo.tlagerbestandProLagerLagerartikel AS s
-   WHERE s.kArtikel=a.kArtikel
- ) THEN 1 END) AS artikel_ohne_lagerzuordnung
-FROM dbo.tArtikel AS a;
+ COUNT_BIG(CASE WHEN stock_keys.kArtikel IS NULL THEN 1 END)
+    AS artikel_ohne_lagerzuordnung
+FROM dbo.tArtikel AS a
+LEFT JOIN (
+ SELECT DISTINCT kArtikel
+ FROM dbo.tlagerbestandProLagerLagerartikel
+) AS stock_keys ON stock_keys.kArtikel=a.kArtikel;
 
 -- 4. Check that WMS site 4 quantities have raw status flags.
 -- "available blocked" is an internal source field, NOT confirmed order reserve.
