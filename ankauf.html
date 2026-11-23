@@ -109,7 +109,8 @@ Amazon-Abfragen im geöffneten Browser automatisch schrittweise bearbeiten (mind
 (function(){
 'use strict';
 const $=id=>document.getElementById(id),v=x=>String(x??'').trim();
-const state={contacts:[],purchases:[],purchase:null,items:[],busy:false,amazonDone:new Set(),amazonQueue:[],amazonBusy:false};
+const state={contacts:[],purchases:[],purchase:null,items:[],busy:false,
+ amazonJobs:new Map(),queueBusy:false,queuePaused:false,aiCostPurchase:null};
 const euro=n=>new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(Number(n||0)/100);
 const pendingKey='hw24_purchase_scan_pending_v1';
 const valEAN=x=>{x=v(x);if(!/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(x)||/^0+$/.test(x))return false;
@@ -148,6 +149,41 @@ function pending(){try{const x=JSON.parse(localStorage.getItem(pendingKey)||'nul
  return x&&Number.isInteger(x.batch_id)&&x.batch_id>0&&valEAN(x.ean)&&/^[0-9a-f-]{36}$/i.test(x.event_key)?x:null}catch(_){return null}}
 function savePending(x){try{if(x)localStorage.setItem(pendingKey,JSON.stringify(x));else localStorage.removeItem(pendingKey)}catch(_){}}
 function paintPending(){$('pendingBox').hidden=!pending()}
+function euroFilterValue(text){
+ const x=v(text).replace(/\s/g,'');
+ if(!/^(?:0|[1-9][0-9]{0,6})(?:[,.][0-9]{1,2})?$/.test(x))return null;
+ const [units,cents='0']=x.split(/[,.]/);
+ return Number(units)*100+Number(cents.padEnd(2,'0'));
+}
+function filteredItems(items){
+ const q=v($('purchaseSearch').value).toLocaleLowerCase('de');
+ const maker=v($('manufacturerFilter').value);
+ const statusKey=v($('jtlFilter').value),min=euroFilterValue($('priceMin').value),
+       max=euroFilterValue($('priceMax').value),sort=$('priceSort').value;
+ const rows=items.filter(i=>{
+   if(!i.quantity)return false;
+   if(maker && i.manufacturer!==maker)return false;
+   if(statusKey && i.resolution!==statusKey)return false;
+   if(q && ![i.ean,i.han,i.article_number,i.artikelnummer,
+       i.article_name_display,i.artikelname,i.manufacturer]
+       .some(vv=>String(vv||'').toLocaleLowerCase('de').includes(q)))return false;
+   if(v($('priceMin').value) && (min===null||i.unit_net_cents===null||i.unit_net_cents<min))return false;
+   if(v($('priceMax').value) && (max===null||i.unit_net_cents===null||i.unit_net_cents>max))return false;
+   return true;
+ });
+ if(sort==='price_up'||sort==='price_down')
+   rows.sort((a,b)=>((a.unit_net_cents===null?Number.MAX_SAFE_INTEGER:a.unit_net_cents)-
+     (b.unit_net_cents===null?Number.MAX_SAFE_INTEGER:b.unit_net_cents))*(sort==='price_up'?1:-1));
+ if(sort==='name')rows.sort((a,b)=>String(a.article_name_display||'').localeCompare(String(b.article_name_display||''),'de'));
+ return rows;
+}
+function refreshManufacturers(){
+ const pick=$('manufacturerFilter'),prev=pick.value;
+ const names=[...new Set(state.items.filter(x=>x.quantity&&v(x.manufacturer)).map(x=>x.manufacturer))].sort((a,b)=>a.localeCompare(b,'de'));
+ pick.replaceChildren();el('option','Alle Hersteller',pick).value='';
+ for(const name of names)el('option',name,pick).value=name;
+ pick.value=names.includes(prev)?prev:'';
+}
 function render(){
  const p=state.purchase;const totals=p?.totals||{};
  $('purchaseCode').textContent=p?p.purchase.code+' · '+p.purchase.supplier+' / '+p.purchase.contact:'Noch kein Ankauf gewählt';
@@ -160,16 +196,23 @@ function render(){
  '✓ Alle erfassten Stückzahlen besitzen einen bestätigten Einkaufspreis und einen USt-Satz. Die USt-Behandlung des Belegs bleibt zu prüfen.';
  $('exportCsv').disabled=!p||!(p.items||[]).length;
  const tbody=$('rows');tbody.replaceChildren();
- if(!p||!p.items.length){el('tr',undefined,tbody).append(el('td','Noch keine Positionen',null));return}
- for(const item of p.items){
-   if(!item.quantity)continue;
+ if(!p||!p.items.length){const td=el('td','Noch keine Positionen',el('tr',undefined,tbody));td.colSpan=9;return}
+ const visible=filteredItems(p.items);
+ $('filterSummary').textContent=visible.length+' von '+p.items.filter(x=>x.quantity).length+
+ ' Artikeln sichtbar. Die Summen oben beziehen sich unverändert auf den gesamten Ankauf.';
+ if(!visible.length){const td=el('td','Keine Treffer für diese Filter.',el('tr',undefined,tbody));td.colSpan=9;return}
+ for(const item of visible){
    const tr=el('tr',undefined,tbody);
    const identity=el('td',undefined,tr);
    el('strong',item.ean,identity);el('div',item.resolution==='existing'?'JTL vorhanden':
        item.resolution==='new_candidate'?'Neuanlage prüfen':
        item.resolution==='multiple'?'Mehrfachtreffer': 'JTL-Abgleich noch offen',identity).className='pill '+item.resolution;
-   const name=el('td',undefined,tr);el('span',item.artikelname||'Bezeichnung offen',name);
-   if(item.artikelnummer)el('small',' · '+item.artikelnummer,name);
+   const name=el('td',undefined,tr);el('span',item.article_name_display||'Bezeichnung offen',name);
+   if(item.article_number)el('div','ArtNr: '+item.article_number,name);
+   if(item.manufacturer)el('div','Hersteller: '+item.manufacturer+' ('+
+     (item.manufacturer_source==='jtl_mirror'?'JTL-Spiegel':'Scan-Entwurf')+')',name);
+   else el('small','Hersteller: noch nicht belegt',name);
+   if(item.han)el('small','HAN: '+item.han,name);
    el('td',String(item.quantity),tr);
    const priceCell=el('td',undefined,tr),unit=el('input',undefined,priceCell);
    unit.type='text';unit.className='money';unit.inputMode='decimal';unit.placeholder='z. B. 1,20';
@@ -180,6 +223,19 @@ function render(){
    if(item.vat_percent!==null)vat.value=String(item.vat_percent);
    el('td',item.line_net_cents===null?'offen':euro(item.line_net_cents),tr);
    el('td',item.line_gross_cents===null?'offen':euro(item.line_gross_cents),tr);
+   const provenance=el('td',undefined,tr),job=state.amazonJobs.get(item.ean);
+   el('div','JTL: '+(item.resolution==='existing'?'vorhanden':item.resolution==='new_candidate'?
+       'kein Treffer im Scan-Snapshot':item.resolution==='multiple'?'mehrfach':'ungeprüft'),provenance);
+   if(job){
+     el('div','Amazon: '+job.status+' · '+(job.last_source||'noch keine Quelle'),provenance);
+     if(job.last_catalog_at_utc)el('small','Quelle: '+job.last_catalog_at_utc+' UTC',provenance);
+     el('small','angefordert von '+job.requested_by+' · '+job.requested_at_utc+' UTC',provenance);
+   }else el('small','Amazon: noch kein protokollierter Warteschlangenauftrag',provenance);
+   const historyButton=el('button','Abfrageverlauf',provenance);
+   historyButton.type='button';historyButton.className='secondary';historyButton.onclick=()=>{
+     $('sourceEan').value=item.ean;
+     history().catch(e=>$('sourceResults').textContent=errorMsg(e));
+   };
    const act=el('td',undefined,tr),button=el('button','Preis sichern',act);
    button.type='button';button.onclick=async()=>{
      if(!/^\d{1,7}(?:[,.]\d{1,2})?$/.test(v(unit.value))||vat.value===''){
@@ -195,8 +251,12 @@ function render(){
 }
 async function detail(id){
  if(!id){state.purchase=null;render();return}
- const r=await read('detail',{purchase_id:id});state.purchase=r;state.items=r.items||[];render();
+ const previous=state.purchase?.purchase?.id;
+ const r=await read('detail',{purchase_id:id});state.purchase=r;state.items=r.items||[];
+ if(previous!==id){state.amazonJobs.clear();state.aiCostPurchase=null;}
+ refreshManufacturers();render();
  $('purchaseSelect').value=String(id);
+ if(previous!==id){refreshQueue().catch(e=>queueMessage('Warteschlange nicht verfügbar: '+errorMsg(e)));}
 }
 async function createContact(){
  const supplier=v($('supplier').value),contact=v($('contact').value),prefix=v($('prefix').value).toUpperCase();
@@ -349,6 +409,9 @@ async function init(){
  catch(e){status('Einkaufsmodul noch nicht freigegeben oder Datenbanktabellen fehlen: '+errorMsg(e)+
  '. Die bisherige Scanliste bleibt nutzbar.',true)}
 }
+for(const id of ['purchaseSearch','priceMin','priceMax'])$(id).addEventListener('input',render);
+for(const id of ['manufacturerFilter','jtlFilter','priceSort'])$(id).addEventListener('change',render);
+$('aiCostRefresh').onclick=()=>loadAiCosts().catch(e=>$('aiCostSummary').textContent='KI-Kosten nicht verfügbar: '+errorMsg(e));
 $('saveContact').onclick=createContact;$('startPurchase').onclick=startPurchase;
 $('purchaseSelect').onchange=ev=>detail(Number(ev.target.value)||0).catch(e=>status(errorMsg(e),true));
 $('refresh').onclick=async()=>{try{await contacts();await purchases();if(state.purchase)await detail(state.purchase.purchase.id);status('Aktualisiert.')}catch(e){status(errorMsg(e),true)}};
