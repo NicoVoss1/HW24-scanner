@@ -53,13 +53,13 @@ for(const token of ['purchaseSearch','manufacturerFilter','jtlFilter',
   'catalogMatches','searchCatalog',
   'article_number','han','manufacturer_source','queueAmazon','enqueueAll',
   'loadAiCosts','api/purchase-enrichment.php','refreshQueue','queuePost',
-  'aiCostRows','queueSummary']){
+  'aiCostRows','aiCostMore','aiCostCursor','next_before_id','queueSummary']){
   assert(html.includes(token),'missing purchase search/queue/audit feature '+token);
 }
 for(const token of ['jtl_mirror','scan_draft','jtl_mirror',
   'hw24_jtl_articles','jtl_article_id','article_search','netto_ek',
   'jtl_net_purchase_price_snapshot_not_lot_cost','current_snapshot','stale',
-  'ai_costs','usd_cost',
+  'ai_costs','usd_cost','next_before_id','has_more',
   'tokens_input','tokens_cached','tokens_output',
   'same_actor_and_ean_historical']){
   assert(api.includes(token),'missing purchasing API source/cost '+token);
