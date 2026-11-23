@@ -74,7 +74,7 @@ final class CustomerServiceTrackingTest extends TestCase
             ->assertSet('evidence.state','ready')
             ->call('prepareTemplate')
             ->assertSee('Weldertstr. 1')
-            ->assertSee('nicht zwingend der aktuelle Live-Status');
+            ->assertSet('draftSource','Regelbasierte Vorlage, keine KI und kein Live-Tracking');
         Http::assertNothingSent();
     }
 
