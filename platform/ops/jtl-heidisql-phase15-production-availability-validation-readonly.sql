@@ -54,6 +54,7 @@ ORDER BY kArtikel;
 
 -- 3. Verify whether the 5720 discrepancy has a corresponding warehouse
 -- record, and inspect source ARTICLE status without exposing prices.
+-- One-row OUTER APPLY avoids grouping SQL Server rowversion/timestamp.
 SELECT
  a.kArtikel AS jtl_article_id,
  a.cArtNr AS jtl_article_number,
@@ -66,21 +67,21 @@ SELECT
  g.fVerfuegbarGesperrt AS global_available_blocked_raw,
  g.fProduktionGesperrt AS global_production_blocked_raw,
  g.fInAuftraegen AS global_in_orders_raw,
- COUNT_BIG(w.kWarenlager) AS warehouse_rows,
- COALESCE(SUM(w.fBestand),0) AS warehouse_stock_raw,
+ w.warehouse_rows,
+ w.warehouse_stock_raw,
  CONVERT(varchar(18),CONVERT(varbinary(8),a.bRowversion),1)
     AS article_master_rowversion_hex,
  CONVERT(varchar(18),CONVERT(varbinary(8),g.bRowversion),1)
     AS global_stock_rowversion_hex
 FROM dbo.tArtikel AS a
 JOIN dbo.tlagerbestand AS g ON g.kArtikel=a.kArtikel
-LEFT JOIN dbo.tlagerbestandProLagerLagerartikel AS w
-    ON w.kArtikel=a.kArtikel
-WHERE a.kArtikel=5720
-GROUP BY a.kArtikel,a.cArtNr,a.cAktiv,a.nDelete,
-         a.nLagerbestand,a.dMod,a.bRowversion,
-         g.fLagerbestand,g.fVerfuegbar,g.fVerfuegbarGesperrt,
-         g.fProduktionGesperrt,g.fInAuftraegen,g.bRowversion;
+OUTER APPLY (
+ SELECT COUNT_BIG(*) AS warehouse_rows,
+        COALESCE(SUM(wa.fBestand),0) AS warehouse_stock_raw
+ FROM dbo.tlagerbestandProLagerLagerartikel AS wa
+ WHERE wa.kArtikel=a.kArtikel
+) AS w
+WHERE a.kArtikel=5720;
 
 -- 4. Operator-run aggregate by article active/delete flags for the 32
 -- central-only article IDs (observed 953 raw stock units).
