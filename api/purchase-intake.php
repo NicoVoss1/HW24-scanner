@@ -94,9 +94,13 @@ if(!in_array($method,['GET','POST'],true))purchaseReply(405,['ok'=>false,'error'
 $input=[];
 if($method==='POST') {
     $origin=(string)($_SERVER['HTTP_ORIGIN']??'');
-    $host=strtolower((string)parse_url('https://'.($_SERVER['HTTP_HOST']??''),PHP_URL_HOST));
-    if(!$origin||parse_url($origin,PHP_URL_SCHEME)!=='https'||
-       strtolower((string)parse_url($origin,PHP_URL_HOST))!==$host)
+    $targetUrl='https://'.(string)($_SERVER['HTTP_HOST']??'');
+    $originParts=parse_url($origin);
+    $targetParts=parse_url($targetUrl);
+    if(!is_array($originParts)||!is_array($targetParts)||
+       ($originParts['scheme']??'')!=='https'||
+       strtolower((string)($originParts['host']??''))!==strtolower((string)($targetParts['host']??''))||
+       (int)($originParts['port']??443)!==(int)($targetParts['port']??443))
         purchaseReply(403,['ok'=>false,'error'=>'origin_rejected']);
     if(($_SERVER['HTTP_X_HW24_APPROVAL']??'')!=='confirmed')
         purchaseReply(403,['ok'=>false,'error'=>'approval_header_required']);
@@ -104,7 +108,10 @@ if($method==='POST') {
         purchaseReply(415,['ok'=>false,'error'=>'json_required']);
     if((int)($_SERVER['CONTENT_LENGTH']??0)>4096)
         purchaseReply(413,['ok'=>false,'error'=>'too_large']);
-    try{$input=json_decode(file_get_contents('php://input'),true,16,JSON_THROW_ON_ERROR);}
+    $rawBody=file_get_contents('php://input',false,null,0,4097);
+    if(!is_string($rawBody)||strlen($rawBody)>4096)
+        purchaseReply(413,['ok'=>false,'error'=>'too_large']);
+    try{$input=json_decode($rawBody,true,16,JSON_THROW_ON_ERROR);}
     catch(Throwable $e){purchaseReply(400,['ok'=>false,'error'=>'invalid_json']);}
     if(!is_array($input))purchaseReply(400,['ok'=>false,'error'=>'invalid_body']);
 }
