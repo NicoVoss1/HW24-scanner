@@ -9,6 +9,8 @@ declare(strict_types=1);
  * Die Anwendung liest diesen Snapshot danach ausschließlich read-only.
  */
 function failTracking(string $message): never { fwrite(STDERR,"Tracking-Staging: ".$message.PHP_EOL); exit(2); }
+// Once staging begins, throw instead of exit so catch/finally remove temporary customer data.
+function abortTracking(string $message): never { throw new RuntimeException($message); }
 function optionsTracking(array $args): array {
     $out=[];
     foreach ($args as $arg) {
@@ -43,18 +45,18 @@ $rows=0;$events=0;$packages=[];
 $temporary=null;$pdo=null;
 try {
     if ($opts['apply']) {
-        if (!extension_loaded('pdo_sqlite')) failTracking('PDO_SQLITE fehlt');
-        foreach (['db','expected-count','sha256'] as $key) if (!isset($opts[$key])) failTracking('--apply benötigt --'.$key);
+        if (!extension_loaded('pdo_sqlite')) abortTracking('PDO_SQLITE fehlt');
+        foreach (['db','expected-count','sha256'] as $key) if (!isset($opts[$key])) abortTracking('--apply benötigt --'.$key);
         if (!ctype_digit($opts['expected-count']) || (int)$opts['expected-count']<1
              || !preg_match('/^[0-9a-f]{64}$/iD',$opts['sha256'])
-             || !hash_equals(strtolower($sha),strtolower($opts['sha256']))) failTracking('Anzahl oder SHA256 nicht bestätigt');
+             || !hash_equals(strtolower($sha),strtolower($opts['sha256']))) abortTracking('Anzahl oder SHA256 nicht bestätigt');
         $privateRoot=realpath(__DIR__.'/../storage/app/private');
         $parent=realpath(dirname($opts['db']));
         if (!$privateRoot || !$parent || !str_starts_with($parent.'/',rtrim($privateRoot,'/').'/')
              || is_link($opts['db']) || file_exists($opts['db'])
-             || ((fileperms($parent)&0077)!==0)) failTracking('Zieldatei muss neu im privaten Storage-Verzeichnis (chmod 700) sein');
+             || ((fileperms($parent)&0077)!==0)) abortTracking('Zieldatei muss neu im privaten Storage-Verzeichnis (chmod 700) sein');
         $temporary=tempnam($parent,'.tracking-stage-');
-        if (!$temporary) failTracking('Temporärdatei konnte nicht erstellt werden');
+        if (!$temporary) abortTracking('Temporärdatei konnte nicht erstellt werden');
         chmod($temporary,0600);
         $pdo=new PDO('sqlite:'.$temporary);
         $pdo->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);
@@ -80,19 +82,19 @@ try {
     while (($row=fgetcsv($fh,0,';','"',''))!==false) {
         if ($row===[null]) continue;
         $rows++;
-        if ($rows>50000 || count($row)!==14) failTracking('CSV-Zeile unvollständig oder 50.000-Zeilen-Limit erreicht');
+        if ($rows>50000 || count($row)!==14) abortTracking('CSV-Zeile unvollständig oder 50.000-Zeilen-Limit erreicht');
         $r=array_combine(COLUMNS_TRACKING,$row);
         foreach ($r as $key=>$v) {
-            if (!is_string($v) || strlen($v)>1600) failTracking('CSV-Feld zu lang');
+            if (!is_string($v) || strlen($v)>1600) abortTracking('CSV-Feld zu lang');
             $r[$key]=trim($v)==='\N'?'':trim($v);
         }
         if (!preg_match('/^[0-9]{3}-[0-9]{7}-[0-9]{7}$/D',$r['amazon_order_id'])
             || !preg_match('/^[A-Za-z0-9_-]{5,100}$/D',$r['tracking_number'])
             || !preg_match('/^[1-9][0-9]{0,10}$/D',$r['package_id'])
-            || !preg_match('/^[1-9][0-9]{0,10}$/D',$r['shipment_id'])) failTracking('ungültiger Auftrags- oder Paketschlüssel');
+            || !preg_match('/^[1-9][0-9]{0,10}$/D',$r['shipment_id'])) abortTracking('ungültiger Auftrags- oder Paketschlüssel');
         $pid=(int)$r['package_id'];
         $identity=$r['amazon_order_id'].'|'.$r['shipment_id'].'|'.$r['tracking_number'].'|'.$r['jtl_order'].'|'.$r['delivery_note'];
-        if (isset($packages[$pid]) && $packages[$pid]!==$identity) failTracking('Paket-ID mit widersprüchlichen Auftragsdaten');
+        if (isset($packages[$pid]) && $packages[$pid]!==$identity) abortTracking('Paket-ID mit widersprüchlichen Auftragsdaten');
         if (!isset($packages[$pid])) {
             $packages[$pid]=$identity;
             if ($pdo) $insP->execute([$pid,(int)$r['shipment_id'],$r['amazon_order_id'],
@@ -101,23 +103,23 @@ try {
         if ($r['state_id']!=='') {
             if (!preg_match('/^[1-9][0-9]{0,10}$/D',$r['state_id']) ||
                 !preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d{1,3})?$/D',$r['event_at_raw']) ||
-                ($r['status_code']!=='' && !ctype_digit($r['status_code']))) failTracking('ungültiger Ereignisschlüssel oder Zeitpunkt');
+                ($r['status_code']!=='' && !ctype_digit($r['status_code']))) abortTracking('ungültiger Ereignisschlüssel oder Zeitpunkt');
             $events++;
             if ($pdo) $insE->execute([(int)$r['state_id'],$pid,$r['event_at_raw'],
                 $r['status_code']===''?null:(int)$r['status_code'],
                 $r['event_text'],$r['provider_status'],$r['scan_location'],$r['country']]);
         }
     }
-    if ($rows===0) failTracking('leere Exportdatei');
+    if ($rows===0) abortTracking('leere Exportdatei');
     if ($pdo) {
-        if ($rows!==(int)$opts['expected-count']) failTracking('Zeilenzahl nicht bestätigt');
+        if ($rows!==(int)$opts['expected-count']) abortTracking('Zeilenzahl nicht bestätigt');
         $pdo->prepare('INSERT INTO snapshot_info(id,source_sha256,imported_at_utc,source_rows,package_count,event_count,time_zone_verified) VALUES (1,?,?,?,?,?,0)')
             ->execute([$sha,gmdate('Y-m-d H:i:s'),$rows,count($packages),$events]);
         $pdo->commit();
-        if ($pdo->query('PRAGMA integrity_check')->fetchColumn()!=='ok') failTracking('SQLite-Integrität fehlgeschlagen');
+        if ($pdo->query('PRAGMA integrity_check')->fetchColumn()!=='ok') abortTracking('SQLite-Integrität fehlgeschlagen');
         $pdo=null;
         chmod($temporary,0600);
-        if (file_exists($opts['db']) || !rename($temporary,$opts['db'])) failTracking('Ziel vorhanden oder atomarer Commit nicht möglich');
+        if (file_exists($opts['db']) || !rename($temporary,$opts['db'])) abortTracking('Ziel vorhanden oder atomarer Commit nicht möglich');
         $temporary=null;
     }
 } catch (Throwable $e) {
