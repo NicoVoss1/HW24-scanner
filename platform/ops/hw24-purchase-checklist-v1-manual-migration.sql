@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS hw24_purchase_amazon_events (
     job_id BIGINT UNSIGNED NOT NULL,
     created_by VARCHAR(180) NOT NULL,
     ean VARCHAR(14) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    event_type ENUM('queued','leased','completed','retry','blocked','requeued') NOT NULL,
+    event_type ENUM('queued','linked','leased','completed','retry','blocked','requeued') NOT NULL,
     event_actor VARCHAR(180) NOT NULL,
     source_kind VARCHAR(24) NULL,
     detail_code VARCHAR(64) NULL,
