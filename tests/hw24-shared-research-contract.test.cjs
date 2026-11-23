@@ -8,6 +8,7 @@ const aiRead=read('api/ai-reviews.php'),
       aiPost=read('api/ai-review.php'),
       purchase=read('api/purchase-intake.php'),
       amazon=read('api/purchase-enrichment.php'),
+      catalog=read('api/amazon.php'),
       schema=read('platform/ops/hw24-purchase-checklist-v1-manual-migration.sql'),
       ui=read('ankauf.html'),
       filament=read('platform/app/Filament/Pages/IntelligenceWorkbench.php');
@@ -49,6 +50,18 @@ assert(!cost.includes('WHERE r.actor=?'),
 
 // One EAN for the entire workspace, one DB-enforced rate limiter for the
 // entire workspace; original requester and actual worker remain in audit.
+// Even direct legacy GETs must not create two simultaneous SP-API
+// requests on the same expired EAN cache from different users.
+assert(catalog.includes('SELECT GET_LOCK(?,4)'),
+  'direct Amazon catalog must serialize cross-user cache misses in MariaDB');
+assert(catalog.includes('SELECT RELEASE_LOCK(?)'),
+  'locks must be released at request shutdown');
+assert(catalog.includes('workspace_cache_recheck'),
+  'after waiting, recheck the shared snapshot before any external call');
+assert(catalog.indexOf('workspace_cache_recheck')<catalog.indexOf("    $stage='lwa_token';"),
+  'catalog lock/recheck must run before OAuth and external SP-API call');
+assert(catalog.includes('catalog_lookup_already_running'),
+  'second user gets bounded retry, not another live request');
 assert(schema.includes('UNIQUE KEY uq_purchase_amazon_workspace_ean (ean)'),
   'Amazon EAN requests must deduplicate across users');
 assert(!schema.includes('UNIQUE KEY uq_purchase_amazon_actor_ean'),
