@@ -82,7 +82,7 @@ td .short{width:90px}td .money{width:105px}td button{padding:8px 11px;font-size:
 <div class="bar"><div class="field wide"><label for="sourceEan">EAN für historische Daten</label><input id="sourceEan" placeholder="EAN aus aktueller Liste"></div>
 <button id="historyButton" type="button" class="secondary">Gespeicherte Amazon-/KI-Historie prüfen</button>
 <button id="amazonButton" type="button" class="secondary">Amazon-Katalog gezielt erneut prüfen</button></div>
-<p id="sourceResults" class="note" role="status">Historische Werte bleiben in den bisherigen HW24-Archiven.</p>
+<div id="sourceResults" class="note" role="status">Historische Werte bleiben in den bisherigen HW24-Archiven.</div>
 <p class="note">PDF-, Bild- und Excel-Einkaufsbelege kommen im nächsten Ausbauschritt über eine separate Upload- und KI-Prüfschleuse mit Quellenansicht und Freigabe hinzu. Bis dahin können vorhandene EAN-CSV-Dateien in der bisherigen Scanliste eingelesen werden.</p>
 </section>
 </main>
@@ -282,21 +282,48 @@ function exportCsv(){
  $('exportStatus').textContent='Einkaufsliste exportiert. Keine JTL-Ameise- oder WMS-Buchungsdatei.';
 }
 async function history(){
- const ean=v($('sourceEan').value);if(!valEAN(ean)){$('sourceResults').textContent='Bitte gültige EAN eingeben.';return}
+ const ean=v($('sourceEan').value),root=$('sourceResults');
+ if(!valEAN(ean)){root.textContent='Bitte gültige EAN eingeben.';return}
+ root.textContent='Gespeicherte Historie für '+ean+' wird ausschließlich lesend geprüft …';
+ const getJson=async path=>{const r=await fetch(path,{credentials:'same-origin',cache:'no-store'});
+   const d=await r.json();if(!r.ok||!d.ok)throw Error(d?.error||'HTTP '+r.status);return d};
  const [ai,amazon,legacy]=await Promise.allSettled([
- fetch('api/ai-reviews.php?ean='+encodeURIComponent(ean)+'&limit=5',{credentials:'same-origin',cache:'no-store'}).then(r=>r.json()),
- fetch('api/amazon-archive.php?ean='+encodeURIComponent(ean)+'&limit=5',{credentials:'same-origin',cache:'no-store'}).then(r=>r.json()),
- fetch('api/historie.php?include_legacy=1&ean='+encodeURIComponent(ean),{credentials:'same-origin',cache:'no-store'}).then(r=>r.json())
+ getJson('api/ai-reviews.php?ean='+encodeURIComponent(ean)+'&limit=5'),
+ getJson('api/amazon-archive.php?ean='+encodeURIComponent(ean)+'&limit=5'),
+ getJson('api/historie.php?include_legacy=1&ean='+encodeURIComponent(ean))
  ]);
- let parts=[];
- if(ai.status==='fulfilled'&&ai.value.ok)parts.push('KI-Archiv: '+(ai.value.count||0)+' geladene Analysen (nur gespeicherte Belege)');
- else parts.push('KI-Archiv derzeit nicht lesbar');
- if(amazon.status==='fulfilled'&&amazon.value.ok)parts.push('Amazon-Kataloghistorie: '+(amazon.value.count||0)+' gespeicherte Abfragen');
- else parts.push('Amazon-Archiv derzeit nicht lesbar');
- if(legacy.status==='fulfilled'&&legacy.value.ok)
-   parts.push('Historische Excel-Belege: '+(legacy.value.total_returned||0)+' Treffer');
- else parts.push('Historischer Excel-Datenspiegel derzeit nicht lesbar');
- $('sourceResults').textContent=ean+' · '+parts.join(' · ')+'. Details und bewusste KI-Neuanalyse im bestehenden Artikelmanager.';
+ root.replaceChildren();el('strong','🔎 Quellenhistorie für '+ean,root);
+ const section=(label)=>{const box=el('section',undefined,root);box.style.margin='8px 0';box.style.padding='10px';
+  el('strong',label,box);return box};
+ const aiBox=section('Gespeicherte KI-Auswertungen');
+ if(ai.status==='fulfilled'){
+   const reviews=Array.isArray(ai.value.reviews)?ai.value.reviews:[];
+   if(!reviews.length)el('p','Keine gespeicherte KI-Auswertung für diese EAN.',aiBox);
+   for(const r of reviews.slice(0,5))el('p',[
+     r.created_at_utc||r.at_utc||'Zeit unbekannt',r.model||'Modell nicht genannt',
+     r.status||'Status unbekannt',r.article_name||'Kein Artikelname'
+   ].join(' · ').slice(0,330),aiBox);
+ }else el('p','KI-Archiv nicht erreichbar: '+errorMsg(ai.reason),aiBox);
+ const amBox=section('Historische Amazon-Katalogabfragen');
+ if(amazon.status==='fulfilled'){
+   const rows=Array.isArray(amazon.value.snapshots)?amazon.value.snapshots:[];
+   if(!rows.length)el('p','Noch keine archivierte Amazon-Katalogabfrage für diese EAN.',amBox);
+   for(const r of rows.slice(0,5))el('p',(r.fetched_at_utc||r.at_utc||'Zeit unbekannt')+
+       ' · Katalogtreffer: '+String(r.item_count??r.count??'?')+' · keine eigenen Angebotspreise',amBox);
+ }else el('p','Amazon-Archiv nicht erreichbar: '+errorMsg(amazon.reason),amBox);
+ const oldBox=section('Historische Excel-/Artikelwerte');
+ if(legacy.status==='fulfilled'){
+   const rows=Array.isArray(legacy.value.matches)?legacy.value.matches:[];
+   if(!rows.length)el('p','Keine alten Excel-Belege für diese EAN gefunden.',oldBox);
+   for(const r of rows.slice(0,3)){
+     const line=el('p',undefined,oldBox);
+     el('strong',(r.sheet_name||'Tabellenblatt')+' · Zeile '+(r.excel_row||'?')+': ',line);
+     const fields=(Array.isArray(r.cells)?r.cells:[]).filter(c=>c.header_verified&&c.label&&c.value).slice(0,4);
+     el('span',fields.length?fields.map(c=>c.label+' = '+String(c.value).slice(0,80)).join(' · '):
+       'Historischer Rohbeleg ohne verifizierte Feldüberschriften',line);
+   }
+ }else el('p','Excel-Archiv nicht erreichbar: '+errorMsg(legacy.reason),oldBox);
+ el('p','Historische Beobachtungen sind keine aktuellen JTL-Felder. Nichts wurde überschrieben; eine neue kostenpflichtige KI-Prüfung muss separat bestätigt werden.',root);
 }
 async function init(){
  paintPending();try{await contacts();await purchases();status('Einkaufscheckliste bereit. Kontakt auswählen oder neuen Kontakt anlegen.')}
