@@ -296,7 +296,8 @@ async function saveScan(task){
        unit_net:raw,vat_percent:Number(rate),expected_cost_updated_at:null});await detail(state.purchase.purchase.id)}
    catch(e){priceError=' · Stückpreis noch nicht gespeichert: '+errorMsg(e)}
  }
- if(item && (item.resolution!=='existing'||!item.manufacturer||!item.article_name_display))
+ if(item && (item.resolution!=='existing'||!item.manufacturer||!item.article_name_display)
+     && !state.amazonJobs.has(task.ean))
    queueAmazon(task.ean).catch(e=>queueMessage('Scan wurde gespeichert, Amazon-Vormerkung offen: '+errorMsg(e)));
  status('✓ '+task.ean+' gespeichert. Gesamtmenge dieser EAN: '+(state.items.find(x=>x.ean===task.ean)?.quantity||r.item?.scan_count||1)+priceError,Boolean(priceError));
  $('ean').value='';$('ean').focus();
@@ -340,6 +341,8 @@ async function refreshQueue(){
   ' abgeschlossen · '+(c.blocked||0)+' manuell prüfen · '+(c.missing||0)+
   ' ohne Anfrage. Nach Browser-Schließen bleiben die Aufträge gespeichert.';
  render();
+ if(!state.queueBusy&&!state.queuePaused&&$('autoRunAmazon').checked&&
+      ((c.queued||0)+(c.retry||0)>0))runAmazon();
 }
 async function queueAmazon(ean,manual=false){
  const p=state.purchase;
@@ -475,10 +478,12 @@ async function history(){
  root.textContent='Gespeicherte Historie für '+ean+' wird ausschließlich lesend geprüft …';
  const getJson=async path=>{const r=await fetch(path,{credentials:'same-origin',cache:'no-store'});
    const d=await r.json();if(!r.ok||!d.ok)throw Error(d?.error||'HTTP '+r.status);return d};
- const [ai,amazon,legacy]=await Promise.allSettled([
+ const [ai,amazon,legacy,workAudit]=await Promise.allSettled([
  getJson('api/ai-reviews.php?ean='+encodeURIComponent(ean)+'&limit=5'),
  getJson('api/amazon-archive.php?ean='+encodeURIComponent(ean)+'&limit=5'),
- getJson('api/historie.php?include_legacy=1&ean='+encodeURIComponent(ean))
+ getJson('api/historie.php?include_legacy=1&ean='+encodeURIComponent(ean)),
+ state.purchase?queueGet('events',{purchase_id:state.purchase.purchase.id,ean}):
+     Promise.reject(Error('Kein Einkauf ausgewählt'))
  ]);
  root.replaceChildren();el('strong','🔎 Quellenhistorie für '+ean,root);
  const section=(label)=>{const box=el('section',undefined,root);box.style.margin='8px 0';box.style.padding='10px';
@@ -489,8 +494,13 @@ async function history(){
    if(!reviews.length)el('p','Keine gespeicherte KI-Auswertung für diese EAN.',aiBox);
    for(const r of reviews.slice(0,5))el('p',[
      r.created_at_utc||r.at_utc||'Zeit unbekannt',r.model||'Modell nicht genannt',
-     r.status||'Status unbekannt',r.article_name||'Kein Artikelname'
-   ].join(' · ').slice(0,330),aiBox);
+     r.status||'Status unbekannt',
+     'gespeicherte Kosten: '+Number(r.usd_cost||0).toLocaleString('de-DE',
+       {style:'currency',currency:'USD',minimumFractionDigits:4,maximumFractionDigits:6}),
+     'Tokens: '+(r.tokens?.input??0)+' Eingabe / '+(r.tokens?.cached??0)+' Cache / '+
+                  (r.tokens?.output??0)+' Ausgabe',
+     r.article_name||'Kein Artikelname'
+   ].join(' · ').slice(0,430),aiBox);
  }else el('p','KI-Archiv nicht erreichbar: '+errorMsg(ai.reason),aiBox);
  const amBox=section('Historische Amazon-Katalogabfragen');
  if(amazon.status==='fulfilled'){
@@ -499,6 +509,16 @@ async function history(){
    for(const r of rows.slice(0,5))el('p',(r.fetched_at_utc||r.at_utc||'Zeit unbekannt')+
        ' · Katalogtreffer: '+String(r.item_count??r.count??'?')+' · keine eigenen Angebotspreise',amBox);
  }else el('p','Amazon-Archiv nicht erreichbar: '+errorMsg(amazon.reason),amBox);
+ const jobBox=section('HW24-Amazon-Abfragejournal · wer, wann, wo');
+ if(workAudit.status==='fulfilled'){
+   const evs=Array.isArray(workAudit.value.events)?workAudit.value.events:[];
+   if(!evs.length)el('p','Bisher keine erfasste Einkaufs-Warteschlangenaktion für diese EAN.',jobBox);
+   for(const ev of evs.slice(0,20))el('p',[
+      ev.occurred_at_utc||'Zeit offen',ev.event_actor||'Bearbeiter nicht belegt',
+      ev.event_type||'Aktion offen',ev.source_kind||'Quelle noch unbekannt',
+      ev.detail_code||''
+   ].join(' · '),jobBox);
+ }else el('p','Einkaufs-Abfragejournal derzeit nicht lesbar: '+errorMsg(workAudit.reason),jobBox);
  const oldBox=section('Historische Excel-/Artikelwerte');
  if(legacy.status==='fulfilled'){
    const rows=Array.isArray(legacy.value.matches)?legacy.value.matches:[];
