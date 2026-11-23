@@ -290,7 +290,7 @@ function render(){
      el('div','Amazon: '+job.status+' · '+(job.last_source?
         job.last_source+' (Browsermeldung, Snapshot verifiziert)':'Quelle noch nicht belegt'),provenance);
      if(job.last_catalog_at_utc)el('small','Quelle: '+job.last_catalog_at_utc+' UTC',provenance);
-     el('small','angefordert von '+job.requested_by+' · '+job.requested_at_utc+' UTC',provenance);
+     el('small','erste Anfrage '+job.requested_at_utc+' UTC · Bearbeiter im Admin-Protokoll',provenance);
    }else el('small','Amazon: noch kein protokollierter Warteschlangenauftrag',provenance);
    const historyButton=el('button','Abfrageverlauf',provenance);
    historyButton.type='button';historyButton.className='secondary';historyButton.onclick=()=>{
@@ -418,10 +418,10 @@ async function queueAmazon(ean,manual=false){
  const job=state.amazonJobs.get(ean);
  if(manual&&job&&job.status==='completed'){
    if(!confirm('Für '+ean+' trotz vorhandenem Amazon-Snapshot erneut abfragen?'))return;
-   await queuePost('requeue',{job_id:Number(job.id),confirm:true});
+   await queuePost('requeue',{job_id:Number(job.id),purchase_id:p.purchase.id,confirm:true});
  }else if(manual&&job&&job.status==='blocked'){
    if(!confirm('Gesperrte Amazon-Abfrage '+ean+' ausdrücklich erneut versuchen?'))return;
-   await queuePost('requeue',{job_id:Number(job.id),confirm:true});
+   await queuePost('requeue',{job_id:Number(job.id),purchase_id:p.purchase.id,confirm:true});
  }else{
    await queuePost('enqueue',{purchase_id:p.purchase.id,ean});
  }
@@ -461,7 +461,7 @@ async function runAmazon(){
        break;
      }
      let response=null,source='',snapshot=null,errorCode='amazon_api_error',catalogOk=false;
-     queueMessage('Amazon prüft '+lease.ean+' über vorhandene SP-API und Cache. Bearbeiter ist das angemeldete Konto.');
+     queueMessage('Gemeinsame Amazon-Recherche: '+lease.ean+' wird über die vorhandene SP-API und den Cache geprüft. Ausführendes Konto wird im Admin-Audit gespeichert.');
      try{
        const r=await fetch('api/amazon.php?ean='+encodeURIComponent(lease.ean),
           {credentials:'same-origin',cache:'no-store'});
@@ -515,7 +515,7 @@ async function loadAiCosts(append=false){
      usd.toLocaleString('de-DE',{style:'currency',currency:'USD',minimumFractionDigits:4,maximumFractionDigits:6})+
      ' · Tokens Eingabe '+(t.tokens_input||0)+', Cache '+(t.tokens_cached||0)+
      ', Ausgabe '+(t.tokens_output||0)+
-     '. Zuordnung nur über EAN und angemeldeten Benutzer, nicht zwingend diesem Einkauf wirtschaftlich zuzurechnen.';
+     '. Gemeinsame EAN-Recherche aller berechtigten Mitarbeiter, nicht zwingend diesem Einkauf wirtschaftlich zuzurechnen.';
    const root=$('aiCostRows');
    if(!append)root.replaceChildren();
    for(const r of data.reviews||[]){
@@ -589,7 +589,7 @@ async function history(){
    const evs=Array.isArray(workAudit.value.events)?workAudit.value.events:[];
    if(!evs.length)el('p','Bisher keine erfasste Einkaufs-Warteschlangenaktion für diese EAN.',jobBox);
    for(const ev of evs.slice(0,20))el('p',[
-      ev.occurred_at_utc||'Zeit offen',ev.event_actor||'Bearbeiter nicht belegt',
+      ev.occurred_at_utc||'Zeit offen',
       ev.event_type||'Aktion offen',ev.source_kind||'Quelle noch unbekannt',
       ev.detail_code||''
    ].join(' · '),jobBox);
