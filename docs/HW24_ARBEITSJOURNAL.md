@@ -425,6 +425,32 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 3. Neu korrigierte **Phase-6-SQL-2** für 2.692 Artikel wieder als eigenen privaten Export speichern; ältere SQLite-Pilotdatei **nicht** überschreiben. Kein 15-Minuten-Job bis Watermarks, transaktionssicheres Delta, Löschbehandlung und Laufzeit belegt sind.
 4. Nach grünem CI: isolierte lokale QA, dann Betreiberfreigabe für höchstens privaten TEST-Staging-Dry-Run. Im JTL/TEST/LIVE wurde durch diese GitHub-Arbeit keine Datenbank geändert.
 
+## Betreiberergebnisse Phase 9: vollständiger Lagerexport und privater Spiegel (2026-11-23)
+
+### S058 | HeidiSQL-Bericht zu allen zehn Lagerorten | **belegt**
+- Quelle eazybusiness / dbo.tlagerbestandProLagerLagerartikel: 12.717 Datensätze; 1.532 positiv, 0 negativ, 11.185 mit Nullbestand; alle 12.717 mit Rowversion-DATALENGTH 8. 1.529 unterschiedliche Artikel-IDs besitzen positive Bestandszeilen; 2.672 Artikel-IDs haben wenigstens eine Lagerzuordnung.
+- Lager 1 ZepCh: 2.672 Zuordnungen, 9 positive, 77 Rohbestand; Lager 2 Bug: 163, 1 positiv, 1 Rohbestand; Lager 3 Außenlager 69, 0; Lager 4 WMS-ZepCh+Bug: 2.670, 1.522 positiv, 13.561 Rohbestand und 404 fVerfuegbarGesperrt; Lager 5 WMS-Bug: 161, 0; Lager 6 ZepCh - WMS-ZepCh: 2.670, 0; Lager 7 bis 10 (FBA EU/GB inkl. Pending): je 1.078, 0.
+- Rohsumme aller zehn Lager: 13.639; nur im WMS-Lager 4 insgesamt 404 im Quellfeld fVerfuegbarGesperrt, in allen Quellen fAuslieferungGesperrt=0. Diese Werte sind NICHT per se frei verfügbar, reserviert für Aufträge oder live bei Amazon.
+- SQL-6-Quellenabgleich ergab 71 Lagerzeilen ohne passenden Artikelstammsatz in derselben eazybusiness. Keine Quelle gelöscht, keine JTL-DML ausgeführt.
+
+### S059 | Gelieferte vollständige Lager-CSV privat analysiert | **verifiziert**
+- Datei aus Phase-9-SQL-5 enthält 12.717 Datenzeilen und sechs freigegebene Felder. Sämtliche zusammengesetzten Schlüssel (kArtikel,kWarenlager) einzigartig, alle 12.717 Rowversion-Hexwerte korrekt, Summen identisch mit Betreiber-SQL.
+- Lager-CSV gegen zuvor erstellten, älteren Artikelpiloten (2.692 Artikel) geprüft: 71 unzugeordnete Lagerzeilen zu 12 unterschiedlichen Artikel-IDs; 8 unzugeordnete Zeilen haben zusammen 24 positive Rohbestandseinheiten. 32 Artikel im älteren Piloten haben keine Lagerzuordnung. Sieben der 1.529 positiven Lager-Artikel-IDs fehlen im älteren Artikelpiloten, 1.522 sind darin vorhanden.
+- Im Lagerexport haben 172 Zeilen fVerfuegbarGesperrt ungleich null, Summe 404; 0 negative fBestand-Zeilen. Die 71 unzugeordneten Lagerzeilen wurden unabhängig bereits per aktuellem JTL-LEFT-JOIN als solche belegt; die 32 Artikel ohne Stock basieren bis zur neuen SQL-Quelle nur auf dem zeitlich versetzten lokalen Abgleich.
+- Nur private Dateiablage; SHA256 der Lagerquelldatei: 97986ab4ca39256e6ec4ea7fac4dcd1ee6b6580ac74bd3db89418bc3872ce6f8. Keine vollständigen Preise, Artikeldaten oder Lagerzeilen im öffentlichen GitHub gespeichert.
+
+### S060 | Private kombinierte SQLite-Testdatei erstellt und geprüft | **fertig als Datei, NICHT deployed**
+- Neue lokale private Chat-Datei: HW24_JTL_Artikel_Lager_Isolierter_Datenspiegel_2026-11-23.sqlite, 995.328 Bytes, Dateimodus 0600. Ursprüngliche Artikel-SQLite blieb unverändert. Beide Datenquellen sind NICHT transaktionskonsistent gemeinsam aus JTL extrahiert.
+- Tabellen: jtl_article_stage (2.692 Artikel, alte leere Artikel-Rowversions), jtl_warehouse_stock_stage (12.717 Lagerzeilen, zusammengesetzter PK und gültige Stock-Rowversions), jtl_warehouse_reference (10 Lagerbezeichnungen), stage_manifest (Hashes, Quelle, UTC, Schutzflags).
+- SQLite-Views: v_jtl_article_warehouse_details (Artikel-LEFT-JOIN, 12.678 Zeilen), v_jtl_unmatched_warehouse_rows (71), v_jtl_articles_without_warehouse_rows (32). Originale, auch nicht verknüpfte Quellzeilen bleiben erhalten, kein stiller Datenverlust.
+- Prüfläufe: 2.692/12.717 Zeilen, keine doppelten Lager-Schlüssel, 71/32 Sonderfälle, PRAGMA integrity_check = ok. Manifest: article_rowversions_available=0, stock_rowversions_available=1, is_consistent_cross_table_snapshot=0, auto_sync_enabled=0, deployed_to_test_or_live=0.
+- Das Artefakt entstand ausschließlich lokal durch Datenkopie in eine NEUE Datei und wurde über Chat-Sandbox privat bereitgestellt; kein GitHub-Upload, keine Installation im PHP-/TEST-/LIVE-Webroot, keine JTL-/API-/Datenbankänderung.
+
+### S061 | Phase 10 Reconciliation und Offline-SQL | **GitHub erstellt, Betreiber-Ausführung offen**
+- Neu: platform/ops/jtl-heidisql-phase10-reconciliation-readonly.sql. SQL 0-4 lesen nur DB-Kontext, 71 möglicherweise noch vorhandene Orphans inkl. IDs/Summen, Anzahl aktueller Artikel ohne Lager, Rohsperrbestände im WMS-Lager 4. Kein SELECT auf Kundendaten, keinen DDL/DML- oder API-Zugriff.
+- Neu: platform/ops/jtl-private-sqlite-pilot-review.sql mit read-only QA-Abfragen für privaten kombinierten SQLite-Piloten und Integritätsprüfung. Keine privaten Geschäftsdaten eingecheckt.
+- Bereits in GitHub vorhandene PHP-Importer und Tests bleiben opt-in, nicht live. Nächster Schritt: aktuelle Phase-10-HeidiSQL-Werte und ein frischer, vollständig korrigierter Phase-6-Artikel-CSV mit gültigen Rowversions; vor produktivem Sync Snapshot-/Transaktions-/Lösch-/Auftragsreservekonzept prüfen. CI für letzten GitHub-HEAD separat ermitteln.
+
 ## Fachlich beschlossene Zielarchitektur
 
 1. **JTL eazybusiness** bleibt maßgebliche SQL-Server-Datenbank; zunächst nur Leseinventur, DB-Backup/Wiederherstellung als getrennte Aufgabe prüfen.
@@ -441,4 +467,4 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - **C** Ergebnisse, Abweichungen und Risiken im Journal festhalten; gegebenenfalls Versionsvergleich des Test-/Live-Codes.
 - **D** Nur kleine, rollbackfähige Änderungen isoliert vorbereiten, GitHub CI + Browser-E2E prüfen und Betreiberfreigabe für Deployment einholen.
 
-**Nächster Nachweis:** Phase-9-HeidiSQL aggregierte Warenlager-/Lagerbestandszahlen (SQL 0–4 und 6), danach vollständigen privaten Lager-CSV (SQL 5) und frisch korrigierten Artikel-CSV (Phase 6 SQL 2) sichern. Erst dann private Test-Staging-Validierung. JTL/TEST/LIVE unverändert.
+**Nächster Nachweis:** HeidiSQL Phase 10 SQL 0-4 für aktuelle 71 Lagerzeilen ohne Artikelstamm, Artikel ohne Lager und Sperrbestandskontext; danach neuer korrigierter Phase-6-Artikel-CSV mit gültigen Rowversions. Privater kombinierter SQLite-Pilot ist erstellt, kein TEST/LIVE-Deploy und kein 15-Minuten-Job.
