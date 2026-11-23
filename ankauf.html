@@ -55,6 +55,16 @@ td .short{width:90px}td .money{width:105px}td button{padding:8px 11px;font-size:
 <p id="purchaseCode" aria-live="polite">Noch kein Ankauf gewählt</p>
 <p class="note">Beispiel: <strong>ML202611-1</strong>, nächster Einkauf derselben Person im Monat <strong>ML202611-2</strong>. Die Nummer wird transaktionssicher serverseitig vergeben.</p>
 </section>
+<section><h2>JTL-Katalogsuche · vor dem Scannen prüfen</h2>
+<p class="note">Schnellsuche im bereits bestehenden JTL-Spiegel, ohne KI-Kosten und ohne Schreibzugriff. Suchbegriffe: Artikelname, Artikelnummer, EAN, HAN oder Hersteller. Der JTL-EK ist ein Quellfeld und nicht der EK dieses Ankaufs.</p>
+<form id="catalogSearchForm" class="bar"><div class="field wide"><label for="catalogQuery">Artikel / Name / Nummer / EAN / HAN</label><input id="catalogQuery" type="search" placeholder="mindestens 2 Zeichen"></div>
+<div class="field"><label for="catalogMaker">Hersteller enthält</label><input id="catalogMaker" placeholder="z. B. Wella"></div>
+<div class="field"><label for="catalogPriceMin">JTL Netto-EK von (€)</label><input id="catalogPriceMin" inputmode="decimal"></div>
+<div class="field"><label for="catalogPriceMax">JTL Netto-EK bis (€)</label><input id="catalogPriceMax" inputmode="decimal"></div>
+<button id="catalogSubmit" type="submit">JTL suchen</button></form>
+<p class="note" id="catalogSearchStatus" role="status">Noch keine Suche ausgeführt. Die Suche zeigt maximal 60 Treffer und kennzeichnet veraltete Spiegelstände.</p>
+<div id="catalogMatches" class="scroll"></div>
+</section>
 <section><h2>2. Ware scannen und automatisch zählen</h2>
 <form id="scanForm" class="bar"><div class="field wide"><label for="ean">EAN/GTIN mit Scanner oder Kamera-Scanner erfassen</label>
 <input id="ean" inputmode="numeric" type="search" autocomplete="off" placeholder="EAN scannen und Enter" required></div>
@@ -133,6 +143,49 @@ const read=(op,params={})=>fetch('api/purchase-intake.php?'+new URLSearchParams(
  if(!r.ok||!j.ok)throw Error(j.error||'HTTP '+r.status);return j});
 const post=(op,data)=>call('api/purchase-intake.php',op,data);
 function el(tag,text,parent){const node=document.createElement(tag);if(text!==undefined)node.textContent=text;parent?.append(node);return node}
+async function searchCatalog(evt){
+ evt?.preventDefault();
+ const q=v($('catalogQuery').value),manufacturer=v($('catalogMaker').value);
+ if((q.length<2)&&(manufacturer.length<2)){
+   $('catalogSearchStatus').textContent='Bitte mindestens zwei Zeichen für Artikel oder Hersteller eingeben.';return
+ }
+ $('catalogSubmit').disabled=true;
+ const root=$('catalogMatches');root.replaceChildren();
+ $('catalogSearchStatus').textContent='JTL-Datenspiegel wird lesend durchsucht …';
+ try{
+   const data=await read('article_search',{q,manufacturer,
+      price_min:v($('catalogPriceMin').value),price_max:v($('catalogPriceMax').value)});
+   const age=data.age_minutes===null?'unbekannt':data.age_minutes+' Minuten';
+   $('catalogSearchStatus').textContent=data.jtl_status==='current_snapshot'?
+      'JTL-Spiegel aktuell: '+(data.count||0)+' Treffer · Stand '+data.snapshot_at_utc+
+      ' UTC · Alter '+age+(data.truncated?' · maximal 60 angezeigt':''):
+      '⚠ JTL-Spiegel '+(data.jtl_status||'nicht verfügbar')+
+      '. Treffer sind historische Hinweise, kein sicherer Existenz- oder Nichtbestandsnachweis.';
+   if(!data.matches?.length){
+     el('p','Keine passenden Zeilen im zuletzt bekannten JTL-Spiegel. Vor einer Neuanlage weiterhin Artikelnummer in JTL-Ameise prüfen.',root);
+     return;
+   }
+   const tbl=el('table',undefined,root),head=el('thead',undefined,tbl),tr=el('tr',undefined,head);
+   for(const name of ['Artikel / Bezeichnung','Hersteller','EAN / HAN','JTL Netto-EK (Quelle)','Aktion'])
+      el('th',name,tr);
+   const tbody=el('tbody',undefined,tbl);
+   for(const row of data.matches){
+     const tr=el('tr',undefined,tbody);
+     const article=el('td',undefined,tr);
+     el('strong',row.artikelname||'Bezeichnung unbekannt',article);
+     el('small',' · '+(row.artikelnummer||'Artikelnummer offen'),article);
+     el('td',row.hersteller||'Hersteller nicht belegt',tr);
+     el('td',(row.ean||'EAN offen')+(row.han?' · HAN '+row.han:''),tr);
+     el('td',row.netto_ek===null?'Unbekannt':
+       Number(row.netto_ek).toLocaleString('de-DE',{style:'currency',currency:'EUR'}),tr);
+     const td=el('td',undefined,tr),b=el('button','EAN zum Scanner',td);b.type='button';
+     b.className='secondary';b.disabled=!valEAN(row.ean);
+     b.onclick=()=>{$('ean').value=row.ean;$('ean').focus();
+       status('EAN aus JTL-Katalog in den Scanner übernommen, noch NICHT gebucht.')};
+   }
+ }catch(e){$('catalogSearchStatus').textContent='JTL-Suche nicht verfügbar: '+errorMsg(e)}
+ finally{$('catalogSubmit').disabled=false}
+}
 async function contacts(){
  const r=await read('contacts');state.contacts=r.contacts||[];const select=$('contactSelect');select.replaceChildren();
  el('option','Kontakt auswählen',select).value='';
@@ -548,6 +601,7 @@ async function init(){
 for(const id of ['purchaseSearch','priceMin','priceMax'])$(id).addEventListener('input',render);
 for(const id of ['manufacturerFilter','jtlFilter','priceSort'])$(id).addEventListener('change',render);
 $('aiCostRefresh').onclick=()=>loadAiCosts().catch(e=>$('aiCostSummary').textContent='KI-Kosten nicht verfügbar: '+errorMsg(e));
+$('catalogSearchForm').addEventListener('submit',searchCatalog);
 $('saveContact').onclick=createContact;$('startPurchase').onclick=startPurchase;
 $('purchaseSelect').onchange=ev=>detail(Number(ev.target.value)||0).catch(e=>status(errorMsg(e),true));
 $('refresh').onclick=async()=>{try{await contacts();await purchases();if(state.purchase)await detail(state.purchase.purchase.id);status('Aktualisiert.')}catch(e){status(errorMsg(e),true)}};
