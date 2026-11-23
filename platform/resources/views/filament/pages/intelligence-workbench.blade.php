@@ -199,7 +199,13 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
                 <button type="button" class="action secondary" wire:click="loadAiArchiveAll" wire:loading.attr="disabled" wire:target="loadAiArchiveAll">Alle letzten KI-Prüfungen anzeigen</button>
                 <span class="technical">20 Berichte je Seite · kostenloser Archivabruf</span>
             </div>
-            <p class="minor">Die Gesamtübersicht funktioniert ohne eingegebene EAN. Sie zeigt ausschließlich das verbundene Legacy-Benutzerkonto. Historien anderer Benutzer oder früherer Datenbanken sind noch nicht automatisch zusammengeführt.</p>
+            <p class="minor">Die Gesamtübersicht funktioniert ohne EAN und löst keine neue OpenAI-Abfrage aus.
+                @if(($archiveState['scope']??null)==='shared_workspace')
+                    Alle berechtigten Mitarbeiter lesen denselben gemeinsamen HW24-Archivbestand.
+                @else
+                    Bis zur Aktivierung der gemeinsamen API ist die Anzeige möglicherweise noch auf das technische Legacy-Konto beschränkt.
+                @endif
+                Früher nicht übernommene Datenbanken werden nicht automatisch angezeigt.</p>
             @if($archiveState !== [])
                 <p class="warning {{ ($archiveState['ok'] ?? false) ? 'ok' : '' }}" role="status">
                     {{ $archiveState['message'] }} HTTP {{ $archiveState['http'] ?? '—' }}
