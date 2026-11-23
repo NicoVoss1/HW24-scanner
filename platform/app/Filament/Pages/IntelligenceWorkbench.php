@@ -248,7 +248,7 @@ final class IntelligenceWorkbench extends Page
             'message'=>'Amazon-Angebotsdaten mit Buy Box, günstigstem sichtbarem Gesamtpreis und Seller-Feedback. Keine automatische Lieferanten- oder eigene Angebotsidentität.'];
     }
 
-    /** Current product archive. The historic actor scope remains the legacy service account. */
+    /** Current product archive: explicitly reports shared vs legacy actor scope. */
     public function loadAiArchive(LegacyReadBridge $bridge): void
     {
         $ean=$this->ean();
@@ -257,9 +257,9 @@ final class IntelligenceWorkbench extends Page
     }
 
     /**
-     * Read the full history within the existing Legacy Basic-Auth actor.
-     * This is NOT a cross-user admin operation or proof that older actors
-     * have no records. It makes old records browsable without an EAN.
+     * Browse all EANs. The deployed Legacy API explicitly declares whether
+     * its storage is shared_workspace or still legacy_authenticated_actor.
+     * Neither mode implies admin-only user action visibility.
      */
     public function loadAiArchiveAll(LegacyReadBridge $bridge): void
     {
@@ -328,14 +328,19 @@ final class IntelligenceWorkbench extends Page
         }
         $next=$raw['next_before_id']??null;
         $next=is_numeric($next)&&(int)$next>0?(int)$next:null;
+        $shared=($raw['scope']??'')==='shared_workspace';
         $this->archiveState=[
             'ok'=>true,'http'=>$r['http_status']??null,
             'mode'=>$ean===null?'all':'ean',
-            'scope'=>'legacy_authenticated_actor',
+            'scope'=>$shared?'shared_workspace':'legacy_authenticated_actor',
             'count'=>count($this->reviews),'more'=>$next,
-            'message'=>$ean===null
-                ?'Archiv des verbundenen Legacy-Benutzerkontos: letzte Prüfungen aller EANs, nicht alle Benutzer oder ältere Datenbanken.'
-                :'Gespeicherte KI-Prüfungen zur ausgewählten EAN aus dem verbundenen Legacy-Benutzerkonto.',
+            'message'=>$shared
+                ?($ean===null
+                    ?'Gemeinsames HW24-KI-Archiv aller berechtigten Benutzer aus der angeschlossenen MariaDB. Früher nicht übernommene Datenbanken sind nicht enthalten.'
+                    :'Gemeinsame gespeicherte KI-Prüfungen zur ausgewählten EAN; unabhängig vom ursprünglichen Bearbeiter.')
+                :($ean===null
+                    ?'Die derzeit verbundene Legacy-API liefert nur die Prüfungen eines technischen Benutzers. Gemeinsame Archivversion noch nicht aktiviert.'
+                    :'KI-Prüfungen für diese EAN sind derzeit auf das verbundene Legacy-Konto beschränkt.'),
         ];
     }
 
