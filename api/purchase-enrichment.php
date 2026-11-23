@@ -138,19 +138,22 @@ try{
         $s->execute([$batch,$ean]);
         if(!$s->fetchColumn())throw new RuntimeException('scan_item_not_found',404);
         $db->beginTransaction();
+        // Atomic workspace-wide deduplication: every employee reuses the
+        // same EAN result. A duplicate request is an audit "linked" event,
+        // never a second live Amazon request.
+        $ins=$db->prepare('INSERT IGNORE INTO hw24_purchase_amazon_jobs
+            (created_by,ean,requested_by) VALUES (?,?,?)');
+        $ins->execute([$actor,$ean,$actor]);$created=$ins->rowCount()===1;
         $s=$db->prepare('SELECT id,status FROM hw24_purchase_amazon_jobs
-             WHERE created_by=? AND ean=? FOR UPDATE');
-        $s->execute([$actor,$ean]);$old=$s->fetch();
-        if($old){
-            $jobId=(int)$old['id'];$status=$old['status'];$created=false;
-        }else{
-            $db->prepare('INSERT INTO hw24_purchase_amazon_jobs
-                (created_by,ean,requested_by) VALUES (?,?,?)')->execute([$actor,$ean,$actor]);
-            $jobId=(int)$db->lastInsertId();$status='queued';$created=true;
-            enqueueEvent($db,$jobId,$actor,$ean,'queued',null,'scan_or_manual_request');
-        }
+            WHERE ean=? FOR UPDATE');
+        $s->execute([$ean]);$job=$s->fetch();
+        if(!$job)throw new RuntimeException('shared_queue_job_unavailable',503);
+        $jobId=(int)$job['id'];$status=$job['status'];
+        enqueueEvent($db,$jobId,$actor,$ean,
+            $created?'queued':'linked',null,$created?'scan_or_manual_request':'workspace_result_reused');
         $db->commit();
-        enqueueReply(200,['ok'=>true,'job_id'=>$jobId,'ean'=>$ean,
+        enqueueReply(200,['ok'=>true,'scope'=>'shared_workspace',
+             'job_id'=>$jobId,'ean'=>$ean,
              'status'=>$status,'new_job'=>$created,'source'=>'purchase_scan']);
     }
     if($op==='enqueue_batch'&&$method==='POST'){
@@ -158,8 +161,8 @@ try{
         $batch=enqueueOwnedPurchase($db,$purchaseId,$actor);
         $after=$body['after_item_id']??0;
         if(!is_int($after)||$after<0)throw new InvalidArgumentException('invalid_cursor');
-        // One bounded transaction per 100 scan positions, safe to resume
-        // after a dropped connection; unique(actor,ean) prevents duplicates.
+        // One bounded transaction per 100 positions. UNIQUE(ean)
+        // deduplicates requests across every authenticated employee.
         $s=$db->prepare('SELECT id,ean,resolution FROM hw24_scan_items
              WHERE batch_id=? AND id>? AND review_state<>"removed"
              ORDER BY id ASC LIMIT 100');
@@ -168,8 +171,7 @@ try{
         $db->beginTransaction();
         $upsert=$db->prepare('INSERT IGNORE INTO hw24_purchase_amazon_jobs
              (created_by,ean,requested_by) VALUES (?,?,?)');
-        $find=$db->prepare('SELECT id FROM hw24_purchase_amazon_jobs
-             WHERE created_by=? AND ean=?');
+        $find=$db->prepare('SELECT id FROM hw24_purchase_amazon_jobs WHERE ean=?');
         foreach($items as $row){
             $last=(int)$row['id'];
             if(!in_array($row['resolution'],['new_candidate','unverified'],true)){
@@ -178,13 +180,13 @@ try{
             $ean=enqueueEan((string)$row['ean']);
             $upsert->execute([$actor,$ean,$actor]);
             if($upsert->rowCount()===1){
-                $find->execute([$actor,$ean]);$jobId=(int)$find->fetchColumn();
+                $find->execute([$ean]);$jobId=(int)$find->fetchColumn();
                 enqueueEvent($db,$jobId,$actor,$ean,'queued',null,'purchase_batch_request');
                 $created++;
             }else $skipped++;
         }
         $db->commit();
-        enqueueReply(200,['ok'=>true,'purchase_id'=>$purchaseId,
+        enqueueReply(200,['ok'=>true,'scope'=>'shared_workspace','purchase_id'=>$purchaseId,
            'received'=>count($items),'created'=>$created,'skipped'=>$skipped,
            'last_item_id'=>$last,'has_more'=>count($items)===100]);
     }
