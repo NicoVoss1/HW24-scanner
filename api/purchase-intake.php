@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/purchase-intake-domain.php';
 /**
  * HW24 purchase intake V1. OPT-IN ADDITIVE TABLES ONLY.
  * Reuses the authenticated legacy scan batch and its idempotent scan endpoint.
@@ -30,10 +31,8 @@ function purchaseId(mixed $x): int {
     return $id;
 }
 function purchaseCents(mixed $value): int {
-    if (!is_string($value) || !preg_match('/^(?:0|[1-9][0-9]{0,6})(?:[,.][0-9]{1,2})?$/D',$value))
-        throw new InvalidArgumentException('invalid_unit_net');
-    $parts=preg_split('/[,.]/',$value);
-    return (int)$parts[0]*100+(int)str_pad($parts[1]??'0',2,'0');
+    if(!is_string($value))throw new InvalidArgumentException('invalid_unit_net');
+    return hw24PurchaseUnitCents($value);
 }
 function purchaseHeader(PDO $pdo,int $id,string $actor,bool $lock=false): array {
     $sql='SELECT p.id,p.created_by,p.contact_id,p.batch_id,p.purchase_code,p.status,
@@ -69,12 +68,10 @@ function purchaseDetails(PDO $pdo,int $id,string $actor): array {
             $row['line_net_cents']=null;$row['line_gross_cents']=null;
             continue;
         }
-        $lineNet=$qty*$row['unit_net_cents'];
-        // Half-up rounding to cents, done at the line total, not every scan.
-        $lineTax=intdiv($lineNet*$row['vat_percent']+50,100);
-        $row['line_net_cents']=$lineNet;
-        $row['line_gross_cents']=$lineNet+$lineTax;
-        $net+=$lineNet;$gross+=$lineNet+$lineTax;
+        $line=hw24PurchaseLineCents($qty,$row['unit_net_cents'],$row['vat_percent']);
+        $row['line_net_cents']=$line['net_cents'];
+        $row['line_gross_cents']=$line['gross_cents'];
+        $net+=$line['net_cents'];$gross+=$line['gross_cents'];
     }
     unset($row);
     return ['ok'=>true,'purchase'=>[
@@ -173,7 +170,7 @@ try {
         $pdo->prepare('UPDATE hw24_purchase_sequences SET next_number=? 
           WHERE created_by=? AND contact_id=? AND year_month=?')
           ->execute([$num+1,$actor,$contactId,$month]);
-        $code=$contact['code_prefix'].$month.'-'.$num;
+        $code=hw24PurchaseCode($contact['code_prefix'],$month,$num);
         $label='Einkauf '.$code.' · '.$contact['contact_name'];
         $pdo->prepare('INSERT INTO hw24_scan_batches(label,created_by) VALUES (?,?)')
             ->execute([mb_substr($label,0,160),$actor]);
