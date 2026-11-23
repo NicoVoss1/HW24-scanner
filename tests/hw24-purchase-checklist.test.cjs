@@ -38,10 +38,26 @@ assert.match(domain,/hw24PurchaseUnitCents/);
 const createTables=[...schema.matchAll(/^CREATE TABLE IF NOT EXISTS\s+(\w+)/gm)].map(m=>m[1]);
 assert.deepEqual(createTables,[
  'hw24_purchase_contacts','hw24_purchase_sequences','hw24_purchase_headers',
- 'hw24_purchase_costs','hw24_purchase_cost_audit'
+ 'hw24_purchase_costs','hw24_purchase_cost_audit',
+ 'hw24_purchase_amazon_jobs','hw24_purchase_amazon_events','hw24_purchase_amazon_throttle'
 ]);
 for(const s of ['DROP TABLE','ALTER TABLE','DELETE FROM','TRUNCATE TABLE',
                 'eazybusiness.','dbo.tlagerbestand']){
  assert(!schema.includes(s),'schema must not operate on existing JTL tables '+s);
+}
+// Purchasing uses a separate enrichment queue; existing Amazon and AI
+// endpoints must remain untouched and user-cost opt-in must stay separate.
+for(const token of ['purchaseSearch','manufacturerFilter','jtlFilter',
+  'priceMin','priceMax','priceSort','filteredItems','article_name_display',
+  'article_number','han','manufacturer_source','queueAmazon','enqueueAll',
+  'loadAiCosts','api/purchase-enrichment.php','refreshQueue','queuePost',
+  'aiCostRows','queueSummary']){
+  assert(html.includes(token),'missing purchase search/queue/audit feature '+token);
+}
+for(const token of ['jtl_mirror','scan_draft','jtl_mirror',
+  'hw24_jtl_articles','jtl_article_id','ai_costs','usd_cost',
+  'tokens_input','tokens_cached','tokens_output',
+  'same_actor_and_ean_historical']){
+  assert(api.includes(token),'missing purchasing API source/cost '+token);
 }
 console.log('HW24 purchase checklist contracts: passed');
