@@ -145,11 +145,25 @@ try {
         $prefix=strtoupper(purchaseText($input['prefix']??null,8,'prefix'));
         if(!preg_match('/^[A-Z0-9]{2,8}$/D',$prefix))
             throw new InvalidArgumentException('invalid_prefix');
-        // IDs remain null until their actual JTL source has been independently checked.
+        // The operator must explicitly confirm the last LEGACY number for
+        // this contact in the current Berlin-local month. Never silently
+        // restart at -1 when historical ML/AB purchase IDs may exist.
+        $last=$input['last_used_this_month']??null;
+        if(!is_int($last)||$last<0||$last>999998)
+            throw new InvalidArgumentException('last_used_purchase_number_required');
+        $month=(new DateTimeImmutable('now',new DateTimeZone('Europe/Berlin')))->format('Ym');
+        // JTL IDs remain null until their actual source has been verified.
+        $pdo->beginTransaction();
         $s=$pdo->prepare('INSERT INTO hw24_purchase_contacts
            (created_by,supplier_label,contact_name,code_prefix) VALUES (?,?,?,?)');
         $s->execute([$actor,$supplier,$contact,$prefix]);
-        purchaseReply(201,['ok'=>true,'contact_id'=>(int)$pdo->lastInsertId(),'prefix'=>$prefix,
+        $contactId=(int)$pdo->lastInsertId();
+        $pdo->prepare('INSERT INTO hw24_purchase_sequences
+           (created_by,contact_id,year_month,next_number) VALUES (?,?,?,?)')
+            ->execute([$actor,$contactId,$month,$last+1]);
+        $pdo->commit();
+        purchaseReply(201,['ok'=>true,'contact_id'=>$contactId,'prefix'=>$prefix,
+                       'first_code'=>hw24PurchaseCode($prefix,$month,$last+1),
                        'jtl_contact_sync'=>'not_verified']);
     }
     if($op==='purchase_create'&&$method==='POST'){
