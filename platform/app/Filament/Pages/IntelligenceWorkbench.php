@@ -211,13 +211,21 @@ final class IntelligenceWorkbench extends Page
             }
         }
         $names=[];
+        $sellerNameLookup='not_checked';
         if(($r['ok']??false)===true){
             $ids=OfferEvidence::sellerIds($raw);
-            if($ids!==[]){
+            if($ids===[]){
+                $sellerNameLookup='no_seller_ids';
+            }else{
                 $namesResponse=$bridge->fetch('amazon.sellers',['ids'=>implode(',',$ids)]);
                 $namesRaw=is_array($namesResponse['data']??null)?$namesResponse['data']:[];
                 if(($namesResponse['ok']??false)===true && is_array($namesRaw['names']??null)){
                     $names=$namesRaw['names'];
+                    $sellerNameLookup='archive_loaded';
+                }else{
+                    // Pricing succeeds independently, but no seller name is
+                    // ever invented if the verified-name archive is offline.
+                    $sellerNameLookup='seller_name_archive_unavailable';
                 }
             }
         }
@@ -232,6 +240,10 @@ final class IntelligenceWorkbench extends Page
             'lowest_summary'=>$offerBoard['lowest_summary'],
             'lowest_visible'=>$offerBoard['lowest_visible'],
             'sellers'=>$offerBoard['offers'],
+            'seller_name_lookup'=>$sellerNameLookup,
+            'verified_seller_names'=>count(array_filter(
+                $offerBoard['offers'],static fn(array $offer): bool=>($offer['seller_name']??null)!==null
+            )),
             'winner_count'=>$offerBoard['winners'],
             'message'=>'Amazon-Angebotsdaten mit Buy Box, günstigstem sichtbarem Gesamtpreis und Seller-Feedback. Keine automatische Lieferanten- oder eigene Angebotsidentität.'];
     }
