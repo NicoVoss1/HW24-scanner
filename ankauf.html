@@ -48,6 +48,7 @@ td .short{width:90px}td .money{width:105px}td button{padding:8px 11px;font-size:
 <div class="bar"><div class="field"><label for="supplier">Lieferant</label><input id="supplier" maxlength="180" placeholder="Lieferant aus JTL"></div>
 <div class="field"><label for="contact">Ansprechpartner</label><input id="contact" maxlength="180" placeholder="z. B. Maike Lüddecke"></div>
 <div class="field"><label for="prefix">Einkaufs-Kürzel</label><input id="prefix" maxlength="8" placeholder="ML, AB" autocapitalize="characters"></div>
+<div class="field"><label for="lastUsed">Letzte Einkaufsnummer diesen Monat</label><input id="lastUsed" type="number" inputmode="numeric" min="0" max="999998" placeholder="0, falls noch keine"></div>
 <button type="button" id="saveContact" class="secondary">Kontakt hinterlegen</button></div></details>
 <div class="bar" style="margin-top:14px"><div class="field wide"><label for="purchaseSelect">Vorhandene Ankäufe</label><select id="purchaseSelect"><option value="">Ankäufe laden …</option></select></div>
 <button id="refresh" type="button" class="secondary">Aktualisieren</button></div>
@@ -180,10 +181,14 @@ async function detail(id){
 }
 async function createContact(){
  const supplier=v($('supplier').value),contact=v($('contact').value),prefix=v($('prefix').value).toUpperCase();
+ const lastText=v($('lastUsed').value),last=Number(lastText);
  if(!supplier||!contact||!/^[A-Z0-9]{2,8}$/.test(prefix)){status('Lieferant, Kontakt und eindeutiges Kürzel (2 bis 8 Zeichen) eingeben.',true);return}
- if(!confirm('Lokalen Ansprechpartner '+contact+' für '+supplier+' unter Kürzel '+prefix+' hinterlegen? Dies erzeugt keinen JTL-Lieferantenkontakt.'))return;
- try{const r=await post('contact_create',{supplier,contact,prefix});await contacts();
- $('contactSelect').value=String(r.contact_id);status('Kontakt mit Kürzel '+prefix+' hinterlegt. JTL-Kontaktzuordnung bleibt separat.')}
+ if(lastText===''||!Number.isInteger(last)||last<0||last>999998){
+   status('Bitte die zuletzt verwendete Monatsnummer bestätigen: 0 bei keinem bisherigen Ankauf.',true);return}
+ if(!confirm('Kontakt '+contact+' unter '+prefix+' hinterlegen? Letzter bisheriger Ankauf in diesem Monat: -'+last+
+   '. Nächste neue ID wird -'+(last+1)+'. Dies erzeugt keinen JTL-Lieferantenkontakt.'))return;
+ try{const r=await post('contact_create',{supplier,contact,prefix,last_used_this_month:last});await contacts();
+ $('contactSelect').value=String(r.contact_id);status('Kontakt hinterlegt. Nächste reservierbare ID: '+r.first_code+'. JTL-Kontaktzuordnung bleibt separat.')}
  catch(e){status('Kontakt nicht gespeichert: '+errorMsg(e),true)}
 }
 async function startPurchase(){
