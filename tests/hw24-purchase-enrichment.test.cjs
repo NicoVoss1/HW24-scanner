@@ -42,5 +42,5 @@ for(const token of ['refreshQueue','queueMessage','queueGet','queuePost','runAma
  assert(html.includes(token),'missing UI source/cost integration '+token);
 }
 assert(purchase.includes("if($op==='ai_costs'"),'per-purchase actual recorded OpenAI costs required');
-assert(sql.includes('UNIQUE KEY uq_purchase_amazon_actor_ean'),'no duplicate queue entry for same actor/EAN');
+assert(sql.includes('UNIQUE KEY uq_purchase_amazon_workspace_ean'),'one deduplicated Amazon queue per EAN across all HW24 users');
 console.log('HW24 procurement audit/queue contracts: passed');
