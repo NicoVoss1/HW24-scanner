@@ -45,6 +45,32 @@ function purchaseHeader(PDO $pdo,int $id,string $actor,bool $lock=false): array 
     if(!$r)throw new RuntimeException('purchase_not_found',404);
     return $r;
 }
+/** Reuse the existing shared catalog evidence for scanned EANs; no provider call. */
+function purchaseArchivedCatalog(PDO $pdo,int $batchId): array {
+    // The current DB credential may not yet have SELECT on both archive
+    // tables. If so, callers can still scan and price items normally.
+    $query=$pdo->prepare('SELECT s.searched_ean,s.id AS snapshot_id,s.fetched_at_utc,
+           s.item_count,COUNT(c.asin) AS stored_item_count,
+           MAX(c.asin) AS asin,MAX(c.item_name) AS item_name,
+           MAX(c.brand) AS brand,MAX(c.manufacturer) AS manufacturer
+         FROM (SELECT DISTINCT ean FROM hw24_scan_items
+               WHERE batch_id=? AND review_state<>"removed") scan
+         JOIN hw24_amazon_catalog_snapshots s ON s.id=(
+           SELECT MAX(a.id) FROM hw24_amazon_catalog_snapshots a
+           WHERE a.searched_ean=scan.ean AND a.marketplace_id=?
+             AND a.response_status=200)
+         LEFT JOIN hw24_amazon_catalog_items c
+           ON c.snapshot_id=s.id AND c.marketplace_id=s.marketplace_id
+             AND c.searched_ean=s.searched_ean
+         GROUP BY s.searched_ean,s.id,s.fetched_at_utc,s.item_count');
+    $query->execute([$batchId,'A1PA6795UKMFR9']);
+    $found=[];
+    foreach($query->fetchAll() as $row){
+        $found[(string)$row['searched_ean']]=hw24PurchaseArchiveCandidate($row);
+    }
+    return $found;
+}
+
 function purchaseDetails(PDO $pdo,int $id,string $actor): array {
     $p=purchaseHeader($pdo,$id,$actor);
     // One-to-one article ID match ONLY, never take an arbitrary first EAN
@@ -66,6 +92,14 @@ function purchaseDetails(PDO $pdo,int $id,string $actor): array {
        WHERE i.batch_id=? ORDER BY i.id ASC LIMIT 3001');
     $s->execute([$id,$sourceId,(int)$p['batch_id']]);$rows=$s->fetchAll();
     if(count($rows)>3000)throw new RuntimeException('too_many_scan_positions',409);
+    $catalogArchiveAvailable=true;
+    try {
+        $archivedCatalog=purchaseArchivedCatalog($pdo,(int)$p['batch_id']);
+    } catch (PDOException $e) {
+        $catalogArchiveAvailable=false;
+        $archivedCatalog=[];
+        error_log('HW24 purchase catalog archive read unavailable: '.$e->getCode());
+    }
     $net=0;$gross=0;$totalQty=0;$unpricedQty=0;$activeLines=0;
     foreach($rows as &$row) {
         $draft=json_decode((string)($row['draft_json']??''),true);
@@ -84,6 +118,11 @@ function purchaseDetails(PDO $pdo,int $id,string $actor): array {
              ($draft['Artikelname']??''));
         unset($row['draft_json'],$row['jtl_han'],$row['jtl_manufacturer'],
               $row['jtl_article_name'],$row['jtl_article_number']);
+        // Keep confirmed JTL and existing scan drafts unchanged; external
+        // evidence is always separate, including the explicit review status.
+        $row['amazon_candidate']=$catalogArchiveAvailable
+            ? ($archivedCatalog[(string)$row['ean']]??hw24PurchaseArchiveCandidate(null))
+            : ['status'=>'archive_unavailable'];
         $removed=$row['review_state']==='removed';
         $qty=$removed?0:(int)$row['scan_count'];
         if($qty>0){$activeLines++;$totalQty+=$qty;}
@@ -110,6 +149,7 @@ function purchaseDetails(PDO $pdo,int $id,string $actor): array {
       'unpriced_quantity'=>$unpricedQty,'net_cents'=>$net,
       'gross_cents'=>$gross,'complete'=>$unpricedQty===0
     ],'source'=>'existing_hw24_scanliste',
+       'catalog_archive_available'=>$catalogArchiveAvailable,
        'jtl_mirror'=>[
           'snapshot_at_utc'=>$meta['last_completed_utc']??null,
           'age_minutes'=>!isset($meta['age_minutes'])?null:(int)$meta['age_minutes'],
