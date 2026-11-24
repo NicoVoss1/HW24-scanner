@@ -61,3 +61,45 @@ assert(!intel.includes('/api/jtl-sync.php'),'No JTL SQL writes');
 assert(options.includes("'Versandklasse'")&&options.includes("'Steuerklasse'"),'Observed real dropdowns');
 assert(curated.includes("expected_revision"),'Curated revision safety preserved');
 console.log('HW24 V4.25: Amazon/KI source panels, source-based gross price, dropdowns, reviewed Ameise CSV PASS');
+
+
+{
+ const vm=require('node:vm'),ctx={window:{}};
+ vm.runInNewContext(fs.readFileSync('assets/hw24-csv-intake.js','utf8'),ctx);
+ const core=ctx.window.HW24CsvCore;
+ const valid=s=>/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(s)&&
+    [...s].reverse().reduce((n,x,i)=>n+Number(x)*(i%2?3:1),0)%10===0;
+ const r=core.prepare([
+  'EAN;EAN+000;Lagerplatz NEU;LP ALT;Kommentar',
+  '4006381333931;4006381333931;04-001;ALT;',
+  '4006381333931;4006381333931;04-002;ALT;',
+  '4006381333931;4006381333931;B-Ware;ALT;',
+  '4006381333931;4006381333931;04-001;ALT;Datumsnotiz',
+  '4006381333931;4006381333931;04-001;SCHROTT;',
+  '4006381333931;4006381333931;Mone;ALT;',
+  '036000291452;0036000291452;04-003;ALT;',
+  '0036000291452;0036000291452;04-003;ALT;',
+  '4006381333931;4006381333932;04-001;ALT;'
+ ].join('\n'),valid);
+ assert.equal(r.inventory,true);
+ assert.equal(r.items.length,2);
+ assert.equal(r.counts.new,4);
+ assert.equal(r.counts.bware,1);
+ assert.equal(r.counts.comment,1);
+ assert.equal(r.counts.excluded,2);
+ assert.equal(r.invalid.length,1);
+ assert.equal(r.classified.length,9);
+ assert(r.items[0].information.includes('Inventurmenge: 2 Stk'));
+ assert(r.items[0].information.includes('04-001: 1 Stk'));
+ assert(r.items[0].information.includes('04-002: 1 Stk'));
+ assert.equal(r.items[0].lagerplatz,undefined);
+ assert.equal(r.items[1].ean,'036000291452');
+ assert.equal(r.items[1].lagerplatz,'04-003');
+ assert(r.items[1].information.includes('Inventurmenge: 2 Stk'));
+ const old=core.prepare('EAN;Information\n4006381333931;A\n4006381333931;B',valid);
+ assert.equal(old.items.length,1);assert.equal(old.duplicates.length,1);
+ assert.equal(old.items[0].information,'A');
+ const none=core.prepare('EAN;Lagerplatz NEU;LP ALT;Kommentar\n4006381333931;SCHROTT;;',valid);
+ assert.equal(none.items.length,0);assert.equal(none.classified.length,1);
+ console.log('HW24 inventory CSV: classify before aggregation; leading zeros and generic import preserved');
+}
