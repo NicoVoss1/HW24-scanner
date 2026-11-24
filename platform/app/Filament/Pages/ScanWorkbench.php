@@ -128,6 +128,70 @@ final class ScanWorkbench extends Page
     #[Locked] public string $researchMessage = '';
     #[Locked] public ?string $workingEan = null;
     #[Locked] public array $workingPrice = [];
+    #[Locked] public array $workingAi = [];
+    public bool $confirmSingleAi = false;
+    public function loadWorkingAi(LegacyReadBridge $bridge): void
+    {
+        $ean=$this->workingEan;
+        if($ean===null||$this->rowFor($ean)===null)return;
+        $r=$bridge->fetch('ai.history',['ean'=>$ean,'limit'=>1]);
+        $raw=$r['data']??[];
+        $ok=($r['ok']??false)===true&&is_array($raw['reviews']??null);
+        $row=$ok?($raw['reviews'][0]??null):null;
+        $body=is_array($row['review']??null)?$row['review']:[];
+        $facts=is_array($body['productFacts']??null)?$body['productFacts']:[];
+        $this->workingAi=['ok'=>$ok,'http'=>$r['http_status']??null,'found'=>is_array($row),
+            'id'=>(int)($row['id']??0),'scope'=>($raw['scope']??'')==='shared_workspace'?'Gemeinsames Archiv':'Legacy-Konto',
+            'title'=>mb_substr((string)($facts['suggestedTitle']??''),0,500),
+            'manufacturer'=>mb_substr((string)($facts['manufacturer']??''),0,180),
+            'group'=>mb_substr((string)($body['suggestedWarengruppe']??''),0,180),
+            'notes'=>mb_substr((string)($facts['notes']??''),0,1200),
+            'reason'=>mb_substr((string)($body['reason']??''),0,1200)];
+    }
+
+    public function useAiSuggestion(): void
+    {
+        if($this->workingEan===null||($this->workingAi['ok']??false)!==true||($this->workingAi['found']??false)!==true)return;
+        foreach(['Artikelname'=>'title','Hersteller'=>'manufacturer','Warengruppe'=>'group'] as $field=>$key){
+            if(trim((string)($this->draftFields[$field]??''))==='')$this->draftFields[$field]=$this->workingAi[$key]??'';
+        }
+        $this->draftMessage='KI-Vorschläge in leere Felder übernommen; fachlich prüfen, noch nicht gespeichert.';
+    }
+
+    public function runWorkingAi(LegacyApprovedActionBridge $bridge,LegacyReadBridge $read): void
+    {
+        $ean=$this->workingEan;$row=$ean!==null?$this->rowFor($ean):null;
+        $confirmed=$this->confirmSingleAi;$this->confirmSingleAi=false;
+        if(!$row||!$confirmed||config('hw24_legacy.ai_paid_enabled')!==true){
+            $this->draftMessage='Kostenpflichtige Einzel-KI nicht freigegeben.';return;
+        }
+        $name=mb_substr(trim((string)($this->draftFields['Artikelname']??'')),0,500);
+        if($name===''){$this->draftMessage='Zuerst belegten Produktnamen eingeben.';return;}
+        $this->loadWorkingAi($read);
+        if(($this->workingAi['ok']??false)!==true||($this->workingAi['found']??false)===true){
+            $this->draftMessage='Archiv nicht lesbar oder Bericht bereits vorhanden. Keine neue kostenpflichtige Abfrage.';return;
+        }
+        // On older actor-only API we cannot rule out an existing shared report.
+        if(($this->workingAi['scope']??'')!=='Gemeinsames Archiv'){
+            $this->draftMessage='Gemeinsames KI-Archiv noch nicht bestätigt. Keine kostenpflichtige Sammel-/Einzelabfrage aus dieser Ansicht.';return;
+        }
+        $budget=$read->fetch('ai.budget');$b=$budget['data']??[];
+        if(($budget['ok']??false)!==true||($b['enabled']??false)!==true||($b['archive_ready']??false)!==true||
+            !is_numeric($b['usd_month']??null)||!is_numeric($b['usd_budget']??null)||(float)$b['usd_month']>=(float)$b['usd_budget']){
+            $this->draftMessage='KI-Budget oder Archivfreigabe nicht bestätigt. Keine neue Abfrage.';return;
+        }
+        $candidates=[];
+        foreach(array_slice($this->researchResults[$ean]['items']??[],0,8) as $c){
+            $candidates[]=['asin'=>$c['asin'],'title'=>$c['title'],'brand'=>$c['brand'],'eanConfirmed'=>$c['gtin_match']];
+        }
+        $r=$bridge->post('ai.review',['ean'=>$ean,'articleName'=>$name,
+            'brand'=>mb_substr((string)($this->draftFields['Hersteller']??''),0,180),
+            'warengruppe'=>mb_substr((string)($this->draftFields['Warengruppe']??''),0,150),
+            'category'=>'','unit'=>'','jtl_status'=>$row['resolution']==='existing'?'current_snapshot':'unverified','candidates'=>$candidates]);
+        $this->draftMessage=($r['ok']??false)===true?'KI-Antwort erhalten; Archiv erneut geladen.':'KI-Auftrag nicht eindeutig bestätigt. Vor erneuter Abfrage Archiv und Kosten prüfen.';
+        $this->loadWorkingAi($read);
+    }
+
     public array $draftFields = [];
     public bool $confirmDraft = false;
     #[Locked] public string $draftMessage = '';
@@ -178,7 +242,7 @@ final class ScanWorkbench extends Page
     {
         $row=$this->rowFor($ean);
         if($row===null)return;
-        $this->reset(['draftFields','confirmDraft','draftMessage','workingPrice']);
+        $this->reset(['draftFields','confirmDraft','draftMessage','workingPrice','workingAi','confirmSingleAi']);
         $this->workingEan=$ean;
         foreach(ScanResearch::FIELDS as $field){
             $v=$row['draft'][$field]??'';
@@ -271,7 +335,7 @@ final class ScanWorkbench extends Page
 
     public function loadBatches(LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'batches', 'selectedBatchId', 'diagnostic', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','draftFields','confirmDraft','draftMessage']);
+        $this->reset(['items', 'batches', 'selectedBatchId', 'diagnostic', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','workingAi','confirmSingleAi','draftFields','confirmDraft','draftMessage']);
 
         $result = $bridge->fetch('scan.batches', ['op' => 'batches']);
         $raw = is_array($result['data'] ?? null) ? $result['data'] : [];
@@ -520,11 +584,7 @@ final class ScanWorkbench extends Page
         $rows=$this->exportRows($bridge);
         if ($rows===null)return;
         // Only known original import fields are allowed into a local CSV draft.
-        $whitelist=[
-            'Artikelnummer','GTIN','HAN','Artikelname','Hersteller','Warengruppe','Steuerklasse',
-            'Kosten','Netto-VK','Brutto-VK','Inhalt/Menge','Maßeinheit','Kurzbeschreibung','Beschreibung',
-            'Artikel aktiv','Bestandsführung aktiv',
-        ];
+        $whitelist=ScanResearch::FIELDS;
         $columns=[];
         foreach ($whitelist as $field) {
             if ($field==='Artikelnummer'||$field==='GTIN'||
