@@ -25,6 +25,29 @@ final class ScanResearch
         return is_scalar($v)?mb_substr(trim((string)$v),0,$limit):'';
     }
 
+    /** Report pack evidence separately. Missing pack quantity never means one. */
+    public static function packEvidence(array $item,string $title): array
+    {
+        $units=[];
+        $attrs=is_array($item['attributes']??null)?$item['attributes']:[];
+        foreach(['number_of_items','item_package_quantity','package_quantity'] as $key){
+            foreach(is_array($attrs[$key]??null)?$attrs[$key]:[] as $entry){
+                $v=is_array($entry)?($entry['value']??null):null;
+                if(is_numeric($v)&&(float)$v===(float)(int)$v&&(int)$v>=1&&(int)$v<=10000)$units[(int)$v]=true;
+            }
+        }
+        if(preg_match_all('/\b(\d{1,3})\s*(?:x|×)\s*\d+(?:[,.]\d+)?\s*(?:ml|l|g|kg)\b/iu',$title,$m))
+            foreach($m[1] as $n)if((int)$n>=1)$units[(int)$n]=true;
+        if(preg_match_all('/\b(\d{1,3})\s*(?:er[\s-]*(?:pack|paket|set)|[- ]?pack|[- ]?stück)\b/iu',$title,$m))
+            foreach($m[1] as $n)if((int)$n>=1)$units[(int)$n]=true;
+        if(preg_match('/\b(?:doppelpack|zweierpack|duopack|twin[\s-]*pack)\b/iu',$title))$units[2]=true;
+        if(preg_match('/\b(?:dreierpack|triple[\s-]*pack)\b/iu',$title))$units[3]=true;
+        if(preg_match('/\b(?:einzelpack|einzelstück|single[\s-]*pack)\b/iu',$title))$units[1]=true;
+        $values=array_keys($units);
+        $kind=count($values)>1?'conflict':($values===[]?'unknown':($values[0]===1?'single':'multipack'));
+        return ['kind'=>$kind,'units'=>count($values)===1?$values[0]:null];
+    }
+
     public static function research(string $ean,LegacyReadBridge $bridge): array
     {
         $j=$bridge->fetch('jtl.article',['q'=>$ean]);
@@ -50,8 +73,11 @@ final class ScanResearch
                         if(preg_match('/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/D',$v)&&str_pad($v,14,'0',STR_PAD_LEFT)===str_pad($ean,14,'0',STR_PAD_LEFT))$exact=true;
                     }
                 }
-                $items[]=['asin'=>$asin,'title'=>self::txt($i['title']??null),'brand'=>self::txt($i['brand']??null,180),
-                    'manufacturer'=>self::txt($i['manufacturer']??null,180),'gtin_match'=>$exact];
+                $title=self::txt($i['title']??null);
+                $pack=self::packEvidence($i,$title);
+                $items[]=['asin'=>$asin,'title'=>$title,'brand'=>self::txt($i['brand']??null,180),
+                    'manufacturer'=>self::txt($i['manufacturer']??null,180),'gtin_match'=>$exact,
+                    'pack_kind'=>$pack['kind'],'pack_units'=>$pack['units']];
             }
         }
         return ['jtl'=>$status,'jtl_http'=>$j['http_status']??null,
