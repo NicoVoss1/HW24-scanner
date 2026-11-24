@@ -122,6 +122,40 @@
             </div>
         </section>
 
+        <section class="hw24-card" x-data="{running:false}">
+            <div class="hw24-card-head"><h3>03 · CSV-Datei direkt importieren (TEST)</h3></div>
+            <div class="hw24-card-body">
+                <p class="hw24-description">Vorbereiteten Neuware-Export als UTF-8-CSV auswählen. Excel-Dateien zuvor als CSV speichern. Die ursprüngliche Inventurliste mit B-Ware und Kommentaren muss zuerst klassifiziert werden. Keine JTL- oder WMS-Buchung und keine externe Recherche.</p>
+                <p>Aktiver Stapel: {{ $selectedBatchId ?? 'Bitte oben einen TEST-Stapel auswählen' }}</p>
+                <div class="hw24-action" style="margin-top:12px">
+                    <input type="file" accept=".csv,text/csv" wire:model="csvFile" aria-label="Neuware-CSV auswählen">
+                    <button type="button" class="hw24-btn" wire:click="previewCsv" wire:loading.attr="disabled" wire:target="csvFile,previewCsv" x-bind:disabled="running" @disabled($selectedBatchId===null)>CSV prüfen</button>
+                </div>
+                @error('csvFile')<p class="hw24-note hw24-note-warn">{{ $message }}</p>@enderror
+                @if($csvState!==[])
+                    <p class="hw24-note {{ ($csvState['ok']??false)?'':'hw24-note-warn' }}" role="status">{{ $csvState['message'] }}</p>
+                @endif
+                @if(($csvState['ok']??false) && $csvBatchId===$selectedBatchId)
+                    <p class="hw24-note">{{ count($csvRows) }} Produktkennungen · {{ $csvState['duplicates'] }} identische CSV-Dubletten · {{ $csvOffset }} bearbeitet · {{ $csvState['inserted'] }} neu · {{ $csvState['existed'] }} vorhanden · {{ $csvState['restored'] }} wiederhergestellt</p>
+                    <div class="hw24-table-wrap" style="margin-top:10px">
+                        <table><thead><tr><th>EAN</th><th>Lagerplatz</th><th>Information / Inventurmenge</th></tr></thead><tbody>
+                        @foreach(array_slice($csvRows,0,10) as $row)
+                            <tr><td>{{ $row['ean'] }}</td><td>{{ $row['lagerplatz']??'' }}</td><td>{{ $row['information']??'' }}</td></tr>
+                        @endforeach
+                        </tbody></table>
+                    </div>
+                    <p class="hw24-description">Vorschau der ersten zehn Positionen. Mengen sind Importinformationen, keine Bestandsbuchungen. Speichern nur in ausdrücklich mit TEST bezeichneten Stapeln.</p>
+                    <label class="hw24-action"><input type="checkbox" wire:model.live="confirmCsvImport" x-bind:disabled="running"> Ich bestätige den Import in den ausgewählten TEST-Stapel.</label>
+                    <div class="hw24-action" style="margin-top:12px">
+                        <button type="button" class="hw24-btn" @disabled(!$this->canWriteScan() || !$confirmCsvImport || $csvOffset>=count($csvRows))
+                            x-bind:disabled="running" x-on:click="if (!confirm('CSV in den gemeinsamen HW24-Datenspeicher importieren? Nur TEST-Stapel, keine JTL-Buchung.')) return; running=true; try { for(let i=0;i&lt;100 &amp;&amp; running;i++){ if(!(await $wire.importCsvChunk())) break; } } finally {running=false;}">CSV-Import starten / fortsetzen</button>
+                        <button type="button" class="hw24-btn" x-bind:disabled="!running" x-on:click="running=false">Nach aktuellem Abschnitt pausieren</button>
+                    </div>
+                    @if(!$this->canWriteScan())<p class="hw24-note hw24-note-warn">Dateivorschau möglich. Die private Scan-Schreibfreigabe ist noch aus; Import nicht möglich.</p>@endif
+                @endif
+            </div>
+        </section>
+
         @if($selectedBatchId !== null)
             <section class="hw24-card">
                 <div class="hw24-card-head"><h3>02 · Gespeicherte Positionen aus Stapel {{ $selectedBatchId }}</h3></div>
