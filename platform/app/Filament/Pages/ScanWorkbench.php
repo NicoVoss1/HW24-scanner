@@ -193,6 +193,24 @@ final class ScanWorkbench extends Page
     }
 
     public array $draftFields = [];
+    public array $selectedExportFields = ScanResearch::FIELDS;
+
+    public function allExportFields(): void
+    {
+        $this->selectedExportFields=ScanResearch::FIELDS;
+        $this->exportState=[];
+    }
+
+    public function updatedSelectedExportFields(): void
+    {
+        $this->exportState=[];
+    }
+
+    public function missingDraftFields(): array
+    {
+        return array_values(array_filter(ScanResearch::REQUIRED,fn($f)=>trim((string)($this->draftFields[$f]??''))===''));
+    }
+
     public bool $confirmDraft = false;
     #[Locked] public string $draftMessage = '';
 
@@ -587,7 +605,8 @@ final class ScanWorkbench extends Page
         $whitelist=ScanResearch::FIELDS;
         $columns=[];
         foreach ($whitelist as $field) {
-            if ($field==='Artikelnummer'||$field==='GTIN'||
+            if($field!=='Artikelnummer'&&!in_array($field,ScanResearch::REQUIRED,true)&&!in_array($field,$this->selectedExportFields,true))continue;
+            if ($field==='Artikelnummer'||in_array($field,ScanResearch::REQUIRED,true)||
                 array_any($rows,static fn($r) => array_key_exists($field,$r) && trim((string)$r[$field])!=='')) {
                 $columns[]=$field;
             }
