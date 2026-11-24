@@ -119,7 +119,7 @@ details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border
 </section></div>
 <section class="card"><h2>6. JTL-Ameise-Import vorbereiten</h2>
 <details class="formGroup" id="exportBuilder"><summary>Feldbaukasten · Ameise-Exportvorlage NEU</summary>
-<p class="note">Exportspalten separat auswählen. Pflichtfelder und GTIN bleiben enthalten; vorhandene Artikelnummern werden niemals ausgeblendet. Ausgewählte optionale Felder können leer sein. Nur Neuanlagen, kein UPDATE/WMS.</p>
+<p class="note">Exportspalten separat auswählen. Pflichtfelder und GTIN bleiben enthalten; vorhandene Artikelnummern werden niemals ausgeblendet. Vollständig leere optionale Spalten werden nicht exportiert; einzelne Zeilen können leer sein. Nur Neuanlagen, kein UPDATE/WMS.</p>
 <div class="toolbar"><button type="button" id="exportCompact" class="secondary">Basisvorlage</button><button type="button" id="exportAll" class="secondary">Alle verfügbaren Felder</button></div>
 <div id="exportChoices" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px"></div>
 <p class="note">Die Spaltenwahl bleibt in diesem Browser gespeichert. Die tatsächliche Zuordnung in JTL-Ameise muss einmalig geprüft werden.</p></details>
@@ -795,9 +795,13 @@ $('hairTemplate').onclick=()=>patchFields({'GTIN':state.selected?.ean||'',
  'Beschaffungszeit automatisch ermitteln':'0','Beschaffungszeit manuell setzen':'2',
  'Top-Artikel':'N','Neu im Sortiment':'Y'});
 function cell(x){let s=val(x);if(/^[=+@-]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}
-function downloadCSV(rows,filename){
+function selectedExportColumns(rows){
  const withSku=rows.some(r=>val(r.Artikelnummer));
- const columns=[...(withSku?['Artikelnummer']:[]),...schema.filter(k=>k!=='Artikelnummer'&&exportFields.has(k))];
+ // Empty optional columns are not introduced into the previous safe NEU export.
+ return [...(withSku?['Artikelnummer']:[]),...schema.filter(k=>k!=='Artikelnummer'&&exportFields.has(k)&&(lockedExport.has(k)||rows.some(r=>val(r[k]))))];
+}
+function downloadCSV(rows,filename){
+ const columns=selectedExportColumns(rows);
  const content='\ufeff'+columns.map(cell).join(';')+'\r\n'+rows.map(r=>columns.map(k=>cell(r[k])).join(';')).join('\r\n')+'\r\n';
  const blob=new Blob([content],{type:'text/csv;charset=utf-8'});
  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename;
@@ -810,7 +814,7 @@ $('export').onclick=async()=>{
  const autoCount=Number(result.auto_article_numbers||0);
  const question=result.count+' freigegebene Neuanlagen exportieren?'+
  (autoCount?' Für '+autoCount+' Artikel ohne Artikelnummer in JTL-Ameise „Artikelnummern automatisch vergeben, falls nicht vorhanden: Ja, globale fortlaufende Nummer und Präfix beachten“ auswählen.':'')+
- ' Exportspalten: '+schema.filter(k=>k==='Artikelnummer'?result.fields.some(r=>val(r.Artikelnummer)):exportFields.has(k)).join(', ')+'.'+
+ ' Exportspalten: '+selectedExportColumns(result.fields).join(', ')+'.'+
  ' Identifizierung anhand Artikelnummer/GTIN im JTL-Ameise-Testlauf prüfen. Das ist noch kein Import.';
  if(!confirm(question))return;
  downloadCSV(result.fields,'HW24_Ameise_Neuanlagen_'+result.count+'_PRUEFEXPORT.csv');
