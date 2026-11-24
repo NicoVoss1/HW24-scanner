@@ -788,3 +788,11 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 2. Isolierten TEST-Stand und geschützten Zugriff klären, vor Änderung Backup und Rollback-Fähigkeit bestätigen; erst danach gezielte Bereitstellung der responsiven UI und vollständiger Funktionstest aller vorhandenen Module.
 3. Browserbefunde samt URL, Eingabe, erwarteter/realer Ausgabe und Bildschirmbreite redigiert dokumentieren; offene API-Daten und JTL-/WMS-/Amazon-/KI-Verbindungen einzeln prüfen.
 4. Zentrale Hub-Kachelübersicht **innerhalb der bisherigen Testdomain** als nächsten getrennten Funktionsschritt erstellen. `hub.hairworld24.de` erst nach funktionaler Gesamtabnahme als spätere Option.
+
+
+### S110 | GitHub-CI der responsive UI-Korrektur | **prüfbar erfolgreich, Stand vor rein dokumentarischem Commit**
+- Workflow `HW24 isolated Laravel 13 Filament 5 foundation` auf Commit `ba22ac996eaa4b4b52ef06b5662ad7c7503070eb`: https://github.com/NicoVoss1/HW24-scanner/actions/runs/45297984459 – **SUCCESS**, im Jobprotokoll `HW24 responsive admin: no forced horizontal scrolling in 7 page templates, 6 labeled tables PASS` und Laravel `85 passed (500 assertions)` bestätigt.
+- Workflow `HW24 V4.25 Amazon KI Ameise article editor` auf demselben Commit: https://github.com/NicoVoss1/HW24-scanner/actions/runs/45297984463 – **SUCCESS**.
+- Nach Journal-Eintrag S106–S109 wurde auf Commit `6e3de977919d352432c68e0ae384316d3d04c3bd` die Foundation unter https://github.com/NicoVoss1/HW24-scanner/actions/runs/45298092985 ebenfalls mit **SUCCESS** abgeschlossen und der Legacy-Workflow https://github.com/NicoVoss1/HW24-scanner/actions/runs/45298092938 war **SUCCESS**.
+- Dokumentation und Statusblatt wurden danach erneut aktualisiert. **Bei weiterer Entwicklung stets aktuellen PR-HEAD und dessen CI prüfen; vor echtem Browser-/Server-Test weiterhin keine Freigabe.**
+- Keine Browser-Pixelprüfung oder tatsächliche TEST-/LIVE-Funktionsabnahme: private Sessionzugriffe in dieser Sitzung nicht verfügbar. Quell-/Mock-Tests sind kein Nachweis, dass die neue Version bereits auf `test-artikelmanager.hairworld24.de` läuft.
