@@ -149,7 +149,7 @@ final class ScanWorkbench extends Page
         if(!$this->confirmResearch||$this->selectedBatchId===null)return;
         $this->researchQueue=[];
         foreach(array_unique(array_filter($this->selectedEans,'is_string')) as $ean)
-            if(self::validGtin($ean)&&$this->rowFor($ean)!==null)$this->researchQueue[]=$ean;
+            if(self::validGtin($ean)&&$this->rowFor($ean)!==null&&($this->researchResults[$ean]['amazon_ok']??false)!==true)$this->researchQueue[]=$ean;
         $this->researchOffset=0;
         $this->researchMessage=count($this->researchQueue).' Positionen vorgemerkt. Browser geöffnet lassen.';
     }
@@ -191,6 +191,7 @@ final class ScanWorkbench extends Page
     public function researchOne(string $ean,LegacyReadBridge $bridge): void
     {
         if($this->rowFor($ean)===null||!self::validGtin($ean))return;
+        $this->workingPrice=[];
         $this->researchResults[$ean]=ScanResearch::research($ean,$bridge);
     }
 
@@ -219,7 +220,7 @@ final class ScanWorkbench extends Page
         }
     }
 
-    public function saveDraft(bool $ready,LegacyApprovedActionBridge $bridge,LegacyReadBridge $read): void
+    public function saveDraft(bool $ready,LegacyApprovedActionBridge $bridge): void
     {
         $ean=$this->workingEan;$row=$ean!==null?$this->rowFor($ean):null;
         if(!$row||!$this->confirmDraft||!$this->canWriteScan()||$row['id']<1||
@@ -245,10 +246,27 @@ final class ScanWorkbench extends Page
         if(($r['ok']??false)!==true){
             $this->draftMessage='Speicherung/Freigabe abgelehnt: '.mb_substr((string)($r['data']['error']??'Antwort nicht bestätigt'),0,100).'. Bitte aktuellen Stapel prüfen.';return;
         }
-        $batch=$this->selectedBatchId;
-        $this->loadBatch($batch,$read);
-        $this->openDraft($ean);
-        $this->draftMessage=$ready?'Für Ameise-Prüfexport freigegeben.':'Entwurf zentral gespeichert.';
+        $data=$r['data']??[];
+        if(!is_array($data['draft']??null)||!is_numeric($data['revision']??null)||
+           !in_array($data['review_state']??null,['draft','ready'],true)){
+            $this->confirmDraft=false;
+            $this->draftMessage='Speicherung gemeldet; Antwort nicht vollständig. Bitte Stapel neu laden und vor erneutem Speichern prüfen.';
+            return;
+        }
+        foreach($this->items as &$stored){
+            if($stored['ean']!==$ean)continue;
+            $stored['revision']=(int)$data['revision'];
+            $stored['draft']=array_intersect_key($data['draft'],array_flip(ScanResearch::FIELDS));
+            $stored['review']=$data['review_state'];
+            $stored['review_label']=$data['review_state']==='ready'?'Für Ameise-Prüfexport freigegeben':'Entwurf · in Bearbeitung';
+            // No server update timestamp in this response: clear stale display.
+            $stored['updated_at']=null;
+            break;
+        }
+        unset($stored);
+        $this->confirmDraft=false;
+        $this->exportState=[];
+        $this->draftMessage=$data['review_state']==='ready'?'Für Ameise-Prüfexport freigegeben.':'Entwurf zentral gespeichert.';
     }
 
     public function loadBatches(LegacyReadBridge $bridge): void
