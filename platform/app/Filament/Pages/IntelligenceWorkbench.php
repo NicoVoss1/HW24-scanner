@@ -24,6 +24,7 @@ final class IntelligenceWorkbench extends Page
     protected string $view = 'filament.pages.intelligence-workbench';
 
     public string $identifier = '';
+    public string $researchName = '';
     public bool $confirmPaid = false;
     public bool $confirmRecheck = false;
 
@@ -45,6 +46,23 @@ final class IntelligenceWorkbench extends Page
             $this->identifier = $ean;
         }
         // Deliberately NO HTTP / OpenAI / Amazon call during mount.
+    }
+
+    private static function validGtin(string $ean): bool
+    {
+        if(!preg_match('/^(?:[0-9]{8}|[0-9]{12}|[0-9]{13}|[0-9]{14})$/D',$ean)||preg_match('/^0+$/D',$ean))return false;
+        $sum=0;$weight=3;
+        for($i=strlen($ean)-2;$i>=0;$i--){$sum+=(int)$ean[$i]*$weight;$weight=$weight===3?1:3;}
+        return (10-$sum%10)%10===(int)$ean[strlen($ean)-1];
+    }
+
+    public function useUnidentifiedEan(): void
+    {
+        $ean=trim($this->identifier);
+        if(!self::validGtin($ean))return;
+        $this->reset(['article','catalog','keywords','pricing','reviews','archiveState','readiness','reviewResult','catalogArchive','confirmPaid','confirmRecheck']);
+        $this->article=['ean'=>$ean,'name'=>'','brand'=>'','group'=>'','jtl_id'=>'','sku'=>'','asin'=>'','jtl_status'=>'unverified'];
+        $this->lookupState=['ok'=>true,'message'=>'Gültige GTIN zur Recherche übernommen. Kein bestätigter JTL-Artikel; Identität noch prüfen.'];
     }
 
     public function findArticle(LegacyReadBridge $bridge): void
@@ -80,6 +98,7 @@ final class IntelligenceWorkbench extends Page
             'jtl_id'=>(string)($item['jtl_article_id']??''),
             'sku'=>(string)($item['artikelnummer']??''),
             'asin'=>(string)($item['asin']??''),
+            'jtl_status'=>'current_snapshot',
         ];
         $this->lookupState=['ok'=>true,'message'=>'JTL-Referenzartikel eindeutig aus aktuellem Snapshot geladen.',
             'http'=>$r['http_status']??null];
@@ -158,7 +177,7 @@ final class IntelligenceWorkbench extends Page
     public function searchAmazonByName(LegacyReadBridge $bridge): void
     {
         if($this->ean()===null)return;
-        $name=preg_replace('/[^\p{L}\p{N} .,_\/()+\-]/u',' ',$this->article['name']??'');
+        $name=preg_replace('/[^\p{L}\p{N} .,_\/()+\-]/u',' ',($this->article['name']?:$this->researchName));
         $name=trim(preg_replace('/\s+/u',' ',(string)$name)??'');
         $name=mb_substr($name,0,120);
         if(mb_strlen($name)<3)return;
@@ -390,14 +409,20 @@ final class IntelligenceWorkbench extends Page
             $this->reviewResult=['ok'=>false,'message'=>'Keine Archiv-ID für die kostenpflichtige Neuprüfung gefunden.'];
             return;
         }
+        $name=trim((string)($this->article['name']??''));
+        if($name==='')$name=mb_substr(trim($this->researchName),0,600);
+        if($name===''){
+            $this->reviewResult=['ok'=>false,'message'=>'Bitte zuerst Produktname oder einen belegten Produktnamen eingeben. Keine kostenpflichtige Anfrage ohne Produktkontext.'];
+            return;
+        }
         $payload=[
             'ean'=>$ean,
-            'articleName'=>$this->article['name'],
+            'articleName'=>$name,
             'brand'=>$this->article['brand'],
             'warengruppe'=>$this->article['group'],
             'category'=>'',
             'unit'=>'',
-            'jtl_status'=>'current_snapshot',
+            'jtl_status'=>$this->article['jtl_status']??'unverified',
             'candidates'=>[], // Never auto-assume Amazon EAN/ASIN identity.
         ];
         $headers=$latest?[
