@@ -276,6 +276,23 @@
                             . Kein automatisch kalkulierter eigener VK; Einkauf, Gebühren, Versand und Steuer berücksichtigen.
                         </p>
                     @endif
+                    <div class="hw24-note">
+                        <h3>KI-Recherche zur ausgewählten EAN</h3>
+                        <div class="hw24-action">
+                            <button type="button" class="hw24-btn" wire:click="loadWorkingAi" wire:loading.attr="disabled">Vorhandenes KI-Archiv laden</button>
+                            <label><input type="checkbox" wire:model.live="confirmSingleAi"> Kostenpflichtige Einzelprüfung bestätigen</label>
+                            <button type="button" class="hw24-btn" wire:click="runWorkingAi" wire:loading.attr="disabled" @disabled(!$confirmSingleAi || !config('hw24_legacy.ai_paid_enabled'))>Fehlenden KI-Bericht erstellen</button>
+                        </div>
+                        @if($workingAi!==[])
+                            <p>{{ $workingAi['scope'] }} · HTTP {{ $workingAi['http']??'—' }} · {{ !$workingAi['ok']?'Archiv nicht verfügbar':($workingAi['found']?'Bericht #'.$workingAi['id']:'Kein Bericht gefunden') }}</p>
+                            @if($workingAi['found'])
+                                <p>{{ $workingAi['title'] }} · {{ $workingAi['manufacturer'] }} · {{ $workingAi['group'] }}</p>
+                                <p>{{ $workingAi['reason'] }} {{ $workingAi['notes'] }}</p>
+                                <button type="button" class="hw24-btn" wire:click="useAiSuggestion" wire:confirm="KI-Vorschläge in leere Entwurffelder übernehmen?">KI-Vorschläge übernehmen</button>
+                            @endif
+                        @endif
+                        <p>Eine neue Einzelprüfung benötigt ein bestätigtes gemeinsames Archiv, Betreiberfreigabe, Budget und Produktnamen. Vorhandene Berichte werden wiederverwendet.</p>
+                    </div>
                     <p class="hw24-description">Alle vorhandenen Scanentwurffelder. Änderungen nur bei Neuanlage-Kandidaten speichern. Keine direkte Wawi-Schreiboperation.</p>
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px">
                         @foreach(\App\Services\ScanResearch::FIELDS as $field)
