@@ -73,7 +73,9 @@ details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border
 <button id="csvPreview" class="secondary" type="button">CSV prüfen</button></div>
 <p class="note" id="csvPreviewStatus" role="status">Datei auswählen und Spalten prüfen. Es wird noch nichts gespeichert.</p>
 <div id="csvColumns" class="note"></div>
+<p class="note">Lagerinventur mit Lagerplatz NEU, LP ALT und Kommentar: Neuware wird nach GTIN zusammengefasst. B-Ware, Kommentare und SCHROTT/Mona/Mone bleiben aus dem aktiven Import ausgeschlossen; alle Zeilen können klassifiziert exportiert werden. Keine Bestandsbuchung.</p>
 <div class="toolbar"><button type="button" id="csvImport" disabled>Bestätigte EANs in Stapel übernehmen</button>
+<button type="button" class="secondary" id="csvClassifiedExport" hidden>Alle klassifizierten Inventurzeilen exportieren</button>
 <button type="button" class="secondary" id="csvPause" disabled>Import nach aktuellem Block stoppen</button></div>
 <p class="note" id="csvImportProgress" role="status"></p>
 </section>
@@ -849,4 +851,4 @@ catalogStatus();
 if(catalogQueue.length)runCatalog();
 })();
 </script>
-<script src="assets/hw24-scan-autofill.js?v=1"></script><script src="assets/hw24-csv-intake.js?v=1"></script><script src="assets/hw24-ai-markers.js?v=1"></script><script src="assets/hw24-ai-history.js?v=1"></script><script src="assets/hw24-ai-cost.js?v=2"></script></body></html>
+<script src="assets/hw24-scan-autofill.js?v=1"></script><script src="assets/hw24-csv-intake.js?v=2"></script><script src="assets/hw24-ai-markers.js?v=1"></script><script src="assets/hw24-ai-history.js?v=1"></script><script src="assets/hw24-ai-cost.js?v=2"></script></body></html>
