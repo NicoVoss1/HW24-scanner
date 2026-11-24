@@ -57,6 +57,7 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
                     <button type="submit" class="action" wire:loading.attr="disabled" wire:target="findArticle">Artikel aus JTL laden</button>
                 </div>
             </form>
+            <button type="button" class="action secondary" style="margin-top:8px" wire:click="useUnidentifiedEan">Unbekannte EAN direkt recherchieren</button>
             @if($lookupState !== [])
                 <p role="status" class="warning {{ ($lookupState['ok'] ?? false) ? 'ok' : '' }}">
                     {{ $lookupState['message'] }}
@@ -65,10 +66,15 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
             @endif
             @if($article !== [])
                 <div class="item">
-                    <h4>{{ $article['name'] }}</h4>
+                    <h4>{{ $article['name'] ?: 'Noch nicht identifizierter Artikel' }}</h4>
                     <p>EAN {{ $article['ean'] }} · JTL-ID {{ $article['jtl_id'] ?: 'offen' }} · Artikelnummer {{ $article['sku'] ?: 'offen' }}</p>
                     <p>Hersteller {{ $article['brand'] ?: 'offen' }} · Warengruppe {{ $article['group'] ?: 'offen' }} · JTL-ASIN {{ $article['asin'] ?: 'offen' }}</p>
-                    <span class="badge">Aktueller JTL-Snapshot bestätigt</span>
+                    <span class="badge">{{ ($article['jtl_status']??'')==='current_snapshot'?'Aktueller JTL-Snapshot bestätigt':'Identität noch nicht bestätigt' }}</span>
+                    @if(($article['jtl_status']??'')!=='current_snapshot')
+                        <label class="minor">Produktname laut Verpackung oder geprüftem Katalogtreffer
+                            <input class="input" type="text" maxlength="600" wire:model="researchName">
+                        </label>
+                    @endif
                 </div>
             @endif
         </div>
