@@ -162,7 +162,7 @@ $('csvPreview').onclick=async()=>{
    charset='windows-1252';csvText=new TextDecoder(charset).decode(buffer);
   }
   prepared=prepare(csvText,enrich.goodGtin);
-  if(!prepared.items.length)throw Error('Keine gültigen EANs gefunden. Prüfe Prüfziffern und Spalten.');
+  if(!prepared.items.length&&!prepared.inventory)throw Error('Keine gültigen EANs gefunden. Prüfe Prüfziffern und Spalten.');
   const columns=Object.entries(prepared.indexes).filter(([,index])=>index>=0)
     .map(([key])=>key).join(', ');
   preview.textContent=prepared.items.length+' eindeutige gültige EANs · '+
@@ -187,8 +187,8 @@ $('csvPreview').onclick=async()=>{
    info.append(summary);
    $('csvClassifiedExport').hidden=false;
   }
-  $('csvImport').disabled=false;
-  paint('Vorschau bereit. Erst nach Bestätigung werden Daten in den aktiven Stapel importiert.');
+  $('csvImport').disabled=!prepared.items.length;
+  paint(prepared.items.length?'Vorschau bereit. Erst nach Bestätigung werden Daten in den aktiven Stapel importiert.':'Keine freigegebene Neuware; klassifizierte Zeilen können exportiert werden.');
  }catch(e){preview.textContent='CSV-Prüfung: '+String(e.message);preview.className='note error';reset()}
 };
 $('csvClassifiedExport').onclick=()=>{
