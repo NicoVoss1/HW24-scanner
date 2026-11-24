@@ -103,3 +103,28 @@ console.log('HW24 V4.25: Amazon/KI source panels, source-based gross price, drop
  assert.equal(none.items.length,0);assert.equal(none.classified.length,1);
  console.log('HW24 inventory CSV: classify before aggregation; leading zeros and generic import preserved');
 }
+
+{
+ const vm=require('node:vm');
+ const scan=fs.readFileSync('scanliste.html','utf8');
+ const scripts=[...scan.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
+ for(const match of scripts)if(match[1].trim())new vm.Script(match[1]);
+ for(const id of ['fieldBuilder','fieldChoices','fieldsCompact','fieldsAll','exportBuilder','exportChoices','exportCompact','exportAll']){
+  assert.equal((scan.match(new RegExp('id="'+id+'"','g'))||[]).length,1);
+ }
+ const functionText=(name,next)=>{const a=scan.indexOf('function '+name+'('),b=scan.indexOf('function '+next+'(',a);assert(a>=0&&b>a);return scan.slice(a,b);};
+ const ctx={schema:['Artikelnummer','GTIN','Artikelname','Hersteller','Warengruppe','Steuerklasse','Kosten','Beschreibung','ASIN'],
+   lockedExport:new Set(['GTIN','Artikelname','Hersteller','Warengruppe','Steuerklasse']),
+   val:x=>String(x??'').trim()};
+ vm.createContext(ctx);
+ vm.runInContext(functionText('validatedFieldSelection','readFieldSelection')+functionText('selectedExportColumns','downloadCSV'),ctx);
+ ctx.exportFields=ctx.validatedFieldSelection(['Kosten','ASIN','unknown'],ctx.lockedExport);
+ const row={Artikelnummer:'TEST',GTIN:'4006381333931',Artikelname:'Test',Hersteller:'Test',Warengruppe:'Test',Steuerklasse:'normaler steuersatz',Kosten:'1,20',Beschreibung:'saved but hidden',ASIN:''};
+ const cols=Array.from(ctx.selectedExportColumns([row]));
+ assert.deepEqual(cols,['Artikelnummer','GTIN','Artikelname','Hersteller','Warengruppe','Steuerklasse','Kosten']);
+ assert.equal(row.Beschreibung,'saved but hidden');
+ assert(scan.includes("box.style.display=viewFields.has(control.name)?'':'none'"));
+ assert(scan.includes("querySelectorAll('input,textarea,select'))out[control.name]=val(control.value)"));
+ assert(scan.includes('applyFieldVisibility();\n refreshFieldGroups();'));
+ console.log('HW24 field builder: mandatory schema, hidden field preservation, empty-column filtering and inline JS syntax passed');
+}
