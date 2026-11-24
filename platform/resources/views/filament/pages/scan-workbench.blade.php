@@ -299,13 +299,14 @@
                             <label style="font-size:12px">
                                 {{ $field }}{{ in_array($field,\App\Services\ScanResearch::REQUIRED,true)?' *':'' }}
                                 @if(in_array($field,['Kurzbeschreibung','Beschreibung','Anmerkung','Meta-Description (SEO)'],true))
-                                    <textarea class="hw24-btn" style="display:block;width:100%;text-align:left" wire:model="draftFields.{{ $field }}"></textarea>
+                                    <textarea class="hw24-btn" style="display:block;width:100%;text-align:left" wire:model.blur="draftFields.{{ $field }}"></textarea>
                                 @else
                                     <input class="hw24-btn" style="display:block;width:100%;text-align:left" type="text" wire:model="draftFields.{{ $field }}" @readonly($field==='GTIN')>
                                 @endif
                             </label>
                         @endforeach
                     </div>
+                    <p class="hw24-note">Pflichtfelder: {{ $this->missingDraftFields()===[]?'Basisfelder vollständig (fachliche Prüfung weiterhin erforderlich).':'Noch offen: '.implode(', ',$this->missingDraftFields()) }}</p>
                     <label class="hw24-action" style="margin-top:12px"><input type="checkbox" wire:model.live="confirmDraft"> Produktidentität und eingetragene Werte geprüft; Entwurf speichern.</label>
                     <div class="hw24-action">
                         <button type="button" class="hw24-btn" wire:click="saveDraft(false)" @disabled(!$this->canWriteScan()||!$confirmDraft)>Entwurf speichern</button>
@@ -321,6 +322,16 @@
             <div class="hw24-card-body">
                 <p class="hw24-description">Die bestehende Scanlisten-API prüft vor dem CSV-Export den aktuellen JTL-Snapshot, freigegebene Neuanlagen, doppelte Artikelnummern und Pflichtfelder. Maximal 200 freigegebene Positionen. Nur ein Prüfexport, kein JTL-Direktimport.</p>
                 <div class="hw24-action">
+                    <details style="width:100%;margin:8px 0">
+                        <summary>Exportspalten konfigurieren (standardmäßig alle aktiviert)</summary>
+                        <button type="button" class="hw24-btn" wire:click="allExportFields">Alle Felder auswählen</button>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:8px;margin-top:8px">
+                            @foreach(\App\Services\ScanResearch::FIELDS as $field)
+                                <label><input type="checkbox" wire:model.live="selectedExportFields" value="{{ $field }}" @disabled($field==='Artikelnummer'||in_array($field,\App\Services\ScanResearch::REQUIRED,true))> {{ $field }}</label>
+                            @endforeach
+                        </div>
+                        <p>Artikelnummer und Pflichtfelder bleiben im Export. Optionale leere Spalten werden ausgelassen. Einstellungen gelten in der aktuellen Sitzung; Stammdaten werden nicht gelöscht.</p>
+                    </details>
                     <button type="button" class="hw24-btn" wire:click="prepareAmeiseExport" wire:loading.attr="disabled" wire:target="prepareAmeiseExport" @disabled($selectedBatchId === null)>Freigegebene Positionen prüfen</button>
                     @if(($exportState['ok']??false)===true)
                         <button type="button" class="hw24-btn" wire:click="downloadAmeiseCsv"
