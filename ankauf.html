@@ -77,6 +77,7 @@ td .short{width:90px}td .money{width:105px}td button{padding:8px 11px;font-size:
 <p class="status" id="scanStatus" role="status" aria-live="polite">Noch kein Ankauf ausgewählt.</p>
 <p class="note" id="amazonStatus">Amazon-Katalog: Neue/unbekannte EANs werden in einer dauerhaften Warteschlange gespeichert. Ein lokaler, gedrosselter Bearbeiter nutzt die vorhandene Amazon-API. Kein KI-Kostenaufruf.</p>
 <div class="bar" style="margin-top:8px"><button type="button" id="enqueueAll" class="secondary">Fehlende Produkte gesammelt vormerken</button>
+<button type="button" id="refreshArchivedCandidates" class="secondary">Gespeicherte Artikeldaten aktualisieren</button>
 <button type="button" id="resumeAmazon" class="secondary">▶ Amazon-Warteschlange abarbeiten</button>
 <button type="button" id="pauseAmazon" class="secondary" disabled>Bearbeitung pausieren</button></div>
 <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-weight:500">
@@ -216,10 +217,11 @@ function filteredItems(items){
        max=euroFilterValue($('priceMax').value),sort=$('priceSort').value;
  const rows=items.filter(i=>{
    if(!i.quantity)return false;
-   if(maker && i.manufacturer!==maker)return false;
+   if(maker && (i.manufacturer||i.amazon_candidate?.manufacturer||'')!==maker)return false;
    if(statusKey && i.resolution!==statusKey)return false;
    if(q && ![i.ean,i.han,i.article_number,i.artikelnummer,
-       i.article_name_display,i.artikelname,i.manufacturer]
+       i.article_name_display,i.artikelname,i.manufacturer,i.amazon_candidate?.title,
+       i.amazon_candidate?.manufacturer,i.amazon_candidate?.brand,i.amazon_candidate?.asin]
        .some(vv=>String(vv||'').toLocaleLowerCase('de').includes(q)))return false;
    if(v($('priceMin').value) && (min===null||i.unit_net_cents===null||i.unit_net_cents<min))return false;
    if(v($('priceMax').value) && (max===null||i.unit_net_cents===null||i.unit_net_cents>max))return false;
@@ -236,7 +238,7 @@ function filteredItems(items){
 }
 function refreshManufacturers(){
  const pick=$('manufacturerFilter'),prev=pick.value;
- const names=[...new Set(state.items.filter(x=>x.quantity&&v(x.manufacturer)).map(x=>x.manufacturer))].sort((a,b)=>a.localeCompare(b,'de'));
+ const names=[...new Set(state.items.filter(x=>x.quantity).map(x=>x.manufacturer||x.amazon_candidate?.manufacturer||'').filter(Boolean))].sort((a,b)=>a.localeCompare(b,'de'));
  pick.replaceChildren();el('option','Alle Hersteller',pick).value='';
  for(const name of names)el('option',name,pick).value=name;
  pick.value=names.includes(prev)?prev:'';
@@ -270,6 +272,15 @@ function render(){
      (item.manufacturer_source==='jtl_mirror'?'JTL-Spiegel':'Scan-Entwurf')+')',name);
    else el('small','Hersteller: noch nicht belegt',name);
    if(item.han)el('small','HAN: '+item.han,name);
+   const candidate=item.amazon_candidate;
+   if(candidate?.status==='review_required'&&candidate.asin){
+     const suggestion=el('div','Amazon-Archiv · Vorschlag (nicht bestätigt)',name);
+     suggestion.className='note';
+     if(candidate.title)el('div',candidate.title,name);
+     if(candidate.manufacturer)el('small','Hersteller laut Amazon: '+candidate.manufacturer,name);
+     if(candidate.brand)el('div','Marke laut Amazon: '+candidate.brand,name);
+     el('small','ASIN: '+candidate.asin,name);
+   }
    el('td',String(item.quantity),tr);
    const priceCell=el('td',undefined,tr),unit=el('input',undefined,priceCell);
    unit.type='text';unit.className='money';unit.inputMode='decimal';unit.placeholder='z. B. 1,20';
@@ -292,6 +303,13 @@ function render(){
      if(job.last_catalog_at_utc)el('small','Quelle: '+job.last_catalog_at_utc+' UTC',provenance);
      el('small','erste Anfrage '+job.requested_at_utc+' UTC · Bearbeiter im Admin-Protokoll',provenance);
    }else el('small','Amazon: noch kein protokollierter Warteschlangenauftrag',provenance);
+   if(candidate){
+     const labels={not_archived:'Kein gespeicherter Katalogtreffer',archive_unavailable:'Katalogarchiv nicht lesbar',
+       no_catalog_hit:'Archivierte Suche ohne Treffer',multiple_or_incomplete:'Mehrere oder unvollständige archivierte Treffer',
+       review_required:'Archivierter Vorschlag – Identität prüfen'};
+     el('div',labels[candidate.status]||'Amazon-Archivstatus unbekannt',provenance);
+     if(candidate.snapshot_id)el('small','Archiv #'+candidate.snapshot_id+' · '+candidate.fetched_at_utc+' UTC',provenance);
+   }
    const historyButton=el('button','Abfrageverlauf',provenance);
    historyButton.type='button';historyButton.className='secondary';historyButton.onclick=()=>{
      $('sourceEan').value=item.ean;
@@ -627,6 +645,12 @@ $('amazonButton').onclick=()=>{const ean=v($('sourceEan').value);
  if(!valEAN(ean)){status('Gültige EAN eingeben.',true);return}
  queueAmazon(ean,true).catch(e=>queueMessage('Amazon-Anfrage nicht vorgemerkt: '+errorMsg(e)))};
 $('enqueueAll').onclick=enqueueAll;
+$('refreshArchivedCandidates').onclick=async()=>{
+ if(!state.purchase)return;
+ if(!confirm('Ankaufsdaten neu laden? Bitte zuvor noch nicht gespeicherte Stückpreise sichern. Es werden keine externen APIs aufgerufen.'))return;
+ try{await detail(state.purchase.purchase.id);queueMessage('Vorhandene Artikeldaten aus dem gemeinsamen Archiv neu geladen.')}
+ catch(e){queueMessage('Archiv-/Ankaufsanzeige nicht aktualisiert: '+errorMsg(e))}
+};
 $('resumeAmazon').onclick=()=>{state.queuePaused=false;runAmazon()};
 $('pauseAmazon').onclick=()=>{state.queuePaused=true;queueMessage('Amazon-Bearbeitung pausiert. Angefangene Anfragen werden noch protokolliert.');};
 $('autoRunAmazon').onchange=()=>{if($('autoRunAmazon').checked){state.queuePaused=false;runAmazon()}else state.queuePaused=true};
