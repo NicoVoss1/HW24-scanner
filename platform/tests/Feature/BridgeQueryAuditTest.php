@@ -85,4 +85,21 @@ final class BridgeQueryAuditTest extends TestCase
         $this->assertSame('disabled',$r['audit_state']);
         $this->assertDatabaseCount('query_audit_events',0);
     }
+    public function test_admin_can_read_audit_and_non_admin_cannot_access_page(): void
+    {
+        $admin=User::factory()->create(['name'=>'HW24 Test Admin']);
+        $other=User::factory()->create(['name'=>'HW24 Test Staff']);
+        config()->set('hw24_legacy.admin_email',$admin->email);
+        $this->actingAs($other);
+        app(\App\Services\QueryAuditRecorder::class)->record(
+            'ai','ai.history','manual','ean','3474630337398',200,19,'success'
+        );
+        $this->assertFalse(\App\Filament\Pages\QueryAuditWorkbench::canAccess());
+        $this->get('/admin/abfrageprotokoll')->assertForbidden();
+        $this->actingAs($admin);
+        $this->assertTrue(\App\Filament\Pages\QueryAuditWorkbench::canAccess());
+        $this->get('/admin/abfrageprotokoll')->assertOk()
+            ->assertSee('HW24 Test Staff')->assertSee('3474630337398');
+    }
+
 }
