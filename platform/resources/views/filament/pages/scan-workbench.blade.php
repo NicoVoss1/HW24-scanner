@@ -159,7 +159,7 @@
             <section class="hw24-card">
                 <div class="hw24-card-head"><h3>02 · Gespeicherte Positionen aus Stapel {{ $selectedBatchId }}</h3></div>
                 <div class="hw24-card-body">
-                    <p class="hw24-description">Maximal 3.000 Positionen aus der vorhandenen MariaDB. Diese Ansicht zeigt keine bearbeitbaren Entwürfe und löst keine Lagerbuchung oder Artikelanlage aus.</p>
+                    <p class="hw24-description">Maximal 3.000 Positionen aus der vorhandenen MariaDB. Erfassungszeit in deutscher Ortszeit (MEZ/MESZ). CSV-Import und echte Scan-Ereignisse werden nur bei gespeichertem Nachweis angezeigt. Keine Lagerbuchung oder Artikelanlage.</p>
                     <span class="hw24-stat">{{ count($items) }} Positionen geladen</span>
                     <div class="hw24-action" style="margin:12px 0">
                         <button type="button" class="hw24-btn" wire:click="loadBatchAiMarkers" wire:loading.attr="disabled" wire:target="loadBatchAiMarkers">
@@ -179,15 +179,24 @@
                     @if($items !== [])
                         <div class="hw24-table-wrap" style="margin-top:14px">
                             <table>
-                                <thead><tr><th>EAN</th><th>Artikel</th><th>Scans</th><th>JTL-Abgleich</th><th>Prüfstatus</th><th>KI-Archiv</th></tr></thead>
+                                <thead><tr><th>EAN</th><th>Artikel</th><th>Scans</th><th>Erfasst am / Uhrzeit</th><th>Erfassungsart</th><th>JTL-Abgleich</th><th>Prüfstatus</th><th>KI-Archiv</th></tr></thead>
                                 <tbody>
                                     @foreach($items as $i => $item)
                                         <tr wire:key="hw24-scan-item-{{ $selectedBatchId }}-{{ $i }}">
                                             <td><strong>{{ $item['ean'] }}</strong><div class="hw24-sub">{{ $item['article_number'] ?: 'Artikelnummer offen' }}</div></td>
                                             <td>{{ $item['name'] ?: 'Noch nicht identifiziert' }}</td>
                                             <td>{{ $item['scans'] }}</td>
-                                            <td>{{ $item['resolution'] }}</td>
-                                            <td>{{ $item['review'] }}</td>
+                                            <td style="min-width:165px">
+                                                <strong>{{ $item['entry_at'] ?? 'Zeitpunkt nicht gespeichert' }}</strong>
+                                                @if($item['last_scan_at'])<div class="hw24-sub">Letzter Scan: {{ $item['last_scan_at'] }}</div>@endif
+                                                @if($item['updated_at'])<div class="hw24-sub">Geändert: {{ $item['updated_at'] }}</div>@endif
+                                            </td>
+                                            <td style="min-width:170px">
+                                                <strong>{{ $item['origin_label'] }}</strong>
+                                                @if($item['import_label'])<div class="hw24-sub">{{ $item['import_label'] }}</div>@endif
+                                            </td>
+                                            <td>{{ $item['resolution_label'] }}</td>
+                                            <td>{{ $item['review_label'] }}</td>
                                             <td>
                                                 @if(($batchAiMarkers[$item['ean']]['found']??false)===true)
                                                     <span class="hw24-stat">🧠 Bereits geprüft</span>
