@@ -10,6 +10,7 @@ use Filament\Pages\Page;
 use Livewire\Attributes\Locked;
 use Livewire\WithFileUploads;
 use App\Services\PreparedScanCsv;
+use App\Services\ScanEntryPresentation;
 
 /**
  * First functional migration step: show the actual old scan batches read-only.
@@ -194,6 +195,7 @@ final class ScanWorkbench extends Page
                 'scans' => max(0, (int) ($item['scan_count'] ?? 0)),
                 'resolution' => mb_substr((string) ($item['resolution'] ?? 'unverified'), 0, 40),
                 'review' => mb_substr((string) ($item['review_state'] ?? ''), 0, 40),
+                ...ScanEntryPresentation::present($item),
             ];
         }
         $this->diagnostic = [
