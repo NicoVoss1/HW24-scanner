@@ -37,6 +37,8 @@ final class LegacyReadBridge
 
     public function fetch(string $service, array $parameters = []): array
     {
+        $started = hrtime(true);
+        $finish = static fn(array $result): array => BridgeQueryAudit::finish($service, $parameters, $started, $result);
         $path = self::PATHS[$service] ?? null;
         if ($path === null) throw new RuntimeException('HW24 unknown or forbidden API endpoint');
         $base = rtrim((string) config('hw24_legacy.base_url'), '/');
@@ -48,7 +50,7 @@ final class LegacyReadBridge
         if (parse_url($base, PHP_URL_SCHEME) !== 'https' ||
             parse_url($base, PHP_URL_HOST) !== 'artikelmanager.hairworld24.de' ||
             !$user || !$password) {
-            return ['ok'=>false,'service'=>$service,'state'=>'unconfigured','http_status'=>null,'data'=>null];
+            return $finish(['ok'=>false,'service'=>$service,'state'=>'unconfigured','http_status'=>null,'data'=>null]);
         }
         foreach ($parameters as $key=>$value) {
             if (!is_string($key) || !preg_match('/^[a-z_]{1,35}$/D',$key) || !is_scalar($value))
@@ -59,17 +61,17 @@ final class LegacyReadBridge
                 ->timeout(12)->withoutRedirecting()->get($base.'/'.$path,$parameters);
             $status=$response->status();
             $json=$response->json();
-            return [
+            return $finish([
                 'ok'=>$response->successful() && is_array($json) && (($json['ok']??false)===true),
                 'service'=>$service,
                 'state'=>$response->successful()?'responded':'upstream_error',
                 'http_status'=>$status,
                 'data'=>is_array($json)?$json:null,
-            ];
+            ]);
         } catch (\Throwable $e) {
             // No secrets, URL query params or raw upstream payloads in logs.
-            return ['ok'=>false,'service'=>$service,'state'=>'upstream_unreachable',
-                'http_status'=>null,'data'=>null];
+            return $finish(['ok'=>false,'service'=>$service,'state'=>'upstream_unreachable',
+                'http_status'=>null,'data'=>null]);
         }
     }
 }
