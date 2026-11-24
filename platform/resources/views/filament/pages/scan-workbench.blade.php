@@ -260,7 +260,8 @@
                             <div class="hw24-note">
                                 <strong>{{ $candidate['title'] ?: 'Titel fehlt' }}</strong> · ASIN {{ $candidate['asin'] }} · Hersteller {{ $candidate['manufacturer'] ?: 'offen' }} · Marke {{ $candidate['brand'] ?: 'offen' }}
                                 <p>{{ $candidate['gtin_match']?'GTIN im Katalog belegt; Packung und Produkt dennoch prüfen.':'GTIN nicht im Katalog belegt; keine automatische Übernahme.' }}</p>
-                                @if($candidate['gtin_match'])
+                                <p>Verpackung: {{ match($candidate['pack_kind']??'unknown'){'single'=>'Einzelpack belegt','multipack'=>($candidate['pack_units']??'?').' Stück pro Pack','conflict'=>'Widersprüchliche Packungsangaben',default=>'Packungsgröße nicht belegt'} }}</p>
+                                @if($candidate['gtin_match'] && ($candidate['pack_kind']??'')!=='conflict')
                                     <button type="button" class="hw24-btn" wire:click="useCatalogSuggestion('{{ $candidate['asin'] }}')" wire:confirm="Diesen Produktvorschlag in noch leere Entwurffelder übernehmen?">Vorschlag übernehmen</button>
                                     <button type="button" class="hw24-btn" wire:click="priceCandidate('{{ $candidate['asin'] }}')" wire:loading.attr="disabled">Buy Box / Marktpreise prüfen</button>
                                 @endif
