@@ -159,8 +159,21 @@
             <section class="hw24-card">
                 <div class="hw24-card-head"><h3>02 · Gespeicherte Positionen aus Stapel {{ $selectedBatchId }}</h3></div>
                 <div class="hw24-card-body">
-                    <p class="hw24-description">Maximal 3.000 Positionen aus der vorhandenen MariaDB. Erfassungszeit in deutscher Ortszeit (MEZ/MESZ). CSV-Import und echte Scan-Ereignisse werden nur bei gespeichertem Nachweis angezeigt. Keine Lagerbuchung oder Artikelanlage.</p>
+                    <p class="hw24-description">Maximal 3.000 Positionen aus der vorhandenen MariaDB. Erfassungszeit in deutscher Ortszeit (MEZ/MESZ). CSV-Import und echte Scan-Ereignisse werden nur bei gespeichertem Nachweis angezeigt. Keine Lagerbuchung oder direkte Artikelanlage in JTL.</p>
                     <span class="hw24-stat">{{ count($items) }} Positionen geladen</span>
+                    <div class="hw24-note" x-data="{running:false}">
+                        <h3>JTL &amp; Amazon Sammelrecherche</h3>
+                        <p>Ausgewählte Artikel nacheinander mit vorhandenen APIs prüfen. Katalog kann Cache oder SP-API verwenden. Keine kostenpflichtige KI automatisch.</p>
+                        <div class="hw24-action" style="margin-top:10px">
+                            <button type="button" class="hw24-btn" wire:click="selectAllResearch" x-bind:disabled="running">Alle Artikel markieren</button>
+                            <button type="button" class="hw24-btn" wire:click="$set('selectedEans', [])" x-bind:disabled="running">Auswahl zurücksetzen</button>
+                            <label><input type="checkbox" wire:model.live="confirmResearch" x-bind:disabled="running"> Amazon-Katalogabfragen für Auswahl bestätigen</label>
+                            <button type="button" class="hw24-btn" x-bind:disabled="running || !$wire.confirmResearch" x-on:click="running=true; try { await $wire.prepareResearch(); for(let i=0;i&lt;3000 &amp;&amp; running;i++){ if(!(await $wire.researchNext()))break; await new Promise(r=>setTimeout(r,11000)); } } finally {running=false;}">Auswahl recherchieren</button>
+                            <button type="button" class="hw24-btn" x-bind:disabled="!running" x-on:click="running=false">Pausieren</button>
+                        </div>
+                        <p role="status">{{ count($selectedEans) }} markiert · {{ $researchOffset }} / {{ count($researchQueue) }} recherchiert · {{ $researchMessage }}</p>
+                        <p>Rechercheübersicht gilt für diese Browser-Sitzung. Die Amazon-Katalogantwort selbst wird durch die bestehende API archiviert, soweit deren Speicherfunktion aktiv ist.</p>
+                    </div>
                     <div class="hw24-action" style="margin:12px 0">
                         <button type="button" class="hw24-btn" wire:click="loadBatchAiMarkers" wire:loading.attr="disabled" wire:target="loadBatchAiMarkers">
                             🧠 Bereits geprüfte KI-Artikel anzeigen
@@ -179,10 +192,11 @@
                     @if($items !== [])
                         <div class="hw24-table-wrap" style="margin-top:14px">
                             <table>
-                                <thead><tr><th>EAN</th><th>Artikel</th><th>Scans</th><th>Erfasst am / Uhrzeit</th><th>Erfassungsart</th><th>JTL-Abgleich</th><th>Prüfstatus</th><th>KI-Archiv</th></tr></thead>
+                                <thead><tr><th>Auswahl</th><th>EAN</th><th>Artikel</th><th>Scans</th><th>Erfasst am / Uhrzeit</th><th>Erfassungsart</th><th>JTL-Abgleich</th><th>Prüfstatus</th><th>KI-Archiv</th><th>Amazon / Bearbeitung</th></tr></thead>
                                 <tbody>
                                     @foreach($items as $i => $item)
                                         <tr wire:key="hw24-scan-item-{{ $selectedBatchId }}-{{ $i }}">
+                                            <td><input type="checkbox" wire:model.live="selectedEans" value="{{ $item['ean'] }}" aria-label="EAN {{ $item['ean'] }} markieren" @disabled($item['review']==='removed')></td>
                                             <td><strong>{{ $item['ean'] }}</strong><div class="hw24-sub">{{ $item['article_number'] ?: 'Artikelnummer offen' }}</div></td>
                                             <td>{{ $item['name'] ?: 'Noch nicht identifiziert' }}</td>
                                             <td>{{ $item['scans'] }}</td>
@@ -207,6 +221,18 @@
                                                     <span class="hw24-sub">Noch nicht geprüft</span>
                                                 @endif
                                             </td>
+                                            <td>
+                                                @if(isset($researchResults[$item['ean']]))
+                                                    @php($evidence=$researchResults[$item['ean']])
+                                                    <div>{{ $evidence['amazon_ok'] ? count($evidence['items']).' Katalogtreffer' : 'Recherche fehlgeschlagen' }}</div>
+                                                    @if($evidence['items']!==[])<div class="hw24-sub">{{ $evidence['items'][0]['title'] }} · Vorschlag</div>@endif
+                                                    <div class="hw24-sub">Quelle: {{ $evidence['source'] ?: 'unbekannt' }} · HTTP {{ $evidence['http'] ?? '—' }}</div>
+                                                @endif
+                                                @if($item['review']!=='removed')
+                                                    <button type="button" class="hw24-btn" wire:click="openDraft('{{ $item['ean'] }}')">Identifizieren / bearbeiten</button>
+                                                    <a class="hw24-link" href="{{ url('/admin/intelligence').'?ean='.rawurlencode($item['ean']) }}">KI &amp; Amazon Details</a>
+                                                @endif
+                                            </td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -215,6 +241,60 @@
                     @else
                         <p class="hw24-empty">Dieser Stapel enthält aktuell keine anzeigbaren Positionen.</p>
                     @endif
+                </div>
+            </section>
+        @endif
+
+        @if($workingEan!==null)
+            <section class="hw24-card">
+                <div class="hw24-card-head"><h3>Artikel identifizieren und Entwurf bearbeiten · {{ $workingEan }}</h3></div>
+                <div class="hw24-card-body">
+                    <div class="hw24-action">
+                        <button type="button" class="hw24-btn" wire:click="researchOne('{{ $workingEan }}')" wire:loading.attr="disabled" wire:confirm="JTL und Amazon-Katalog für diese EAN abfragen?">JTL &amp; Amazon recherchieren</button>
+                        <a class="hw24-link" target="_blank" rel="noopener noreferrer" href="{{ url('/admin/intelligence').'?ean='.rawurlencode($workingEan) }}">KI-Archiv und KI-Einzelprüfung öffnen</a>
+                    </div>
+                    @if(isset($researchResults[$workingEan]))
+                        @php($evidence=$researchResults[$workingEan])
+                        <p class="hw24-note">JTL: {{ match($evidence['jtl']){'existing'=>'vorhanden','new_candidate'=>'Neuanlage-Kandidat','multiple'=>'mehrdeutig',default=>'nicht verifiziert'} }} · Amazon HTTP {{ $evidence['http']??'—' }} · {{ $evidence['source']?:'unbekannt' }} · Archiv {{ $evidence['snapshot_id']?:'offen' }}</p>
+                        @foreach($evidence['items'] as $candidate)
+                            <div class="hw24-note">
+                                <strong>{{ $candidate['title'] ?: 'Titel fehlt' }}</strong> · ASIN {{ $candidate['asin'] }} · Hersteller {{ $candidate['manufacturer'] ?: 'offen' }} · Marke {{ $candidate['brand'] ?: 'offen' }}
+                                <p>{{ $candidate['gtin_match']?'GTIN im Katalog belegt; Packung und Produkt dennoch prüfen.':'GTIN nicht im Katalog belegt; keine automatische Übernahme.' }}</p>
+                                @if($candidate['gtin_match'])
+                                    <button type="button" class="hw24-btn" wire:click="useCatalogSuggestion('{{ $candidate['asin'] }}')" wire:confirm="Diesen Produktvorschlag in noch leere Entwurffelder übernehmen?">Vorschlag übernehmen</button>
+                                    <button type="button" class="hw24-btn" wire:click="priceCandidate('{{ $candidate['asin'] }}')" wire:loading.attr="disabled">Buy Box / Marktpreise prüfen</button>
+                                @endif
+                            </div>
+                        @endforeach
+                        @if($evidence['items']===[])<p>Kein nutzbarer Katalogtreffer. Produktname/Hersteller von der Verpackung erfassen und KI-Einzelrecherche nutzen.</p>@endif
+                    @endif
+                    @if($workingPrice!==[])
+                        <p class="hw24-note">ASIN {{ $workingPrice['asin'] }} · {{ $workingPrice['ok']?'Amazon-Angebotsdaten':'Preisabfrage nicht erfolgreich' }} · Stand {{ $workingPrice['at']??'unbekannt' }} UTC
+                            @foreach(['buy_box'=>'Buy Box / Marktpreisreferenz','lowest'=>'Niedrigstes Angebot'] as $key=>$label)
+                                @if($workingPrice[$key]!==null) · {{ $label }}: {{ number_format($workingPrice[$key]['amount'],2,',','.') }} {{ $workingPrice[$key]['currency'] }} @endif
+                            @endforeach
+                            . Kein automatisch kalkulierter eigener VK; Einkauf, Gebühren, Versand und Steuer berücksichtigen.
+                        </p>
+                    @endif
+                    <p class="hw24-description">Alle vorhandenen Scanentwurffelder. Änderungen nur bei Neuanlage-Kandidaten speichern. Keine direkte Wawi-Schreiboperation.</p>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px">
+                        @foreach(\App\Services\ScanResearch::FIELDS as $field)
+                            <label style="font-size:12px">
+                                {{ $field }}{{ in_array($field,\App\Services\ScanResearch::REQUIRED,true)?' *':'' }}
+                                @if(in_array($field,['Kurzbeschreibung','Beschreibung','Anmerkung','Meta-Description (SEO)'],true))
+                                    <textarea class="hw24-btn" style="display:block;width:100%;text-align:left" wire:model="draftFields.{{ $field }}"></textarea>
+                                @else
+                                    <input class="hw24-btn" style="display:block;width:100%;text-align:left" type="text" wire:model="draftFields.{{ $field }}" @readonly($field==='GTIN')>
+                                @endif
+                            </label>
+                        @endforeach
+                    </div>
+                    <label class="hw24-action" style="margin-top:12px"><input type="checkbox" wire:model.live="confirmDraft"> Produktidentität und eingetragene Werte geprüft; Entwurf speichern.</label>
+                    <div class="hw24-action">
+                        <button type="button" class="hw24-btn" wire:click="saveDraft(false)" @disabled(!$this->canWriteScan()||!$confirmDraft)>Entwurf speichern</button>
+                        <button type="button" class="hw24-btn" wire:click="saveDraft(true)" @disabled(!$this->canWriteScan()||!$confirmDraft)>Prüfen und für Ameise freigeben</button>
+                    </div>
+                    @if($draftMessage!=='')<p class="hw24-note" role="status">{{ $draftMessage }}</p>@endif
                 </div>
             </section>
         @endif
