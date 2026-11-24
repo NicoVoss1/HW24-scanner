@@ -24,6 +24,8 @@ final class LegacyApprovedActionBridge
 
     public function post(string $service, array $payload, array $extraHeaders = []): array
     {
+        $started = hrtime(true);
+        $finish = static fn(array $result): array => BridgeQueryAudit::finish($service, $payload, $started, $result);
         $path = self::PATHS[$service] ?? null;
         if ($path === null) {
             throw new RuntimeException('HW24 write or paid service not approved');
@@ -32,7 +34,7 @@ final class LegacyApprovedActionBridge
         $scan = str_starts_with($service, 'scan.');
         if (($scan && config('hw24_legacy.scan_writes_enabled') !== true) ||
             (!$scan && config('hw24_legacy.ai_paid_enabled') !== true)) {
-            return ['ok' => false, 'state' => 'disabled_by_operator', 'http_status' => null, 'data' => null];
+            return $finish(['ok' => false, 'state' => 'disabled_by_operator', 'http_status' => null, 'data' => null]);
         }
         if (($payload['op'] ?? null) !== ($service === 'scan.create' ? 'create' : 'scan')
             && $scan) {
@@ -43,7 +45,7 @@ final class LegacyApprovedActionBridge
         $user = (string) config('hw24_legacy.user');
         $password = (string) config('hw24_legacy.password');
         if ($base !== 'https://artikelmanager.hairworld24.de' || $user === '' || $password === '') {
-            return ['ok' => false, 'state' => 'unconfigured', 'http_status' => null, 'data' => null];
+            return $finish(['ok' => false, 'state' => 'unconfigured', 'http_status' => null, 'data' => null]);
         }
         // Only these two explicit recheck headers; all others forbidden to avoid
         // bypass of legacy approval or client-controlled HTTP headers.
@@ -70,7 +72,7 @@ final class LegacyApprovedActionBridge
                 ->withoutRedirecting()
                 ->post($base.'/'.$path, $payload);
             $json = $response->json();
-            return [
+            return $finish([
                 'ok' => $response->successful() && is_array($json)
                     && (($json['ok'] ?? false) === true),
                 'state' => $response->successful() ? 'responded' : 'upstream_error',
@@ -78,10 +80,10 @@ final class LegacyApprovedActionBridge
                 // Only machine data from the trusted pinned endpoint; callers whitelist
                 // fields before rendering to prevent exposing arbitrary upstream data.
                 'data' => is_array($json) ? $json : null,
-            ];
+            ]);
         } catch (\Throwable) {
-            return ['ok' => false, 'state' => 'upstream_unreachable',
-                'http_status' => null, 'data' => null];
+            return $finish(['ok' => false, 'state' => 'upstream_unreachable',
+                'http_status' => null, 'data' => null]);
         }
     }
 }
