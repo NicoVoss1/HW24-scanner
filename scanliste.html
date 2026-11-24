@@ -104,6 +104,11 @@ details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border
 <button type="button" class="secondary" id="hairTemplate" title="Füllt nur noch leere Standardfelder für einen Haarfarben-Artikel, ohne gespeicherte JTL-Daten zu überschreiben">Fehlende Haarfarben-Standards ergänzen</button></div>
 <p class="note">Diese Vorlage ergänzt ausschließlich noch leere Standardwerte. Sie wird für Haarfarben automatisch vorgeschlagen; der Button dient zur manuellen Nachkorrektur. Die JTL-Artikelnummer kann bei Neuanlage leer bleiben, damit die Ameise sie vergibt.</p>
 <p class="progressLine" id="editorCompleteness">Pflichtfelder werden geprüft.</p>
+<details class="formGroup" id="fieldBuilder"><summary>Feldbaukasten · Artikelmaske</summary>
+<p class="note">Nur die Ansicht ändert sich. Ausgeblendete Felder bleiben erhalten und werden weiterhin geprüft und gespeichert. Pflichtfelder bleiben sichtbar.</p>
+<div class="toolbar"><button type="button" id="fieldsCompact" class="secondary">Kompakte Artikelanlage</button><button type="button" id="fieldsAll" class="secondary">Alle Felder anzeigen</button></div>
+<div id="fieldChoices" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px"></div>
+<p class="note">Ansichtseinstellung wird zunächst in diesem Browser gespeichert; die Artikeldaten bleiben zentral.</p></details>
 <div id="editorFields" class="editorFields"></div><p id="grossEK" class="note">Brutto-EK: Abhängig von tatsächlichem Netto-EK und Steuerklasse (nur Anzeige, kein Import).</p>
 <details style="margin-top:12px"><summary>Weitere JTL-Wawi-Reiter und Importarten</summary>
 <p class="note">Die Wawi kennt außerdem Bestände, Bilder, Attribute/Merkmale, Variationen, Stücklisten, Sonderpreise, Dateien und eigene Felder. Das wird nicht aus dem Artikelstamm-CSV erfunden oder bei Neuanlagen stillschweigend gelöscht. Lager-/WMS-Buchungen erfolgen ausschließlich über den dafür vorgesehenen Prozess. Bilder und Merkmale benötigen gegebenenfalls eigene JTL-Ameise-Importarten.</p></details>
@@ -113,6 +118,11 @@ details summary{cursor:pointer;font-weight:650}.danger{background:#fff6ef;border
 </div>
 </section></div>
 <section class="card"><h2>6. JTL-Ameise-Import vorbereiten</h2>
+<details class="formGroup" id="exportBuilder"><summary>Feldbaukasten · Ameise-Exportvorlage NEU</summary>
+<p class="note">Exportspalten separat auswählen. Pflichtfelder und GTIN bleiben enthalten; vorhandene Artikelnummern werden niemals ausgeblendet. Ausgewählte optionale Felder können leer sein. Nur Neuanlagen, kein UPDATE/WMS.</p>
+<div class="toolbar"><button type="button" id="exportCompact" class="secondary">Basisvorlage</button><button type="button" id="exportAll" class="secondary">Alle verfügbaren Felder</button></div>
+<div id="exportChoices" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px"></div>
+<p class="note">Die Spaltenwahl bleibt in diesem Browser gespeichert. Die tatsächliche Zuordnung in JTL-Ameise muss einmalig geprüft werden.</p></details>
 <div class="export"><button id="export" type="button">📄 Freigegebene Neuanlagen als CSV exportieren</button>
 <button id="report" type="button" class="secondary">Gesamte Scanliste als CSV</button></div>
 <p class="note">Die Ameise-Datei ist UTF-8 mit BOM und Semikolon getrennt. Bei leerer Artikelnummer muss in JTL-Ameise die globale automatische Artikelnummernvergabe eingestellt werden. Originalspalten aus dem JTL-Export werden verwendet. Vor dem echten Import die Zuordnung der <strong>importierbaren</strong> JTL-Ameise-Felder prüfen. Je Export maximal 200 freigegebene Positionen.</p>
@@ -208,6 +218,60 @@ const formGroups=[
 ];
 const schema=formGroups.flatMap(g=>g.fields);
 const required=new Set(['Artikelname','Hersteller','Warengruppe','Steuerklasse']);
+
+const fieldBuilderKey='hw24_scan_view_fields_v1',exportBuilderKey='hw24_scan_export_fields_v1';
+const lockedView=new Set(['GTIN',...required]),lockedExport=new Set(['GTIN',...required]);
+const compactFields=['Artikelnummer','GTIN','HAN','ASIN','Artikelname','Hersteller','Artikeltyp','Warengruppe','Steuerklasse','Währung','Kosten','Netto-VK','Brutto-VK','Inhalt/Menge','Maßeinheit','Lieferstatus','Bestandsführung aktiv','Artikel aktiv'];
+function validatedFieldSelection(values,locked){
+ const selected=new Set(Array.isArray(values)?values.filter(k=>schema.includes(k)):schema);
+ for(const key of locked)selected.add(key);
+ return selected;
+}
+function readFieldSelection(key,locked){
+ try{return validatedFieldSelection(JSON.parse(localStorage.getItem(key)||'null'),locked)}
+ catch{return validatedFieldSelection(null,locked)}
+}
+let viewFields=readFieldSelection(fieldBuilderKey,lockedView);
+let exportFields=readFieldSelection(exportBuilderKey,lockedExport);
+function persistFieldSelection(key,selection){
+ try{localStorage.setItem(key,JSON.stringify([...selection]))}
+ catch{/* UI preference only; never a product-data persistence mechanism. */}
+}
+function applyFieldVisibility(){
+ for(const box of $('editorFields').querySelectorAll('.fieldBox')){
+  const control=box.querySelector('input,textarea,select');
+  if(control)box.style.display=viewFields.has(control.name)?'':'none';
+ }
+ for(const group of $('editorFields').querySelectorAll('.formGroup')){
+  group.style.display=[...group.querySelectorAll('input,textarea,select')].some(c=>viewFields.has(c.name))?'':'none';
+ }
+}
+function renderFieldChoices(id,selection,locked,change){
+ const target=$(id);target.replaceChildren();
+ for(const key of schema){
+  const label=document.createElement('label'),checkbox=document.createElement('input');
+  checkbox.type='checkbox';checkbox.checked=selection.has(key);checkbox.disabled=locked.has(key);
+  checkbox.style.width='auto';label.style.display='flex';label.style.gap='6px';label.style.alignItems='center';
+  label.append(checkbox,document.createTextNode(key+(locked.has(key)?' *':'')));
+  checkbox.onchange=()=>{if(checkbox.checked)selection.add(key);else selection.delete(key);change();};
+  target.append(label);
+ }
+}
+function paintViewChoices(){
+ renderFieldChoices('fieldChoices',viewFields,lockedView,()=>{
+  persistFieldSelection(fieldBuilderKey,viewFields);applyFieldVisibility();
+ });
+ applyFieldVisibility();
+}
+function paintExportChoices(){
+ renderFieldChoices('exportChoices',exportFields,lockedExport,()=>persistFieldSelection(exportBuilderKey,exportFields));
+}
+$('fieldsCompact').onclick=()=>{viewFields=validatedFieldSelection(compactFields,lockedView);persistFieldSelection(fieldBuilderKey,viewFields);paintViewChoices();};
+$('fieldsAll').onclick=()=>{viewFields=validatedFieldSelection(schema,lockedView);persistFieldSelection(fieldBuilderKey,viewFields);paintViewChoices();};
+$('exportCompact').onclick=()=>{exportFields=validatedFieldSelection(compactFields,lockedExport);persistFieldSelection(exportBuilderKey,exportFields);paintExportChoices();};
+$('exportAll').onclick=()=>{exportFields=validatedFieldSelection(schema,lockedExport);persistFieldSelection(exportBuilderKey,exportFields);paintExportChoices();};
+paintViewChoices();paintExportChoices();
+
 const full=new Set(['Artikelname','Kurzbeschreibung','Beschreibung','Meta-Description (SEO)','Anmerkung']);
 const multiline=new Set(['Kurzbeschreibung','Beschreibung','Meta-Description (SEO)','Anmerkung']);
 const options={
@@ -543,6 +607,7 @@ function selectItem(id){
     }
   }
  }
+ applyFieldVisibility();
  refreshFieldGroups();
  $('useEAN').disabled=disabled;$('autoSKU').disabled=disabled;$('hairTemplate').disabled=disabled;$('research').disabled=false;
  $('save').disabled=disabled;$('ready').disabled=disabled;
@@ -732,7 +797,7 @@ $('hairTemplate').onclick=()=>patchFields({'GTIN':state.selected?.ean||'',
 function cell(x){let s=val(x);if(/^[=+@-]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}
 function downloadCSV(rows,filename){
  const withSku=rows.some(r=>val(r.Artikelnummer));
- const columns=[...(withSku?['Artikelnummer']:[]),...schema.filter(k=>k!=='Artikelnummer'&&rows.some(r=>val(r[k])))];
+ const columns=[...(withSku?['Artikelnummer']:[]),...schema.filter(k=>k!=='Artikelnummer'&&exportFields.has(k))];
  const content='\ufeff'+columns.map(cell).join(';')+'\r\n'+rows.map(r=>columns.map(k=>cell(r[k])).join(';')).join('\r\n')+'\r\n';
  const blob=new Blob([content],{type:'text/csv;charset=utf-8'});
  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename;
@@ -745,6 +810,7 @@ $('export').onclick=async()=>{
  const autoCount=Number(result.auto_article_numbers||0);
  const question=result.count+' freigegebene Neuanlagen exportieren?'+
  (autoCount?' Für '+autoCount+' Artikel ohne Artikelnummer in JTL-Ameise „Artikelnummern automatisch vergeben, falls nicht vorhanden: Ja, globale fortlaufende Nummer und Präfix beachten“ auswählen.':'')+
+ ' Exportspalten: '+schema.filter(k=>k==='Artikelnummer'?result.fields.some(r=>val(r.Artikelnummer)):exportFields.has(k)).join(', ')+'.'+
  ' Identifizierung anhand Artikelnummer/GTIN im JTL-Ameise-Testlauf prüfen. Das ist noch kein Import.';
  if(!confirm(question))return;
  downloadCSV(result.fields,'HW24_Ameise_Neuanlagen_'+result.count+'_PRUEFEXPORT.csv');
