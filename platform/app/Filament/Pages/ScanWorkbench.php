@@ -8,6 +8,8 @@ use App\Services\LegacyApprovedActionBridge;
 use Illuminate\Support\Str;
 use Filament\Pages\Page;
 use Livewire\Attributes\Locked;
+use Livewire\WithFileUploads;
+use App\Services\PreparedScanCsv;
 
 /**
  * First functional migration step: show the actual old scan batches read-only.
@@ -16,6 +18,73 @@ use Livewire\Attributes\Locked;
  */
 final class ScanWorkbench extends Page
 {
+    use WithFileUploads;
+
+    public $csvFile = null;
+    public bool $confirmCsvImport = false;
+    #[Locked] public array $csvRows = [];
+    #[Locked] public array $csvState = [];
+    #[Locked] public int $csvOffset = 0;
+    #[Locked] public ?int $csvBatchId = null;
+
+    public function previewCsv(): void
+    {
+        $this->reset(['csvRows','csvState','csvOffset','csvBatchId','confirmCsvImport']);
+        if($this->selectedBatchId===null){
+            $this->csvState=['ok'=>false,'message'=>'Bitte zuerst einen TEST-Stapel auswählen.'];
+            return;
+        }
+        try {
+            $this->validate(['csvFile'=>'required|file|max:1024']);
+            if(strtolower((string)$this->csvFile->getClientOriginalExtension())!=='csv')
+                throw new \InvalidArgumentException('Bitte vorbereitete UTF-8-CSV auswählen. XLSX zuerst als CSV speichern.');
+            $text=file_get_contents($this->csvFile->getRealPath(),false,null,0,1048577);
+            if(!is_string($text))throw new \InvalidArgumentException('Datei konnte nicht gelesen werden.');
+            $parsed=PreparedScanCsv::parse($text);
+            $this->csvRows=$parsed['rows'];
+            $this->csvBatchId=$this->selectedBatchId;
+            $this->csvState=['ok'=>true,'message'=>'Vorschau fertig. Noch keine Daten gespeichert.',
+                'count'=>count($this->csvRows),'duplicates'=>$parsed['duplicates'],
+                'inserted'=>0,'existed'=>0,'restored'=>0];
+        } catch (\InvalidArgumentException $e) {
+            $this->csvState=['ok'=>false,'message'=>$e->getMessage()];
+        }
+    }
+
+    /** One acknowledged chunk per request. No provider call or JTL write. */
+    public function importCsvChunk(LegacyApprovedActionBridge $bridge): bool
+    {
+        $batch=$this->selectedBatchId;
+        $label='';
+        foreach($this->batches as $b)if($b['id']===$batch)$label=$b['label'];
+        if(!$this->canWriteScan()||!$this->confirmCsvImport||
+           $batch===null||$batch!==$this->csvBatchId||
+           !preg_match('/^TEST(?:\\b|[-_])/iu',$label)||
+           ($this->csvState['ok']??false)!==true){
+            $this->csvState['message']='Import blockiert: TEST-Stapel, private Schreibfreigabe und ausdrückliche Bestätigung erforderlich.';
+            return false;
+        }
+        $rows=array_slice($this->csvRows,$this->csvOffset,25);
+        if(!$rows)return false;
+        // Bridge and legacy API cap the JSON payload. Preserve all metadata.
+        while(count($rows)>1&&strlen(json_encode(['op'=>'import_rows','batch_id'=>$batch,'rows'=>$rows],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR))>22000)
+            array_pop($rows);
+        $r=$bridge->post('scan.import',['op'=>'import_rows','batch_id'=>$batch,'rows'=>$rows]);
+        $data=$r['data']??[];
+        if(($r['ok']??false)!==true||!is_array($data)||(int)($data['received']??-1)!==count($rows)||
+           (int)($data['inserted']??-1)+(int)($data['existed']??-1)+(int)($data['restored']??-1)!==count($rows)){
+            $this->csvState['message']='Import gestoppt: Speicherbestätigung fehlt. Fortschritt bleibt erhalten; bitte Stapel prüfen. Erneutes Einlesen zählt keine Stücke doppelt.';
+            $this->confirmCsvImport=false;
+            return false;
+        }
+        foreach(['inserted','existed','restored'] as $k)$this->csvState[$k]+=(int)$data[$k];
+        $this->csvOffset+=count($rows);
+        $more=$this->csvOffset<count($this->csvRows);
+        $this->csvState['message']=$more?'Teilimport bestätigt.':'CSV-Import abgeschlossen. Gespeicherte Positionen erneut laden.';
+        if(!$more)$this->confirmCsvImport=false;
+        return $more;
+    }
+
     protected static ?string $title = 'Scanliste & Sammelimport';
     protected static ?string $navigationLabel = 'Scanliste';
     protected static ?string $slug = 'scanliste';
