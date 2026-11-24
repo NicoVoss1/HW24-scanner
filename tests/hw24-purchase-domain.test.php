@@ -44,4 +44,15 @@ expectEq(hw24PurchaseLineCents(0,120,19),
 expectInvalid(fn()=>hw24PurchaseLineCents(-1,120,19),'negative count');
 expectInvalid(fn()=>hw24PurchaseLineCents(5,120,12),'unsupported VAT');
 expectInvalid(fn()=>hw24PurchaseLineCents(PHP_INT_MAX,PHP_INT_MAX,19),'overflow');
+$archive=['snapshot_id'=>10,'fetched_at_utc'=>'2026-11-24 12:00:00','item_count'=>1,
+    'stored_item_count'=>1,'asin'=>'B000000001','item_name'=>'Test product',
+    'brand'=>'Test brand','manufacturer'=>'Test manufacturer'];
+expectEq(hw24PurchaseArchiveCandidate($archive)['status'],'review_required','single catalog result is unconfirmed');
+expectEq(hw24PurchaseArchiveCandidate($archive)['manufacturer'],'Test manufacturer','manufacturer remains distinct from brand');
+expectEq(hw24PurchaseArchiveCandidate(array_replace($archive,['manufacturer'=>'']))['manufacturer'],'','no invented manufacturer');
+expectEq(hw24PurchaseArchiveCandidate(array_replace($archive,['item_count'=>0]))['status'],'no_catalog_hit','zero hits');
+expectEq(hw24PurchaseArchiveCandidate(array_replace($archive,['item_count'=>2]))['status'],'multiple_or_incomplete','ambiguous hits');
+expectEq(array_key_exists('asin',hw24PurchaseArchiveCandidate(array_replace($archive,['stored_item_count'=>2]))),false,'ambiguous rows do not select first');
+expectEq(hw24PurchaseArchiveCandidate(array_replace($archive,['asin'=>'invalid']))['status'],'multiple_or_incomplete','invalid ASIN');
+expectEq(hw24PurchaseArchiveCandidate(null)['status'],'not_archived','missing archive remains unknown');
 echo "HW24 purchase domain tests: passed\n";
