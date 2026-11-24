@@ -20,6 +20,7 @@ final class LegacyApprovedActionBridge
         'scan.create' => 'api/scanliste.php',
         'scan.scan' => 'api/scanliste.php',
         'scan.import' => 'api/scanliste.php',
+        'scan.edit' => 'api/scanliste.php',
         'ai.review' => 'api/ai-review.php',
     ];
 
@@ -37,7 +38,7 @@ final class LegacyApprovedActionBridge
             (!$scan && config('hw24_legacy.ai_paid_enabled') !== true)) {
             return $finish(['ok' => false, 'state' => 'disabled_by_operator', 'http_status' => null, 'data' => null]);
         }
-        if (($payload['op'] ?? null) !== (match($service) {'scan.create'=>'create','scan.import'=>'import_rows',default=>'scan'})
+        if (($payload['op'] ?? null) !== (match($service) {'scan.create'=>'create','scan.import'=>'import_rows','scan.edit'=>'edit',default=>'scan'})
             && $scan) {
             throw new RuntimeException('Legacy scan operation and service mismatch');
         }
