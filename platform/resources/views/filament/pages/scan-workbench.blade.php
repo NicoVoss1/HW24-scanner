@@ -170,7 +170,7 @@ html.dark .hw24-scan-workbench{color:#edf2fb}
                                             <td data-label="Scans">{{ $item['scans'] }}</td>
                                             <td data-label="JTL-Abgleich">{{ $item['resolution'] }}</td>
                                             <td data-label="Prüfstatus">{{ $item['review'] }}</td>
-                                            <td>
+                                            <td data-label="KI-Archiv">
                                                 @if(($batchAiMarkers[$item['ean']]['found']??false)===true)
                                                     <span class="hw24-stat">🧠 Bereits geprüft</span>
                                                     <div class="hw24-sub">{{ $batchAiMarkers[$item['ean']]['count'] }} Bericht(e) · zuletzt {{ $batchAiMarkers[$item['ean']]['at'] }} UTC</div>
