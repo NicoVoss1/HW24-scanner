@@ -11,6 +11,7 @@ use Livewire\Attributes\Locked;
 use Livewire\WithFileUploads;
 use App\Services\PreparedScanCsv;
 use App\Services\ScanEntryPresentation;
+use App\Services\ScanResearch;
 
 /**
  * First functional migration step: show the actual old scan batches read-only.
@@ -118,9 +119,141 @@ final class ScanWorkbench extends Page
     #[Locked]
     public array $diagnostic = [];
 
+
+    public array $selectedEans = [];
+    public bool $confirmResearch = false;
+    #[Locked] public array $researchQueue = [];
+    #[Locked] public array $researchResults = [];
+    #[Locked] public int $researchOffset = 0;
+    #[Locked] public string $researchMessage = '';
+    #[Locked] public ?string $workingEan = null;
+    #[Locked] public array $workingPrice = [];
+    public array $draftFields = [];
+    public bool $confirmDraft = false;
+    #[Locked] public string $draftMessage = '';
+
+    private function rowFor(string $ean): ?array
+    {
+        foreach($this->items as $row)if($row['ean']===$ean && $row['review']!=='removed')return $row;
+        return null;
+    }
+
+    public function selectAllResearch(): void
+    {
+        $this->selectedEans=array_values(array_map(static fn($r)=>$r['ean'],
+            array_filter($this->items,static fn($r)=>$r['review']!=='removed'&&self::validGtin($r['ean']))));
+    }
+
+    public function prepareResearch(): void
+    {
+        if(!$this->confirmResearch||$this->selectedBatchId===null)return;
+        $this->researchQueue=[];
+        foreach(array_unique(array_filter($this->selectedEans,'is_string')) as $ean)
+            if(self::validGtin($ean)&&$this->rowFor($ean)!==null)$this->researchQueue[]=$ean;
+        $this->researchOffset=0;
+        $this->researchMessage=count($this->researchQueue).' Positionen vorgemerkt. Browser geöffnet lassen.';
+    }
+
+    /** Browser-driven sequence; no hidden paid calls, no automatic retries. */
+    public function researchNext(LegacyReadBridge $bridge): bool
+    {
+        if(!$this->confirmResearch||!isset($this->researchQueue[$this->researchOffset]))return false;
+        $ean=$this->researchQueue[$this->researchOffset];
+        if($this->rowFor($ean)===null)return false;
+        $result=ScanResearch::research($ean,$bridge);
+        $this->researchResults[$ean]=$result;
+        if(!$result['amazon_ok']){
+            $this->confirmResearch=false;
+            $this->researchMessage='Amazon-Antwort nicht erfolgreich (HTTP '.($result['http']??'unbekannt').'). Warteschlange angehalten; bitte Fehler prüfen.';
+            return false;
+        }
+        $this->researchOffset++;
+        $more=$this->researchOffset<count($this->researchQueue);
+        $this->researchMessage=$more?'Recherche läuft.':'Ausgewählte Positionen recherchiert. Produktzuordnung und Entwürfe prüfen.';
+        if(!$more)$this->confirmResearch=false;
+        return $more;
+    }
+
+    public function openDraft(string $ean): void
+    {
+        $row=$this->rowFor($ean);
+        if($row===null)return;
+        $this->reset(['draftFields','confirmDraft','draftMessage','workingPrice']);
+        $this->workingEan=$ean;
+        foreach(ScanResearch::FIELDS as $field){
+            $v=$row['draft'][$field]??'';
+            $this->draftFields[$field]=is_scalar($v)?(string)$v:'';
+        }
+        $this->draftFields['GTIN']=$ean;
+        if($this->draftFields['Artikelname']==='')$this->draftFields['Artikelname']=$row['name'];
+    }
+
+    public function researchOne(string $ean,LegacyReadBridge $bridge): void
+    {
+        if($this->rowFor($ean)===null||!self::validGtin($ean))return;
+        $this->researchResults[$ean]=ScanResearch::research($ean,$bridge);
+    }
+
+    public function useCatalogSuggestion(string $asin): void
+    {
+        $ean=$this->workingEan;
+        if($ean===null||$this->rowFor($ean)===null)return;
+        foreach($this->researchResults[$ean]['items']??[] as $candidate){
+            if($candidate['asin']!==$asin||!$candidate['gtin_match'])continue;
+            foreach(['ASIN'=>'asin','Artikelname'=>'title','Hersteller'=>'manufacturer'] as $field=>$key)
+                if(trim((string)($this->draftFields[$field]??''))==='')$this->draftFields[$field]=$candidate[$key];
+            $this->draftMessage='Amazon-Vorschlag in leere Felder übernommen. Packungsgröße und Identität manuell prüfen; noch nicht gespeichert.';
+            return;
+        }
+    }
+
+    public function priceCandidate(string $asin,LegacyReadBridge $bridge): void
+    {
+        $ean=$this->workingEan;
+        if($ean===null||$this->rowFor($ean)===null)return;
+        foreach($this->researchResults[$ean]['items']??[] as $candidate){
+            if($candidate['asin']===$asin&&$candidate['gtin_match']){
+                $this->workingPrice=ScanResearch::pricing($asin,$bridge);
+                return;
+            }
+        }
+    }
+
+    public function saveDraft(bool $ready,LegacyApprovedActionBridge $bridge,LegacyReadBridge $read): void
+    {
+        $ean=$this->workingEan;$row=$ean!==null?$this->rowFor($ean):null;
+        if(!$row||!$this->confirmDraft||!$this->canWriteScan()||$row['id']<1||
+           $row['resolution']!=='new_candidate'){
+            $this->draftMessage='Nur bestätigte Neuanlage-Kandidaten mit Schreibfreigabe und Bestätigung können hier gespeichert werden.';
+            return;
+        }
+        $fields=[];$sources=[];
+        foreach(ScanResearch::FIELDS as $field){
+            $value=$this->draftFields[$field]??'';
+            if(!is_string($value))return;
+            // Patch only changed fields; never send all empty fields as replacements.
+            if($value!== (string)($row['draft'][$field]??'')||$field==='GTIN'){
+                $fields[$field]=$field==='GTIN'?$ean:$value;
+                $sources[$field]='Manuell geprüfter HW24-Entwurf';
+            }
+        }
+        if(strlen(json_encode($fields,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR))>18000){
+            $this->draftMessage='Entwurf zu groß. Bitte Texte in kleineren Bearbeitungsschritten speichern.';return;
+        }
+        $r=$bridge->post('scan.edit',['op'=>'edit','batch_id'=>$this->selectedBatchId,'item_id'=>$row['id'],
+            'expected_revision'=>$row['revision'],'fields'=>$fields,'field_sources'=>$sources,'mark_ready'=>$ready]);
+        if(($r['ok']??false)!==true){
+            $this->draftMessage='Speicherung/Freigabe abgelehnt: '.mb_substr((string)($r['data']['error']??'Antwort nicht bestätigt'),0,100).'. Bitte aktuellen Stapel prüfen.';return;
+        }
+        $batch=$this->selectedBatchId;
+        $this->loadBatch($batch,$read);
+        $this->openDraft($ean);
+        $this->draftMessage=$ready?'Für Ameise-Prüfexport freigegeben.':'Entwurf zentral gespeichert.';
+    }
+
     public function loadBatches(LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'batches', 'selectedBatchId', 'diagnostic', 'exportState', 'batchAiMarkers', 'batchAiStatus']);
+        $this->reset(['items', 'batches', 'selectedBatchId', 'diagnostic', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','draftFields','confirmDraft','draftMessage']);
 
         $result = $bridge->fetch('scan.batches', ['op' => 'batches']);
         $raw = is_array($result['data'] ?? null) ? $result['data'] : [];
@@ -161,7 +294,7 @@ final class ScanWorkbench extends Page
 
     public function loadBatch(int $batchId, LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'selectedBatchId', 'exportState', 'batchAiMarkers', 'batchAiStatus']);
+        $this->reset(['items', 'selectedBatchId', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','draftFields','confirmDraft','draftMessage']);
         // Never let the browser request arbitrary batch IDs.
         $allowed = array_column($this->batches, 'id');
         if (!in_array($batchId, $allowed, true)) {
@@ -189,6 +322,9 @@ final class ScanWorkbench extends Page
                 continue;
             }
             $this->items[] = [
+                'id'=>(int)($item['id']??0),
+                'revision'=>(int)($item['revision']??0),
+                'draft'=>array_intersect_key(is_array($item['draft']??null)?$item['draft']:[],array_flip(ScanResearch::FIELDS)),
                 'ean' => mb_substr((string) ($item['ean'] ?? ''), 0, 14),
                 'name' => mb_substr((string) ($item['artikelname'] ?? ''), 0, 180),
                 'article_number' => mb_substr((string) ($item['artikelnummer'] ?? ''), 0, 100),
@@ -201,7 +337,7 @@ final class ScanWorkbench extends Page
         $this->diagnostic = [
             'ok' => true,
             'http' => $result['http_status'] ?? null,
-            'message' => 'Gespeicherte Scan-Positionen nur gelesen. Erfassen, Entwurf, Import und Export verbleiben vorerst im bisherigen HW24-Arbeitsbereich.',
+            'message' => 'Gespeicherte Positionen geladen. Recherche und Entwurf sind getrennte, ausdrücklich ausgelöste Aktionen.',
         ];
     }
 
