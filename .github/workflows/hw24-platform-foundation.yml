@@ -24,6 +24,7 @@ jobs:
         run: |
           php platform/scripts/verify-price-contract.php
           php platform/scripts/verify-gross-calculation.php
+          node tests/hw24-responsive-no-horizontal-scroll.test.cjs
           php -l platform/ops/verify-admin-routes-json.php
           bash -n platform/ops/upgrade-test-legacy-workflows-ffonly.sh
           bash -n platform/ops/upgrade-native-ai-amazon-scan-ffonly.sh

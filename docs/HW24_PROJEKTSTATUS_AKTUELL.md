@@ -3,9 +3,18 @@
 **Stand:** 24.11.2026 · **Projekt:** HAIRWORLD24 / FB24 / HW24-scanner  
 **Kanonisches vollständiges Journal:** [HW24_ARBEITSJOURNAL.md](HW24_ARBEITSJOURNAL.md)  
 **Repository:** [NicoVoss1/HW24-scanner](https://github.com/NicoVoss1/HW24-scanner)  
+**Aktuelle UI-/Funktionsabnahme:** [Draft-PR #50](https://github.com/NicoVoss1/HW24-scanner/pull/50) · Branch `feature/hw24-ux-no-horizontal-scroll-audit-20261124`  
 **Tracking-/Kundenservice-Pilot:** [Draft-PR #49](https://github.com/NicoVoss1/HW24-scanner/pull/49)  
 **Branch PR #49:** `feature/hw24-customer-service-tracking-platform-20261124`  
 **Basis für PR #49:** `feature/hw24-mirror-audit-preflight-20261122` (PR #46; separat laufende andere Funktionsstränge)
+
+## Aktueller Schwerpunkt: Modulprüfung und keine horizontalen Scrollleisten
+
+Der Benutzer hat am 24.11.2026 die **verbindliche No-X-Scroll-Regel** für den gesamten HW24-Hub festgelegt. Beim WMS-Panel wurde eine echte Quellcode-Ursache gefunden: Tabellen-`min-width:690px` im halbbreiten Panel mit `overflow:auto`. Die Korrektur liegt im **Draft-PR #50**, einschließlich responsiver Datenkarten für WMS-Lagerfächer, WMS-Bewegungen, Scanlisten und JTL-Originalwerte. Auch ein statischer Regressionstest ist eingebunden.
+
+**Modulweiser Prüfbericht und Browser-Abnahmeplan:** [HW24_FUNKTIONSABNAHME_20261124.md](../platform/docs/HW24_FUNKTIONSABNAHME_20261124.md).
+
+**Nachweisgrenzen:** Quellcode-/CI-Tests sind kein authentifizierter Browser-E2E. Kein neues Deployment auf TEST oder LIVE, keine PHP-/JTL-/MariaDB-API geändert. Bei Fortsetzung **zuerst PR #50 auf aktuellen CI-HEAD prüfen**, dann vor einer Freigabe den bestehenden TEST-Stand, Browserzugriff und Rollback abnehmen. Der spätere Domainwechsel auf `hub.hairworld24.de` ist aufgeschoben; wir bleiben bei `test-artikelmanager.hairworld24.de` und entwickeln dort nach und nach das zentrale Control Center.
 
 ## Verbindliche Anweisung für jede Fortsetzung
 

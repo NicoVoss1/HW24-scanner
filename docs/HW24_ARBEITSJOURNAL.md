@@ -760,3 +760,39 @@ In SQL Phase-2 Query 3 jeweils `primary_key_vorhanden=1`:
 - `tests/hw24-v425-article-intelligence.test.cjs` prüft nun ausdrücklich den gemeinsamen Archivbereich **und** weiterhin Authentifizierung sowie die Nicht-Offenlegung des `actor` (Commit `1b018770aebbaf3765c248b6ed0080d6114a9503`). Kein verstecktes Zurücksetzen auf je Benutzer getrennte Produkthistorien.
 - **Wichtig:** Gemeinsames Produkt-/KI-Archiv ist eine fachliche Entscheidung, kein pauschales Freigeben von Rechnungen, Kundennachrichten, personenbezogenen Screenshots oder schutzbedürftigen Rohdaten. Vor live geteilter Rückgabe sind die in `review_json`/`input_json` befindlichen Feldinhalte datenschutzseitig zu prüfen. Auf Live/TEST wurde aus diesen Commits nichts installiert.
 - **Status:** GitHub-CI nach dem jeweiligen aktuellen Branch-HEAD erneut kontrollieren. Die zuvor sichtbare Legacy-CI-Störung ist eine konkrete, dokumentierte Abweichung; nicht automatisch als gelöst ausgeben, bevor die Läufe erfolgreich sind.
+
+
+## Funktionsinventur und responsive Oberfläche – 24.11.2026
+
+### S106 | UI-Inventur und Reproduktion des horizontalen Scroll-Zwangs | **Quellcode nachgewiesen**
+- Betreiber meldet: Lagerbewegungshistorie im bestehenden HW24-Hub zu schmal; keine horizontalen Scrollleisten in irgendeiner Hub-Arbeitsmaske erwünscht.
+- Im Laravel-/Filament-Quellcode von PR #49 `platform/resources/views/filament/pages/warehouse-price-workbench.blade.php`: WMS-Historie war eine **halbbreite** `panel` in zweispaltiger `.grid` und die gemeinsame Tabelle enthielt `min-width:690px` sowie `overflow:auto`. Damit war der Layoutfehler auf Quellcodeebene nachvollziehbar.
+- Weitere feste Mindesttabellenbreiten: Scanliste `650px`, JTL-Artikel `540px`, SQL-Originalfeldtabelle `660px`. Kein allgemeiner Browser-Zugriff in dieser Sitzung; geschützte authentifizierte Testdomain ist über den verfügbaren Browser-Connector nicht einsehbar. **Keine Browser-Bestätigung, kein Live-Test behauptet.**
+- Prüfumfang/Ausgangsstand und 13 Module mit differenziertem Nachweisgrad sind unter `platform/docs/HW24_FUNKTIONSABNAHME_20261124.md` dokumentiert.
+
+### S107 | Kein horizontaler Zwangs-Scroll in sieben zentralen Admin-Ansichten | **GitHub-Codeänderung**
+- Isolierter Branch `feature/hw24-ux-no-horizontal-scroll-audit-20261124` **von PR #49** abgezweigt, neuer Draft-PR #50: https://github.com/NicoVoss1/HW24-scanner/pull/50
+- `warehouse-price-workbench.blade.php`: WMS-Bewegungen nun `panel full`; Tabellen ohne fixe breite Mindestgröße, lange Einträge mit Wortumbruch, `@container`-abhängige, vollständig beschriftete Karten statt horizontalem Tabellen-Scrollen. WMS-Fachplätze und Bewegungen behalten Datum, Mengen, Status, Lagerort, Quellreferenz.
+- `scan-workbench.blade.php`: Scan-Stapel und Scanpositionen inklusive JTL-Abgleich und KI-Archivkennzeichnung werden bei geringer Panelbreite zu Datenkarten, Buttons bleiben erreichbar.
+- `article-lookup.blade.php`: EAN-Suchergebnisse sowie JTL-Originalquellwerte sind responsive; vorhandene Felder bleiben sichtbar und umbrechbar.
+- Bestehende API-/Datenbank-/Freigabe-Klassen **nicht geändert**. Es wurden keine Kundendaten, Domains, SQL-Server-Tabellen, MariaDB oder Marktplatzkonten verändert.
+
+### S108 | Regressionstest und systematische Funktionsabnahme | **CI vorbereitet, Browser-Test offen**
+- Statischer Schutztest `tests/hw24-responsive-no-horizontal-scroll.test.cjs`: sieben zentrale Admin-Templates, sechs Tabellen, keine festen Tabellenbreiten >=500px, kein `overflow-x:auto/scroll`, Beschriftung jeder Datenzelle sowie die `panel full`-Regel für WMS. Der vorhandene Laravel-/Filament-Foundation-Workflow wurde um den Node-Test ergänzt; CI auf PR #50 muss auf dem jeweils letzten HEAD separat belegt werden.
+- Vollständige strukturierte Prüfliste unter `platform/docs/HW24_FUNKTIONSABNAHME_20261124.md` unterscheidet: Funktionen im Quellcode vorhanden / durch Mock- oder CI-Test überprüft / echtes TEST-System geprüft / noch nicht implementiert.
+- **Offen:** autorisierter Testbrowser mit echtem Login und Daten bei 320, 375, 768, 1024 und 1440 px plus geöffneter Sidebar; JTL- und WMS-Datenfrische/Fehlermeldungen auf TEST. `document.documentElement.scrollWidth <= document.documentElement.clientWidth` in DevTools und lokale Panels kontrollieren, keine horizontale Scrollmöglichkeit in Tabellen.
+- Kein Merge oder Deploy dieses Drafts vor vollständiger CI- und TEST-Browser-Abnahme. Kein allgemeines Unterdrücken von `body`-Overflow als Verstecken echter Layoutfehler.
+
+### S109 | Verbindliche Fortsetzungsreihenfolge | **offen**
+1. CI von PR #50 auf aktuellem Commit durchsehen und sämtliche gefundenen Fehler korrigieren. UI-Regressionstest ist kein Ersatz für echten Browser-Layouttest.
+2. Isolierten TEST-Stand und geschützten Zugriff klären, vor Änderung Backup und Rollback-Fähigkeit bestätigen; erst danach gezielte Bereitstellung der responsiven UI und vollständiger Funktionstest aller vorhandenen Module.
+3. Browserbefunde samt URL, Eingabe, erwarteter/realer Ausgabe und Bildschirmbreite redigiert dokumentieren; offene API-Daten und JTL-/WMS-/Amazon-/KI-Verbindungen einzeln prüfen.
+4. Zentrale Hub-Kachelübersicht **innerhalb der bisherigen Testdomain** als nächsten getrennten Funktionsschritt erstellen. `hub.hairworld24.de` erst nach funktionaler Gesamtabnahme als spätere Option.
+
+
+### S110 | GitHub-CI der responsive UI-Korrektur | **prüfbar erfolgreich, Stand vor rein dokumentarischem Commit**
+- Workflow `HW24 isolated Laravel 13 Filament 5 foundation` auf Commit `ba22ac996eaa4b4b52ef06b5662ad7c7503070eb`: https://github.com/NicoVoss1/HW24-scanner/actions/runs/45297984459 – **SUCCESS**, im Jobprotokoll `HW24 responsive admin: no forced horizontal scrolling in 7 page templates, 6 labeled tables PASS` und Laravel `85 passed (500 assertions)` bestätigt.
+- Workflow `HW24 V4.25 Amazon KI Ameise article editor` auf demselben Commit: https://github.com/NicoVoss1/HW24-scanner/actions/runs/45297984463 – **SUCCESS**.
+- Nach Journal-Eintrag S106–S109 wurde auf Commit `6e3de977919d352432c68e0ae384316d3d04c3bd` die Foundation unter https://github.com/NicoVoss1/HW24-scanner/actions/runs/45298092985 ebenfalls mit **SUCCESS** abgeschlossen und der Legacy-Workflow https://github.com/NicoVoss1/HW24-scanner/actions/runs/45298092938 war **SUCCESS**.
+- Dokumentation und Statusblatt wurden danach erneut aktualisiert. **Bei weiterer Entwicklung stets aktuellen PR-HEAD und dessen CI prüfen; vor echtem Browser-/Server-Test weiterhin keine Freigabe.**
+- Keine Browser-Pixelprüfung oder tatsächliche TEST-/LIVE-Funktionsabnahme: private Sessionzugriffe in dieser Sitzung nicht verfügbar. Quell-/Mock-Tests sind kein Nachweis, dass die neue Version bereits auf `test-artikelmanager.hairworld24.de` läuft.

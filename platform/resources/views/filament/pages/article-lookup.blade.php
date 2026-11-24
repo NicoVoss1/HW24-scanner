@@ -15,7 +15,7 @@
             .hw24-editor .hw24-panel{min-width:0;background:var(--hw24-bg);border:1px solid var(--hw24-border);border-radius:15px;overflow:hidden;box-shadow:0 1px 2px #0f172a0a}
             .hw24-editor .hw24-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:15px 18px;border-bottom:1px solid var(--hw24-border);background:var(--hw24-soft)}
             .hw24-editor .hw24-panel-head h3{font-size:15px;line-height:1.4;font-weight:750;margin:0}
-            .hw24-editor .hw24-panel-body{padding:18px}
+            .hw24-editor .hw24-panel-body{padding:18px;min-width:0;container-type:inline-size}
             .hw24-editor .hw24-description{font-size:12px;line-height:1.65;color:var(--hw24-muted);margin:0 0 14px}
             .hw24-editor .hw24-subtle{font-size:12px;line-height:1.6;color:var(--hw24-muted)}
             .hw24-editor .hw24-form{display:flex;flex-wrap:wrap;align-items:end;gap:12px}
@@ -29,13 +29,13 @@
             .hw24-editor .hw24-warning{background:#fff3e1;color:#93480a}
             .hw24-editor .hw24-alert{padding:11px 14px;border-radius:9px;border:1px solid #f2dab4;background:#fffbeb;color:#8a4a12;font-size:12px;line-height:1.6;margin-top:14px}
             .hw24-editor .hw24-success{border-color:#b9e7cf;background:#f0fdf5;color:#17613d}
-            .hw24-editor .hw24-result-table{width:100%;border-collapse:collapse;font-size:12px;min-width:540px;text-align:left}
-            .hw24-editor .hw24-table-wrap{width:100%;overflow-x:auto}
-            .hw24-editor .hw24-result-table th{background:var(--hw24-soft);color:var(--hw24-muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;padding:11px 12px;white-space:nowrap}
-            .hw24-editor .hw24-result-table td{padding:12px;border-top:1px solid var(--hw24-border);vertical-align:top}
+            .hw24-editor .hw24-result-table{width:100%;max-width:100%;min-width:0;table-layout:fixed;border-collapse:collapse;font-size:12px;text-align:left}
+            .hw24-editor .hw24-table-wrap{width:100%;max-width:100%;overflow-x:hidden}
+            .hw24-editor .hw24-result-table th{background:var(--hw24-soft);color:var(--hw24-muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;padding:11px 12px;white-space:normal;overflow-wrap:anywhere}
+            .hw24-editor .hw24-result-table td{padding:12px;border-top:1px solid var(--hw24-border);vertical-align:top;overflow-wrap:anywhere}
             .hw24-editor .hw24-result-table td strong{font-weight:750}
             .hw24-editor .hw24-table-small{font-size:11px;color:var(--hw24-muted);margin-top:4px}
-            .hw24-editor .hw24-nowarp{white-space:nowrap}
+            .hw24-editor .hw24-nowarp{white-space:normal;overflow-wrap:anywhere}
             .hw24-editor .hw24-product-title{font-size:17px;font-weight:800;letter-spacing:-.01em;line-height:1.4;margin:0}
             .hw24-editor .hw24-product-subtitle{font-size:12px;color:var(--hw24-muted);margin:5px 0 0}
             .hw24-editor .hw24-section-layout{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px}
@@ -56,10 +56,10 @@
             .hw24-editor .hw24-channel p{font-size:12px;line-height:1.6;color:var(--hw24-muted);margin:0}
             .hw24-editor .hw24-channel .hw24-toolbar{margin:12px 0 0}
             .hw24-editor .hw24-source-filter{max-width:540px;display:grid;gap:6px;margin:14px 0;font-size:12px;font-weight:700}
-            .hw24-editor .hw24-source-table{width:100%;border-collapse:collapse;min-width:660px;font-size:12px;text-align:left}
+            .hw24-editor .hw24-source-table{width:100%;max-width:100%;min-width:0;table-layout:fixed;border-collapse:collapse;font-size:12px;text-align:left}
             .hw24-editor .hw24-source-table th{text-align:left;background:var(--hw24-soft);padding:10px 12px;color:var(--hw24-muted)}
             .hw24-editor .hw24-source-table td{vertical-align:top;padding:11px 12px;border-top:1px solid var(--hw24-border);overflow-wrap:anywhere;max-width:440px}
-            .hw24-editor .hw24-source-scroll{max-height:530px;overflow:auto;border:1px solid var(--hw24-border);border-radius:9px}
+            .hw24-editor .hw24-source-scroll{width:100%;max-width:100%;max-height:530px;overflow-x:hidden;overflow-y:auto;border:1px solid var(--hw24-border);border-radius:9px}
             .hw24-editor .hw24-source-table pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px}
             .hw24-editor .hw24-muted-label{color:var(--hw24-muted);font-size:11px;line-height:1.45}
             .hw24-editor .hw24-error{color:#b91c1c;font-size:12px;margin-top:8px}
@@ -67,7 +67,27 @@
             .hw24-editor .hw24-foot strong{color:var(--hw24-text)}
             @media(max-width:760px){.hw24-editor .hw24-section-layout,.hw24-editor .hw24-channel-layout{grid-template-columns:minmax(0,1fr)}.hw24-editor .hw24-head{padding:19px}.hw24-editor .hw24-head h2{font-size:20px}.hw24-editor .hw24-panel-body{padding:15px}}
             @media(max-width:460px){.hw24-editor .hw24-price-grid{grid-template-columns:minmax(0,1fr)}.hw24-editor .hw24-fields{gap:11px}.hw24-editor .hw24-field dd{font-size:12px}}
-            html.dark .hw24-editor{--hw24-border:#334155;--hw24-bg:#17212f;--hw24-soft:#1e293b;--hw24-text:#f1f5f9;--hw24-muted:#b9c6d7}
+            
+/* Quellwerte und Treffer: nie horizontales Scrollen, auch bei ausgeklapptem Filament-Menü. */
+.hw24-editor .hw24-result-table td,.hw24-editor .hw24-source-table td,
+.hw24-editor .hw24-source-table th,.hw24-editor .hw24-result-table th{overflow-wrap:anywhere;min-width:0}
+@container (max-width: 760px){
+ .hw24-editor .hw24-source-scroll{max-height:none;overflow-x:hidden;overflow-y:visible}
+ .hw24-editor .hw24-result-table,.hw24-editor .hw24-source-table,
+ .hw24-editor .hw24-result-table tbody,.hw24-editor .hw24-source-table tbody{display:block;width:100%}
+ .hw24-editor .hw24-result-table thead,.hw24-editor .hw24-source-table thead{position:absolute;width:1px;height:1px;clip:rect(0 0 0 0);clip-path:inset(50%);overflow:hidden;white-space:nowrap}
+ .hw24-editor .hw24-result-table tr,.hw24-editor .hw24-source-table tr{display:block;border-bottom:1px solid var(--hw24-border);padding:9px 12px}
+ .hw24-editor .hw24-result-table tr:last-child,.hw24-editor .hw24-source-table tr:last-child{border-bottom:0}
+ .hw24-editor .hw24-result-table td,.hw24-editor .hw24-source-table td{display:grid;grid-template-columns:minmax(110px,33%) minmax(0,1fr);gap:8px;border:0;padding:8px 3px;max-width:100%;align-items:start}
+ .hw24-editor .hw24-result-table td::before,.hw24-editor .hw24-source-table td::before{content:attr(data-label);color:var(--hw24-muted);font-size:11px;font-weight:750}
+ .hw24-editor .hw24-result-table td > *,.hw24-editor .hw24-source-table td > *{min-width:0}
+ .hw24-editor .hw24-source-table td[colspan]{display:block}
+ .hw24-editor .hw24-source-table td[colspan]::before{content:none}
+}
+@container (max-width: 390px){
+ .hw24-editor .hw24-result-table td,.hw24-editor .hw24-source-table td{grid-template-columns:minmax(0,1fr);gap:3px}
+}
+html.dark .hw24-editor{--hw24-border:#334155;--hw24-bg:#17212f;--hw24-soft:#1e293b;--hw24-text:#f1f5f9;--hw24-muted:#b9c6d7}
             html.dark .hw24-editor .hw24-field{border-color:#334155}
             html.dark .hw24-editor .hw24-chip{background:#263e58;color:#dbeafe}
             html.dark .hw24-editor .hw24-good{background:#164e37;color:#d1fae5}
@@ -135,12 +155,12 @@
                                     <tbody>
                                         @foreach($lookup['matches'] as $row)
                                             <tr>
-                                                <td><strong>{{ $row['artikelname'] ?: 'Ohne Bezeichnung' }}</strong>
+                                                <td data-label="Artikel"><strong>{{ $row['artikelname'] ?: 'Ohne Bezeichnung' }}</strong>
                                                     <div class="hw24-table-small">Nr. {{ $row['artikelnummer'] ?: 'unbekannt' }} · {{ $row['hersteller'] ?: 'Hersteller offen' }}</div>
                                                 </td>
-                                                <td class="hw24-nowarp">{{ $row['ean'] }}</td>
-                                                <td>{{ is_numeric($row['bestand']) ? number_format((float) $row['bestand'], 0, ',', '.') : 'Nicht belegt' }}</td>
-                                                <td>{{ is_numeric($row['netto_vk']) ? number_format((float) $row['netto_vk'], 2, ',', '.') : 'Nicht belegt' }}
+                                                <td data-label="EAN" class="hw24-nowarp">{{ $row['ean'] }}</td>
+                                                <td data-label="Bestand JTL">{{ is_numeric($row['bestand']) ? number_format((float) $row['bestand'], 0, ',', '.') : 'Nicht belegt' }}</td>
+                                                <td data-label="VK netto JTL">{{ is_numeric($row['netto_vk']) ? number_format((float) $row['netto_vk'], 2, ',', '.') : 'Nicht belegt' }}
                                                     <div class="hw24-table-small">{{ $row['waehrung'] ?: 'Währung nicht bestätigt' }}</div>
                                                 </td>
                                             </tr>
@@ -331,11 +351,11 @@
                                     <tbody>
                                         @forelse($visibleSources as $row)
                                             <tr>
-                                                <td>{{ $row['source'] }} ({{ $row['row'] }})</td>
-                                                <td><code>{{ $row['field'] }}</code>
+                                                <td data-label="SQL-Quelle">{{ $row['source'] }} ({{ $row['row'] }})</td>
+                                                <td data-label="Originalfeld"><code>{{ $row['field'] }}</code>
                                                     @if(!empty($row['label'])) <div class="hw24-muted-label">{{ $row['label'] }}</div> @endif
                                                 </td>
-                                                <td>
+                                                <td data-label="Originalwert">
                                                     @if($row['value'] === null)
                                                         <span class="hw24-muted-label">Nicht belegt</span>
                                                     @elseif(mb_strlen($row['value']) > 220)

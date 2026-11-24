@@ -11,15 +11,15 @@
             .hw24-scan-workbench .hw24-open{background:white;color:#14416b;padding:10px 14px;border-radius:9px;display:inline-flex;align-items:center;text-decoration:none;font-size:12px;font-weight:800}
             .hw24-scan-workbench .hw24-card{margin-top:16px;border:1px solid #dbe5ef;border-radius:14px;background:#fff;overflow:hidden}
             .hw24-scan-workbench .hw24-card-head{padding:15px 18px;background:#f5f8fb;border-bottom:1px solid #dbe5ef}
-            .hw24-scan-workbench .hw24-card-body{padding:18px}
+            .hw24-scan-workbench .hw24-card-body{padding:18px;min-width:0;container-type:inline-size}
             .hw24-scan-workbench .hw24-description{color:#586b82;font-size:12px;line-height:1.65;margin:0 0 14px}
             .hw24-scan-workbench .hw24-action{display:flex;flex-wrap:wrap;align-items:center;gap:11px}
             .hw24-scan-workbench .hw24-note{border-radius:10px;padding:12px 15px;border:1px solid #cbddeb;background:#f2f8fc;font-size:12px;line-height:1.65;color:#264968;margin-top:13px}
             .hw24-scan-workbench .hw24-note-warn{border-color:#efd2ab;background:#fff8e9;color:#88490c}
-            .hw24-scan-workbench .hw24-table-wrap{overflow:auto;max-height:530px;border:1px solid #dbe5ef;border-radius:10px}
-            .hw24-scan-workbench table{width:100%;min-width:650px;font-size:12px;border-collapse:collapse;text-align:left}
-            .hw24-scan-workbench th{padding:11px;color:#54677b;background:#f4f7fa;text-transform:uppercase;letter-spacing:.03em;font-size:11px;white-space:nowrap}
-            .hw24-scan-workbench td{padding:12px;border-top:1px solid #e0e8f0;vertical-align:middle}
+            .hw24-scan-workbench .hw24-table-wrap{width:100%;max-width:100%;overflow-x:hidden;overflow-y:auto;max-height:530px;border:1px solid #dbe5ef;border-radius:10px}
+            .hw24-scan-workbench table{width:100%;max-width:100%;min-width:0;table-layout:fixed;font-size:12px;border-collapse:collapse;text-align:left}
+            .hw24-scan-workbench th{padding:11px;color:#54677b;background:#f4f7fa;text-transform:uppercase;letter-spacing:.03em;font-size:11px;white-space:normal;overflow-wrap:anywhere}
+            .hw24-scan-workbench td{padding:12px;border-top:1px solid #e0e8f0;vertical-align:middle;min-width:0;overflow-wrap:anywhere}
             .hw24-scan-workbench .hw24-btn{cursor:pointer;border:1px solid #b7d0e5;background:#fff;color:#16466f;font-size:12px;font-weight:750;border-radius:9px;padding:8px 12px;min-height:36px}
             .hw24-scan-workbench .hw24-btn:hover{background:#edf6fc}
             .hw24-scan-workbench .hw24-btn:focus-visible,.hw24-scan-workbench a:focus-visible{outline:3px solid #60a5fa;outline-offset:2px}
@@ -28,7 +28,22 @@
             .hw24-scan-workbench .hw24-empty{padding:17px;color:#64748b;font-size:13px}
             .hw24-scan-workbench .hw24-link{color:#1d5f92;text-decoration:underline;text-underline-offset:3px}
             @media(max-width:720px){.hw24-scan-workbench .hw24-hero{padding:18px}.hw24-scan-workbench h2{font-size:19px}.hw24-scan-workbench .hw24-card-body{padding:14px}}
-            html.dark .hw24-scan-workbench{color:#edf2fb}
+            
+/* Kein horizontales Wischen: Tabellen orientieren sich an echter Panelbreite. */
+@container (max-width: 840px){
+ .hw24-scan-workbench .hw24-table-wrap{max-height:none;overflow-x:hidden;overflow-y:visible}
+ .hw24-scan-workbench table,.hw24-scan-workbench tbody{display:block;width:100%}
+ .hw24-scan-workbench thead{position:absolute;width:1px;height:1px;clip:rect(0 0 0 0);clip-path:inset(50%);overflow:hidden;white-space:nowrap}
+ .hw24-scan-workbench tr{display:block;padding:9px 12px;border-bottom:1px solid #dbe5ef}
+ .hw24-scan-workbench tr:last-child{border-bottom:0}
+ .hw24-scan-workbench td{display:grid;grid-template-columns:minmax(110px,33%) minmax(0,1fr);gap:10px;border:0;padding:8px 3px;align-items:start}
+ .hw24-scan-workbench td::before{content:attr(data-label);font-size:11px;font-weight:750;color:#586b82}
+ .hw24-scan-workbench td > *{min-width:0}
+}
+@container (max-width: 390px){
+ .hw24-scan-workbench td{grid-template-columns:minmax(0,1fr);gap:3px}
+}
+html.dark .hw24-scan-workbench{color:#edf2fb}
             html.dark .hw24-scan-workbench .hw24-card{background:#182434;border-color:#34465c}
             html.dark .hw24-scan-workbench .hw24-card-head,html.dark .hw24-scan-workbench th{background:#223046;border-color:#34465c;color:#e2e8f0}
             html.dark .hw24-scan-workbench td{border-color:#34465c}
@@ -66,10 +81,10 @@
                             <tbody>
                                 @foreach($batches as $batch)
                                     <tr wire:key="hw24-scanbatch-{{ $batch['id'] }}">
-                                        <td><strong>{{ $batch['label'] }}</strong><div class="hw24-sub">Stapel-ID {{ $batch['id'] }}</div></td>
-                                        <td>{{ $batch['created'] ?: 'Nicht belegt' }}</td>
-                                        <td>{{ $batch['updated'] ?: 'Nicht belegt' }}</td>
-                                        <td><button type="button" class="hw24-btn" wire:click="loadBatch({{ $batch['id'] }})" wire:loading.attr="disabled" wire:target="loadBatch">Positionen anzeigen</button></td>
+                                        <td data-label="Stapel"><strong>{{ $batch['label'] }}</strong><div class="hw24-sub">Stapel-ID {{ $batch['id'] }}</div></td>
+                                        <td data-label="Erstellt UTC">{{ $batch['created'] ?: 'Nicht belegt' }}</td>
+                                        <td data-label="Letzte Änderung UTC">{{ $batch['updated'] ?: 'Nicht belegt' }}</td>
+                                        <td data-label="Aktion"><button type="button" class="hw24-btn" wire:click="loadBatch({{ $batch['id'] }})" wire:loading.attr="disabled" wire:target="loadBatch">Positionen anzeigen</button></td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -150,12 +165,12 @@
                                 <tbody>
                                     @foreach($items as $i => $item)
                                         <tr wire:key="hw24-scan-item-{{ $selectedBatchId }}-{{ $i }}">
-                                            <td><strong>{{ $item['ean'] }}</strong><div class="hw24-sub">{{ $item['article_number'] ?: 'Artikelnummer offen' }}</div></td>
-                                            <td>{{ $item['name'] ?: 'Noch nicht identifiziert' }}</td>
-                                            <td>{{ $item['scans'] }}</td>
-                                            <td>{{ $item['resolution'] }}</td>
-                                            <td>{{ $item['review'] }}</td>
-                                            <td>
+                                            <td data-label="EAN"><strong>{{ $item['ean'] }}</strong><div class="hw24-sub">{{ $item['article_number'] ?: 'Artikelnummer offen' }}</div></td>
+                                            <td data-label="Artikel">{{ $item['name'] ?: 'Noch nicht identifiziert' }}</td>
+                                            <td data-label="Scans">{{ $item['scans'] }}</td>
+                                            <td data-label="JTL-Abgleich">{{ $item['resolution'] }}</td>
+                                            <td data-label="Prüfstatus">{{ $item['review'] }}</td>
+                                            <td data-label="KI-Archiv">
                                                 @if(($batchAiMarkers[$item['ean']]['found']??false)===true)
                                                     <span class="hw24-stat">🧠 Bereits geprüft</span>
                                                     <div class="hw24-sub">{{ $batchAiMarkers[$item['ean']]['count'] }} Bericht(e) · zuletzt {{ $batchAiMarkers[$item['ean']]['at'] }} UTC</div>

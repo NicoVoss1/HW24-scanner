@@ -11,7 +11,7 @@
 .hw24-warehouse .panel{border:1px solid var(--edge);border-radius:14px;overflow:hidden;background:var(--bg);min-width:0}
 .hw24-warehouse .full{grid-column:1/-1}
 .hw24-warehouse .panel-head{background:var(--soft);padding:14px 18px;border-bottom:1px solid var(--edge);font-size:15px;font-weight:800}
-.hw24-warehouse .panel-body{padding:18px}
+.hw24-warehouse .panel-body{padding:18px;min-width:0;container-type:inline-size}
 .hw24-warehouse .small{font-size:12px;line-height:1.6;color:var(--muted);margin:5px 0 12px}
 .hw24-warehouse .searchline{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
 .hw24-warehouse .field{display:grid;gap:5px;flex:1 1 300px;font-size:12px;font-weight:750}
@@ -28,16 +28,34 @@
 .hw24-warehouse .tag.warn{background:#fff0dc;color:#8e4c0b}
 .hw24-warehouse .note{background:#fff9ed;border:1px solid #edd6ab;color:#7a4b18;font-size:12px;line-height:1.7;padding:12px 14px;border-radius:10px;margin-top:13px}
 .hw24-warehouse .note.ok{background:#effbf4;border-color:#b5dfc9;color:#155a38}
-.hw24-warehouse .list{width:100%;border-collapse:collapse;min-width:690px;text-align:left;font-size:12px}
-.hw24-warehouse .list th{padding:11px;background:var(--soft);color:var(--muted);white-space:nowrap}
-.hw24-warehouse .list td{padding:12px;border-top:1px solid var(--edge);vertical-align:top}
-.hw24-warehouse .overflow{overflow:auto;max-height:460px;border:1px solid var(--edge);border-radius:10px}
+.hw24-warehouse .list{width:100%;max-width:100%;min-width:0;table-layout:fixed;border-collapse:collapse;text-align:left;font-size:12px}
+.hw24-warehouse .list th{padding:11px;background:var(--soft);color:var(--muted);white-space:normal;overflow-wrap:anywhere}
+.hw24-warehouse .list td{padding:12px;border-top:1px solid var(--edge);vertical-align:top;min-width:0;overflow-wrap:anywhere}
+.hw24-warehouse .overflow{width:100%;max-width:100%;overflow-x:hidden;overflow-y:auto;max-height:600px;border:1px solid var(--edge);border-radius:10px}
 .hw24-warehouse .actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:12px 0}
 .hw24-warehouse a{color:#145b93;text-decoration:underline}
 .hw24-warehouse .divider{border-top:1px solid var(--edge);margin-top:14px;padding-top:14px}
 .hw24-warehouse :is(button,a,input):focus-visible{outline:3px solid #60a5fa;outline-offset:2px}
 @media(max-width:830px){.hw24-warehouse .grid{grid-template-columns:minmax(0,1fr)}.hw24-warehouse .hero{padding:19px}.hw24-warehouse .hero h2{font-size:20px}}
 @media(max-width:510px){.hw24-warehouse .price-row{grid-template-columns:1fr}}
+
+/* Keine horizontalen Scrollleisten: Tabellen werden bei schmalem Panel zu lesbaren Datenkarten.
+   Container-Query bezieht die tatsächliche Inhaltsbreite inkl. Filament-Sidebar ein. */
+@container (max-width: 900px){
+ .hw24-warehouse .overflow{max-height:none;overflow-x:hidden;overflow-y:visible}
+ .hw24-warehouse .list,.hw24-warehouse .list tbody{display:block;width:100%}
+ .hw24-warehouse .list thead{position:absolute;width:1px;height:1px;clip:rect(0 0 0 0);clip-path:inset(50%);overflow:hidden;white-space:nowrap}
+ .hw24-warehouse .list tr{display:block;width:100%;margin:0;padding:9px 12px;border-bottom:1px solid var(--edge)}
+ .hw24-warehouse .list tr:last-child{border-bottom:0}
+ .hw24-warehouse .list td{display:grid;grid-template-columns:minmax(110px,33%) minmax(0,1fr);gap:10px;padding:8px 3px;border:0;align-items:start}
+ .hw24-warehouse .list td::before{content:attr(data-label);font-size:11px;font-weight:750;color:var(--muted)}
+ .hw24-warehouse .list td > *{min-width:0}
+}
+@container (max-width: 390px){
+ .hw24-warehouse .list td{grid-template-columns:minmax(0,1fr);gap:3px}
+}
+/* Alle Preis-/Quellbelege umbrechen, statt die Karte horizontal aufzuziehen. */
+.hw24-warehouse .price-row,.hw24-warehouse .panel,.hw24-warehouse .meta,.hw24-warehouse .small{min-width:0;overflow-wrap:anywhere}
 html.dark .hw24-warehouse{--edge:#334155;--bg:#182638;--soft:#233249;--ink:#f1f5f9;--muted:#c2ccd8}
 </style>
 <header class="hero">
@@ -110,18 +128,18 @@ html.dark .hw24-warehouse{--edge:#334155;--bg:#182638;--soft:#233249;--ink:#f1f5
       <tbody>
        @foreach($related['wms']['bins'] as $i=>$bin)
         <tr wire:key="legacy-bin-{{ $i }}">
-         <td><strong>{{ $bin['warehouse'] }}</strong><div class="meta">{{ $bin['warehouse_id'] ? 'Lager-ID '.$bin['warehouse_id'] : '' }}</div></td>
-         <td>{{ $bin['bin'] }}<div class="meta">{{ $bin['bin_id'] ? 'Platz-ID '.$bin['bin_id'] : '' }}</div></td>
-         <td><strong>{{ $bin['quantity']!==null ? number_format((float)$bin['quantity'],0,',','.') : 'Nicht belegt' }}</strong></td>
-         <td>
+         <td data-label="Warenlager"><strong>{{ $bin['warehouse'] }}</strong><div class="meta">{{ $bin['warehouse_id'] ? 'Lager-ID '.$bin['warehouse_id'] : '' }}</div></td>
+         <td data-label="WMS-Lagerplatz">{{ $bin['bin'] }}<div class="meta">{{ $bin['bin_id'] ? 'Platz-ID '.$bin['bin_id'] : '' }}</div></td>
+         <td data-label="Fachmenge"><strong>{{ $bin['quantity']!==null ? number_format((float)$bin['quantity'],0,',','.') : 'Nicht belegt' }}</strong></td>
+         <td data-label="Fachstatus">
           @if($bin['locked']||$bin['shipping_locked'])
            <span class="tag warn">🔒 {{ $bin['locked']?'Fach gesperrt':'Auslieferung gesperrt' }}</span>
           @else
            <span class="tag">Keine Sperre gemeldet</span>
           @endif
          </td>
-         <td>{{ $bin['last_movement'] ?: 'Nicht im Spiegel belegt' }}<div class="meta">{{ $bin['last_source'] ?: '' }}</div></td>
-         <td><div class="meta">{{ $bin['comment'] ?: '' }}</div><div class="meta">{{ $bin['type_id'] ? 'Platztyp-ID '.$bin['type_id'] : '' }} {{ $bin['status_id'] ? ' · Status-ID '.$bin['status_id'] : '' }}</div></td>
+         <td data-label="Letzte Bewegung">{{ $bin['last_movement'] ?: 'Nicht im Spiegel belegt' }}<div class="meta">{{ $bin['last_source'] ?: '' }}</div></td>
+         <td data-label="Weitere Quellangaben"><div class="meta">{{ $bin['comment'] ?: '' }}</div><div class="meta">{{ $bin['type_id'] ? 'Platztyp-ID '.$bin['type_id'] : '' }} {{ $bin['status_id'] ? ' · Status-ID '.$bin['status_id'] : '' }}</div></td>
         </tr>
        @endforeach
       </tbody>
@@ -275,7 +293,7 @@ html.dark .hw24-warehouse{--edge:#334155;--bg:#182638;--soft:#233249;--ink:#f1f5
  </div>
 </section>
 
-<section class="panel" aria-labelledby="wms-history">
+<section class="panel full" aria-labelledby="wms-history">
  <div class="panel-head" id="wms-history">04 · JTL-WMS-Bewegungshistorie</div>
  <div class="panel-body">
   <p class="small">Die bestehende Historien-Schnittstelle zeigt Bewegung, Zeitpunkt, Menge und Lagerplätze zum letzten abgeschlossenen Snapshot. Sie liefert nicht automatisch aktuelle Fachbestände, Verfügbarkeit oder Reservierungen.</p>
@@ -298,11 +316,11 @@ html.dark .hw24-warehouse{--edge:#334155;--bg:#182638;--soft:#233249;--ink:#f1f5
      <tbody>
       @foreach($movements as $i=>$movement)
        <tr wire:key="wms-movement-{{ $i }}">
-        <td>{{ $movement['when'] ?: 'Nicht belegt' }}</td>
-        <td>{{ $movement['kind'] ?: 'Unbekannt' }}<div class="meta">ID {{ $movement['id'] ?: 'unbekannt' }}</div></td>
-        <td>{{ $movement['qty']??'Nicht belegt' }}</td>
-        <td>{{ $movement['from'] ?: 'Nicht belegt' }}</td>
-        <td>{{ $movement['to'] ?: 'Nicht belegt' }}</td>
+        <td data-label="Zeitpunkt UTC">{{ $movement['when'] ?: 'Nicht belegt' }}</td>
+        <td data-label="Buchungsart">{{ $movement['kind'] ?: 'Unbekannt' }}<div class="meta">ID {{ $movement['id'] ?: 'unbekannt' }}</div></td>
+        <td data-label="Menge">{{ $movement['qty']??'Nicht belegt' }}</td>
+        <td data-label="Von Lagerplatz">{{ $movement['from'] ?: 'Nicht belegt' }}</td>
+        <td data-label="Nach Lagerplatz">{{ $movement['to'] ?: 'Nicht belegt' }}</td>
        </tr>
       @endforeach
      </tbody>
