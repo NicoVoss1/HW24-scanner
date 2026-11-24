@@ -198,7 +198,7 @@ final class ScanWorkbench extends Page
 
     private function rowFor(string $ean): ?array
     {
-        foreach($this->items as $row)if($row['ean']===$ean && $row['review']!=='removed')return $row;
+        foreach($this->items as $row)if($row['ean']===$ean && self::validGtin($ean) && $row['review']!=='removed')return $row;
         return null;
     }
 
@@ -376,7 +376,7 @@ final class ScanWorkbench extends Page
 
     public function loadBatch(int $batchId, LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'selectedBatchId', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','draftFields','confirmDraft','draftMessage']);
+        $this->reset(['items', 'selectedBatchId', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','workingAi','confirmSingleAi','draftFields','confirmDraft','draftMessage']);
         // Never let the browser request arbitrary batch IDs.
         $allowed = array_column($this->batches, 'id');
         if (!in_array($batchId, $allowed, true)) {
