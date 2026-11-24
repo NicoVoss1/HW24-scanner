@@ -182,7 +182,7 @@ final class ScanWorkbench extends Page
         }
         $candidates=[];
         foreach(array_slice($this->researchResults[$ean]['items']??[],0,8) as $c){
-            $candidates[]=['asin'=>$c['asin'],'title'=>$c['title'],'brand'=>$c['brand'],'eanConfirmed'=>$c['gtin_match']];
+            $candidates[]=['asin'=>$c['asin'],'title'=>$c['title'],'brand'=>$c['brand'],'eanConfirmed'=>$c['gtin_match'],'packKind'=>$c['pack_kind']??'unknown','packUnits'=>$c['pack_units']??null];
         }
         $r=$bridge->post('ai.review',['ean'=>$ean,'articleName'=>$name,
             'brand'=>mb_substr((string)($this->draftFields['Hersteller']??''),0,180),
@@ -282,7 +282,7 @@ final class ScanWorkbench extends Page
         $ean=$this->workingEan;
         if($ean===null||$this->rowFor($ean)===null)return;
         foreach($this->researchResults[$ean]['items']??[] as $candidate){
-            if($candidate['asin']!==$asin||!$candidate['gtin_match'])continue;
+            if($candidate['asin']!==$asin||!$candidate['gtin_match']||($candidate['pack_kind']??'')==='conflict')continue;
             foreach(['ASIN'=>'asin','Artikelname'=>'title','Hersteller'=>'manufacturer'] as $field=>$key)
                 if(trim((string)($this->draftFields[$field]??''))==='')$this->draftFields[$field]=$candidate[$key];
             $this->draftMessage='Amazon-Vorschlag in leere Felder übernommen. Packungsgröße und Identität manuell prüfen; noch nicht gespeichert.';
@@ -295,7 +295,7 @@ final class ScanWorkbench extends Page
         $ean=$this->workingEan;
         if($ean===null||$this->rowFor($ean)===null)return;
         foreach($this->researchResults[$ean]['items']??[] as $candidate){
-            if($candidate['asin']===$asin&&$candidate['gtin_match']){
+            if($candidate['asin']===$asin&&$candidate['gtin_match']&&($candidate['pack_kind']??'')!=='conflict'){
                 $this->workingPrice=ScanResearch::pricing($asin,$bridge);
                 return;
             }
@@ -454,6 +454,7 @@ final class ScanWorkbench extends Page
         }
         $eans=[];
         foreach($this->items as $item){
+            if($this->selectedEans!==[]&&!in_array($item['ean'],$this->selectedEans,true))continue;
             $ean=(string)($item['ean']??'');
             if(preg_match('/^(?:[0-9]{8}|[0-9]{12}|[0-9]{13}|[0-9]{14})$/D',$ean))
                 $eans[$ean]=true;
