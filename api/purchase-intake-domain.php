@@ -43,3 +43,37 @@ function hw24PurchaseLineCents(int $quantity,int $unitNetCents,int $vatPercent):
     }
     return ['net_cents'=>$net,'tax_cents'=>$tax,'gross_cents'=>$net+$tax];
 }
+
+
+/** Archived catalog result is evidence, never a confirmed JTL identity.
+ * Only one stored result on a snapshot page can be offered as a suggestion.
+ * Never use arbitrary first hits or equate a brand with a manufacturer.
+ */
+function hw24PurchaseArchiveCandidate(?array $archive): array {
+    if($archive===null)return ['status'=>'not_archived'];
+    $result=[
+        'status'=>'review_required',
+        'snapshot_id'=>(int)$archive['snapshot_id'],
+        'fetched_at_utc'=>(string)$archive['fetched_at_utc'],
+        'result_count'=>(int)$archive['item_count'],
+    ];
+    if($result['result_count']===0){
+        $result['status']='no_catalog_hit';
+        return $result;
+    }
+    if($result['result_count']!==1||(int)$archive['stored_item_count']!==1){
+        $result['status']='multiple_or_incomplete';
+        return $result;
+    }
+    $asin=(string)($archive['asin']??'');
+    if(!preg_match('/^[A-Z0-9]{10}$/D',$asin)){
+        $result['status']='multiple_or_incomplete';
+        return $result;
+    }
+    return $result+[
+        'asin'=>$asin,
+        'title'=>trim((string)($archive['item_name']??'')),
+        'brand'=>trim((string)($archive['brand']??'')),
+        'manufacturer'=>trim((string)($archive['manufacturer']??'')),
+    ];
+}
