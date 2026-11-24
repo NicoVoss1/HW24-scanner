@@ -27,6 +27,11 @@ final class ScanWorkbench extends Page
     #[Locked] public int $csvOffset = 0;
     #[Locked] public ?int $csvBatchId = null;
 
+    public function updatedCsvFile(): void
+    {
+        $this->reset(['csvRows','csvState','csvOffset','csvBatchId','confirmCsvImport']);
+    }
+
     public function previewCsv(): void
     {
         $this->reset(['csvRows','csvState','csvOffset','csvBatchId','confirmCsvImport']);
