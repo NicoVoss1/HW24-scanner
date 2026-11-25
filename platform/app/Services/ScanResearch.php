@@ -90,7 +90,7 @@ final class ScanResearch
 
     public static function pricing(string $asin,LegacyReadBridge $bridge,?AmazonPriceArchive $archive=null): array
     {
-        $capture=AmazonPriceResearch::fetch($asin,$bridge,$archive);
+        $capture=$archive!==null?AmazonPriceResearch::fetch($asin,$bridge,$archive):AmazonPriceArchiveRuntime::fetch($asin,$bridge);
         $r=$capture['response'];
         $raw=is_array($r['data']??null)?$r['data']:[];
         $board=OfferEvidence::present($raw);
@@ -98,7 +98,7 @@ final class ScanResearch
             'buy_box'=>$board['buy_box'],'lowest'=>$board['lowest_summary']??$board['lowest_visible'],
             'at'=>$board['retrieved_at'],'offers'=>$board['total_offers']];
         // Keep existing callers unchanged until an authorized archive is supplied.
-        if ($archive!==null) $result['archive']=$capture['archive'];
+        if ($archive!==null||AmazonPriceArchiveRuntime::enabled()) $result['archive']=AmazonPriceArchiveRuntime::summary($capture['archive']);
         return $result;
     }
 }
