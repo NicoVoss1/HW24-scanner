@@ -35,6 +35,7 @@ echo '=== 1. PRECHECK ==='
 [[ -f "$app/.env" && ! -L "$app/.env" && -f "$app/database/database.sqlite" && ! -L "$app/database/database.sqlite" ]] || stop 'private app files missing'
 [[ -f "$app/vendor/autoload.php" && -f "$app/composer.lock" ]] || stop 'dependencies missing'
 [[ "$(stat -c '%U %G %a' "$private")" == "$owner $group 750" ]] || stop 'private directory permissions changed'
+for tool in mariadb mariadb-dump openssl gzip xxd flock python3 curl; do command -v "$tool" >/dev/null || stop "missing tool: $tool"; done
 systemctl is-active --quiet cron || stop 'cron inactive'
 for f in "$cfg" "$key" "$heartbeat" "$lock" "$cron"; do
     [[ ! -e "$f" && ! -L "$f" ]] || stop "existing pilot path: $f"
@@ -104,6 +105,16 @@ cleanup(){
     trap - EXIT
     if [[ "$success" == 0 ]]; then
         echo 'STOP: pilot activation incomplete; no intentional provider call performed.'
+        # A concurrent browser request could have captured an observation once
+        # the heartbeat existed. If data exists or cannot be checked, retain
+        # the working purge setup and stop for explicit operator review.
+        if [[ -e "$heartbeat" ]]; then
+            n=$(sql -Ne "SELECT COUNT(*) FROM hw24_artikelmanager.$table" 2>/dev/null || echo unknown)
+            if [[ "$n" != 0 ]]; then
+                echo 'Archive may contain observations; preserve code, key and purge job for manual review.'
+                exit "$rc"
+            fi
+        fi
         rm -f -- "$cron"
         cp -a "$backup/env.before" "$app/.env"
         if [[ "$(g rev-parse HEAD)" == "$target" && -z "$(g status --porcelain --untracked-files=no)" ]]; then
@@ -157,15 +168,15 @@ artisan route:clear
 artisan view:clear
 artisan config:cache
 artisan view:cache
+check_http
 artisan hw24:price-archive-purge
 [[ -s "$heartbeat" && ! -L "$heartbeat" ]] || stop 'purge heartbeat missing'
-check_http
-[[ "$(sql -Ne "SELECT COUNT(*) FROM hw24_artikelmanager.$table")" == 0 ]] || stop 'unexpected observations before controlled test'
 success=1
 trap - EXIT
 echo '=== TEST PRICE ARCHIVE ACTIVATED ==='
 echo "HEAD: $(g rev-parse HEAD)"
 echo 'Retention: 7 days; purge every 15 minutes.'
-echo 'Archive empty; no provider call made by deployment.'
+echo 'No provider call made by deployment.'
+echo "Archive observations: $(sql -Ne "SELECT COUNT(*) FROM hw24_artikelmanager.$table")"
 echo "Backup: $backup"
 echo 'LIVE code and JTL/WMS unchanged. Key recovery file is local only; secure separately.'
