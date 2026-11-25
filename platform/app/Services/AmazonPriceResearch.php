@@ -13,7 +13,7 @@ use Throwable;
  */
 final class AmazonPriceResearch
 {
-    public static function fetch(string $asin, LegacyReadBridge $bridge, ?AmazonPriceArchive $archive=null): array
+    public static function fetch(string $asin, LegacyReadBridge $bridge, ?PriceArchiveStore $archive=null): array
     {
         if (!preg_match('/^[A-Z0-9]{10}$/D',$asin)) {
             throw new InvalidArgumentException('Invalid ASIN');
