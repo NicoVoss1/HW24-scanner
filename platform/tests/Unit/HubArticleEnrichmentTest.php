@@ -11,7 +11,7 @@ final class HubArticleEnrichmentTest extends TestCase
     public function test_empty_seo_only_and_no_claims(): void
     {
         $r=HubSeoDefaults::propose(['Artikelname'=>'Goldwell Trockenshampoo 250 ml','Titel-Tag (SEO)'=>'Bestehender Titel']);
-        self::assertSame(['Meta-Description (SEO)'=>'Goldwell Trockenshampoo 250 ml entdecken.'],$r);
+        self::assertSame(['Meta-Description (SEO)'=>'Goldwell Trockenshampoo 250 ml. Bei HAIRWORLD24.de entdecken.'],$r);
         self::assertSame([],HubSeoDefaults::propose(['Artikelname'=>'']));
     }
 
