@@ -10,6 +10,9 @@ final class HubCategoryPolicy
         $t=mb_strtolower(trim($title));
         $care=preg_match('/\b(?:trocken[\s-]*shampoo|dry[\s-]*shampoo|shampoo|conditioner|haarspülung|haarkur|haarmaske)\b/u',$t);
         $colour=preg_match('/\b(?:haarfarben?|haarfarbcreme|haarcoloration|haarcolor|coloration|koleston|igora royal|color touch|illumina color|socolor|super brillant touch|shinfinity|hair colo[u]?r|permanent colo[u]?r)\b/u',$t);
+        // Verified Revlon product family: Colorsmetique High Coverage is hair colour.
+        // Do not classify every Revlon product or every "color" title as hair dye.
+        if(preg_match('/\\brevlon(?:issimo)?\\b/u',$t)&&preg_match('/\\bcolorsmetique\\b.*\\bhigh\\s*coverage\\b/u',$t))$colour=1;
         $style=preg_match('/\b(?:haar[\s-]*spray|hair[\s-]*spray|styling[\s-]*spray|haargel|stylinggel|haarwachs|stylingwachs|schaumfestiger)\b/u',$t);
         $n=(int)$care+(int)$colour+(int)$style;
         if($n===0&&trim($group)!=='')return self::suggest($group,'');
