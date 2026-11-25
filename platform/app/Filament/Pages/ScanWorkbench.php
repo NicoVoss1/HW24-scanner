@@ -22,6 +22,7 @@ use App\Services\HubBatchPreparation;
 use App\Services\HubStockReader;
 use App\Services\HubBatchOverview;
 use App\Services\HubBatchRelease;
+use App\Services\HubManualAiResearch;
 use App\Services\ScanQueueIntake;
 
 /**
@@ -165,6 +166,15 @@ final class ScanWorkbench extends Page
     #[Locked] public array $peerReview = [];
     #[Locked] public array $workingAi = [];
     public bool $confirmSingleAi = false;
+    public function openAiResearch(string $ean,LegacyReadBridge $bridge): void
+    {
+        if($this->rowFor($ean)===null)return;
+        if($this->workingEan!==$ean)$this->openDraft($ean);
+        $this->confirmSingleAi=false;
+        $this->loadWorkingAi($bridge);
+        $this->dispatch('hw24-ai-research-opened');
+    }
+
     public function loadWorkingAi(LegacyReadBridge $bridge): void
     {
         $ean=$this->workingEan;
@@ -181,50 +191,65 @@ final class ScanWorkbench extends Page
             'manufacturer'=>mb_substr((string)($facts['manufacturer']??''),0,180),
             'group'=>mb_substr((string)($body['suggestedWarengruppe']??''),0,180),
             'notes'=>mb_substr((string)($facts['notes']??''),0,1200),
-            'reason'=>mb_substr((string)($body['reason']??''),0,1200)];
+            'reason'=>mb_substr((string)($body['reason']??''),0,1200),
+            'status'=>(string)($body['status']??''),
+            'web'=>(($row['input']['review_version']??null)===3),
+            'sources'=>HubManualAiResearch::sources($body),
+            'cost'=>is_numeric($row['usd_cost']??null)?(float)$row['usd_cost']:null];
     }
 
     public function useAiSuggestion(): void
     {
-        if($this->workingEan===null||($this->workingAi['ok']??false)!==true||($this->workingAi['found']??false)!==true)return;
-        foreach(['Artikelname'=>'title','Hersteller'=>'manufacturer','Warengruppe'=>'group'] as $field=>$key){
-            if(trim((string)($this->draftFields[$field]??''))==='')$this->draftFields[$field]=$this->workingAi[$key]??'';
+        $row=$this->workingEan!==null?$this->rowFor($this->workingEan):null;
+        if(!$row||$row['resolution']!=='new_candidate'||in_array($row['review'],['removed','ready'],true)||
+            ($this->workingAi['ok']??false)!==true||($this->workingAi['found']??false)!==true||
+            ($this->workingAi['status']??'')==='mismatch')return;
+        if(($this->workingAi['web']??false)&&empty($this->workingAi['sources'])){
+            $this->draftMessage='Keine belegten Webquellen; bitte Produktidentität manuell klären.';return;
         }
-        $this->draftMessage='KI-Vorschläge in leere Felder übernommen; fachlich prüfen, noch nicht gespeichert.';
+        foreach(['Artikelname'=>'title','Hersteller'=>'manufacturer'] as $field=>$key){
+            $v=trim((string)($this->workingAi[$key]??''));
+            if($v!==''&&trim((string)($this->draftFields[$field]??''))===''){
+                $this->draftFields[$field]=$v;
+                $this->draftProvenance[$field]=['value'=>$v,'source'=>'KI-Archiv #'.$this->workingAi['id'].' · manuell geprüfter Vorschlag'];
+            }
+        }
+        $this->confirmDraft=false;
+        $this->draftMessage='KI-Vorschläge in leere Felder übernommen; Warengruppe anhand JTL-Vorlage prüfen. Noch nicht gespeichert.';
     }
 
-    public function runWorkingAi(LegacyApprovedActionBridge $bridge,LegacyReadBridge $read): void
+    public function runWorkingAi(LegacyApprovedActionBridge $bridge,LegacyReadBridge $read,bool $web=false): void
     {
         $ean=$this->workingEan;$row=$ean!==null?$this->rowFor($ean):null;
         $confirmed=$this->confirmSingleAi;$this->confirmSingleAi=false;
-        if(!$row||!$confirmed||config('hw24_legacy.ai_paid_enabled')!==true){
+        if(!$row||!$confirmed||auth()->id()===null||config('hw24_legacy.ai_paid_enabled')!==true){
             $this->draftMessage='Kostenpflichtige Einzel-KI nicht freigegeben.';return;
         }
-        $name=mb_substr(trim((string)($this->draftFields['Artikelname']??'')),0,500);
-        if($name===''){$this->draftMessage='Zuerst belegten Produktnamen eingeben.';return;}
+        $name=mb_strcut(trim((string)($this->draftFields['Artikelname']??'')),0,500);
+        if(!$web&&$name===''){$this->draftMessage='Für die reine KI-Datenprüfung zuerst Produktname vom Etikett eingeben oder Webrecherche wählen.';return;}
         $this->loadWorkingAi($read);
         if(($this->workingAi['ok']??false)!==true||($this->workingAi['found']??false)===true){
             $this->draftMessage='Archiv nicht lesbar oder Bericht bereits vorhanden. Keine neue kostenpflichtige Abfrage.';return;
         }
-        // On older actor-only API we cannot rule out an existing shared report.
         if(($this->workingAi['scope']??'')!=='Gemeinsames Archiv'){
-            $this->draftMessage='Gemeinsames KI-Archiv noch nicht bestätigt. Keine kostenpflichtige Sammel-/Einzelabfrage aus dieser Ansicht.';return;
+            $this->draftMessage='Gemeinsames KI-Archiv noch nicht bestätigt. Keine neue kostenpflichtige Abfrage, um doppelte Kosten zu vermeiden.';return;
         }
         $budget=$read->fetch('ai.budget');$b=$budget['data']??[];
-        if(($budget['ok']??false)!==true||($b['enabled']??false)!==true||($b['archive_ready']??false)!==true||
-            !is_numeric($b['usd_month']??null)||!is_numeric($b['usd_budget']??null)||(float)$b['usd_month']>=(float)$b['usd_budget']){
-            $this->draftMessage='KI-Budget oder Archivfreigabe nicht bestätigt. Keine neue Abfrage.';return;
-        }
+        $block=HubManualAiResearch::budgetBlock($budget,$web);
+        if($block!==null){$this->draftMessage=$block;return;}
         $candidates=[];
         foreach(array_slice($this->researchResults[$ean]['items']??[],0,8) as $c){
             $candidates[]=['asin'=>$c['asin'],'title'=>$c['title'],'brand'=>$c['brand'],'eanConfirmed'=>$c['gtin_match'],'packKind'=>$c['pack_kind']??'unknown','packUnits'=>$c['pack_units']??null];
         }
-        $r=$bridge->post('ai.review',['ean'=>$ean,'articleName'=>$name,
-            'brand'=>mb_substr((string)($this->draftFields['Hersteller']??''),0,180),
-            'warengruppe'=>mb_substr((string)($this->draftFields['Warengruppe']??''),0,150),
-            'category'=>'','unit'=>'','jtl_status'=>$row['resolution']==='existing'?'current_snapshot':'unverified','candidates'=>$candidates]);
-        $this->draftMessage=($r['ok']??false)===true?'KI-Antwort erhalten; Archiv erneut geladen.':'KI-Auftrag nicht eindeutig bestätigt. Vor erneuter Abfrage Archiv und Kosten prüfen.';
+        $payload=['ean'=>$ean,'articleName'=>$name,
+            'brand'=>mb_strcut((string)($this->draftFields['Hersteller']??''),0,180),
+            'warengruppe'=>mb_strcut((string)($this->draftFields['Warengruppe']??''),0,150),
+            'category'=>'','unit'=>'','jtl_status'=>$row['resolution']==='existing'?'current_snapshot':'unverified','candidates'=>$web?[]:$candidates];
+        if($web)$payload['review_version']=3;
+        $r=$bridge->post('ai.review',$payload);
+        $this->draftMessage=($r['ok']??false)===true?'KI-Antwort erhalten; Archiv erneut geladen. Vorschläge anhand der Quellen prüfen.':'KI-Auftrag nicht eindeutig bestätigt. Vor erneuter Abfrage Archiv und Kosten prüfen.';
         $this->loadWorkingAi($read);
+        $this->dispatch('hw24-ai-research-opened');
     }
 
     public array $draftFields = [];
