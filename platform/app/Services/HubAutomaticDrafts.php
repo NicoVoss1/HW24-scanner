@@ -32,7 +32,7 @@ final class HubAutomaticDrafts
         return true;
     }
 
-    public function run(int $batchId,bool $confirmed): array
+    public function run(int $batchId,bool $confirmed,bool $allowOnePaidReview=false): array
     {
         if(!$confirmed||!app()->runningInConsole()||config('hw24_research_queue.enabled')!==true||
             config('hw24_research_queue.scan_intake_enabled')!==true||
@@ -65,10 +65,15 @@ final class HubAutomaticDrafts
         $completed=array_slice($completed,0,50);
         $stock=$this->stock->read(array_column($completed,'ean'));
         if(($stock['ok']??false)!==true)throw new RuntimeException('Fresh mirror required');
-        $proposals=$this->prepare->prepare($completed,$jobs);
+        // Limit archive requests and provider time per CLI invocation.
+        $completed=array_slice($completed,0,3);
+        $proposals=$this->prepare->prepare($completed,$jobs,$allowOnePaidReview);
         foreach($completed as $row){
             if($summary['saved']>=3)break;
             $ean=$row['ean'];$p=$proposals[$ean]??[];
+            if(($p['ai']['state']??null)==='paid_not_confirmed'){
+                $summary['status']='paid_review_not_confirmed';return $summary;
+            }
             if(($stock['items'][$ean]['state']??null)!=='absent'||
                 !in_array($p['state']??null,['review','missing'],true)||empty($p['fields'])||
                 ($p['revision']??null)!==0||($p['item_id']??null)!==$row['id']){
