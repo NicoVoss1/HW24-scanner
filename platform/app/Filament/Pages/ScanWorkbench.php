@@ -15,6 +15,7 @@ use App\Services\ScanResearch;
 use App\Services\ScanResearchPresentation;
 use App\Services\HubCategoryPolicy;
 use App\Services\HubPeerMirror;
+use App\Services\HubTemplateDefaults;
 use App\Services\ScanQueueIntake;
 
 /**
@@ -220,6 +221,9 @@ final class ScanWorkbench extends Page
     }
 
     public array $draftFields = [];
+    public string $templateNumber = '';
+    #[Locked] public array $templateReview = [];
+    #[Locked] public array $draftProvenance = [];
     public array $selectedExportFields = ScanResearch::FIELDS;
 
     public function allExportFields(): void
@@ -357,7 +361,7 @@ final class ScanWorkbench extends Page
     {
         $row=$this->rowFor($ean);
         if($row===null)return;
-        $this->reset(['draftFields','confirmDraft','draftMessage','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi']);
+        $this->reset(['draftFields','templateNumber','templateReview','draftProvenance','confirmDraft','draftMessage','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi']);
         $this->workingEan=$ean;
         $this->workflowStep=2;
         foreach(ScanResearch::FIELDS as $field){
@@ -366,6 +370,49 @@ final class ScanWorkbench extends Page
         }
         $this->draftFields['GTIN']=$ean;
         if($this->draftFields['Artikelname']==='')$this->draftFields['Artikelname']=$row['name'];
+    }
+
+    /** Only a manually selected, exact JTL template number; no paid/provider calls. */
+    public function loadTemplate(LegacyReadBridge $bridge): void
+    {
+        $this->templateReview=[];
+        $ean=$this->workingEan;$row=$ean!==null?$this->rowFor($ean):null;
+        if(!$row||$row['resolution']!=='new_candidate')return;
+        $number=trim($this->templateNumber);
+        if(!preg_match('/^[\\p{L}\\p{N}][\\p{L}\\p{N}._\\/\\-]{1,63}$/uD',$number)){
+            $this->templateReview=['ok'=>false,'message'=>'Bitte genaue JTL-Vorlagenartikelnummer eingeben.'];return;
+        }
+        $this->templateReview=HubTemplateDefaults::propose($number,$ean,$this->draftFields,
+            $bridge->fetch('jtl.article',['q'=>$number]),config('hw24_jtl_reference_observations',[]));
+    }
+
+    public function applyTemplate(LegacyReadBridge $bridge): void
+    {
+        if(($this->templateReview['ok']??false)!==true||
+            ($this->templateReview['number']??null)!==trim($this->templateNumber))return;
+        $previous=$this->templateReview;
+        $this->loadTemplate($bridge);
+        if(($this->templateReview['ok']??false)!==true||$previous!==$this->templateReview){
+            $this->draftMessage='Vorlagenstand hat sich geändert. Bitte Vorschlag erneut prüfen.';return;
+        }
+        foreach($this->templateReview['fields'] as $field=>$value){
+            if(trim((string)($this->draftFields[$field]??''))!=='')continue;
+            $this->draftFields[$field]=$value;
+            $this->draftProvenance[$field]=['value'=>$value,'source'=>'JTL-Vorlage kArtikel '.$this->templateReview['id'].' (manuell ausgewählt)'];
+        }
+        $this->confirmDraft=false;
+        $this->draftMessage='Nur leere Standardfelder ergänzt. Noch nicht gespeichert oder freigegeben.';
+    }
+
+    public function fillEmptyTexts(): void
+    {
+        $ean=$this->workingEan;$row=$ean!==null?$this->rowFor($ean):null;
+        if(!$row||$row['resolution']!=='new_candidate')return;
+        foreach(HubTemplateDefaults::emptyTexts($this->draftFields) as $field=>$value){
+            $this->draftFields[$field]=$value;
+            $this->draftProvenance[$field]=['value'=>$value,'source'=>'HW24-Regel: eigener Artikelname als leerer Basistext'];
+        }
+        $this->confirmDraft=false;
     }
 
     /** Explicit peer read; no external API or automatic acceptance. */
@@ -455,7 +502,8 @@ final class ScanWorkbench extends Page
             // Patch only changed fields; never send all empty fields as replacements.
             if($value!== (string)($row['draft'][$field]??'')||$field==='GTIN'){
                 $fields[$field]=$field==='GTIN'?$ean:$value;
-                $sources[$field]='Manuell geprüfter HW24-Entwurf';
+                $p=$this->draftProvenance[$field]??[];
+                $sources[$field]=(($p['value']??null)===$value&&is_string($p['source']??null))?$p['source']:'Manuell geprüfter HW24-Entwurf';
             }
         }
         if(strlen(json_encode($fields,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR))>18000){
@@ -491,7 +539,7 @@ final class ScanWorkbench extends Page
 
     public function loadBatches(LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'batches', 'selectedBatchId', 'diagnostic', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','confirmDraft','draftMessage']);
+        $this->reset(['items', 'batches', 'selectedBatchId', 'diagnostic', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','templateNumber','templateReview','draftProvenance','confirmDraft','draftMessage']);
 
         $result = $bridge->fetch('scan.batches', ['op' => 'batches']);
         $raw = is_array($result['data'] ?? null) ? $result['data'] : [];
@@ -532,7 +580,7 @@ final class ScanWorkbench extends Page
 
     public function loadBatch(int $batchId, LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'selectedBatchId', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','confirmDraft','draftMessage']);
+        $this->reset(['items', 'selectedBatchId', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','templateNumber','templateReview','draftProvenance','confirmDraft','draftMessage']);
         // Never let the browser request arbitrary batch IDs.
         $allowed = array_column($this->batches, 'id');
         if (!in_array($batchId, $allowed, true)) {
