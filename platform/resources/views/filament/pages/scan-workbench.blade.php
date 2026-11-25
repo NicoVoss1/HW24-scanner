@@ -387,6 +387,7 @@
                                         <div class="hw24-position-actions">
                                             @if($item['review']!=='removed')
                                                 <button title="Artikelentwurf öffnen und einzelne Felder prüfen oder bearbeiten." type="button" class="hw24-btn" wire:click="openDraft('{{ $item['ean'] }}')">Artikel bearbeiten</button>
+                                                <button type="button" class="hw24-btn" title="Öffnet die KI-Ausnahmeprüfung für diese EAN und lädt vorhandene Berichte. Noch keine kostenpflichtige Abfrage." wire:click="openAiResearch('{{ $item['ean'] }}')" wire:loading.attr="disabled" wire:target="openAiResearch">OpenAI · KI recherchieren</button>
                                                 <a class="hw24-link" href="{{ url('/admin/intelligence').'?ean='.rawurlencode($item['ean']) }}">Recherche-Details öffnen</a>
                                             @endif
                                         </div>
@@ -506,22 +507,31 @@
                             @include('filament.partials.amazon-price-history',['archive'=>$workingPrice['archive']])
                         @endif
                     @endif
-                    <div class="hw24-note">
-                        <h3>KI-Recherche zur ausgewählten EAN</h3>
+                    <div class="hw24-note" id="hw24-manual-ai" x-data x-on:hw24-ai-research-opened.window="$nextTick(() => $el.scrollIntoView({block:'center',behavior:'smooth'}))">
+                        <h3>OpenAI · KI-Ausnahmeprüfung für {{ $workingEan }}</h3>
+                        <p>Wenn JTL und Amazon nicht ausreichen: zuerst vorhandenen KI-Bericht kostenlos laden, dann bewusst eine neue Analyse bestätigen. Die reine Datenprüfung benötigt einen vom Etikett belegten Namen; für unbekannte Artikel die Webrecherche auswählen, sobald serverseitig freigegeben.</p>
+                        <label>Produktname / Etikett (falls bekannt) <input type="text" class="hw24-btn" maxlength="500" wire:model="draftFields.Artikelname" placeholder="Optional für Webrecherche"></label>
+                        <label>Hersteller (falls bekannt) <input type="text" class="hw24-btn" maxlength="180" wire:model="draftFields.Hersteller"></label>
                         <div class="hw24-action">
                             <button title="Bereits archivierte KI-Analyse ohne neue Kosten laden." type="button" class="hw24-btn" wire:click="loadWorkingAi" wire:loading.attr="disabled">Vorhandenes KI-Archiv laden</button>
                             <label><input type="checkbox" wire:model.live="confirmSingleAi"> Kostenpflichtige Einzelprüfung bestätigen</label>
-                            <button title="Nach Freigabe fehlenden KI-Bericht anfordern; kann Kosten auslösen." type="button" class="hw24-btn" wire:click="runWorkingAi" wire:loading.attr="disabled" @disabled(!$confirmSingleAi || !config('hw24_legacy.ai_paid_enabled'))>Fehlenden KI-Bericht erstellen</button>
+                            <button title="Nach Freigabe fehlenden KI-Bericht anfordern; kann Kosten auslösen." type="button" class="hw24-btn" wire:click="runWorkingAi" wire:loading.attr="disabled" @disabled(!$confirmSingleAi || !config('hw24_legacy.ai_paid_enabled'))>KI-Datenprüfung starten</button>
+                            <button title="Kostenpflichtige OpenAI-Websuche nach EAN und Produktangaben. Nur bei aktivierter Suchschnittstelle. Keine automatische Artikelanlage." type="button" class="hw24-btn" wire:click="runWorkingAi(true)" wire:loading.attr="disabled" @disabled(!$confirmSingleAi || !config('hw24_legacy.ai_paid_enabled'))>OpenAI-Webrecherche starten</button>
                         </div>
                         @if($workingAi!==[])
                             <p>{{ $workingAi['scope'] }} · HTTP {{ $workingAi['http']??'—' }} · {{ !$workingAi['ok']?'Archiv nicht verfügbar':($workingAi['found']?'Bericht #'.$workingAi['id']:'Kein Bericht gefunden') }}</p>
                             @if($workingAi['found'])
                                 <p>{{ $workingAi['title'] }} · {{ $workingAi['manufacturer'] }} · {{ $workingAi['group'] }}</p>
                                 <p>{{ $workingAi['reason'] }} {{ $workingAi['notes'] }}</p>
+                                @if(($workingAi['cost']??null)!==null)<p>Archivierte geschätzte Kosten: {{ number_format($workingAi['cost'],6,',','.') }} USD</p>@endif
+                                @if(!empty($workingAi['sources']))
+                                    <p><strong>Archivierte Webquellen:</strong></p>
+                                    @foreach($workingAi['sources'] as $source)<p><a class="hw24-link" href="{{ $source['url'] }}" target="_blank" rel="noopener noreferrer">{{ $source['title'] }}</a></p>@endforeach
+                                @endif
                                 <button title="KI-Vorschläge für leere Entwurffelder zur Prüfung übernehmen." type="button" class="hw24-btn" wire:click="useAiSuggestion" wire:confirm="KI-Vorschläge in leere Entwurffelder übernehmen?">KI-Vorschläge übernehmen</button>
                             @endif
                         @endif
-                        <p>Eine neue Einzelprüfung benötigt ein bestätigtes gemeinsames Archiv, Betreiberfreigabe, Budget und Produktnamen. Vorhandene Berichte werden wiederverwendet.</p>
+                        <p>Neue Abfragen benötigen bestätigten Archivzugriff, Budget und Deine Kostenfreigabe. Webrecherche ist eine eigene kostenpflichtige Option; Produktdaten aus Webquellen bleiben Prüfvorschläge. Vorhandene Berichte werden wiederverwendet.</p>
                     </div>
                     <div class="hw24-note">
                         <h3>JTL-Vorlagenartikel · Standardfelder</h3>
