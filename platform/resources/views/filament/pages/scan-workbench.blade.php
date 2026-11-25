@@ -221,6 +221,10 @@
                         @endforeach
                     </div>
                     <p class="hw24-sub">Erfasste Stückzahl = gespeicherte Menge der aktiven Positionen (inkl. CSV-Initialmenge und manueller Korrekturen), kein gebuchter JTL-/WMS-Bestand. Scanvorgänge zählen gespeicherte Scannerereignisse. Entfernte Positionen: {{ $scanSummary['removed'] }}.</p>
+                    <div class="hw24-action">
+                        <button type="button" class="hw24-btn" wire:click="refreshBatchStock" wire:loading.attr="disabled" wire:target="refreshBatchStock">Wawi-Bestände aktualisieren</button>
+                        <span class="hw24-sub">{{ ($batchStock['ok']??false)?'JTL-Spiegelstand: '.$batchStock['at']:'Aktueller Wawi-Bestand nicht bestätigt' }}</span>
+                    </div>
                     @if($scanSummary['possibly_limited'])<p class="hw24-note hw24-note-warn">Anzeigelimit 3.000 Positionen erreicht; Kennzahlen beziehen sich nur auf die geladenen Zeilen.</p>@endif
                     @if($this->canQueueResearch())
                         <div class="hw24-note">
@@ -311,6 +315,22 @@
                                             @if(!empty($item['draft']['Artikelname']) && $item['name'] && $item['draft']['Artikelname']!==$item['name'])<div class="hw24-sub">Entwurfsname: {{ $item['draft']['Artikelname'] }}</div>@endif
                                             <div class="hw24-sub">EAN {{ $item['ean'] }} · {{ $item['article_number'] ?: 'Artikelnummer offen' }}</div>
                                             <div class="hw24-sub"><strong>{{ $item['scans'] }} Stück erfasst</strong> · {{ $item['resolution_label'] }} · {{ $item['review_label'] }}</div>
+                                            @if($item['review']!=='removed')
+                                                @php($stock=$batchStock['items'][$item['ean']]??[])
+                                                @if(($stock['state']??null)==='existing')
+                                                    <div style="margin-top:5px"><strong>In Wawi vorhanden</strong></div>
+                                                    <div class="hw24-sub">Wawi-Bestand: <strong>{{ $stock['total']??'Nicht belegt' }}</strong> · Verfügbar: <strong>{{ $stock['available']??'Nicht belegt' }}</strong></div>
+                                                    <div class="hw24-sub">In Aufträgen: {{ $stock['orders']??'Nicht belegt' }} · Im Zulauf: {{ $stock['incoming']??'Nicht belegt' }}</div>
+                                                    @if($item['resolution']!=='existing')<div class="hw24-sub">Abweichung vom gespeicherten Scanstatus – vor Freigabe prüfen.</div>@endif
+                                                @elseif(($stock['state']??null)==='absent')
+                                                    <div><strong>Im aktuellen Wawi-Spiegel nicht vorhanden</strong></div>
+                                                    @if($item['resolution']==='existing')<div class="hw24-sub">Abweichung vom gespeicherten Scanstatus – bitte prüfen.</div>@endif
+                                                @elseif(($stock['state']??null)==='multiple')
+                                                    <div><strong>Mehrere Wawi-Treffer – Bestand nicht eindeutig</strong></div>
+                                                @else
+                                                    <div class="hw24-sub">Aktueller Wawi-Bestand nicht bestätigt</div>
+                                                @endif
+                                            @endif
                                         </div>
                                         <div class="hw24-position-status">
                                             @if($this->canQueueResearch())
