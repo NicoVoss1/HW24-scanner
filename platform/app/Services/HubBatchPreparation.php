@@ -29,6 +29,7 @@ final class HubBatchPreparation
                     catch(\Throwable){$ai=['state'=>'paid_not_confirmed'];}
                 }
                 $p['ai']=$ai;
+                $p=HubAiContent::merge($p,$ai,$row['draft']??[]);
                 if(in_array($ai['state'],['identity_conflict','review','stale','paid_not_confirmed'],true)){
                     $p['state']='waiting';$p['fields']=[];$p['sources']=[];
                     $p['reason']='KI-Archiv erfordert Prüfung; keine automatische Übernahme';
