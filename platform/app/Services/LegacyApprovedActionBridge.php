@@ -10,7 +10,9 @@ use RuntimeException;
  * Strictly controlled operator-initiated POST bridge.
  *
  * NEVER invoke from lifecycle/mount/render/poll. Calls are only from validated
- * Livewire actions with server-side identity, approval, and private feature gates.
+ * Livewire actions with server-side identity, approval, and private feature gates,
+ * or the explicitly confirmed batch-scoped TEST draft CLI via HubAutomaticDrafts.
+ * The latter only saves untouched draft rows; never releases or calls paid AI.
  * The original LIVE API keeps its own approval, origin and actor checks.
  * No JTL/WMS, Shopify, Amazon listing or price-write service is exposed here.
  */
