@@ -212,7 +212,16 @@
                 <div class="hw24-card-head"><h3>04 · Gespeicherte Positionen aus Stapel {{ $selectedBatchId }}</h3></div>
                 <div class="hw24-card-body">
                     <p class="hw24-description">Maximal 3.000 Positionen aus der vorhandenen MariaDB. Erfassungszeit in deutscher Ortszeit (MEZ/MESZ). CSV-Import und echte Scan-Ereignisse werden nur bei gespeichertem Nachweis angezeigt. Keine Lagerbuchung oder direkte Artikelanlage in JTL.</p>
-                    <span class="hw24-stat">{{ count($items) }} Positionen geladen</span>
+                    @php($scanSummary=\App\Services\HubScanSummary::fromRows($items))
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,145px),1fr));gap:8px;margin:10px 0" aria-label="Stapelübersicht">
+                        @foreach(['Artikelpositionen'=>$scanSummary['positions'],'Erfasste Stückzahl'=>$scanSummary['quantity'],'Scanvorgänge (aktiv)'=>$scanSummary['events_complete']?$scanSummary['scan_events']:'Nicht vollständig belegt','In JTL vorhanden'=>$scanSummary['existing'],'Neuanlagen'=>$scanSummary['new'],'Zuordnung offen'=>$scanSummary['unresolved']] as $label=>$value)
+                            <div style="border:1px solid #dbe5ef;border-radius:9px;padding:10px;min-width:0">
+                                <div class="hw24-sub">{{ $label }}</div><strong style="font-size:20px">{{ $value }}</strong>
+                            </div>
+                        @endforeach
+                    </div>
+                    <p class="hw24-sub">Erfasste Stückzahl = gespeicherte Menge der aktiven Positionen (inkl. CSV-Initialmenge und manueller Korrekturen), kein gebuchter JTL-/WMS-Bestand. Scanvorgänge zählen gespeicherte Scannerereignisse. Entfernte Positionen: {{ $scanSummary['removed'] }}.</p>
+                    @if($scanSummary['possibly_limited'])<p class="hw24-note hw24-note-warn">Anzeigelimit 3.000 Positionen erreicht; Kennzahlen beziehen sich nur auf die geladenen Zeilen.</p>@endif
                     @if($this->canQueueResearch())
                         <div class="hw24-note">
                             <h3>Artikel gemeinsam aufbereiten</h3>
@@ -301,7 +310,7 @@
                                             <div class="hw24-sub">{{ $item['name']?'Artikelname aus gespeichertem Scan-/JTL-Stand':'Artikelname aus Entwurf, sofern vorhanden' }}</div>
                                             @if(!empty($item['draft']['Artikelname']) && $item['name'] && $item['draft']['Artikelname']!==$item['name'])<div class="hw24-sub">Entwurfsname: {{ $item['draft']['Artikelname'] }}</div>@endif
                                             <div class="hw24-sub">EAN {{ $item['ean'] }} · {{ $item['article_number'] ?: 'Artikelnummer offen' }}</div>
-                                            <div class="hw24-sub">{{ $item['scans'] }} Scan(s) · {{ $item['resolution_label'] }} · {{ $item['review_label'] }}</div>
+                                            <div class="hw24-sub"><strong>{{ $item['scans'] }} Stück erfasst</strong> · {{ $item['resolution_label'] }} · {{ $item['review_label'] }}</div>
                                         </div>
                                         <div class="hw24-position-status">
                                             @if($this->canQueueResearch())
@@ -347,6 +356,7 @@
                                         @if($job)<p class="hw24-sub">Quellenstand des gespeicherten Auftrags; keine neue Abfrage. Einzelne Abfragezeiten sind im Auftrag derzeit nicht vollständig hinterlegt.</p>@endif
                                         <dl class="hw24-facts">
                                             <div><dt>Erfasst am (MEZ/MESZ)</dt><dd>{{ $item['entry_at'] ?? 'Zeitpunkt nicht gespeichert' }}</dd></div>
+                                            <div><dt>Gespeicherte Scanvorgänge</dt><dd>{{ $item['scan_events'] ?? 'Nicht belegt' }}</dd></div>
                                             <div><dt>Letzter Scan</dt><dd>{{ $item['last_scan_at'] ?: 'Nicht belegt' }}</dd></div>
                                             <div><dt>Zuletzt geändert</dt><dd>{{ $item['updated_at'] ?: 'Nicht belegt' }}</dd></div>
                                             <div><dt>Erfassungsart</dt><dd>{{ $item['origin_label'] }} @if($item['import_label'])<div>{{ $item['import_label'] }}</div>@endif</dd></div>
