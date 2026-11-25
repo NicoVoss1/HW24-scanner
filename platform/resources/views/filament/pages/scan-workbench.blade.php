@@ -72,7 +72,7 @@
         <header class="hw24-hero">
             <div>
                 <p class="hw24-kicker">HW24 · Bestehende Scan-Daten</p>
-                <h2>Scanliste und Sammelimport</h2>
+                <h2>HW24 Business Hub · Scanliste und Sammelimport</h2>
                 <p class="hw24-lead">Deine bestehenden Stapel und Positionen bleiben im HW24-Legacy-System erhalten. Du kannst sie hier prüfen und den vollständigen Scan-, CSV- und Ameise-Workflow weiterhin verwenden.</p>
             </div>
             <a class="hw24-open" href="https://artikelmanager.hairworld24.de/scanliste.html"
@@ -358,7 +358,7 @@
                                     @foreach($jtlFieldReview['fields'] as $field=>$info)
                                         <div>
                                             <dt>{{ $field }}</dt>
-                                            <dd>{{ match($info['state']){'value'=>$info['value'],'reference'=>$info['value'],'empty_snapshot'=>'Im Spiegel nicht belegt',default=>'Noch nicht zugeordnet'} }}</dd>
+                                            <dd>{{ match($info['state']){'value'=>$info['value'],'reference'=>$info['value'],'observed_reference'=>$info['value'],'empty_snapshot'=>'Im Spiegel nicht belegt',default=>'Noch nicht zugeordnet'} }}</dd>
                                             <div class="hw24-sub">{{ $info['source'] }}</div>
                                         </div>
                                     @endforeach
@@ -412,6 +412,15 @@
                         @endif
                         <p>Eine neue Einzelprüfung benötigt ein bestätigtes gemeinsames Archiv, Betreiberfreigabe, Budget und Produktnamen. Vorhandene Berichte werden wiederverwendet.</p>
                     </div>
+                    @php($categoryProposal=$this->categoryProposal())
+                    @if($categoryProposal)
+                        <div class="hw24-note">
+                            <h3>Kategorie-Vorschlag · HW24 Business Hub</h3>
+                            <p>{{ $categoryProposal['Kategorie Ebene 1'] }} / {{ $categoryProposal['Kategorie Ebene 2'] }}</p>
+                            <p>Nach festgelegter Produktregel; JTL-Warengruppe und Kategorie bleiben getrennte Felder. Keine automatische Freigabe.</p>
+                            <button type="button" class="hw24-btn" wire:click="applyCategoryProposal" wire:confirm="Diesen Kategoriepfad im Entwurf übernehmen?">Kategorie-Vorschlag übernehmen</button>
+                        </div>
+                    @endif
                     <p class="hw24-description">Scanentwurf und JTL-Spiegel sind getrennt. Bei vorhandenen JTL-Artikeln dient der Feldcheck oben zunächst der manuellen Bewertung; Änderungen an bestehenden Artikeln werden hier noch nicht gespeichert. Neue Artikel können nach Prüfung als Entwurf gespeichert werden.</p>
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px">
                         @foreach(\App\Services\ScanResearch::FIELDS as $field)
