@@ -9,15 +9,29 @@ final class HubBatchPreparation
     public function prepare(array $rows,array $jobs): array
     {
         $db=HubPeerMirror::connect();
-        $out=[];
+        $out=[];$aiReads=0;
         foreach($rows as $row){
             $ean=(string)$row['ean'];$job=$jobs[$ean]??[];
             if(($row['resolution']??null)!=='new_candidate'||in_array($row['review']??null,['removed','ready'],true))continue;
             $archive=HubResearchEvidence::archivedCatalog($db,$job);
             $p=self::proposal($row,$job,$archive);
             if(in_array($p['state'],['review','missing'],true)){
+                $catalog=HubResearchEvidence::catalogItem($ean,$job,$archive);
+                $ai=['state'=>'not_checked'];
+                if($catalog!==null&&$aiReads<3){
+                    $aiReads++;
+                    try{$ai=app(HubAiEvidence::class)->read($ean,$catalog);}
+                    catch(\Throwable){$ai=['state'=>'unavailable'];}
+                }
+                $p['ai']=$ai;
+                if(in_array($ai['state'],['identity_conflict','review','stale'],true)){
+                    $p['state']='waiting';$p['fields']=[];$p['sources']=[];
+                    $p['reason']='KI-Archiv erfordert Prüfung; keine automatische Übernahme';
+                }
+            }
+            if(in_array($p['state'],['review','missing'],true)){
                 try {
-                    $template=(new HubArticleMirror())->standardProposals($db,$p['draft'],config('hw24_jtl_reference_observations',[]));
+                    $template=(new HubArticleMirror())->standardProposals($db,$p['draft'],config('hw24_jtl_reference_observations',[]),HubAiEvidence::groupHint($p['draft'],$p['ai']??[]));
                     $p=self::mergeTemplate($p,$template);
                 }catch(\Throwable){$p['template_reason']='Vorlagenquelle derzeit nicht bestätigt';}
             }
