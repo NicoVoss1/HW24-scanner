@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Services\AmazonPriceResearch;
+use App\Services\ScanResearch;
 use App\Services\LegacyReadBridge;
 use App\Services\AmazonPriceArchive;
 use Illuminate\Support\Facades\Http;
@@ -41,10 +42,11 @@ final class AmazonPriceResearchTest extends TestCase
             ->push($payload)->push($payload)->push($payload)->push(['ok'=>false,'error'=>'rate_limit'],429)]);
         $bridge=new LegacyReadBridge();
         $archive=$this->archive();
-        $off=AmazonPriceResearch::fetch('B000000001',$bridge);
-        self::assertSame('disabled',$off['archive']['state']);
+        $off=ScanResearch::pricing('B000000001',$bridge);
+        self::assertTrue($off['ok']);
+        self::assertArrayNotHasKey('archive',$off);
         self::assertSame([],$archive->latest('B000000001'));
-        $first=AmazonPriceResearch::fetch('B000000001',$bridge,$archive);
+        $first=ScanResearch::pricing('B000000001',$bridge,$archive);
         self::assertSame('recorded',$first['archive']['state']);
         self::assertTrue($first['archive']['inserted']);
         $replay=AmazonPriceResearch::fetch('B000000001',$bridge,$archive);
