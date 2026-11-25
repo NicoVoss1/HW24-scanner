@@ -7,6 +7,14 @@ use PHPUnit\Framework\TestCase;
 
 final class HubTemplateLabelTest extends TestCase
 {
+    public function test_revlon_high_coverage_classification(): void
+    {
+        $p=\App\Services\HubCategoryPolicy::suggest('REVLON PROFESSIONAL RVL Colorsmetique High CoverAge 5.13 60ml');
+        self::assertSame(['Kategorie Ebene 1'=>'Friseurbedarf','Kategorie Ebene 2'=>'Haarfarben'],$p);
+        self::assertNull(\App\Services\HubCategoryPolicy::suggest('Revlon Professional Colorsmetique'));
+        self::assertNull(\App\Services\HubCategoryPolicy::suggest('Revlon Colorsmetique High Coverage Shampoo'));
+    }
+    
     public function test_only_exact_operator_confirmed_label(): void
     {
         foreach(['Vorlagen zur Anlage',' VORLAGEN ZUR ANLAGE ','Neu; Vorlagen zur Anlage','Vorlagen zur Anlage, Pflege','A|Vorlagen zur Anlage'] as $s)
