@@ -73,6 +73,7 @@ final class ScanResearchPresentation
         $direct=['Artikelnummer'=>'artikelnummer','GTIN'=>'ean','HAN'=>'han','ASIN'=>'asin','Artikelname'=>'artikelname',
             'Hersteller'=>'hersteller','Artikeltyp'=>'artikeltyp','Warengruppe'=>'warengruppe_name','Steuerklasse'=>'steuerklasse_name',
             'Währung'=>'waehrung','Kosten'=>'kosten','Netto-VK'=>'netto_vk','Brutto-VK'=>'brutto_vk',
+            'Netto-EK in Standardwährung'=>'netto_ek','Artikelgewicht'=>'artikelgewicht','Versandgewicht'=>'versandgewicht','Herkunftsland'=>'herkunftsland',
             'Kurzbeschreibung'=>'kurzbeschreibung','Beschreibung'=>'beschreibung','Titel-Tag (SEO)'=>'seo_titel',
             'Meta-Description (SEO)'=>'seo_beschreibung','Versandklasse'=>'versandklasse_name','Lieferstatus'=>'lieferstatus_name','Maßeinheit'=>'masseinheit_name'];
         $refs=['Warengruppe'=>'kWarengruppe','Steuerklasse'=>'kSteuerklasse','Versandklasse'=>'kVersandklasse',
@@ -94,6 +95,8 @@ final class ScanResearchPresentation
             }
             if(self::filled($value)){
                 $state='value';$display=(string)$value;
+                if(in_array($field,['Artikelgewicht','Versandgewicht','Herkunftsland'],true))$origin='JTL tArtikel: '.(['Artikelgewicht'=>'fArtGewicht','Versandgewicht'=>'fGewicht','Herkunftsland'=>'cHerkunftsland'][$field]);
+                if(in_array($field,['Inhalt/Menge','Artikelgewicht','Versandgewicht','Kosten','Netto-VK','Brutto-VK','Netto-EK in Standardwährung'],true)&&preg_match('/^-?\d+\.\d+$/D',$display))$display=rtrim(rtrim($display,'0'),'.');
             }elseif($id!==null&&isset($source[$id])&&is_numeric($source[$id])&&(int)$source[$id]>0){
                 $ref=(int)$source[$id];
                 $label=self::observedReference($field,$ref,$observations);
