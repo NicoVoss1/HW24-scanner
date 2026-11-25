@@ -88,7 +88,9 @@ final class HubArticleMirror
                 (string)$row['ean']===(string)($draft['GTIN']??''))continue;
             $valid[(int)$row['jtl_article_id']]=$row;
         }
-        return self::templateConsensus(array_values($valid),$draft,$observations);
+        $result=self::templateConsensus(array_values($valid),$draft,$observations);
+        if(!$valid)$result['reason']=$rows?'Gekennzeichnete Kandidaten gefunden, aber Label, Menge oder Identität nicht eindeutig passend':'Keine Vorlage für Hersteller '.$brand.' / Warengruppe '.$group.' / '.$amount.' '.$unit.' gefunden';
+        return $result;
     }
 
     /** Only unanimous observed operational defaults; unknown reference labels stay open. */
@@ -120,6 +122,7 @@ final class HubArticleMirror
     public function templates(array $draft,array $observations): array
     {
         $brand=trim((string)($draft['Hersteller']??''));$group=trim((string)($draft['Warengruppe']??''));
+        if($group==='')$group=HubCategoryPolicy::suggest((string)($draft['Artikelname']??''))['Kategorie Ebene 2']??'';
         $amount=str_replace(',','.',trim((string)($draft['Inhalt/Menge']??'')));
         $unit=trim((string)($draft['Maßeinheit']??''));
         if($brand===''||$group===''||!preg_match('/^\d+(?:\.\d+)?$/D',$amount)||!is_finite((float)$amount)||(float)$amount<=0||$unit==='')
@@ -146,7 +149,9 @@ final class HubArticleMirror
                 if(!self::consistentVolume((string)$row['artikelname'],$row['menge'],$unit))continue;
                 $out[]=['number'=>$row['artikelnummer'],'name'=>$row['artikelname'],'amount'=>$row['menge'],'unit'=>$unit];
             }
-            return ['ok'=>true,'items'=>$out,'snapshot_at'=>ScanEntryPresentation::germanDate($m['last_completed_utc'])];
+            return ['ok'=>true,'items'=>$out,'search_group'=>$group,'search_manufacturer'=>$brand,
+                'message'=>$out?'Passende gekennzeichnete Vorlagen gefunden':'Keine eindeutig passende gekennzeichnete Vorlage für '.$brand.' / '.$group.' / '.$amount.' '.$unit,
+                'snapshot_at'=>ScanEntryPresentation::germanDate($m['last_completed_utc'])];
         }catch(\Throwable){return ['ok'=>false,'message'=>'Vorlagenquelle noch nicht verfügbar oder Spiegel nicht aktuell.'];}
     }
 }
