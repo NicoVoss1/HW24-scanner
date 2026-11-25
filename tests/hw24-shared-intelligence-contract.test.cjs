@@ -42,3 +42,14 @@ ensure(bridge.includes("Http::withBasicAuth($user, $password)"),
 ensure(purchase.includes("WHERE p.id=? AND p.created_by=?"),
  'Purchase transaction isolation must remain until tested team RBAC is installed');
 console.log('Shared HW24 product archive and user-audit separation: contract passed');
+
+/* V2 contract is opt-in; this is source verification, not a provider call. */
+ensure(review.includes("'review_versions'=>[1,2]"),'Advertise supported versions before charging');
+ensure(review.includes("$body['review_version']??1"),'Legacy client defaults to V1');
+ensure(review.includes("v2_verified_single_candidate_required"),'V2 requires one verified single candidate');
+ensure(review.includes("'product_facts'=>$productFacts"),'Archive extended source facts with input');
+ensure(review.includes("'contentVersion'")&&review.includes("'metaDescription'")&&review.includes("'shopifyAttributes'")&&review.includes("'ebayAttributes'"),'Extended strict output contract');
+ensure(review.indexOf('review_duplicate_check_unavailable')<review.indexOf('curl_init(\'https://api.openai.com/v1/responses\')'),'Check duplicate archive before provider call');
+ensure(review.includes('Keine nicht belegten Wirkungs-'),'No unsupported product benefit claims');
+ensure(review.includes("'max_output_tokens'=>$reviewVersion===2?2500:1250"),'Bound output by version');
+console.log('HW24 optional V2 AI copy contract: passed');
