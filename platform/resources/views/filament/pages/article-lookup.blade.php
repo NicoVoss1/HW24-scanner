@@ -316,6 +316,11 @@
                                     @forelse($sharedResearchReview['differences'] as $label=>$difference)
                                         <p><strong>{{ $label }}</strong><br>JTL: {{ $difference['old']!==''?$difference['old']:'Kein belegter Spiegelwert' }}<br>Amazon: {{ $difference['candidate'] }} · {{ $difference['source'] }} · manuell prüfen</p>
                                     @empty<p>Keine Abweichung in den bisher verglichenen Katalogfeldern.</p>@endforelse
+                                    @if(isset($sharedResearchReview['ai']))
+                                        <p><strong>Gemeinsames KI-Archiv:</strong> {{ match($sharedResearchReview['ai']['state']){'verified_review'=>'Geprüfter Bericht','missing'=>'Kein gemeinsamer Bericht','stale'=>'Abweichende Recherchegrundlage','identity_conflict'=>'Identitätskonflikt','review'=>'Manuelle Prüfung',default=>'Nicht bestätigt'} }} @if(isset($sharedResearchReview['ai']['id'])) · #{{ $sharedResearchReview['ai']['id'] }} @endif</p>
+                                        @if(!empty($sharedResearchReview['ai']['title_hint']))<p>KI-Titelvorschlag: {{ $sharedResearchReview['ai']['title_hint'] }} · noch nicht übernommen</p>@endif
+                                        @if(!empty($sharedResearchReview['ai']['group_hint']))<p>KI-Warengruppenvorschlag: {{ $sharedResearchReview['ai']['group_hint'] }} · noch nicht übernommen</p>@endif
+                                    @endif
                                     @if(isset($sharedResearchReview['market_price']))
                                         <p>Marktpreisarchiv #{{ $sharedResearchReview['market_price']['id'] }} · {{ $sharedResearchReview['market_price']['at'] }} UTC</p>
                                         @foreach(['buybox'=>'Buy Box','lowest'=>'Niedrigste Angebote'] as $key=>$label)
