@@ -13,6 +13,7 @@ use App\Services\PreparedScanCsv;
 use App\Services\ScanEntryPresentation;
 use App\Services\ScanResearch;
 use App\Services\ScanResearchPresentation;
+use App\Services\HubCategoryPolicy;
 use App\Services\ScanQueueIntake;
 
 /**
@@ -344,6 +345,21 @@ final class ScanWorkbench extends Page
         if($this->draftFields['Artikelname']==='')$this->draftFields['Artikelname']=$row['name'];
     }
 
+    public function categoryProposal(): ?array
+    {
+        return HubCategoryPolicy::suggest((string)($this->draftFields['Artikelname']??''),(string)($this->draftFields['Warengruppe']??''));
+    }
+
+    public function applyCategoryProposal(): void
+    {
+        if($this->workingEan===null||$this->rowFor($this->workingEan)===null)return;
+        $p=$this->categoryProposal();
+        if($p===null){$this->draftMessage='Kategorie nicht eindeutig. Bitte manuell entscheiden.';return;}
+        foreach($p as $field=>$value)$this->draftFields[$field]=$value;
+        $this->confirmDraft=false;
+        $this->draftMessage='Kategorie-Vorschlag übernommen; noch nicht gespeichert oder freigegeben.';
+    }
+
     /** Explicit, read-only field assessment, never a marketplace/AI request. */
     public function loadJtlFieldReview(LegacyReadBridge $bridge): void
     {
@@ -391,6 +407,12 @@ final class ScanWorkbench extends Page
         if(!$row||!$this->confirmDraft||!$this->canWriteScan()||$row['id']<1||
            $row['resolution']!=='new_candidate'){
             $this->draftMessage='Nur bestätigte Neuanlage-Kandidaten mit Schreibfreigabe und Bestätigung können hier gespeichert werden.';
+            return;
+        }
+        if($ready&&HubCategoryPolicy::conflict((string)($this->draftFields['Artikelname']??''),
+            (string)($this->draftFields['Warengruppe']??''),(string)($this->draftFields['Kategorie Ebene 1']??''),
+            (string)($this->draftFields['Kategorie Ebene 2']??''))){
+            $this->draftMessage='Kategorie widerspricht der geprüften HW24-Produktregel. Bitte vor Freigabe korrigieren.';
             return;
         }
         $fields=[];$sources=[];
