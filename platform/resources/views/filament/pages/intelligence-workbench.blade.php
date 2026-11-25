@@ -148,6 +148,9 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
                             <p>{{ $price['fulfillment'] ?: 'Fulfillment unbekannt' }}</p>
                         </div>
                     @endforeach
+                    @if(isset($pricing['archive']))
+                        @include('filament.partials.amazon-price-history',['archive'=>$pricing['archive']])
+                    @endif
                     @if(($pricing['ok']??false)===true)
                         <div class="grid-amounts">
                             @foreach([
@@ -189,7 +192,7 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
                         @if(($pricing['sellers']??[])===[])
                             <p class="warning">Amazon hat keine einzelnen Verkäufer übermittelt. Buy Box und niedrigster Summary-Preis können trotzdem getrennt vorliegen.</p>
                         @endif
-                        <p class="technical">Die alte Amazon-Pricing-API archiviert detaillierte Händlerpreise nicht dauerhaft. Nur die explizite Abfrage zeigt den Zeitpunkt und die aktuell gemeldeten Angebote. Händler sind nicht automatisch Großhandelslieferanten.</p>
+                        <p class="technical">Die aktuelle Preisabfrage und der optionale Archivstatus werden getrennt ausgewiesen. Händler sind nicht automatisch Großhandelslieferanten.</p>
                     @endif
                 </div>
             @endif
