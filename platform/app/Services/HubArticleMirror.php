@@ -52,7 +52,7 @@ final class HubArticleMirror
     /** Same source generation, verified label, exact brand/group/volume. No provider requests. */
     public function standardProposals(PDO $db,array $draft,array $observations,string $groupHint=''): array
     {
-        $brand=trim((string)($draft['Hersteller']??''));
+        $brand=HubManufacturerPolicy::jtlSearchName((string)($draft['Hersteller']??''));
         $group=trim((string)($draft['Warengruppe']??''));
         $category=HubCategoryPolicy::suggest((string)($draft['Artikelname']??''),$group);
         // The category is a search key, never an invented JTL group.
@@ -89,6 +89,10 @@ final class HubArticleMirror
             $valid[(int)$row['jtl_article_id']]=$row;
         }
         $result=self::templateConsensus(array_values($valid),$draft,$observations);
+        // An explicit alias is only proposed as the actual JTL value after a matching labelled template.
+        if($valid&&trim((string)($draft['Hersteller']??''))!==$brand){
+            $result['manufacturer_hint']=$brand;
+        }
         if(!$valid)$result['reason']=$rows?'Gekennzeichnete Kandidaten gefunden, aber Label, Menge oder Identität nicht eindeutig passend':'Keine Vorlage für Hersteller '.$brand.' / Warengruppe '.$group.' / '.$amount.' '.$unit.' gefunden';
         return $result;
     }
@@ -121,7 +125,7 @@ final class HubArticleMirror
     /** Explicit template label + exact manufacturer/group/quantity/unit; no guessed equivalences. */
     public function templates(array $draft,array $observations): array
     {
-        $brand=trim((string)($draft['Hersteller']??''));$group=trim((string)($draft['Warengruppe']??''));
+        $brand=HubManufacturerPolicy::jtlSearchName((string)($draft['Hersteller']??''));$group=trim((string)($draft['Warengruppe']??''));
         if($group==='')$group=HubCategoryPolicy::suggest((string)($draft['Artikelname']??''))['Kategorie Ebene 2']??'';
         $amount=str_replace(',','.',trim((string)($draft['Inhalt/Menge']??'')));
         $unit=trim((string)($draft['Maßeinheit']??''));
