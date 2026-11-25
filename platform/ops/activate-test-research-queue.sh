@@ -140,14 +140,18 @@ artisan view:clear
 artisan config:cache
 artisan view:cache
 # Instantiate both runtime dependencies without claiming or contacting providers.
-runuser -u "$owner" -- /bin/bash -c 'cd "$1"; "$2" -r '\''
+(
+    cd "$app"
+    runuser -u "$owner" -- "$php" <<'PHP'
+<?php
 require "vendor/autoload.php"; $app=require "bootstrap/app.php";
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 $q=App\Services\ResearchQueueRuntime::queue();
 if($q->status(1)!==null)exit(2);
 App\Services\ResearchQueueRuntime::worker($app->make(App\Services\LegacyReadBridge::class));
 echo "Queue and worker runtime ready; no provider call.\n";
-'\''' hw24 "$app" "$php"
+PHP
+)
 check_http
 [[ "$(sql -Ne "SELECT COUNT(*) FROM hw24_artikelmanager.hw24_research_jobs")" == 0 ]] || stop 'unexpected queue jobs'
 success=1
