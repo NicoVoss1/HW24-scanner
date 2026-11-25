@@ -25,7 +25,7 @@ g merge-base --is-ancestor "$target" FETCH_HEAD
 backup=$(mktemp -d /root/hw24-ai-api-backup.XXXXXXXX)
 files=(ai-review.php ai-reviews.php)
 for f in "${files[@]}"; do
-    [[ -f "$live/api/$f" && ! -L "$live/api/$f" ]]
+    [[ -f "$live/api/$f" && ! -L "$live/api/$f" && "$(stat -c %U "$live/api/$f")" == nicovoss ]]
     cp -p -- "$live/api/$f" "$backup/$f.old"
     g show "$target:api/$f" > "$backup/$f.new"
     "$php" -l "$backup/$f.new"
@@ -53,26 +53,26 @@ PHP
 }
 echo '=== BEFORE: READ-ONLY API STATUS ==='
 probe
+replace_api(){
+  local f="$1" source="$2"
+  # Application-owned webroot writes run without root privileges.
+  runuser -u nicovoss -- /bin/bash -c 'set -Eeuo pipefail; umask 077; dest="$1"; php="$2"; tmp=$(mktemp "$(dirname "$dest")/.hw24-ai.XXXXXXXX"); trap "rm -f -- \"$tmp\"" EXIT; cat > "$tmp"; "$php" -l "$tmp"; chmod --reference="$dest" "$tmp"; mv -fT -- "$tmp" "$dest"' hw24 "$live/api/$f" "$php" < "$source"
+}
 rollback(){
   rc=$?
   trap - ERR
   set +e
+  restored=1
   for f in "${files[@]}"; do
-    cp -p -- "$backup/$f.old" "$live/api/.$f.hw24-rollback"
-    mv -fT -- "$live/api/.$f.hw24-rollback" "$live/api/$f"
+    replace_api "$f" "$backup/$f.old" || restored=0
   done
   rm -f -- "$flag"
-  echo "STOP: API deployment failed; originals restored from $backup."
+  if [[ "$restored" == 1 ]]; then echo "STOP: API deployment failed; originals restored from $backup."; else echo "STOP: rollback incomplete; recover originals from $backup."; fi
   exit "$rc"
 }
 trap rollback ERR
 for f in "${files[@]}"; do
-    stage="$live/api/.$f.hw24-new"
-    [[ ! -e "$stage" && ! -L "$stage" ]] || false
-    cp -p -- "$backup/$f.old" "$stage"
-    cat "$backup/$f.new" > "$stage"
-    "$php" -l "$stage"
-    mv -fT -- "$stage" "$live/api/$f"
+    replace_api "$f" "$backup/$f.new"
 done
 # Explicit manual-only flag. Keep existing key and all configured limits unchanged.
 printf 'manual-only-v3\n' > "$backup/manual.flag"
