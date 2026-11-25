@@ -548,6 +548,7 @@
                         @if($templateCandidates!==[])
                             @if($templateCandidates['ok']??false)
                                 <p>{{ count($templateCandidates['items']) }} passende Vorlagen · {{ $templateCandidates['snapshot_at']??'Zeitpunkt offen' }}</p>
+                                @if(!empty($templateCandidates['message']))<p>{{ $templateCandidates['message'] }}</p>@endif
                                 @foreach($templateCandidates['items'] as $candidate)
                                     <p>{{ $candidate['name'] }} · {{ $candidate['number'] }} · {{ $candidate['amount'] }} {{ $candidate['unit'] }}
                                     <button title="Diese gefundene Vorlage zur Übernahme prüfen." type="button" class="hw24-btn" wire:click="chooseMatchingTemplate({{ $loop->index }})">Als Vorlage prüfen</button></p>
