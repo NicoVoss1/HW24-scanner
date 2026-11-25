@@ -9,7 +9,7 @@ app="$repo/platform"
 php='/opt/plesk/php/8.5/bin/php'
 pilot="$private/research-pilot"
 cron='/etc/cron.d/hw24-research-test'
-target='b194ab804500119247b26333dcd42908cbe18652'
+target='038de71bc3f39bbf040a6dde82e81b6e19420fda'
 g(){ runuser -u nicovoss -- git -C "$repo" "$@"; }
 [[ "$(g rev-parse HEAD)" == "$target" && -z "$(g status --porcelain --untracked-files=no)" ]]
 [[ "$(plesk db -Ne "SELECT h.www_root FROM domains d JOIN hosting h ON d.id=h.dom_id WHERE d.name='test-artikelmanager.hairworld24.de'")" == "$app/public" ]]
