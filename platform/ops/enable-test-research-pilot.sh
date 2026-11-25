@@ -37,7 +37,7 @@ echo '=== QUEUED PILOT JOBS ==='
 plesk db -Ne "SELECT id,ean,status FROM hw24_artikelmanager.hw24_research_jobs WHERE status='queued' ORDER BY id"
 install -d -o nicovoss -g psacln -m 700 "$pilot"
 # Write new files only in a newly created directory, as the application user.
-runuser -u nicovoss -- /bin/bash -c 'umask 077; printf "3\n" > "$1/remaining"; : > "$1/worker.log"' hw24 "$pilot"
+runuser -u nicovoss -- /bin/bash -c 'umask 077; printf "3\n" > "$1/remaining"; printf "%s\n" "$(($(date +%s)+1800))" > "$1/deadline"; : > "$1/worker.log"' hw24 "$pilot"
 runuser -u nicovoss -- /bin/bash -c 'umask 077; cat > "$1/run-once.sh"' hw24 "$pilot" <<'WORKER'
 #!/usr/bin/env bash
 set -Eeuo pipefail
@@ -51,6 +51,9 @@ flock -n 9 || exit 0
 n=$(cat "$p/remaining")
 [[ "$n" =~ ^[0123]$ ]] || exit 1
 [[ "$n" != 0 ]] || exit 0
+deadline=$(cat "$p/deadline")
+[[ "$deadline" =~ ^[0-9]{10,12}$ ]] || exit 1
+if (( $(date +%s) >= deadline )); then printf "0\n" > "$p/remaining"; exit 0; fi
 # Reserve before running. On crash/unknown result, budget is not restored.
 printf '%s\n' "$((n-1))" > "$p/remaining"
 cd "$app"
@@ -72,7 +75,7 @@ chmod 700 "$pilot/run-once.sh"
 printf 'SHELL=/bin/bash\nPATH=/usr/bin:/bin\n* * * * * nicovoss /bin/bash %s/run-once.sh >/dev/null 2>&1\n' "$pilot" > "$cron"
 chmod 644 "$cron"
 echo '=== TEST RESEARCH PILOT SCHEDULED ==='
-echo 'Up to three reserved worker attempts, once per minute, no paid AI.'
+echo 'Up to three reserved worker attempts, once per minute, maximum 30-minute pilot window, no paid AI.'
 echo 'Do not add other jobs or use direct legacy Amazon requests during the pilot.'
 echo "Status: cat '$pilot/remaining'; tail -n 10 '$pilot/worker.log'"
 echo "Stop: rm -f '$cron' (does not interrupt an already running job)."
