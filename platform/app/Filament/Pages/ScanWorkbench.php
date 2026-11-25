@@ -18,6 +18,7 @@ use App\Services\HubPeerMirror;
 use App\Services\HubTemplateDefaults;
 use App\Services\HubArticleMirror;
 use App\Services\HubSeoDefaults;
+use App\Services\HubBatchPreparation;
 use App\Services\ScanQueueIntake;
 
 /**
@@ -223,6 +224,9 @@ final class ScanWorkbench extends Page
     }
 
     public array $draftFields = [];
+    #[Locked] public array $batchPreparation = [];
+    #[Locked] public string $batchPreparationMessage = '';
+    public bool $confirmBatchPreparation = false;
     public string $templateNumber = '';
     #[Locked] public array $templateReview = [];
     #[Locked] public array $templateCandidates = [];
@@ -339,6 +343,56 @@ final class ScanWorkbench extends Page
         $this->researchMessage=$more?'Recherche läuft.':'Ausgewählte Positionen recherchiert. Produktzuordnung und Entwürfe prüfen.';
         if(!$more)$this->confirmResearch=false;
         return $more;
+    }
+
+    /** Prepare selected new items from stored evidence; no JTL or Amazon write. */
+    public function prepareBatchDrafts(HubBatchPreparation $service): void
+    {
+        $this->batchPreparation=[];$this->confirmBatchPreparation=false;
+        if(!$this->canQueueResearch()||auth()->id()===null)return;
+        $rows=array_values(array_filter($this->items,fn($row)=>$row['resolution']==='new_candidate'&&
+            !in_array($row['review'],['ready','removed'],true)&&
+            ($this->selectedEans===[]||in_array($row['ean'],$this->selectedEans,true))));
+        if(count($rows)>200){$this->batchPreparationMessage='Bitte maximal 200 Neuanlagen pro Aufbereitungsdurchgang markieren.';return;}
+        $this->refreshPersistentResearch();
+        try{
+            $this->batchPreparation=$service->prepare($rows,$this->persistentResearch);
+            $this->batchPreparationMessage=count($this->batchPreparation).' Neuanlagen ausgewertet. Nur belegte Vorschläge; noch nicht gespeichert.';
+        }catch(\Throwable){$this->batchPreparationMessage='Archivzugriff nicht verfügbar. Keine Entwürfe verändert.';}
+    }
+
+    /** Save at most 10 reviewed patches per request; revision guarded by legacy API. */
+    public function savePreparedBatch(LegacyApprovedActionBridge $bridge): void
+    {
+        if(!$this->confirmBatchPreparation||!$this->canWriteScan()||!$this->canQueueResearch()||auth()->id()===null)return;
+        $this->confirmBatchPreparation=false;
+        $saved=0;$failed=0;
+        foreach($this->batchPreparation as $ean=>$p){
+            if($saved+$failed>=10)break;
+            if(!in_array($p['state']??null,['review','missing'],true)||empty($p['fields']))continue;
+            $ean=(string)$ean;$row=$this->rowFor($ean);
+            if(!$row||$row['resolution']!=='new_candidate'||in_array($row['review'],['removed','ready'],true)||
+                $row['id']!==$p['item_id']||$row['revision']!==$p['revision']){
+                $failed++;unset($this->batchPreparation[$ean]);continue;
+            }
+            $r=$bridge->post('scan.edit',['op'=>'edit','batch_id'=>$this->selectedBatchId,'item_id'=>$row['id'],
+                'expected_revision'=>$row['revision'],'fields'=>$p['fields'],'field_sources'=>$p['sources'],'mark_ready'=>false]);
+            $d=$r['data']??[];
+            if(($r['ok']??false)!==true||!is_array($d['draft']??null)||!is_numeric($d['revision']??null)||
+                ($d['review_state']??null)!=='draft'){
+                $failed++;unset($this->batchPreparation[$ean]);break;
+            }
+            foreach($this->items as &$stored){
+                if($stored['ean']!==$ean)continue;
+                $stored['revision']=(int)$d['revision'];
+                $stored['draft']=array_intersect_key($d['draft'],array_flip(ScanResearch::FIELDS));
+                $stored['review']='draft';$stored['review_label']='Entwurf · in Bearbeitung';$stored['updated_at']=null;break;
+            }
+            unset($stored);
+            unset($this->batchPreparation[$ean]);$saved++;
+        }
+        $this->exportState=[];
+        $this->batchPreparationMessage=$saved.' Entwürfe gespeichert, '.$failed.' Fehler/Konflikte. '.($failed?'Vor erneutem Speichern Stapel neu laden.':'Weitere Vorschläge können separat bestätigt werden.').' Keine JTL-Freigabe.';
     }
 
     public function showWorkflowStep(int $step): void
@@ -570,7 +624,7 @@ final class ScanWorkbench extends Page
 
     public function loadBatches(LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'batches', 'selectedBatchId', 'diagnostic', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','templateNumber','templateReview','templateCandidates','draftProvenance','confirmDraft','draftMessage']);
+        $this->reset(['items', 'batches', 'selectedBatchId', 'batchPreparation','batchPreparationMessage','confirmBatchPreparation','diagnostic', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','templateNumber','templateReview','templateCandidates','draftProvenance','confirmDraft','draftMessage']);
 
         $result = $bridge->fetch('scan.batches', ['op' => 'batches']);
         $raw = is_array($result['data'] ?? null) ? $result['data'] : [];
@@ -611,7 +665,7 @@ final class ScanWorkbench extends Page
 
     public function loadBatch(int $batchId, LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'selectedBatchId', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','templateNumber','templateReview','templateCandidates','draftProvenance','confirmDraft','draftMessage']);
+        $this->reset(['items', 'selectedBatchId', 'batchPreparation','batchPreparationMessage','confirmBatchPreparation','exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','templateNumber','templateReview','templateCandidates','draftProvenance','confirmDraft','draftMessage']);
         // Never let the browser request arbitrary batch IDs.
         $allowed = array_column($this->batches, 'id');
         if (!in_array($batchId, $allowed, true)) {
