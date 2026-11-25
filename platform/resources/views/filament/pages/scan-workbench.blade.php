@@ -344,9 +344,26 @@
                 <div class="hw24-card-body">
                     <div class="hw24-action">
                         <button type="button" class="hw24-btn" wire:click="loadJtlFieldReview" wire:loading.attr="disabled" wire:target="loadJtlFieldReview">JTL-Stammdaten prüfen (nur lesen)</button>
+                        <button type="button" class="hw24-btn" wire:click="loadPeerReview" wire:loading.attr="disabled" wire:target="loadPeerReview">Vergleichsartikel aus JTL prüfen</button>
                         <button type="button" class="hw24-btn" wire:click="researchOne('{{ $workingEan }}')" wire:loading.attr="disabled" wire:confirm="JTL und Amazon-Katalog für diese EAN abfragen?">JTL &amp; Amazon recherchieren</button>
                         <a class="hw24-link" target="_blank" rel="noopener noreferrer" href="{{ url('/admin/intelligence').'?ean='.rawurlencode($workingEan) }}">KI-Archiv und KI-Einzelprüfung öffnen</a>
                     </div>
+                    @if($peerReview!==[])
+                        <div class="hw24-note">
+                            <h3>Vergleichsartikel · gleiche Warengruppe und gleicher Hersteller</h3>
+                            @if($peerReview['ok']??false)
+                                <p>{{ $peerReview['peer_count'] }} Vergleichsartikel · Spiegelstand {{ $peerReview['snapshot_at']??'nicht belegt' }}</p>
+                                @if($peerReview['suggestions']===[])<p>Keine ausreichend belegte Empfehlung für ein fehlendes Standardfeld.</p>@endif
+                                @foreach($peerReview['suggestions'] as $field=>$suggestion)
+                                    <p><strong>{{ $field }}: {{ $suggestion['value'] }}</strong> · {{ $suggestion['support'] }} von {{ $suggestion['sample_count'] }} Vergleichsartikeln.
+                                    <br>Quelle: JTL {{ $suggestion['source_field'] }} · Artikel-IDs {{ implode(', ',$suggestion['source_article_ids']) }}. Manuelle Entscheidung erforderlich.</p>
+                                @endforeach
+                                <p>Nur ausgewählte Standardfelder; keine Übernahme von Artikelidentität, Preisen, Bildern, Mengen oder Beschreibungen. Vorschläge sind keine Freigabe.</p>
+                            @else
+                                <p>{{ $peerReview['message'] }}</p>
+                            @endif
+                        </div>
+                    @endif
                     @if($jtlFieldReview!==[])
                         <div class="hw24-note">
                             <h3>JTL-Feldprüfung · keine Änderung in JTL</h3>
