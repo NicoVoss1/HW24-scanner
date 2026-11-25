@@ -49,6 +49,73 @@ final class HubArticleMirror
         return (float)str_replace(',','.',$m[1][0])===(float)$quantity;
     }
 
+    /** Same source generation, verified label, exact brand/group/volume. No provider requests. */
+    public function standardProposals(PDO $db,array $draft,array $observations): array
+    {
+        $brand=trim((string)($draft['Hersteller']??''));
+        $group=trim((string)($draft['Warengruppe']??''));
+        $category=HubCategoryPolicy::suggest((string)($draft['Artikelname']??''),$group);
+        // The category is a search key, never an invented JTL group.
+        if($group==='')$group=$category['Kategorie Ebene 2']??'';
+        $amount=str_replace(',','.',trim((string)($draft['Inhalt/Menge']??'')));
+        $unit=trim((string)($draft['Maßeinheit']??''));
+        if($brand===''||$group===''||!self::consistentVolume((string)($draft['Artikelname']??''),$amount,$unit))
+            return ['fields'=>[],'sources'=>[],'count'=>0,'reason'=>'Hersteller, Warengruppe oder Füllmenge noch nicht eindeutig'];
+        $ids=[];
+        foreach($observations['mass_unit_examples']??[] as $id=>$v)
+            if(mb_strtolower((string)($v['display_code']??''))===mb_strtolower($unit))$ids[]=(int)$id;
+        if(count($ids)!==1)return ['fields'=>[],'sources'=>[],'count'=>0,'reason'=>'Einheit nicht eindeutig belegt'];
+        $db->beginTransaction();
+        try{
+            $m=self::meta($db);
+            $q=$db->prepare("SELECT d.jtl_article_id,d.artikelname,d.hersteller,d.warengruppe,d.ean,d.menge,d.label_namen,
+                p.kLieferStatus,p.kSteuerklasse,p.kVersandklasse,p.cLagerAktiv,p.cLagerKleinerNull,p.cTeilbar
+                FROM hw24_hub_article_details d JOIN hw24_hub_peer_source p
+                ON p.source_id=d.source_id AND p.jtl_article_id=d.jtl_article_id
+                WHERE d.source_id=? AND d.hersteller=? AND d.warengruppe=? AND d.einheit_id=?
+                AND d.label_namen LIKE '%Vorlagen%' ORDER BY d.jtl_article_id LIMIT 201");
+            $q->execute([$m['source_id'],$brand,$group,(string)$ids[0]]);
+            $rows=$q->fetchAll(PDO::FETCH_ASSOC);$db->commit();
+            if(count($rows)>200)throw new RuntimeException('Too many templates');
+        }catch(\Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
+        $valid=[];
+        foreach($rows as $row){
+            if(!self::hasTemplateLabel((string)$row['label_namen'])||
+                mb_strtolower(trim((string)$row['hersteller']))!==mb_strtolower($brand)||
+                mb_strtolower(trim((string)$row['warengruppe']))!==mb_strtolower($group)||
+                !self::consistentVolume((string)$row['artikelname'],$row['menge'],$unit)||
+                (float)$row['menge']!==(float)$amount||
+                (string)$row['ean']===(string)($draft['GTIN']??''))continue;
+            $valid[(int)$row['jtl_article_id']]=$row;
+        }
+        return self::templateConsensus(array_values($valid),$draft,$observations);
+    }
+
+    /** Only unanimous observed operational defaults; unknown reference labels stay open. */
+    public static function templateConsensus(array $rows,array $draft,array $o): array
+    {
+        $out=['fields'=>[],'sources'=>[],'count'=>count($rows),'reason'=>'Keine passende Vorlage'];
+        if(!$rows)return $out;
+        $out['reason']='Passende JTL-Vorlagen; nur übereinstimmende Standardfelder';
+        $ids=array_map(fn($r)=>(int)$r['jtl_article_id'],$rows);
+        $source='JTL Vorlagen zur Anlage: '.count($ids).' Artikel, kArtikel '.implode(',',array_slice($ids,0,8));
+        $map=['Warengruppe'=>'warengruppe','Steuerklasse'=>'kSteuerklasse','Lieferstatus'=>'kLieferStatus',
+            'Bestandsführung aktiv'=>'cLagerAktiv','Überverkäufe möglich'=>'cLagerKleinerNull','Stückzahl teilbar'=>'cTeilbar'];
+        foreach($map as $field=>$key){
+            if(trim((string)($draft[$field]??''))!=='')continue;
+            $v=array_map(fn($r)=>trim((string)($r[$key]??'')),$rows);
+            if(count(array_unique($v))!==1||$v[0]==='')continue;
+            $value=match($field){
+                'Steuerklasse'=>$o['tax_classes'][(int)$v[0]]['name']??null,
+                'Lieferstatus'=>$o['delivery_status_by_language'][(int)$v[0].':1']??null,
+                'Warengruppe'=>$v[0],
+                default=>in_array($v[0],['Y','N'],true)?$v[0]:null};
+            if(!is_string($value)||trim($value)==='')continue;
+            $out['fields'][$field]=$value;$out['sources'][$field]=$source;
+        }
+        return $out;
+    }
+
     /** Explicit template label + exact manufacturer/group/quantity/unit; no guessed equivalences. */
     public function templates(array $draft,array $observations): array
     {
