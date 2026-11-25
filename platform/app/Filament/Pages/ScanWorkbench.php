@@ -20,6 +20,7 @@ use App\Services\HubArticleMirror;
 use App\Services\HubSeoDefaults;
 use App\Services\HubBatchPreparation;
 use App\Services\HubStockReader;
+use App\Services\HubBatchOverview;
 use App\Services\HubBatchRelease;
 use App\Services\ScanQueueIntake;
 
@@ -137,6 +138,7 @@ final class ScanWorkbench extends Page
 
     #[Locked]
     public array $batches = [];
+    #[Locked] public array $batchOverview = [];
 
     #[Locked]
     public array $items = [];
@@ -697,7 +699,7 @@ final class ScanWorkbench extends Page
 
     public function loadBatches(LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'batches', 'selectedBatchId', 'batchPreparation','batchStock','releaseCandidates','releaseExceptions','releaseDone','releaseMessage','confirmBatchRelease','batchPreparationMessage','confirmBatchPreparation','diagnostic', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','templateNumber','templateReview','templateCandidates','draftProvenance','confirmDraft','draftMessage']);
+        $this->reset(['items', 'batches', 'batchOverview', 'selectedBatchId', 'batchPreparation','batchStock','releaseCandidates','releaseExceptions','releaseDone','releaseMessage','confirmBatchRelease','batchPreparationMessage','confirmBatchPreparation','diagnostic', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','templateNumber','templateReview','templateCandidates','draftProvenance','confirmDraft','draftMessage']);
 
         $result = $bridge->fetch('scan.batches', ['op' => 'batches']);
         $raw = is_array($result['data'] ?? null) ? $result['data'] : [];
@@ -734,6 +736,14 @@ final class ScanWorkbench extends Page
             'http' => $result['http_status'] ?? null,
             'message' => 'Scan-Stapel aus der bestehenden HW24-MariaDB geladen. Kein neuer Stapel angelegt.',
         ];
+        $this->refreshBatchOverview();
+    }
+
+    public function refreshBatchOverview(): void
+    {
+        $this->batchOverview=[];
+        try{$this->batchOverview=app(HubBatchOverview::class)->read(array_column($this->batches,'id'));}
+        catch(\Throwable){}
     }
 
     public function loadBatch(int $batchId, LegacyReadBridge $bridge): void
@@ -786,6 +796,7 @@ final class ScanWorkbench extends Page
         ];
         $this->refreshBatchStock();
         $this->refreshPersistentResearch();
+        $this->refreshBatchOverview();
     }
 
     /**
