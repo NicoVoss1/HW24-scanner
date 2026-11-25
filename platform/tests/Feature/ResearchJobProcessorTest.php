@@ -76,16 +76,24 @@ final class ResearchJobProcessorTest extends TestCase
         self::assertSame('live_archived',$r['evidence']['price_state']);
         self::assertSame(1,$calls);self::assertSame(15,$pause);
     }
-    public function test_conflict_and_rate_limit_stop_before_price(): void
+    private function assertStopsBeforePrice(string $mode,string $expected): array
     {
-        $store=$this->store();
-        foreach(['ambiguous'=>'identity_conflict','429'=>'rate_limited'] as $mode=>$expected){
-            $this->setupHttp($mode);
-            $processor=new ResearchJobProcessor(new LegacyReadBridge(),$store,fn()=>true,
-                fn()=>throw new \LogicException('No price call'),fn()=>throw new \LogicException('No pause'));
-            $r=$processor->process($this->ean);
-            self::assertSame($expected,$r['outcome']);
-            if($mode==='429')self::assertSame(180,$r['retry_after']);
-        }
+        $this->setupHttp($mode);
+        $processor=new ResearchJobProcessor(new LegacyReadBridge(),$this->store(),fn()=>true,
+            fn()=>throw new \LogicException('No price call'),fn()=>throw new \LogicException('No pause'));
+        $r=$processor->process($this->ean);
+        self::assertSame($expected,$r['outcome']);
+        Http::assertSentCount(4);
+        Http::assertNotSent(fn($request)=>str_contains($request->url(),'amazon-pricing.php')||$request->method()!=='GET');
+        return $r;
+    }
+    public function test_identity_conflict_stops_before_price(): void
+    {
+        $this->assertStopsBeforePrice('ambiguous','identity_conflict');
+    }
+    public function test_rate_limit_stops_before_price_and_preserves_retry_after(): void
+    {
+        $r=$this->assertStopsBeforePrice('429','rate_limited');
+        self::assertSame(180,$r['retry_after']);
     }
 }
