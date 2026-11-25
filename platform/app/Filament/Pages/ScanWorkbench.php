@@ -700,6 +700,7 @@ final class ScanWorkbench extends Page
                 'name' => (string) ($item['artikelname'] ?? ''),
                 'article_number' => mb_substr((string) ($item['artikelnummer'] ?? ''), 0, 100),
                 'scans' => max(0, (int) ($item['scan_count'] ?? 0)),
+                'scan_events' => isset($item['scan_event_count'])&&is_numeric($item['scan_event_count'])?max(0,(int)$item['scan_event_count']):null,
                 'resolution' => mb_substr((string) ($item['resolution'] ?? 'unverified'), 0, 40),
                 'review' => mb_substr((string) ($item['review_state'] ?? ''), 0, 40),
                 ...ScanEntryPresentation::present($item),
