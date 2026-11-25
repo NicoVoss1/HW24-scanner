@@ -522,7 +522,7 @@
         <div class="hw24-action" style="margin-top:14px"><button type="button" class="hw24-btn" wire:click="showWorkflowStep(2)">← Zurück zur Prüfung</button></div>
         </div>
         <details class="hw24-card">
-            <summary class="hw24-card-head">Expertenansicht · bisherige Scan-Funktionen</summary> Scan-Funktionen weiter nutzen</h3></div>
+            <summary class="hw24-card-head">Expertenansicht · bisherige Scan-Funktionen</summary>
             <div class="hw24-card-body">
                 <p class="hw24-description">Die bestehende, funktionsfähige Scanliste bleibt bis zur vollständigen sicheren Migration die führende Oberfläche für Erfassung, Änderung, Freigabe und Prüfexport.</p>
                 <div class="hw24-action">
