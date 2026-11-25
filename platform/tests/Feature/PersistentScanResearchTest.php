@@ -42,4 +42,33 @@ final class PersistentScanResearchTest extends TestCase
         Http::assertSentCount(2);
         Http::assertNotSent(fn($r)=>$r->method()!=='GET'||str_contains($r->url(),'amazon.php')||str_contains($r->url(),'ai-review.php'));
     }
+    public function test_csv_only_enqueues_after_confirmed_storage(): void
+    {
+        config()->set('hw24_legacy.base_url','https://artikelmanager.hairworld24.de');
+        config()->set('hw24_legacy.user','test-only');
+        config()->set('hw24_legacy.password','fake-test-only');
+        config()->set('hw24_legacy.scan_writes_enabled',true);
+        Http::preventStrayRequests();
+        Http::fake(function($r){
+            if(str_contains($r->url(),'op=batches'))return Http::response(['ok'=>true,'batches'=>[['id'=>7,'label'=>'TEST Queue']]]);
+            if(str_contains($r->url(),'op=items'))return Http::response(['ok'=>true,'items'=>[]]);
+            if($r->method()==='POST'&&($r->data()['op']??null)==='import_rows')
+                return Http::response(['ok'=>true,'received'=>1,'inserted'=>1,'existed'=>0,'restored'=>0]);
+            return Http::response(['ok'=>false],404);
+        });
+        $mock=Mockery::mock(ScanQueueIntake::class);
+        $mock->shouldReceive('enabled')->andReturn(true);
+        $mock->shouldReceive('automatic')->andReturn(true);
+        $mock->shouldReceive('statuses')->with([])->andReturn([]);
+        $mock->shouldReceive('enqueue')->once()->with(['036000291452'])->andReturn(['total'=>1,'new'=>1]);
+        $this->app->instance(ScanQueueIntake::class,$mock);
+        $page=Livewire::test(ScanWorkbench::class)->call('loadBatches')->call('loadBatch',7)
+            ->set('csvFile',\Illuminate\Http\UploadedFile::fake()->createWithContent('test.csv',"EAN;Information\n036000291452;Test\n"))
+            ->call('previewCsv')->call('importCsvChunk')->assertSet('csvOffset',0);
+        Http::assertNotSent(fn($r)=>$r->method()==='POST');
+        $page->set('confirmCsvImport',true)->call('importCsvChunk')->assertSet('csvOffset',1)
+            ->assertSet('csvState.inserted',1);
+        Http::assertSentCount(3);
+    }
+
 }
