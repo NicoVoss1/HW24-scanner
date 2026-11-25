@@ -52,6 +52,8 @@ final class HubAiContent
             $v=trim($v);
             if($v===''||mb_strlen($v)>$limit||$v!==strip_tags($v)||preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F]/u',$v)||
                 preg_match('~https?://|www\.|[<>{}]~iu',$v))continue;
+            if($key==='seoTitle')$v=HubSeoDefaults::brandTitle($v);
+            if($key==='metaDescription')$v=HubSeoDefaults::brandDescription($v);
             $out['fields'][$field]=$v;
         }
         $facts=self::facts($catalog);
