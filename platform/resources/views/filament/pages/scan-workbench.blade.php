@@ -33,6 +33,40 @@
             html.dark .hw24-scan-workbench .hw24-card-head,html.dark .hw24-scan-workbench th{background:#223046;border-color:#34465c;color:#e2e8f0}
             html.dark .hw24-scan-workbench td{border-color:#34465c}
             html.dark .hw24-scan-workbench .hw24-description,html.dark .hw24-scan-workbench .hw24-sub{color:#cbd5e1}
+
+            .hw24-scan-workbench .hw24-table-wrap{max-width:100%;overflow-y:auto;overflow-x:hidden}
+            .hw24-scan-workbench table{min-width:0;table-layout:fixed}
+            .hw24-scan-workbench th,.hw24-scan-workbench td{white-space:normal;overflow-wrap:anywhere}
+            .hw24-scan-workbench .hw24-btn:disabled{opacity:.48;cursor:not-allowed}
+            .hw24-scan-workbench .hw24-upload{display:flex;align-items:center;flex-wrap:wrap;gap:14px;border:1px dashed #9ebbd4;border-radius:12px;padding:16px;background:#f5f9fd}
+            .hw24-scan-workbench .hw24-file-pick{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;background:#164b72;color:white;border-radius:9px;padding:12px 16px;font-weight:750;font-size:13px;min-height:44px}
+            .hw24-scan-workbench .hw24-file-pick input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+            .hw24-scan-workbench .hw24-file-pick:focus-within{outline:3px solid #60a5fa;outline-offset:2px}
+            .hw24-scan-workbench .hw24-file-pick:has(input:disabled){opacity:.5;cursor:not-allowed}
+            .hw24-scan-workbench .hw24-file-info{flex:1 1 180px;min-width:0;overflow-wrap:anywhere;font-size:13px;line-height:1.55}
+            .hw24-scan-workbench .hw24-position-list{container-type:inline-size;border:1px solid #dbe5ef;border-radius:11px;max-height:680px;overflow-y:auto}
+            .hw24-scan-workbench .hw24-position{padding:13px 14px;border-top:1px solid #e0e8f0;font-size:13px;line-height:1.5}
+            .hw24-scan-workbench .hw24-position:first-child{border-top:0}
+            .hw24-scan-workbench .hw24-position-main{display:grid;grid-template-columns:24px minmax(0,1.65fr) minmax(0,1fr) minmax(0,.85fr);align-items:start;gap:12px}
+            .hw24-scan-workbench .hw24-position-main>*{min-width:0;overflow-wrap:anywhere}
+            .hw24-scan-workbench .hw24-position-title{font-size:14px;font-weight:750;line-height:1.45}
+            .hw24-scan-workbench .hw24-position-actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+            .hw24-scan-workbench .hw24-position-actions .hw24-btn{max-width:100%;white-space:normal}
+            .hw24-scan-workbench .hw24-detail{margin:8px 0 0 36px;font-size:12px}
+            .hw24-scan-workbench .hw24-detail summary{cursor:pointer;color:#1d5f92;font-weight:650;width:fit-content}
+            .hw24-scan-workbench .hw24-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,175px),1fr));gap:10px;background:#f5f8fb;padding:12px;border-radius:9px;margin-top:8px}
+            .hw24-scan-workbench .hw24-facts div{min-width:0;overflow-wrap:anywhere}
+            .hw24-scan-workbench .hw24-facts dt{font-size:11px;color:#64748b;font-weight:650;margin-bottom:3px}
+            .hw24-scan-workbench .hw24-facts dd{margin:0}
+            .hw24-scan-workbench .hw24-job-status{display:inline-block;border-radius:7px;padding:4px 8px;font-weight:700;background:#eef2f7;color:#475569;line-height:1.4}
+            .hw24-scan-workbench .hw24-job-status[data-status="completed"]{background:#e9f6ee;color:#086138}
+            .hw24-scan-workbench .hw24-job-status[data-status="leased"]{background:#e9f2ff;color:#1e4da0}
+            .hw24-scan-workbench .hw24-job-status[data-status="blocked"],.hw24-scan-workbench .hw24-job-status[data-status="retry"]{background:#fff3d9;color:#88490c}
+            @container (max-width:760px){.hw24-scan-workbench .hw24-position-main{grid-template-columns:24px minmax(0,1fr) minmax(0,1fr);gap:9px}.hw24-scan-workbench .hw24-position-actions{grid-column:2/-1}}
+            @container (max-width:480px){.hw24-scan-workbench .hw24-position-main{grid-template-columns:24px minmax(0,1fr)}.hw24-scan-workbench .hw24-position-status,.hw24-scan-workbench .hw24-position-actions{grid-column:2/-1}.hw24-scan-workbench .hw24-detail{margin-left:0}}
+            html.dark .hw24-scan-workbench .hw24-upload,html.dark .hw24-scan-workbench .hw24-facts{background:#223046;border-color:#34465c}
+            html.dark .hw24-scan-workbench .hw24-position,html.dark .hw24-scan-workbench .hw24-position-list{border-color:#34465c}
+            html.dark .hw24-scan-workbench .hw24-facts dt,html.dark .hw24-scan-workbench .hw24-detail summary{color:#cbd5e1}
         </style>
 
         <header class="hw24-hero">
@@ -127,9 +161,25 @@
             <div class="hw24-card-body">
                 <p class="hw24-description">Vorbereiteten Neuware-Export als UTF-8-CSV auswählen. Excel-Dateien zuvor als CSV speichern. Die ursprüngliche Inventurliste mit B-Ware und Kommentaren muss zuerst klassifiziert werden. Keine JTL- oder WMS-Buchung. @if($this->autoQueueResearch()) Bestätigte Positionen werden zur serverseitigen Recherche angemeldet.@else Keine automatische externe Recherche.@endif</p>
                 <p>Aktiver Stapel: {{ $selectedBatchId ?? 'Bitte oben einen TEST-Stapel auswählen' }}</p>
-                <div class="hw24-action" style="margin-top:12px">
-                    <input type="file" accept=".csv,text/csv" wire:model="csvFile" aria-label="Neuware-CSV auswählen">
-                    <button type="button" class="hw24-btn" wire:click="previewCsv" wire:loading.attr="disabled" wire:target="csvFile,previewCsv" x-bind:disabled="running || $wire.selectedBatchId === null">CSV prüfen</button>
+                <div class="hw24-upload" style="margin-top:12px" x-data="{uploading:false}" x-on:livewire-upload-start="uploading=true" x-on:livewire-upload-finish="uploading=false" x-on:livewire-upload-error="uploading=false" x-on:livewire-upload-cancel="uploading=false">
+                    <label class="hw24-file-pick">
+                        <span aria-hidden="true">＋</span> CSV-Datei auswählen
+                        <input type="file" accept=".csv,text/csv" wire:model="csvFile" aria-label="CSV-Datei auswählen" x-bind:disabled="running || uploading" wire:key="hw24-csv-file-{{ $csvFile ? 'selected' : 'empty' }}">
+                    </label>
+                    <div class="hw24-file-info" aria-live="polite">
+                        @if($csvFile)
+                            <strong>{{ $csvFile->getClientOriginalName() }}</strong>
+                            <div class="hw24-sub">Datei bereit zur Prüfung · {{ number_format($csvFile->getSize()/1024,1,',','.') }} KB</div>
+                        @else
+                            <strong>Noch keine Datei gewählt</strong>
+                            <div class="hw24-sub">UTF-8 CSV · max. 1 MB · max. 1.000 Positionen</div>
+                        @endif
+                        <span x-show="uploading" x-cloak>Datei wird geladen …</span>
+                    </div>
+                    @if($csvFile)
+                        <button type="button" class="hw24-btn" wire:click="clearCsvFile" x-bind:disabled="running || uploading" wire:loading.attr="disabled">Datei entfernen</button>
+                    @endif
+                    <button type="button" class="hw24-btn" wire:click="previewCsv" wire:loading.attr="disabled" wire:target="csvFile,previewCsv" x-bind:disabled="running || uploading || !@js($csvFile !== null && $selectedBatchId !== null)">CSV prüfen</button>
                 </div>
                 @error('csvFile')<p class="hw24-note hw24-note-warn">{{ $message }}</p>@enderror
                 @if($csvState!==[])
@@ -157,7 +207,7 @@
 
         @if($selectedBatchId !== null)
             <section class="hw24-card">
-                <div class="hw24-card-head"><h3>02 · Gespeicherte Positionen aus Stapel {{ $selectedBatchId }}</h3></div>
+                <div class="hw24-card-head"><h3>04 · Gespeicherte Positionen aus Stapel {{ $selectedBatchId }}</h3></div>
                 <div class="hw24-card-body">
                     <p class="hw24-description">Maximal 3.000 Positionen aus der vorhandenen MariaDB. Erfassungszeit in deutscher Ortszeit (MEZ/MESZ). CSV-Import und echte Scan-Ereignisse werden nur bei gespeichertem Nachweis angezeigt. Keine Lagerbuchung oder direkte Artikelanlage in JTL.</p>
                     <span class="hw24-stat">{{ count($items) }} Positionen geladen</span>
@@ -200,67 +250,64 @@
                         </p>
                     @endif
                     @if($items !== [])
-                        <div class="hw24-table-wrap" style="margin-top:14px">
-                            <table>
-                                <thead><tr><th>Auswahl</th><th>EAN</th><th>Artikel</th><th>Scans</th><th>Erfasst am / Uhrzeit</th><th>Erfassungsart</th><th>JTL-Abgleich</th><th>Prüfstatus</th><th>KI-Archiv</th>@if($this->canQueueResearch())<th>Rechercheauftrag</th>@endif<th>Amazon / Bearbeitung</th></tr></thead>
-                                <tbody>
-                                    @foreach($items as $i => $item)
-                                        <tr wire:key="hw24-scan-item-{{ $selectedBatchId }}-{{ $i }}">
-                                            <td><input type="checkbox" wire:model.live="selectedEans" value="{{ $item['ean'] }}" aria-label="EAN {{ $item['ean'] }} markieren" @disabled($item['review']==='removed')></td>
-                                            <td><strong>{{ $item['ean'] }}</strong><div class="hw24-sub">{{ $item['article_number'] ?: 'Artikelnummer offen' }}</div></td>
-                                            <td>{{ $item['name'] ?: 'Noch nicht identifiziert' }}</td>
-                                            <td>{{ $item['scans'] }}</td>
-                                            <td style="min-width:165px">
-                                                <strong>{{ $item['entry_at'] ?? 'Zeitpunkt nicht gespeichert' }}</strong>
-                                                @if($item['last_scan_at'])<div class="hw24-sub">Letzter Scan: {{ $item['last_scan_at'] }}</div>@endif
-                                                @if($item['updated_at'])<div class="hw24-sub">Geändert: {{ $item['updated_at'] }}</div>@endif
-                                            </td>
-                                            <td style="min-width:170px">
-                                                <strong>{{ $item['origin_label'] }}</strong>
-                                                @if($item['import_label'])<div class="hw24-sub">{{ $item['import_label'] }}</div>@endif
-                                            </td>
-                                            <td>{{ $item['resolution_label'] }}</td>
-                                            <td>{{ $item['review_label'] }}</td>
-                                            <td>
-                                                @if(($batchAiMarkers[$item['ean']]['found']??false)===true)
-                                                    <span class="hw24-stat">🧠 Bereits geprüft</span>
-                                                    <div class="hw24-sub">{{ $batchAiMarkers[$item['ean']]['count'] }} Bericht(e) · zuletzt {{ $batchAiMarkers[$item['ean']]['at'] }} UTC</div>
-                                                @elseif(isset($batchAiMarkers[$item['ean']]))
-                                                    <span class="hw24-sub">Kein bestätigter Archivtreffer in der geprüften Teilmenge</span>
-                                                @else
-                                                    <span class="hw24-sub">Noch nicht geprüft</span>
-                                                @endif
-                                            </td>
+                        <div class="hw24-position-list" style="margin-top:14px" role="list" aria-label="Gespeicherte Artikel">
+                            @foreach($items as $i => $item)
+                                @php($job=$persistentResearch[$item['ean']]??null)
+                                @php($ai=$batchAiMarkers[$item['ean']]??null)
+                                @php($evidence=$researchResults[$item['ean']]??null)
+                                <article class="hw24-position" role="listitem" wire:key="hw24-scan-item-{{ $selectedBatchId }}-{{ $i }}">
+                                    <div class="hw24-position-main">
+                                        <div><input type="checkbox" wire:model.live="selectedEans" value="{{ $item['ean'] }}" aria-label="EAN {{ $item['ean'] }} markieren" @disabled($item['review']==='removed')></div>
+                                        <div>
+                                            <div class="hw24-position-title">{{ $item['name'] ?: 'Noch nicht identifiziert' }}</div>
+                                            <div class="hw24-sub">EAN {{ $item['ean'] }} · {{ $item['article_number'] ?: 'Artikelnummer offen' }}</div>
+                                            <div class="hw24-sub">{{ $item['scans'] }} Scan(s) · {{ $item['resolution_label'] }} · {{ $item['review_label'] }}</div>
+                                        </div>
+                                        <div class="hw24-position-status">
                                             @if($this->canQueueResearch())
-                                                <td style="min-width:155px">
-                                                    @if(isset($persistentResearch[$item['ean']]))
-                                                        @php($job=$persistentResearch[$item['ean']])
-                                                        <strong>{{ match($job['status']){'queued'=>'Wartend','leased'=>'In Bearbeitung','retry'=>'Wiederholung geplant','completed'=>'Kernrecherche abgeschlossen','blocked'=>'Prüfung erforderlich',default=>'Unbekannt'} }}</strong>
-                                                        <div class="hw24-sub">Auftrag #{{ $job['id'] }} · {{ $job['attempt_count'] }} Versuch(e)</div>
-                                                        @if($job['last_error_code'])<div class="hw24-sub">{{ $job['last_error_code'] }}</div>@endif
-                                                        @if(isset($job['evidence']['catalog_snapshot_id']))<div class="hw24-sub">Katalog #{{ $job['evidence']['catalog_snapshot_id'] }}</div>@endif
-                                                        @if(isset($job['evidence']['price_snapshot_id']))<div class="hw24-sub">Preisarchiv #{{ $job['evidence']['price_snapshot_id'] }}</div>@endif
-                                                    @else
-                                                        <span class="hw24-sub">Nicht angemeldet</span>
-                                                    @endif
-                                                </td>
+                                                <span class="hw24-job-status" data-status="{{ $job['status']??'missing' }}">{{ match($job['status']??'missing'){'queued'=>'Wartend','leased'=>'In Bearbeitung','retry'=>'Wiederholung geplant','completed'=>'Kernrecherche abgeschlossen','blocked'=>'Prüfung erforderlich','missing'=>'Nicht angemeldet',default=>'Unbekannt'} }}</span>
+                                                @if($job)<div class="hw24-sub">Auftrag #{{ $job['id'] }} · {{ $job['attempt_count'] }} Versuch(e)</div>@endif
+                                            @elseif($evidence)
+                                                <span class="hw24-job-status">{{ $evidence['amazon_ok']?count($evidence['items']).' Katalogtreffer':'Recherche fehlgeschlagen' }}</span>
+                                            @else
+                                                <span class="hw24-job-status">Noch nicht recherchiert</span>
                                             @endif
-                                            <td>
-                                                @if(isset($researchResults[$item['ean']]))
-                                                    @php($evidence=$researchResults[$item['ean']])
-                                                    <div>{{ $evidence['amazon_ok'] ? count($evidence['items']).' Katalogtreffer' : 'Recherche fehlgeschlagen' }}</div>
-                                                    @if($evidence['items']!==[])<div class="hw24-sub">{{ $evidence['items'][0]['title'] }} · Vorschlag</div>@endif
-                                                    <div class="hw24-sub">Quelle: {{ $evidence['source'] ?: 'unbekannt' }} · HTTP {{ $evidence['http'] ?? '—' }}</div>
-                                                @endif
-                                                @if($item['review']!=='removed')
-                                                    <button type="button" class="hw24-btn" wire:click="openDraft('{{ $item['ean'] }}')">Identifizieren / bearbeiten</button>
-                                                    <a class="hw24-link" href="{{ url('/admin/intelligence').'?ean='.rawurlencode($item['ean']) }}">KI &amp; Amazon Details</a>
-                                                @endif
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
+                                            @if(($ai['found']??false)===true)
+                                                <div class="hw24-sub">KI-Archiv: {{ $ai['count'] }} Bericht(e)</div>
+                                            @elseif($ai!==null)
+                                                <div class="hw24-sub">Kein bestätigter KI-Archivtreffer</div>
+                                            @else
+                                                <div class="hw24-sub">KI-Archiv: noch nicht separat geprüft</div>
+                                            @endif
+                                        </div>
+                                        <div class="hw24-position-actions">
+                                            @if($item['review']!=='removed')
+                                                <button type="button" class="hw24-btn" wire:click="openDraft('{{ $item['ean'] }}')">Artikel bearbeiten</button>
+                                                <a class="hw24-link" href="{{ url('/admin/intelligence').'?ean='.rawurlencode($item['ean']) }}">KI &amp; Amazon</a>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <details class="hw24-detail">
+                                        <summary>Erfassung, Quellen und Archivdetails</summary>
+                                        <dl class="hw24-facts">
+                                            <div><dt>Erfasst am (MEZ/MESZ)</dt><dd>{{ $item['entry_at'] ?? 'Zeitpunkt nicht gespeichert' }}</dd></div>
+                                            <div><dt>Letzter Scan</dt><dd>{{ $item['last_scan_at'] ?: 'Nicht belegt' }}</dd></div>
+                                            <div><dt>Zuletzt geändert</dt><dd>{{ $item['updated_at'] ?: 'Nicht belegt' }}</dd></div>
+                                            <div><dt>Erfassungsart</dt><dd>{{ $item['origin_label'] }} @if($item['import_label'])<div>{{ $item['import_label'] }}</div>@endif</dd></div>
+                                            @if(($ai['found']??false)===true)<div><dt>Letzter KI-Bericht (UTC)</dt><dd>{{ $ai['at'] }}</dd></div>@endif
+                                            @if($job)
+                                                <div><dt>Amazon-Katalogarchiv</dt><dd>{{ isset($job['evidence']['catalog_snapshot_id'])?'#'.$job['evidence']['catalog_snapshot_id']:'Nicht bestätigt' }}</dd></div>
+                                                <div><dt>Amazon-Preisarchiv</dt><dd>{{ isset($job['evidence']['price_snapshot_id'])?'#'.$job['evidence']['price_snapshot_id']:'Nicht bestätigt' }}</dd></div>
+                                                @if($job['last_error_code'])<div><dt>Fehlercode</dt><dd>{{ $job['last_error_code'] }}</dd></div>@endif
+                                            @endif
+                                            @if($evidence)
+                                                <div><dt>Manuelle Amazon-Recherche</dt><dd>{{ $evidence['amazon_ok']?count($evidence['items']).' Treffer':'Fehlgeschlagen' }} · {{ $evidence['source'] ?: 'unbekannt' }} · HTTP {{ $evidence['http'] ?? '—' }}</dd></div>
+                                                @if($evidence['items']!==[])<div><dt>Produktvorschlag</dt><dd>{{ $evidence['items'][0]['title'] }}</dd></div>@endif
+                                            @endif
+                                        </dl>
+                                    </details>
+                                </article>
+                            @endforeach
                         </div>
                     @else
                         <p class="hw24-empty">Dieser Stapel enthält aktuell keine anzeigbaren Positionen.</p>
@@ -346,7 +393,7 @@
         @endif
 
         <section class="hw24-card">
-            <div class="hw24-card-head"><h3>04 · JTL-Ameise-Prüfexport direkt in Filament</h3></div>
+            <div class="hw24-card-head"><h3>05 · JTL-Ameise-Prüfexport direkt in Filament</h3></div>
             <div class="hw24-card-body">
                 <p class="hw24-description">Die bestehende Scanlisten-API prüft vor dem CSV-Export den aktuellen JTL-Snapshot, freigegebene Neuanlagen, doppelte Artikelnummern und Pflichtfelder. Maximal 200 freigegebene Positionen. Nur ein Prüfexport, kein JTL-Direktimport.</p>
                 <div class="hw24-action">
@@ -377,7 +424,7 @@
         </section>
 
         <section class="hw24-card">
-            <div class="hw24-card-head"><h3>03 · Alle vorhandenen Scan-Funktionen weiter nutzen</h3></div>
+            <div class="hw24-card-head"><h3>06 · Alle vorhandenen Scan-Funktionen weiter nutzen</h3></div>
             <div class="hw24-card-body">
                 <p class="hw24-description">Die bestehende, funktionsfähige Scanliste bleibt bis zur vollständigen sicheren Migration die führende Oberfläche für Erfassung, Änderung, Freigabe und Prüfexport.</p>
                 <div class="hw24-action">
