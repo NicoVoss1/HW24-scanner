@@ -79,11 +79,12 @@
         <header class="hw24-head">
             <div>
                 <p class="hw24-kicker">HAIRWORLD24 · Produktdatenplattform</p>
-                <h2>Artikelzentrale</h2>
+                <h2>Artikelpflege · Bestand</h2>
                 <p>Stammdaten, Bestand und Preise aus dem JTL-Spiegel. Originalquellen und Marktplatzangebote bleiben nachvollziehbar getrennt.</p>
             </div>
             <a class="hw24-link" href="{{ route('filament.admin.pages.dashboard') }}">Zum Management-Cockpit</a>
         </header>
+        @include('filament.partials.hub-release-status')
 
         <nav aria-label="Bisherige HW24-Funktionen" style="margin-top:15px;padding:15px 18px;border:1px solid #b9d0e5;border-radius:13px;background:#f3f8fe">
             <strong style="font-size:13px;color:#194a76;display:block;margin-bottom:7px">Bisherige Arbeitsfunktionen sind weiterhin verfügbar</strong>
@@ -277,7 +278,47 @@
                 </section>
             @endif
 
-            <section class="hw24-panel" aria-labelledby="hw24-source-heading">
+            <section class="hw24-panel" aria-label="Datenqualität und Pflegevorschläge">
+                <div class="hw24-panel-head"><h3>Datenqualität &amp; Pflegevorschläge</h3></div>
+                <div style="padding:16px;display:grid;gap:12px">
+                    @if($fieldReview['ok']??false)
+                        <strong>{{ $fieldReview['filled'] }} / {{ $fieldReview['total'] }} geprüfte Zielfelder mit belegtem Wert</strong>
+                        <p>Spiegelstand: {{ $fieldReview['snapshot_at']??'nicht belegt' }}. Nicht zugeordnet bedeutet nicht, dass das Feld in JTL fehlt.</p>
+                        @if($categoryProposal!==[])<p>Kategorie-Vorschlag: <strong>{{ implode(' / ',$categoryProposal) }}</strong> · manuell prüfen</p>@endif
+                        <div style="display:flex;gap:10px;flex-wrap:wrap">
+                            <x-filament::button wire:click="compareExistingArticle" wire:loading.attr="disabled">Vergleichsartikel prüfen</x-filament::button>
+                            <x-filament::button wire:click="queueExistingArticle" wire:confirm="Artikel zur gemeinsamen Recherche anmelden?" wire:loading.attr="disabled">Zur Recherche anmelden</x-filament::button>
+                        </div>
+                        @if($pflegeMessage!=='')<p role="status">{{ $pflegeMessage }}</p>@endif
+                        @if($queueReview!==[])
+                            <p>Rechercheauftrag #{{ $queueReview['id'] }} · {{ match($queueReview['status']){'queued'=>'Wartend','leased'=>'In Bearbeitung','retry'=>'Wiederholung geplant','completed'=>'Quellen geprüft','blocked'=>'Prüfung erforderlich',default=>'Unbekannt'} }}</p>
+                            <details><summary>Gespeicherte Recherchequellen</summary>
+                                @foreach(\App\Services\ScanResearchPresentation::sources($queueReview) as $label=>$value)<p>{{ $label }}: {{ $value }}</p>@endforeach
+                            </details>
+                        @endif
+                        @if($peerReview!==[])
+                            @if($peerReview['ok']??false)
+                                <p>{{ $peerReview['peer_count'] }} Vergleichsartikel gleicher Warengruppe und Hersteller.</p>
+                                @forelse($peerReview['suggestions'] as $label=>$value)
+                                    <p>{{ $label }}: {{ $value['value'] }} · {{ $value['support'] }}/{{ $value['sample_count'] }} · manuelle Prüfung</p>
+                                @empty<p>Keine ausreichend belegten Vorschläge für die bisher unterstützten Standardfelder.</p>@endforelse
+                            @else<p>{{ $peerReview['message'] }}</p>@endif
+                        @endif
+                        <details>
+                            <summary>Alle geprüften Felder anzeigen</summary>
+                            <dl style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:12px;overflow-wrap:anywhere;margin-top:12px">
+                                @foreach($fieldReview['fields'] as $label=>$info)
+                                    <div><dt><strong>{{ $label }}</strong></dt><dd>{{ match($info['state']){'value','observed_reference','reference'=>$info['value'],'empty_snapshot'=>'Im Spiegel nicht belegt',default=>'Noch nicht zugeordnet'} }}</dd><small>{{ $info['source'] }}</small></div>
+                                @endforeach
+                            </dl>
+                        </details>
+                        <p>Bestehende JTL-Artikel werden hier noch nicht verändert. Dauerhaft gespeicherte Änderungsvorschläge und Update-Export folgen separat.</p>
+                    @else
+                        <p>Für die Feldprüfung ist ein eindeutiger aktueller JTL-Artikel erforderlich.</p>
+                    @endif
+                </div>
+             </section>
+             <section class="hw24-panel" aria-labelledby="hw24-source-heading">
                 <div class="hw24-panel-head">
                     <h3 id="hw24-source-heading">03 · JTL-Originalfelder und Kontopreise</h3>
                     <span class="hw24-chip">Quelle separat prüfen</span>
