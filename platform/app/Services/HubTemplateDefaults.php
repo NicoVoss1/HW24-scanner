@@ -19,7 +19,7 @@ final class HubTemplateDefaults
         if($brand===''||$group==='')return ['ok'=>false,'message'=>'Hersteller oder Warengruppe der Vorlage nicht eindeutig belegt.'];
         foreach(['Hersteller'=>$brand,'Warengruppe'=>$group] as $field=>$value){
             $old=trim((string)($draft[$field]??''));
-            if($old!==''&&mb_strtolower($old)!==mb_strtolower($value))
+            if($old!==''&&($field==='Hersteller'?!HubManufacturerPolicy::equivalent($old,$value):mb_strtolower($old)!==mb_strtolower($value)))
                 return ['ok'=>false,'message'=>'Vorlage widerspricht dem vorhandenen Feld '.$field.'.'];
         }
         $target=HubCategoryPolicy::suggest((string)($draft['Artikelname']??''),(string)($draft['Warengruppe']??''));
