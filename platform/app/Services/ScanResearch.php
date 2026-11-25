@@ -88,13 +88,17 @@ final class ScanResearch
             'more'=>($raw['has_next_page']??false)===true,'error'=>self::txt($raw['error']??null,100)];
     }
 
-    public static function pricing(string $asin,LegacyReadBridge $bridge): array
+    public static function pricing(string $asin,LegacyReadBridge $bridge,?AmazonPriceArchive $archive=null): array
     {
-        $r=$bridge->fetch('amazon.pricing',['asin'=>$asin]);
+        $capture=AmazonPriceResearch::fetch($asin,$bridge,$archive);
+        $r=$capture['response'];
         $raw=is_array($r['data']??null)?$r['data']:[];
         $board=OfferEvidence::present($raw);
-        return ['ok'=>($r['ok']??false)===true,'http'=>$r['http_status']??null,'asin'=>$asin,
+        $result=['ok'=>($r['ok']??false)===true,'http'=>$r['http_status']??null,'asin'=>$asin,
             'buy_box'=>$board['buy_box'],'lowest'=>$board['lowest_summary']??$board['lowest_visible'],
             'at'=>$board['retrieved_at'],'offers'=>$board['total_offers']];
+        // Keep existing callers unchanged until an authorized archive is supplied.
+        if ($archive!==null) $result['archive']=$capture['archive'];
+        return $result;
     }
 }
