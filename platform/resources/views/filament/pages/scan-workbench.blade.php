@@ -255,18 +255,24 @@
                                 @php($job=$persistentResearch[$item['ean']]??null)
                                 @php($ai=$batchAiMarkers[$item['ean']]??null)
                                 @php($evidence=$researchResults[$item['ean']]??null)
+                                @php($coverage=\App\Services\ScanResearchPresentation::draftCoverage($item))
                                 <article class="hw24-position" role="listitem" wire:key="hw24-scan-item-{{ $selectedBatchId }}-{{ $i }}">
                                     <div class="hw24-position-main">
                                         <div><input type="checkbox" wire:model.live="selectedEans" value="{{ $item['ean'] }}" aria-label="EAN {{ $item['ean'] }} markieren" @disabled($item['review']==='removed')></div>
                                         <div>
-                                            <div class="hw24-position-title">{{ $item['name'] ?: 'Noch nicht identifiziert' }}</div>
+                                            <div class="hw24-position-title">{{ $item['name'] ?: ($item['draft']['Artikelname']??'Noch nicht identifiziert') }}</div>
+                                            <div class="hw24-sub">{{ $item['name']?'Artikelname aus gespeichertem Scan-/JTL-Stand':'Artikelname aus Entwurf, sofern vorhanden' }}</div>
+                                            @if(!empty($item['draft']['Artikelname']) && $item['name'] && $item['draft']['Artikelname']!==$item['name'])<div class="hw24-sub">Entwurfsname: {{ $item['draft']['Artikelname'] }}</div>@endif
                                             <div class="hw24-sub">EAN {{ $item['ean'] }} · {{ $item['article_number'] ?: 'Artikelnummer offen' }}</div>
                                             <div class="hw24-sub">{{ $item['scans'] }} Scan(s) · {{ $item['resolution_label'] }} · {{ $item['review_label'] }}</div>
                                         </div>
                                         <div class="hw24-position-status">
                                             @if($this->canQueueResearch())
-                                                <span class="hw24-job-status" data-status="{{ $job['status']??'missing' }}">{{ match($job['status']??'missing'){'queued'=>'Wartend','leased'=>'In Bearbeitung','retry'=>'Wiederholung geplant','completed'=>'Kernrecherche abgeschlossen','blocked'=>'Prüfung erforderlich','missing'=>'Nicht angemeldet',default=>'Unbekannt'} }}</span>
-                                                @if($job)<div class="hw24-sub">Auftrag #{{ $job['id'] }} · {{ $job['attempt_count'] }} Versuch(e)</div>@endif
+                                                <span class="hw24-job-status" data-status="{{ $job['status']??'missing' }}">{{ match($job['status']??'missing'){'queued'=>'Wartend','leased'=>'In Bearbeitung','retry'=>'Wiederholung geplant','completed'=>'Quellenrecherche durchgeführt','blocked'=>'Prüfung erforderlich','missing'=>'Nicht angemeldet',default=>'Unbekannt'} }}</span>
+                                                @if($job)
+                                                    <div class="hw24-sub">Auftrag #{{ $job['id'] }} · {{ $job['attempt_count'] }} Versuch(e)</div>
+                                                    @if($job['completed_at_utc']??null)<div class="hw24-sub">Abschluss: {{ \App\Services\ScanEntryPresentation::germanDate($job['completed_at_utc'])??'Zeit nicht verifiziert' }}</div>@endif
+                                                @endif
                                             @elseif($evidence)
                                                 <span class="hw24-job-status">{{ $evidence['amazon_ok']?count($evidence['items']).' Katalogtreffer':'Recherche fehlgeschlagen' }}</span>
                                             @else
@@ -277,18 +283,31 @@
                                             @elseif($ai!==null)
                                                 <div class="hw24-sub">Kein bestätigter KI-Archivtreffer</div>
                                             @else
-                                                <div class="hw24-sub">KI-Archiv: noch nicht separat geprüft</div>
+                                                @if(($job['evidence']['ai_state']??null)==='read')
+                                                    <div class="hw24-sub">KI-Archiv: {{ $job['evidence']['ai_count']??'?' }} Bericht(e) · {{ ($job['evidence']['ai_scope']??null)==='shared_workspace'?'Gemeinsames Archiv':'Bisheriges Konto' }}</div>
+                                                @else
+                                                    <div class="hw24-sub">KI-Archiv: noch nicht bestätigt</div>
+                                                @endif
+                                            @endif
+                                            @if($item['resolution']==='existing')
+                                                <div class="hw24-sub"><strong>Stammdatenprüfung separat erforderlich</strong> · aktueller JTL-Feldstand noch nicht bewertet</div>
+                                            @elseif($item['resolution']==='new_candidate')
+                                                <div class="hw24-sub">Entwurf: {{ $coverage['filled'] }}/{{ $coverage['total'] }} Felder belegt · {{ count($coverage['missing_required']) }} Basis-Pflichtfelder offen</div>
+                                                <div class="hw24-sub">Nächster Schritt: Entwurf prüfen und ergänzen.</div>
+                                            @else
+                                                <div class="hw24-sub">Nächster Schritt: Produktidentität manuell klären.</div>
                                             @endif
                                         </div>
                                         <div class="hw24-position-actions">
                                             @if($item['review']!=='removed')
                                                 <button type="button" class="hw24-btn" wire:click="openDraft('{{ $item['ean'] }}')">Artikel bearbeiten</button>
-                                                <a class="hw24-link" href="{{ url('/admin/intelligence').'?ean='.rawurlencode($item['ean']) }}">KI &amp; Amazon</a>
+                                                <a class="hw24-link" href="{{ url('/admin/intelligence').'?ean='.rawurlencode($item['ean']) }}">Recherche-Details öffnen</a>
                                             @endif
                                         </div>
                                     </div>
                                     <details class="hw24-detail">
                                         <summary>Erfassung, Quellen und Archivdetails</summary>
+                                        @if($job)<p class="hw24-sub">Quellenstand des gespeicherten Auftrags; keine neue Abfrage. Einzelne Abfragezeiten sind im Auftrag derzeit nicht vollständig hinterlegt.</p>@endif
                                         <dl class="hw24-facts">
                                             <div><dt>Erfasst am (MEZ/MESZ)</dt><dd>{{ $item['entry_at'] ?? 'Zeitpunkt nicht gespeichert' }}</dd></div>
                                             <div><dt>Letzter Scan</dt><dd>{{ $item['last_scan_at'] ?: 'Nicht belegt' }}</dd></div>
@@ -296,6 +315,9 @@
                                             <div><dt>Erfassungsart</dt><dd>{{ $item['origin_label'] }} @if($item['import_label'])<div>{{ $item['import_label'] }}</div>@endif</dd></div>
                                             @if(($ai['found']??false)===true)<div><dt>Letzter KI-Bericht (UTC)</dt><dd>{{ $ai['at'] }}</dd></div>@endif
                                             @if($job)
+                                                @foreach(\App\Services\ScanResearchPresentation::sources($job) as $source=>$result)
+                                                    <div><dt>{{ $source }}</dt><dd>{{ $result }}</dd></div>
+                                                @endforeach
                                                 <div><dt>Amazon-Katalogarchiv</dt><dd>{{ isset($job['evidence']['catalog_snapshot_id'])?'#'.$job['evidence']['catalog_snapshot_id']:'Nicht bestätigt' }}</dd></div>
                                                 <div><dt>Amazon-Preisarchiv</dt><dd>{{ isset($job['evidence']['price_snapshot_id'])?'#'.$job['evidence']['price_snapshot_id']:'Nicht bestätigt' }}</dd></div>
                                                 @if($job['last_error_code'])<div><dt>Fehlercode</dt><dd>{{ $job['last_error_code'] }}</dd></div>@endif
@@ -321,9 +343,31 @@
                 <div class="hw24-card-head"><h3>Artikel identifizieren und Entwurf bearbeiten · {{ $workingEan }}</h3></div>
                 <div class="hw24-card-body">
                     <div class="hw24-action">
+                        <button type="button" class="hw24-btn" wire:click="loadJtlFieldReview" wire:loading.attr="disabled" wire:target="loadJtlFieldReview">JTL-Stammdaten prüfen (nur lesen)</button>
                         <button type="button" class="hw24-btn" wire:click="researchOne('{{ $workingEan }}')" wire:loading.attr="disabled" wire:confirm="JTL und Amazon-Katalog für diese EAN abfragen?">JTL &amp; Amazon recherchieren</button>
                         <a class="hw24-link" target="_blank" rel="noopener noreferrer" href="{{ url('/admin/intelligence').'?ean='.rawurlencode($workingEan) }}">KI-Archiv und KI-Einzelprüfung öffnen</a>
                     </div>
+                    @if($jtlFieldReview!==[])
+                        <div class="hw24-note">
+                            <h3>JTL-Feldprüfung · keine Änderung in JTL</h3>
+                            @if($jtlFieldReview['ok']??false)
+                                <p><strong>{{ $jtlFieldReview['name'] }}</strong></p>
+                                <p>Spiegelstand: {{ $jtlFieldReview['snapshot_at']??'nicht belegt' }} · {{ $jtlFieldReview['filled'] }}/{{ $jtlFieldReview['total'] }} Werte in diesem Feldkatalog belegt.</p>
+                                <p>Leere Spiegelwerte und fehlende Zuordnungen beweisen keine fehlenden Werte in JTL. Nicht jedes Feld ist für jeden Artikel erforderlich. Keine automatische Übernahme oder Freigabe.</p>
+                                <dl class="hw24-facts">
+                                    @foreach($jtlFieldReview['fields'] as $field=>$info)
+                                        <div>
+                                            <dt>{{ $field }}</dt>
+                                            <dd>{{ match($info['state']){'value'=>$info['value'],'reference'=>$info['value'],'empty_snapshot'=>'Im Spiegel nicht belegt',default=>'Noch nicht zugeordnet'} }}</dd>
+                                            <div class="hw24-sub">{{ $info['source'] }}</div>
+                                        </div>
+                                    @endforeach
+                                </dl>
+                            @else
+                                <p>{{ $jtlFieldReview['message'] }}</p>
+                            @endif
+                        </div>
+                    @endif
                     @if(isset($researchResults[$workingEan]))
                         @php($evidence=$researchResults[$workingEan])
                         <p class="hw24-note">JTL: {{ match($evidence['jtl']){'existing'=>'vorhanden','new_candidate'=>'Neuanlage-Kandidat','multiple'=>'mehrdeutig',default=>'nicht verifiziert'} }} · Amazon HTTP {{ $evidence['http']??'—' }} · {{ $evidence['source']?:'unbekannt' }} · Archiv {{ $evidence['snapshot_id']?:'offen' }}</p>
@@ -368,7 +412,7 @@
                         @endif
                         <p>Eine neue Einzelprüfung benötigt ein bestätigtes gemeinsames Archiv, Betreiberfreigabe, Budget und Produktnamen. Vorhandene Berichte werden wiederverwendet.</p>
                     </div>
-                    <p class="hw24-description">Alle vorhandenen Scanentwurffelder. Änderungen nur bei Neuanlage-Kandidaten speichern. Keine direkte Wawi-Schreiboperation.</p>
+                    <p class="hw24-description">Scanentwurf und JTL-Spiegel sind getrennt. Bei vorhandenen JTL-Artikeln dient der Feldcheck oben zunächst der manuellen Bewertung; Änderungen an bestehenden Artikeln werden hier noch nicht gespeichert. Neue Artikel können nach Prüfung als Entwurf gespeichert werden.</p>
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px">
                         @foreach(\App\Services\ScanResearch::FIELDS as $field)
                             <label style="font-size:12px">
