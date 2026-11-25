@@ -21,7 +21,7 @@ final class AmazonPriceArchiveRuntime
         return config('hw24_price_archive.enabled')===true;
     }
 
-    public static function open(): AmazonPriceArchive
+    public static function open(): PriceArchiveStore
     {
         if (!self::enabled()) throw new RuntimeException('Price archive disabled');
         $file=self::privateFile();
@@ -36,7 +36,14 @@ final class AmazonPriceArchiveRuntime
             throw new RuntimeException('Invalid archive configuration');
         $pdo=new PDO('mysql:unix_socket=/run/mysqld/mysqld.sock;dbname=hw24_artikelmanager;charset=utf8mb4',
             $cfg['user'],$cfg['password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_EMULATE_PREPARES=>false,PDO::ATTR_TIMEOUT=>5]);
-        return new AmazonPriceArchive($pdo,$cfg['retention_days']);
+        // Separate key file: never in Git, .env, public webroot or database dumps.
+        $keyFile=dirname(base_path(),2).'/hw24-price-archive.key';
+        if(!is_file($keyFile)||is_link($keyFile)||!is_readable($keyFile)||(fileperms($keyFile)&0077)!==0)
+            throw new RuntimeException('Archive encryption key unavailable');
+        $key=file_get_contents($keyFile);
+        if(!is_string($key)||!preg_match('/^[a-f0-9]{64}$/D',trim($key)))
+            throw new RuntimeException('Invalid archive encryption key');
+        return new EncryptedAmazonPriceArchive($pdo,hex2bin(trim($key)),$cfg['retention_days']);
     }
 
     private static function heartbeat(): string
