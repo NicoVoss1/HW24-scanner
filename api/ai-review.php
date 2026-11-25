@@ -48,6 +48,9 @@ $ledger=json_decode($ledgerRaw,true);
 if(!is_array($ledger)){
  if($ledgerExisted||$ledgerRaw!=='')answer(503,['ok'=>false,'error'=>'usage_ledger_invalid']);
  $ledger=['months'=>[],'days'=>[],'latest'=>null];
+ $initial=json_encode($ledger,JSON_THROW_ON_ERROR);
+ if(!rewind($handle)||!ftruncate($handle,0)||fwrite($handle,$initial)!==strlen($initial)||!fflush($handle))
+  answer(503,['ok'=>false,'error'=>'usage_ledger_initialization_failed']);
 }
 if(!is_array($ledger['months']??null)||!is_array($ledger['days']??null))
  answer(503,['ok'=>false,'error'=>'usage_ledger_invalid']);
