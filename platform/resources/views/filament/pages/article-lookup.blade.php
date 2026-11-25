@@ -112,7 +112,7 @@
                                 autocomplete="off" placeholder="z. B. 3474630337398">
                         </label>
                         <div class="hw24-call-to-action">
-                            <x-filament::button type="submit" wire:loading.attr="disabled" wire:target="findArticle">Artikel laden</x-filament::button>
+                            <x-filament::button title="Artikel im vorhandenen JTL-Spiegel anhand des Suchbegriffs laden." type="submit" wire:loading.attr="disabled" wire:target="findArticle">Artikel laden</x-filament::button>
                         </div>
                     </form>
                     @error('identifier') <p class="hw24-error" role="alert">{{ $message }}</p> @enderror
@@ -296,8 +296,8 @@
                         @endif
                         @if($categoryProposal!==[])<p>Kategorie-Vorschlag: <strong>{{ implode(' / ',$categoryProposal) }}</strong> · manuell prüfen</p>@endif
                         <div style="display:flex;gap:10px;flex-wrap:wrap">
-                            <x-filament::button wire:click="compareExistingArticle" wire:loading.attr="disabled">Vergleichsartikel prüfen</x-filament::button>
-                            <x-filament::button wire:click="queueExistingArticle" wire:confirm="Artikel zur gemeinsamen Recherche anmelden?" wire:loading.attr="disabled">Zur Recherche anmelden</x-filament::button>
+                            <x-filament::button title="Vergleichbare JTL-Artikel und belegte Standardwerte prüfen." wire:click="compareExistingArticle" wire:loading.attr="disabled">Vergleichsartikel prüfen</x-filament::button>
+                            <x-filament::button title="Artikel zur gemeinsamen dauerhaften Recherche anmelden; keine sofortige KI-Abfrage." wire:click="queueExistingArticle" wire:confirm="Artikel zur gemeinsamen Recherche anmelden?" wire:loading.attr="disabled">Zur Recherche anmelden</x-filament::button>
                         </div>
                         @if($pflegeMessage!=='')<p role="status">{{ $pflegeMessage }}</p>@endif
                         @if($queueReview!==[])
@@ -373,7 +373,7 @@
                 <div class="hw24-panel-body">
                     <p class="hw24-description">Die Originalspalten bleiben im MariaDB-Spiegel. Ein manueller Klick lädt maximal 80 Felder pro Seite über eine geschützte GET-API. Keine Schreiboperationen an JTL, SQL Server oder WMS.</p>
                     <div class="hw24-toolbar">
-                        <x-filament::button type="button" wire:click="readJtlSources" wire:loading.attr="disabled" wire:target="readJtlSources"
+                        <x-filament::button title="Originalwerte und gespeicherte Kanalpreise aus dem JTL-Spiegel lesen." type="button" wire:click="readJtlSources" wire:loading.attr="disabled" wire:target="readJtlSources"
                             :disabled="count($lookup['matches'] ?? []) !== 1 || ($lookup['jtl_status'] ?? '') !== 'current_snapshot'">
                             Originalfelder und Kanalpreise lesen
                         </x-filament::button>
@@ -443,7 +443,7 @@
                             </div>
                             @if($sourceState['has_more'] ?? false)
                                 <div class="hw24-toolbar">
-                                    <x-filament::button type="button" color="gray" wire:click="loadMoreJtlSources"
+                                    <x-filament::button title="Weitere Originalfelder des eindeutig zugeordneten Artikels lesen." type="button" color="gray" wire:click="loadMoreJtlSources"
                                         wire:loading.attr="disabled" wire:target="loadMoreJtlSources">
                                         Weitere Originalfelder laden
                                     </x-filament::button>
@@ -459,7 +459,7 @@
                     <h3>04 · Amazon Selling Partner API</h3>
                     <p>Katalogauskünfte sind nicht automatisch eigene aktive Händlerangebote. Eine Live-Abfrage wird ausschließlich manuell gestartet.</p>
                     <div class="hw24-toolbar">
-                        <x-filament::button type="button" wire:click="readAmazon" wire:loading.attr="disabled" wire:target="readAmazon"
+                        <x-filament::button title="Amazon-Katalog für die verifizierte EAN abrufen; möglicher Anbieteraufruf." type="button" wire:click="readAmazon" wire:loading.attr="disabled" wire:target="readAmazon"
                             :disabled="$this->verifiedEan() === null">Amazon jetzt abfragen</x-filament::button>
                         <span class="hw24-chip hw24-warning">Manueller API-Aufruf</span>
                     </div>
@@ -477,7 +477,7 @@
                     <h3>05 · OpenAI · gespeichertes KI-Archiv</h3>
                     <p>Nur vorhandene Berichte lesen. Es wird keine kostenpflichtige KI-Analyse erzeugt.</p>
                     <div class="hw24-toolbar">
-                        <x-filament::button type="button" wire:click="readAiArchive" wire:loading.attr="disabled" wire:target="readAiArchive"
+                        <x-filament::button title="Vorhandene KI-Berichte ohne neue KI-Kosten lesen." type="button" wire:click="readAiArchive" wire:loading.attr="disabled" wire:target="readAiArchive"
                             :disabled="$this->verifiedEan() === null">KI-Archiv lesen</x-filament::button>
                         <span class="hw24-chip">Nur GET</span>
                     </div>
