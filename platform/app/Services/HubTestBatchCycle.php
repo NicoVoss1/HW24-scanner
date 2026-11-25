@@ -35,7 +35,7 @@ final class HubTestBatchCycle
         return array_values($ids);
     }
 
-    public function run(int $batchId,bool $confirmed,bool $allowResearch): array
+    public function run(int $batchId,bool $confirmed,bool $allowResearch,int $cursor=0): array
     {
         if(!$confirmed||!app()->runningInConsole()||
             config('hw24_research_queue.enabled')!==true||
@@ -67,7 +67,7 @@ final class HubTestBatchCycle
         }
         // Always reuse completed evidence even when the provider queue is paused.
         // This mode never triggers paid OpenAI or an export/stock/marketplace write.
-        $result['drafts']=$this->drafts->run($batchId,true,false);
+        $result['drafts']=$this->drafts->run($batchId,true,false,$cursor);
         if(($result['drafts']['status']??null)!=='ok')$result['status']='draft_not_confirmed';
         return $result;
     }
