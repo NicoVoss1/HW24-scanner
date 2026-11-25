@@ -9,17 +9,11 @@ final class HubBatchPreparation
     public function prepare(array $rows,array $jobs): array
     {
         $db=HubPeerMirror::connect();
-        $q=$db->prepare('SELECT * FROM hw24_hub_catalog_reuse WHERE snapshot_id=? LIMIT 2');
         $out=[];
         foreach($rows as $row){
             $ean=(string)$row['ean'];$job=$jobs[$ean]??[];
             if(($row['resolution']??null)!=='new_candidate'||in_array($row['review']??null,['removed','ready'],true))continue;
-            $archive=[];
-            if(($job['status']??null)==='completed'&&(int)($job['evidence']['catalog_snapshot_id']??0)>0){
-                $q->execute([(int)$job['evidence']['catalog_snapshot_id']]);
-                $found=$q->fetchAll(\PDO::FETCH_ASSOC);
-                if(count($found)===1)$archive=$found[0];
-            }
+            $archive=HubResearchEvidence::archivedCatalog($db,$job);
             $p=self::proposal($row,$job,$archive);
             if(in_array($p['state'],['review','missing'],true)){
                 try {
@@ -28,15 +22,8 @@ final class HubBatchPreparation
                 }catch(\Throwable){$p['template_reason']='Vorlagenquelle derzeit nicht bestätigt';}
             }
             if(in_array($p['state'],['review','missing'],true)){
-                try {
-                    $id=(int)($job['evidence']['price_snapshot_id']??0);
-                    if($id>0&&AmazonPriceArchiveRuntime::enabled()){
-                        foreach(AmazonPriceArchiveRuntime::open()->latest($p['draft']['ASIN'],2) as $price){
-                            if((int)$price['id']!==$id)continue;
-                            $p['market_price']=['id'=>$id,'at'=>$price['observed_at_utc'],'buybox'=>$price['buybox'],'lowest'=>$price['lowest']];break;
-                        }
-                    }
-                }catch(\Throwable){/* Market observation is optional; never use it as an own price. */}
+                $price=HubResearchEvidence::marketPrice($job,(string)($p['draft']['ASIN']??''));
+                if($price!==null)$p['market_price']=$price;
             }
             $out[$ean]=$p+['revision'=>$row['revision'],'item_id'=>$row['id']];
         }
@@ -67,15 +54,9 @@ final class HubBatchPreparation
             (int)($e['catalog_snapshot_id']??0)<1||
             (int)($archive['snapshot_id']??0)!==(int)$e['catalog_snapshot_id'])
             return $out+['reason'=>'Bestätigter Rechercheauftrag mit Katalogarchiv erforderlich'];
-        try {
-            if(ResearchQueue::canonical($ean)!==ResearchQueue::canonical((string)($archive['searched_ean']??'')))return $out+['reason'=>'EAN-Konflikt'];
-            $raw=json_decode((string)($archive['item_json']??''),true,64,JSON_THROW_ON_ERROR);
-        }catch(\Throwable){return $out+['reason'=>'Archiv nicht lesbar'];}
-        if(!is_array($raw))return $out+['reason'=>'Archiv nicht lesbar'];
-        $item=['asin'=>$archive['asin']??'','title'=>$archive['item_name']??'','manufacturer'=>$archive['manufacturer']??'',
-            'brand'=>$archive['brand']??'','identifiers'=>$raw['identifiers']??[],'attributes'=>$raw['attributes']??[]];
-        $p=ScanResearch::fromResponses($ean,[],['ok'=>true,'data'=>['items'=>[$item]]])['items'][0]??[];
-        if(!($p['gtin_match']??false)||($p['pack_kind']??null)!=='single')return $out+['reason'=>'Produktidentität oder Packungsgröße offen'];
+        $catalog=HubResearchEvidence::catalogItem($ean,$job,$archive);
+        if($catalog===null)return $out+['reason'=>'Produktidentität, Archiv oder Packungsgröße offen'];
+        $p=$catalog['item'];
         $source='Amazon-Katalogarchiv #'.(int)$archive['snapshot_id'];
         $add=static function(string $f,mixed $v,string $origin)use(&$draft,&$out):void{
             if(!is_string($v)||trim($v)===''||trim((string)($draft[$f]??''))!=='')return;
@@ -91,7 +72,7 @@ final class HubBatchPreparation
         $add('ASIN',$p['asin'],$source);
         $add('Artikelname',$p['title'],$source);
         $add('Hersteller',$p['manufacturer'],$source);
-        $attributes=$raw['attributes']??[];
+        $attributes=$catalog['attributes'];
         // Exact distinct part-number value, not a guessed model number.
         $parts=[];
         foreach(is_array($attributes['part_number']??null)?$attributes['part_number']:[] as $a){
