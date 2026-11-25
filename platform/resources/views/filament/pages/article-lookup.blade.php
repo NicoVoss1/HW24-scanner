@@ -284,6 +284,12 @@
                     @if($fieldReview['ok']??false)
                         <strong>{{ $fieldReview['filled'] }} / {{ $fieldReview['total'] }} geprüfte Zielfelder mit belegtem Wert</strong>
                         <p>Spiegelstand: {{ $fieldReview['snapshot_at']??'nicht belegt' }}. Nicht zugeordnet bedeutet nicht, dass das Feld in JTL fehlt.</p>
+                        @if($seoSuggestions!==[])
+                            <details><summary>SEO-Basisvorschläge · {{ count($seoSuggestions) }} Felder</summary>
+                                @foreach($seoSuggestions as $label=>$value)<p><strong>{{ $label }}</strong> · {{ $value }}</p>@endforeach
+                                <p>Aus belegtem Artikelnamen erzeugt (kostenfreie Textregel, keine neue KI-Abfrage). Noch nicht gespeichert.</p>
+                            </details>
+                        @endif
                         @if($categoryProposal!==[])<p>Kategorie-Vorschlag: <strong>{{ implode(' / ',$categoryProposal) }}</strong> · manuell prüfen</p>@endif
                         <div style="display:flex;gap:10px;flex-wrap:wrap">
                             <x-filament::button wire:click="compareExistingArticle" wire:loading.attr="disabled">Vergleichsartikel prüfen</x-filament::button>
