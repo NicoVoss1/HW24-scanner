@@ -7,7 +7,7 @@ repo='/var/www/vhosts/hairworld24.de/hw24-console-private/repo'
 app="$repo/platform"
 php='/opt/plesk/php/8.5/bin/php'
 old='f2941072baaffb6fa899de7e01fdec6a996f6426'
-target='b194ab804500119247b26333dcd42908cbe18652'
+target='038de71bc3f39bbf040a6dde82e81b6e19420fda'
 branch='feature/hw24-mirror-audit-preflight-20261122'
 g(){ runuser -u nicovoss -- git -C "$repo" "$@"; }
 artisan(){ runuser -u nicovoss -- "$php" "$app/artisan" "$@" --no-interaction; }
@@ -21,7 +21,7 @@ g merge-base --is-ancestor "$target" FETCH_HEAD
 g merge-base --is-ancestor "$old" "$target"
 while IFS= read -r f; do
     case "$f" in
-       docs/HW24_ARBEITSJOURNAL.md|platform/ops/deploy-test-hub-data.sh|platform/app/Domain/Jtl/ArticleCard.php|platform/app/Filament/Pages/ArticleLookup.php|platform/app/Filament/Pages/ScanWorkbench.php|platform/resources/views/filament/pages/article-lookup.blade.php|platform/resources/views/filament/pages/scan-workbench.blade.php|platform/resources/views/filament/partials/hub-release-status.blade.php|platform/tests/Feature/PersistentScanResearchTest.php) ;;
+       docs/HW24_ARBEITSJOURNAL.md|platform/ops/deploy-test-hub-data.sh|platform/ops/deploy-test-hub-workflow.sh|platform/ops/enable-test-research-pilot.sh|platform/app/Domain/Jtl/ArticleCard.php|platform/app/Filament/Pages/ArticleLookup.php|platform/app/Filament/Pages/ScanWorkbench.php|platform/resources/views/filament/pages/article-lookup.blade.php|platform/resources/views/filament/pages/scan-workbench.blade.php|platform/resources/views/filament/partials/hub-release-status.blade.php|platform/tests/Feature/PersistentScanResearchTest.php) ;;
        *) echo "STOP: unexpected file $f"; exit 1;;
     esac
 done < <(g diff --name-only "$old" "$target")
