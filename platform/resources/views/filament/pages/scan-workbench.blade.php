@@ -86,8 +86,8 @@
             <div class="hw24-card-body">
                 <p class="hw24-description">Die Abfrage ist ausdrücklich nur lesend. Die API liefert höchstens 50 offene Stapel des vorhandenen, durch Basic-Authentifizierung zugeordneten Benutzers. Es werden keine neuen Stapel erstellt.</p>
                 <div class="hw24-action">
-                    <x-filament::button type="button" wire:click="loadBatches" wire:loading.attr="disabled" wire:target="loadBatches">Gespeicherte Stapel laden</x-filament::button>
-                    <span class="hw24-sub">Keine automatische API-Abfrage beim Öffnen der Seite</span>
+                    <x-filament::button title="Offene gespeicherte Scan-Stapel mit Positions-, Mengen- und Bestandskennzahlen laden." type="button" wire:click="loadBatches" wire:loading.attr="disabled" wire:target="loadBatches">Gespeicherte Stapel laden</x-filament::button>
+                    <button type="button" class="hw24-btn" wire:click="refreshBatchOverview" wire:loading.attr="disabled" title="Kennzahlen aller angezeigten Stapel und aktuelle Wawi-Bestände neu lesen, ohne Positionen zu öffnen.">Kennzahlen aktualisieren</button>
                 </div>
                 @if($diagnostic !== [])
                     <p class="hw24-note {{ ($diagnostic['ok'] ?? false) ? '' : 'hw24-note-warn' }}" role="status">
@@ -98,19 +98,24 @@
                 @if($batches !== [])
                     <div class="hw24-table-wrap" style="margin-top:15px">
                         <table>
-                            <thead><tr><th>Stapel</th><th>Erstellt UTC</th><th>Letzte Änderung UTC</th><th>Aktion</th></tr></thead>
+                            <thead><tr><th>Stapel</th><th>Positionen / Stück</th><th>Wawi Gesamt / verfügbar</th><th>Letzte Änderung UTC</th><th>Aktion</th></tr></thead>
                             <tbody>
                                 @foreach($batches as $batch)
                                     <tr wire:key="hw24-scanbatch-{{ $batch['id'] }}">
                                         <td><strong>{{ $batch['label'] }}</strong><div class="hw24-sub">Stapel-ID {{ $batch['id'] }}</div></td>
-                                        <td>{{ $batch['created'] ?: 'Nicht belegt' }}</td>
+                                        @php($overview=$batchOverview[$batch['id']]??[])
+                                        <td><strong>{{ $overview['positions']??'Nicht belegt' }}</strong> Positionen<br><strong>{{ $overview['quantity']??'Nicht belegt' }}</strong> Stück erfasst</td>
+                                        <td><strong>{{ $overview['stock']['total']??'Nicht belegt' }}</strong> gesamt<br><strong>{{ $overview['stock']['available']??'Nicht belegt' }}</strong> verfügbar
+                                            @if(isset($overview['stock']['at']))<div class="hw24-sub">{{ $overview['stock']['existing'] }} JTL-Artikel · {{ $overview['stock']['absent'] }} nicht vorhanden · {{ $overview['stock']['unknown'] }} unklar<br>Stand: {{ $overview['stock']['at'] }}</div>@endif
+                                        </td>
                                         <td>{{ $batch['updated'] ?: 'Nicht belegt' }}</td>
-                                        <td><button type="button" class="hw24-btn" wire:click="loadBatch({{ $batch['id'] }})" wire:loading.attr="disabled" wire:target="loadBatch">Positionen anzeigen</button></td>
+                                        <td><button title="Diesen Stapel mit seinen einzelnen Artikeln zur Bearbeitung öffnen." type="button" class="hw24-btn" wire:click="loadBatch({{ $batch['id'] }})" wire:loading.attr="disabled" wire:target="loadBatch">Positionen anzeigen</button></td>
                                     </tr>
                                 @endforeach
                             </tbody>
                         </table>
                     </div>
+                    <p class="hw24-sub">Wawi-Summen je Stapel über eindeutig zugeordnete Artikel, jeden Wawi-Artikel nur einmal gezählt (auch bei mehrfachen Scans); keine Buchung. Unklare oder fehlende Bestandswerte ergeben keine scheinbar vollständige Summe.</p>
                 @elseif(($diagnostic['ok'] ?? false) === true)
                     <div class="hw24-empty">Für das verwendete Basic-Auth-Konto wurden keine offenen Scan-Stapel zurückgegeben. Geschlossene Stapel sind in dieser API-Liste nicht enthalten.</div>
                 @endif
@@ -129,7 +134,7 @@
                         Neuen Scan-Stapel benennen
                         <input class="hw24-btn" style="display:block;width:100%;text-align:left;margin-top:5px" id="hw24-newbatch" type="text" maxlength="160" wire:model="newBatchLabel" placeholder="z. B. Warenlieferung 22.11.2026">
                     </label>
-                    <button type="button" class="hw24-btn" wire:click="createBatch"
+                    <button title="Einen neuen Scan-Stapel in der vorhandenen Datenbank speichern." type="button" class="hw24-btn" wire:click="createBatch"
                             wire:confirm="Neuen Scan-Stapel in der vorhandenen HW24-MariaDB anlegen?"
                             wire:loading.attr="disabled" wire:target="createBatch"
                             @disabled(!$this->canWriteScan() || !$confirmScanWrite)>Neuen Stapel speichern</button>
@@ -140,7 +145,7 @@
                         <input class="hw24-btn" style="display:block;width:100%;text-align:left;margin-top:5px" id="hw24-scan-ean" type="search" maxlength="14" inputmode="numeric" autocomplete="off"
                             wire:model="scanEan" placeholder="Barcode scannen oder eintippen">
                     </label>
-                    <button type="button" class="hw24-btn" wire:click="scanEanIntoBatch"
+                    <button title="EAN erfassen; wiederholter Scan erhöht die erfasste Stückzahl, keine Wawi-Buchung." type="button" class="hw24-btn" wire:click="scanEanIntoBatch"
                             wire:confirm="Diese EAN jetzt verbindlich in den ausgewählten HW24-Scan-Stapel schreiben? Keine JTL-Buchung."
                             wire:loading.attr="disabled" wire:target="scanEanIntoBatch"
                             @disabled(!$this->canWriteScan() || !$confirmScanWrite || $selectedBatchId === null)>EAN speichern</button>
@@ -179,9 +184,9 @@
                         <span x-show="uploading" x-cloak>Datei wird geladen …</span>
                     </div>
                     @if($csvFile)
-                        <button type="button" class="hw24-btn" wire:click="clearCsvFile" x-bind:disabled="running || uploading" wire:loading.attr="disabled">Datei entfernen</button>
+                        <button title="Ausgewählte Datei und Importvorschau entfernen; gespeicherte Artikel bleiben erhalten." type="button" class="hw24-btn" wire:click="clearCsvFile" x-bind:disabled="running || uploading" wire:loading.attr="disabled">Datei entfernen</button>
                     @endif
-                    <button type="button" class="hw24-btn" wire:click="previewCsv" wire:loading.attr="disabled" wire:target="csvFile,previewCsv" x-bind:disabled="running || uploading || !@js($csvFile !== null && $selectedBatchId !== null)">CSV prüfen</button>
+                    <button title="CSV-Struktur, EANs und Importdaten vor dem Speichern prüfen." type="button" class="hw24-btn" wire:click="previewCsv" wire:loading.attr="disabled" wire:target="csvFile,previewCsv" x-bind:disabled="running || uploading || !@js($csvFile !== null && $selectedBatchId !== null)">CSV prüfen</button>
                 </div>
                 @error('csvFile')<p class="hw24-note hw24-note-warn">{{ $message }}</p>@enderror
                 @if($csvState!==[])
@@ -199,8 +204,8 @@
                     <p class="hw24-description">Vorschau der ersten zehn Positionen. Mengen sind Importinformationen, keine Bestandsbuchungen. Speichern nur in ausdrücklich mit TEST bezeichneten Stapeln.</p>
                     <label class="hw24-action"><input type="checkbox" wire:model.live="confirmCsvImport" x-bind:disabled="running"> Ich bestätige den Import in den ausgewählten TEST-Stapel.@if($this->autoQueueResearch()) Gespeicherte Positionen auch zur Recherche anmelden.@endif</label>
                     <div class="hw24-action" style="margin-top:12px">
-                        <button type="button" class="hw24-btn" x-bind:disabled="running || !@js($this->canWriteScan()) || !$wire.confirmCsvImport || $wire.csvOffset >= $wire.csvRows.length" x-on:click="if (!confirm('CSV in den gemeinsamen HW24-Datenspeicher importieren? Nur TEST-Stapel, keine JTL-Buchung.')) return; running=true; try { for(let i=0;i&lt;100 &amp;&amp; running;i++){ if(!(await $wire.importCsvChunk())) break; } } finally {running=false;}">CSV-Import starten / fortsetzen</button>
-                        <button type="button" class="hw24-btn" x-bind:disabled="!running" x-on:click="running=false">Nach aktuellem Abschnitt pausieren</button>
+                        <button title="Bestätigte CSV in Abschnitten importieren; keine Wawi-Buchung." type="button" class="hw24-btn" x-bind:disabled="running || !@js($this->canWriteScan()) || !$wire.confirmCsvImport || $wire.csvOffset >= $wire.csvRows.length" x-on:click="if (!confirm('CSV in den gemeinsamen HW24-Datenspeicher importieren? Nur TEST-Stapel, keine JTL-Buchung.')) return; running=true; try { for(let i=0;i&lt;100 &amp;&amp; running;i++){ if(!(await $wire.importCsvChunk())) break; } } finally {running=false;}">CSV-Import starten / fortsetzen</button>
+                        <button title="Nach dem laufenden Abschnitt pausieren; gespeicherte Ergebnisse bleiben erhalten." type="button" class="hw24-btn" x-bind:disabled="!running" x-on:click="running=false">Nach aktuellem Abschnitt pausieren</button>
                     </div>
                     @if(!$this->canWriteScan())<p class="hw24-note hw24-note-warn">Dateivorschau möglich. Die private Scan-Schreibfreigabe ist noch aus; Import nicht möglich.</p>@endif
                 @endif
@@ -222,7 +227,7 @@
                     </div>
                     <p class="hw24-sub">Erfasste Stückzahl = gespeicherte Menge der aktiven Positionen (inkl. CSV-Initialmenge und manueller Korrekturen), kein gebuchter JTL-/WMS-Bestand. Scanvorgänge zählen gespeicherte Scannerereignisse. Entfernte Positionen: {{ $scanSummary['removed'] }}.</p>
                     <div class="hw24-action">
-                        <button type="button" class="hw24-btn" wire:click="refreshBatchStock" wire:loading.attr="disabled" wire:target="refreshBatchStock">Wawi-Bestände aktualisieren</button>
+                        <button title="Aktuelle Wawi-Bestände für den geöffneten Stapel neu lesen." type="button" class="hw24-btn" wire:click="refreshBatchStock" wire:loading.attr="disabled" wire:target="refreshBatchStock">Wawi-Bestände aktualisieren</button>
                         <span class="hw24-sub">{{ ($batchStock['ok']??false)?'JTL-Spiegelstand: '.$batchStock['at']:'Aktueller Wawi-Bestand nicht bestätigt' }}</span>
                     </div>
                     @if($scanSummary['possibly_limited'])<p class="hw24-note hw24-note-warn">Anzeigelimit 3.000 Positionen erreicht; Kennzahlen beziehen sich nur auf die geladenen Zeilen.</p>@endif
@@ -231,8 +236,8 @@
                             <h3>Artikel gemeinsam aufbereiten</h3>
                             <p>Gespeicherte Rechercheergebnisse wiederverwenden. Ohne Markierung alle offenen Neuanlagen (max. 200). Keine zweite Amazon-Abfrage, keine bezahlte KI.</p>
                             <div class="hw24-action">
-                                <button type="button" class="hw24-btn" wire:click="prepareBatchDrafts" wire:loading.attr="disabled">Artikelentwürfe aufbereiten</button>
-                                <button type="button" class="hw24-btn" wire:click="refreshPersistentResearch" wire:loading.attr="disabled">Recherche-Status aktualisieren</button>
+                                <button title="Gespeicherte Recherche, KI-Berichte und Vorlagen zu Entwurfsvorschlägen zusammenführen." type="button" class="hw24-btn" wire:click="prepareBatchDrafts" wire:loading.attr="disabled">Artikelentwürfe aufbereiten</button>
+                                <button title="Gespeicherten Warteschlangenstatus lesen; keine neue Amazon-Abfrage." type="button" class="hw24-btn" wire:click="refreshPersistentResearch" wire:loading.attr="disabled">Recherche-Status aktualisieren</button>
                             </div>
                             @if($batchPreparationMessage!=='')<p role="status">{{ $batchPreparationMessage }}</p>@endif
                             @if($batchPreparation!==[])
@@ -272,7 +277,7 @@
                                     @endforeach
                                 </div>
                                 <label><input type="checkbox" wire:model.live="confirmBatchPreparation"> Vorschläge geprüft; nur leere Felder ergänzen.</label>
-                                <button type="button" class="hw24-btn" wire:click="savePreparedBatch" @disabled(!$confirmBatchPreparation) wire:loading.attr="disabled">Bis zu 10 Entwürfe speichern</button>
+                                <button title="Bis zu zehn bestätigte Entwürfe speichern; kein JTL-Import." type="button" class="hw24-btn" wire:click="savePreparedBatch" @disabled(!$confirmBatchPreparation) wire:loading.attr="disabled">Bis zu 10 Entwürfe speichern</button>
                             @endif
                         </div>
                     @endif
@@ -280,15 +285,15 @@
                         <h3>JTL &amp; Amazon Sammelrecherche</h3>
                         <p>Ausgewählte Artikel nacheinander mit vorhandenen APIs prüfen. Katalog kann Cache oder SP-API verwenden. Keine kostenpflichtige KI automatisch.</p>
                         <div class="hw24-action" style="margin-top:10px">
-                            <button type="button" class="hw24-btn" wire:click="selectAllResearch" x-bind:disabled="running">Alle Artikel markieren</button>
-                            <button type="button" class="hw24-btn" wire:click="$set('selectedEans', [])" x-bind:disabled="running">Auswahl zurücksetzen</button>
+                            <button title="Alle aktiven gültigen Artikelpositionen markieren." type="button" class="hw24-btn" wire:click="selectAllResearch" x-bind:disabled="running">Alle Artikel markieren</button>
+                            <button title="Aktuelle Artikelauswahl aufheben." type="button" class="hw24-btn" wire:click="$set('selectedEans', [])" x-bind:disabled="running">Auswahl zurücksetzen</button>
                             <label><input type="checkbox" wire:model.live="confirmResearch" x-bind:disabled="running"> Recherche für Auswahl bestätigen</label>
                             @if($this->canQueueResearch())
-                                <button type="button" class="hw24-btn" wire:click="enqueueSelectedResearch" wire:loading.attr="disabled" @disabled(!$confirmResearch)>Auswahl dauerhaft zur Recherche anmelden</button>
-                                <button type="button" class="hw24-btn" wire:click="refreshPersistentResearch" wire:loading.attr="disabled">Recherche-Status aktualisieren</button>
+                                <button title="Markierte Artikel dedupliziert zur gemeinsamen Hintergrundrecherche anmelden." type="button" class="hw24-btn" wire:click="enqueueSelectedResearch" wire:loading.attr="disabled" @disabled(!$confirmResearch)>Auswahl dauerhaft zur Recherche anmelden</button>
+                                <button title="Gespeicherten Warteschlangenstatus lesen; keine neue Amazon-Abfrage." type="button" class="hw24-btn" wire:click="refreshPersistentResearch" wire:loading.attr="disabled">Recherche-Status aktualisieren</button>
                             @else
-                            <button type="button" class="hw24-btn" x-bind:disabled="running || !$wire.confirmResearch" x-on:click="running=true; try { await $wire.prepareResearch(); for(let i=0;i&lt;3000 &amp;&amp; running;i++){ if(!(await $wire.researchNext()))break; await new Promise(r=>setTimeout(r,11000)); } } finally {running=false;}">Auswahl recherchieren</button>
-                            <button type="button" class="hw24-btn" x-bind:disabled="!running" x-on:click="running=false">Pausieren</button>
+                            <button title="Markierte Artikel nacheinander recherchieren; mögliche Amazon-Aufrufe." type="button" class="hw24-btn" x-bind:disabled="running || !$wire.confirmResearch" x-on:click="running=true; try { await $wire.prepareResearch(); for(let i=0;i&lt;3000 &amp;&amp; running;i++){ if(!(await $wire.researchNext()))break; await new Promise(r=>setTimeout(r,11000)); } } finally {running=false;}">Auswahl recherchieren</button>
+                            <button title="Nach dem laufenden Abschnitt pausieren; gespeicherte Ergebnisse bleiben erhalten." type="button" class="hw24-btn" x-bind:disabled="!running" x-on:click="running=false">Pausieren</button>
                             @endif
                         </div>
                         @if($this->canQueueResearch())
@@ -300,7 +305,7 @@
                         @endif
                     </div>
                     <div class="hw24-action" style="margin:12px 0">
-                        <button type="button" class="hw24-btn" wire:click="loadBatchAiMarkers" wire:loading.attr="disabled" wire:target="loadBatchAiMarkers">
+                        <button title="Vorhandene KI-Archivkennzeichen lesen; keine KI-Kosten." type="button" class="hw24-btn" wire:click="loadBatchAiMarkers" wire:loading.attr="disabled" wire:target="loadBatchAiMarkers">
                             🧠 Bereits geprüfte KI-Artikel anzeigen
                         </button>
                         <span class="hw24-sub">Ein kostenloser Archiv-GET für maximal 150 EANs, keine neue KI-Abfrage</span>
@@ -381,7 +386,7 @@
                                         </div>
                                         <div class="hw24-position-actions">
                                             @if($item['review']!=='removed')
-                                                <button type="button" class="hw24-btn" wire:click="openDraft('{{ $item['ean'] }}')">Artikel bearbeiten</button>
+                                                <button title="Artikelentwurf öffnen und einzelne Felder prüfen oder bearbeiten." type="button" class="hw24-btn" wire:click="openDraft('{{ $item['ean'] }}')">Artikel bearbeiten</button>
                                                 <a class="hw24-link" href="{{ url('/admin/intelligence').'?ean='.rawurlencode($item['ean']) }}">Recherche-Details öffnen</a>
                                             @endif
                                         </div>
@@ -427,14 +432,14 @@
                     @php($editEans=$this->editableEans())
                     @php($editIndex=array_search($workingEan,$editEans,true))
                     <nav class="hw24-action" aria-label="Artikel wechseln" style="margin-bottom:12px">
-                        <button type="button" class="hw24-btn" wire:click="moveDraft(-1)" wire:confirm="Zum vorherigen Artikel wechseln? Nicht gespeicherte Änderungen werden verworfen." @disabled($editIndex===false||$editIndex===0)>← Vorheriger Artikel</button>
+                        <button title="Zum benachbarten Artikel wechseln; ungespeicherte Änderungen können verloren gehen." type="button" class="hw24-btn" wire:click="moveDraft(-1)" wire:confirm="Zum vorherigen Artikel wechseln? Nicht gespeicherte Änderungen werden verworfen." @disabled($editIndex===false||$editIndex===0)>← Vorheriger Artikel</button>
                         <strong>Artikel {{ $editIndex===false?'?':$editIndex+1 }} von {{ count($editEans) }}</strong>
-                        <button type="button" class="hw24-btn" wire:click="moveDraft(1)" wire:confirm="Zum nächsten Artikel wechseln? Nicht gespeicherte Änderungen werden verworfen." @disabled($editIndex===false||$editIndex>=count($editEans)-1)>Nächster Artikel →</button>
+                        <button title="Zum benachbarten Artikel wechseln; ungespeicherte Änderungen können verloren gehen." type="button" class="hw24-btn" wire:click="moveDraft(1)" wire:confirm="Zum nächsten Artikel wechseln? Nicht gespeicherte Änderungen werden verworfen." @disabled($editIndex===false||$editIndex>=count($editEans)-1)>Nächster Artikel →</button>
                     </nav>
                     <div class="hw24-action">
-                        <button type="button" class="hw24-btn" wire:click="loadJtlFieldReview" wire:loading.attr="disabled" wire:target="loadJtlFieldReview">JTL-Stammdaten prüfen (nur lesen)</button>
-                        <button type="button" class="hw24-btn" wire:click="loadPeerReview" wire:loading.attr="disabled" wire:target="loadPeerReview">Vergleichsartikel aus JTL prüfen</button>
-                        <button type="button" class="hw24-btn" wire:click="researchOne('{{ $workingEan }}')" wire:loading.attr="disabled" wire:confirm="JTL und Amazon-Katalog für diese EAN abfragen?">JTL &amp; Amazon recherchieren</button>
+                        <button title="Original-Stammdaten des Artikels aus dem JTL-Spiegel lesen." type="button" class="hw24-btn" wire:click="loadJtlFieldReview" wire:loading.attr="disabled" wire:target="loadJtlFieldReview">JTL-Stammdaten prüfen (nur lesen)</button>
+                        <button title="Vergleichsartikel gleichen Herstellers und gleicher Warengruppe lesen." type="button" class="hw24-btn" wire:click="loadPeerReview" wire:loading.attr="disabled" wire:target="loadPeerReview">Vergleichsartikel aus JTL prüfen</button>
+                        <button title="JTL und Amazon für diese EAN abfragen; möglicher neuer Amazon-Aufruf." type="button" class="hw24-btn" wire:click="researchOne('{{ $workingEan }}')" wire:loading.attr="disabled" wire:confirm="JTL und Amazon-Katalog für diese EAN abfragen?">JTL &amp; Amazon recherchieren</button>
                         <a class="hw24-link" target="_blank" rel="noopener noreferrer" href="{{ url('/admin/intelligence').'?ean='.rawurlencode($workingEan) }}">KI-Archiv und KI-Einzelprüfung öffnen</a>
                     </div>
                     @if($peerReview!==[])
@@ -483,8 +488,8 @@
                                 <p>{{ $candidate['gtin_match']?'GTIN im Katalog belegt; Packung und Produkt dennoch prüfen.':'GTIN nicht im Katalog belegt; keine automatische Übernahme.' }}</p>
                                 <p>Verpackung: {{ match($candidate['pack_kind']??'unknown'){'single'=>'Einzelpack belegt','multipack'=>($candidate['pack_units']??'?').' Stück pro Pack','conflict'=>'Widersprüchliche Packungsangaben',default=>'Packungsgröße nicht belegt'} }}</p>
                                 @if($candidate['gtin_match'] && ($candidate['pack_kind']??'')!=='conflict')
-                                    <button type="button" class="hw24-btn" wire:click="useCatalogSuggestion('{{ $candidate['asin'] }}')" wire:confirm="Diesen Produktvorschlag in noch leere Entwurffelder übernehmen?">Vorschlag übernehmen</button>
-                                    <button type="button" class="hw24-btn" wire:click="priceCandidate('{{ $candidate['asin'] }}')" wire:loading.attr="disabled">Buy Box / Marktpreise prüfen</button>
+                                    <button title="Bestätigte Katalogvorschläge in noch leere Entwurffelder übernehmen." type="button" class="hw24-btn" wire:click="useCatalogSuggestion('{{ $candidate['asin'] }}')" wire:confirm="Diesen Produktvorschlag in noch leere Entwurffelder übernehmen?">Vorschlag übernehmen</button>
+                                    <button title="Marktpreise und Buy Box prüfen; eigener Verkaufspreis bleibt unverändert." type="button" class="hw24-btn" wire:click="priceCandidate('{{ $candidate['asin'] }}')" wire:loading.attr="disabled">Buy Box / Marktpreise prüfen</button>
                                 @endif
                             </div>
                         @endforeach
@@ -504,16 +509,16 @@
                     <div class="hw24-note">
                         <h3>KI-Recherche zur ausgewählten EAN</h3>
                         <div class="hw24-action">
-                            <button type="button" class="hw24-btn" wire:click="loadWorkingAi" wire:loading.attr="disabled">Vorhandenes KI-Archiv laden</button>
+                            <button title="Bereits archivierte KI-Analyse ohne neue Kosten laden." type="button" class="hw24-btn" wire:click="loadWorkingAi" wire:loading.attr="disabled">Vorhandenes KI-Archiv laden</button>
                             <label><input type="checkbox" wire:model.live="confirmSingleAi"> Kostenpflichtige Einzelprüfung bestätigen</label>
-                            <button type="button" class="hw24-btn" wire:click="runWorkingAi" wire:loading.attr="disabled" @disabled(!$confirmSingleAi || !config('hw24_legacy.ai_paid_enabled'))>Fehlenden KI-Bericht erstellen</button>
+                            <button title="Nach Freigabe fehlenden KI-Bericht anfordern; kann Kosten auslösen." type="button" class="hw24-btn" wire:click="runWorkingAi" wire:loading.attr="disabled" @disabled(!$confirmSingleAi || !config('hw24_legacy.ai_paid_enabled'))>Fehlenden KI-Bericht erstellen</button>
                         </div>
                         @if($workingAi!==[])
                             <p>{{ $workingAi['scope'] }} · HTTP {{ $workingAi['http']??'—' }} · {{ !$workingAi['ok']?'Archiv nicht verfügbar':($workingAi['found']?'Bericht #'.$workingAi['id']:'Kein Bericht gefunden') }}</p>
                             @if($workingAi['found'])
                                 <p>{{ $workingAi['title'] }} · {{ $workingAi['manufacturer'] }} · {{ $workingAi['group'] }}</p>
                                 <p>{{ $workingAi['reason'] }} {{ $workingAi['notes'] }}</p>
-                                <button type="button" class="hw24-btn" wire:click="useAiSuggestion" wire:confirm="KI-Vorschläge in leere Entwurffelder übernehmen?">KI-Vorschläge übernehmen</button>
+                                <button title="KI-Vorschläge für leere Entwurffelder zur Prüfung übernehmen." type="button" class="hw24-btn" wire:click="useAiSuggestion" wire:confirm="KI-Vorschläge in leere Entwurffelder übernehmen?">KI-Vorschläge übernehmen</button>
                             @endif
                         @endif
                         <p>Eine neue Einzelprüfung benötigt ein bestätigtes gemeinsames Archiv, Betreiberfreigabe, Budget und Produktnamen. Vorhandene Berichte werden wiederverwendet.</p>
@@ -523,17 +528,17 @@
                         <p>Für Neuanlagen: genaue Artikelnummer Deiner gepflegten Vorlage wählen. Keine Übernahme von EAN, HAN, ASIN, Artikelnummer, Preisen, Mengen oder fremden Beschreibungstexten.</p>
                         <div class="hw24-action">
                             <label>Vorlagenartikelnummer <input type="text" class="hw24-btn" wire:model="templateNumber" placeholder="JTL-Artikelnummer"></label>
-                            <button type="button" class="hw24-btn" wire:click="loadTemplate" wire:loading.attr="disabled">Vorlage prüfen</button>
-                            <button type="button" class="hw24-btn" wire:click="findMatchingTemplates" wire:loading.attr="disabled">Passende gekennzeichnete Vorlagen suchen</button>
-                            <button type="button" class="hw24-btn" wire:click="fillSeoDefaults">Leere SEO-Felder vorschlagen</button>
-                            <button type="button" class="hw24-btn" wire:click="fillEmptyTexts">Leere Beschreibungen aus Artikelnamen füllen</button>
+                            <button title="Genau bezeichneten JTL-Vorlagenartikel prüfen." type="button" class="hw24-btn" wire:click="loadTemplate" wire:loading.attr="disabled">Vorlage prüfen</button>
+                            <button title="Vorlagen nach Hersteller, Warengruppe und bestätigter Füllmenge suchen." type="button" class="hw24-btn" wire:click="findMatchingTemplates" wire:loading.attr="disabled">Passende gekennzeichnete Vorlagen suchen</button>
+                            <button title="Leere SEO-Felder anhand des Produktnamens kostenlos vorschlagen." type="button" class="hw24-btn" wire:click="fillSeoDefaults">Leere SEO-Felder vorschlagen</button>
+                            <button title="Leere Beschreibungen mit dem eigenen Artikelnamen füllen." type="button" class="hw24-btn" wire:click="fillEmptyTexts">Leere Beschreibungen aus Artikelnamen füllen</button>
                         </div>
                         @if($templateCandidates!==[])
                             @if($templateCandidates['ok']??false)
                                 <p>{{ count($templateCandidates['items']) }} passende Vorlagen · {{ $templateCandidates['snapshot_at']??'Zeitpunkt offen' }}</p>
                                 @foreach($templateCandidates['items'] as $candidate)
                                     <p>{{ $candidate['name'] }} · {{ $candidate['number'] }} · {{ $candidate['amount'] }} {{ $candidate['unit'] }}
-                                    <button type="button" class="hw24-btn" wire:click="chooseMatchingTemplate({{ $loop->index }})">Als Vorlage prüfen</button></p>
+                                    <button title="Diese gefundene Vorlage zur Übernahme prüfen." type="button" class="hw24-btn" wire:click="chooseMatchingTemplate({{ $loop->index }})">Als Vorlage prüfen</button></p>
                                 @endforeach
                             @else<p>{{ $templateCandidates['message'] }}</p>@endif
                         @endif
@@ -546,7 +551,7 @@
                                         <div><dt>{{ $f }} · Hinzufügen</dt><dd>{{ $v }}</dd></div>
                                     @empty<p>Keine leeren belegbaren Standardfelder.</p>@endforelse
                                 </dl>
-                                <button type="button" class="hw24-btn" wire:click="applyTemplate" wire:loading.attr="disabled" wire:confirm="Hersteller, Warengruppe und Produkttyp passen? Nur angezeigte leere Felder ergänzen.">Standardfelder übernehmen</button>
+                                <button title="Nur bestätigte Standardfelder aus der Vorlage ergänzen." type="button" class="hw24-btn" wire:click="applyTemplate" wire:loading.attr="disabled" wire:confirm="Hersteller, Warengruppe und Produkttyp passen? Nur angezeigte leere Felder ergänzen.">Standardfelder übernehmen</button>
                             @else<p>{{ $templateReview['message'] }}</p>@endif
                         @endif
                     </div>
@@ -556,7 +561,7 @@
                             <h3>Kategorie-Vorschlag · HW24 Business Hub</h3>
                             <p>{{ $categoryProposal['Kategorie Ebene 1'] }} / {{ $categoryProposal['Kategorie Ebene 2'] }}</p>
                             <p>Nach festgelegter Produktregel; JTL-Warengruppe und Kategorie bleiben getrennte Felder. Keine automatische Freigabe.</p>
-                            <button type="button" class="hw24-btn" wire:click="applyCategoryProposal" wire:confirm="Diesen Kategoriepfad im Entwurf übernehmen?">Kategorie-Vorschlag übernehmen</button>
+                            <button title="Vorgeschlagenen Kategoriepfad im Entwurf übernehmen." type="button" class="hw24-btn" wire:click="applyCategoryProposal" wire:confirm="Diesen Kategoriepfad im Entwurf übernehmen?">Kategorie-Vorschlag übernehmen</button>
                         </div>
                     @endif
                     <p class="hw24-description">Scanentwurf und JTL-Spiegel sind getrennt. Bei vorhandenen JTL-Artikeln dient der Feldcheck oben zunächst der manuellen Bewertung; Änderungen an bestehenden Artikeln werden hier noch nicht gespeichert. Neue Artikel können nach Prüfung als Entwurf gespeichert werden.</p>
@@ -576,8 +581,8 @@
                     <p class="hw24-note">Pflichtfelder: {{ $this->missingDraftFields()===[]?'Basisfelder vollständig (fachliche Prüfung weiterhin erforderlich).':'Noch offen: '.implode(', ',$this->missingDraftFields()) }}</p>
                     <label class="hw24-action" style="margin-top:12px"><input type="checkbox" wire:model.live="confirmDraft"> Produktidentität und eingetragene Werte geprüft; Entwurf speichern.</label>
                     <div class="hw24-action">
-                        <button type="button" class="hw24-btn" wire:click="saveDraft(false)" @disabled(!$this->canWriteScan()||!$confirmDraft)>Entwurf speichern</button>
-                        <button type="button" class="hw24-btn" wire:click="saveDraft(true)" @disabled(!$this->canWriteScan()||!$confirmDraft)>Prüfen und für Ameise freigeben</button>
+                        <button title="Entwurf speichern oder nach Prüfung für den Ameise-Prüfexport freigeben." type="button" class="hw24-btn" wire:click="saveDraft(false)" @disabled(!$this->canWriteScan()||!$confirmDraft)>Entwurf speichern</button>
+                        <button title="Entwurf speichern oder nach Prüfung für den Ameise-Prüfexport freigeben." type="button" class="hw24-btn" wire:click="saveDraft(true)" @disabled(!$this->canWriteScan()||!$confirmDraft)>Prüfen und für Ameise freigeben</button>
                     </div>
                     @if($draftMessage!=='')<p class="hw24-note" role="status">{{ $draftMessage }}</p>@endif
                 </div>
@@ -591,7 +596,7 @@
                     <div class="hw24-note" x-data="{releasing:false}">
                         <h3>Sammelfreigabe gespeicherter Neuanlagen</h3>
                         <p>Markierte Entwürfe oder ohne Markierung alle offenen Neuanlagen prüfen. Nur vollständig belegte Basisfelder und im aktuellen Wawi-Spiegel nicht vorhandene GTINs sind geeignet. Exportvorlage und fachliche Pflichtfelder weiterhin prüfen.</p>
-                        <button type="button" class="hw24-btn" wire:click="previewBatchRelease" x-bind:disabled="releasing" wire:loading.attr="disabled">Freigabevorschau erstellen</button>
+                        <button title="Vollständige Entwürfe und Ausnahmen vor der Sammelfreigabe prüfen." type="button" class="hw24-btn" wire:click="previewBatchRelease" x-bind:disabled="releasing" wire:loading.attr="disabled">Freigabevorschau erstellen</button>
                         @if($releaseMessage!=='')<p role="status">{{ $releaseMessage }}</p>@endif
                         @if($releaseExceptions!==[])
                             <details open><summary>{{ count($releaseExceptions) }} Ausnahmen</summary>
@@ -609,9 +614,9 @@
                                 </div>
                             </details>
                             <label><input type="checkbox" wire:model.live="confirmBatchRelease" x-bind:disabled="releasing"> Angezeigte Entwürfe fachlich geprüft, für Ameise-Prüfexport freigeben.</label>
-                            <button type="button" class="hw24-btn" x-bind:disabled="releasing || !$wire.confirmBatchRelease"
+                            <button title="Geprüfte Entwürfe in Abschnitten für den Prüfexport freigeben." type="button" class="hw24-btn" x-bind:disabled="releasing || !$wire.confirmBatchRelease"
                                 x-on:click="if(!confirm('Geprüfte Entwürfe gemeinsam freigeben? Kein JTL-Import.'))return; releasing=true; try{for(let i=0;i&lt;67 &amp;&amp; releasing;i++){if(!(await $wire.releaseBatchChunk()))break;}}finally{releasing=false;}">Geprüfte Entwürfe gemeinsam freigeben</button>
-                            <button type="button" class="hw24-btn" x-bind:disabled="!releasing" x-on:click="releasing=false">Nach aktuellem Abschnitt pausieren</button>
+                            <button title="Nach dem laufenden Abschnitt pausieren; gespeicherte Ergebnisse bleiben erhalten." type="button" class="hw24-btn" x-bind:disabled="!releasing" x-on:click="releasing=false">Nach aktuellem Abschnitt pausieren</button>
                         @endif
                     </div>
                 @endif
@@ -619,7 +624,7 @@
                 <div class="hw24-action">
                     <details style="width:100%;margin:8px 0">
                         <summary>Exportspalten konfigurieren (standardmäßig alle aktiviert)</summary>
-                        <button type="button" class="hw24-btn" wire:click="allExportFields">Alle Felder auswählen</button>
+                        <button title="Alle verfügbaren Spalten für die Exportprüfung auswählen." type="button" class="hw24-btn" wire:click="allExportFields">Alle Felder auswählen</button>
                         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:8px;margin-top:8px">
                             @foreach(\App\Services\ScanResearch::FIELDS as $field)
                                 <label><input type="checkbox" wire:model.live="selectedExportFields" value="{{ $field }}" @disabled($field==='Artikelnummer'||in_array($field,\App\Services\ScanResearch::REQUIRED,true))> {{ $field }}</label>
@@ -627,9 +632,9 @@
                         </div>
                         <p>Artikelnummer und Pflichtfelder bleiben im Export. Optionale leere Spalten werden ausgelassen. Einstellungen gelten in der aktuellen Sitzung; Stammdaten werden nicht gelöscht.</p>
                     </details>
-                    <button type="button" class="hw24-btn" wire:click="prepareAmeiseExport" wire:loading.attr="disabled" wire:target="prepareAmeiseExport" @disabled($selectedBatchId === null)>Freigegebene Positionen prüfen</button>
+                    <button title="Freigegebene Positionen und gewählte Exportfelder prüfen." type="button" class="hw24-btn" wire:click="prepareAmeiseExport" wire:loading.attr="disabled" wire:target="prepareAmeiseExport" @disabled($selectedBatchId === null)>Freigegebene Positionen prüfen</button>
                     @if(($exportState['ok']??false)===true)
-                        <button type="button" class="hw24-btn" wire:click="downloadAmeiseCsv"
+                        <button title="Geprüfte CSV herunterladen; kein automatischer Import in JTL." type="button" class="hw24-btn" wire:click="downloadAmeiseCsv"
                                 wire:confirm="Ameise-Prüf-CSV für {{ $exportState['count'] }} bestätigte Neuanlagen herunterladen? Dies ist KEIN Import in JTL-Wawi."
                                 wire:loading.attr="disabled" wire:target="downloadAmeiseCsv">CSV-Prüfexport herunterladen</button>
                     @endif
