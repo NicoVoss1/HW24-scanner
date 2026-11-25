@@ -43,6 +43,13 @@ final class HubAiEvidence
         // Truncation of identity evidence could make the archived comparison invalid.
         if($payload['candidates'][0]['title']!==$p['title']||$payload['candidates'][0]['brand']!==($p['brand']??''))
             return ['state'=>'review'];
+        // Request the extended format only from an explicitly advertising endpoint.
+        if(in_array(2,$b['review_versions']??[],true)){
+            $payload['review_version']=2;
+            $payload['product_facts']=HubAiContent::facts($catalog);
+        }else{
+            return ['state'=>'extended_api_unavailable'];
+        }
         $answer=$write->post('ai.review',$payload);
         if(($answer['ok']??false)!==true||($answer['data']['stored']??false)!==true||
             (int)($answer['data']['review_id']??0)<1)return ['state'=>'paid_not_confirmed'];
@@ -85,7 +92,8 @@ final class HubAiEvidence
         $group=$txt($review['suggestedWarengruppe']??null,150);
         $title=$txt($facts['suggestedTitle']??null,500);
         return ['state'=>'verified_review','group_hint'=>$group,'title_hint'=>$title,
-            'notes'=>$txt($facts['notes']??null,1000),'model'=>$txt($row['model']??null,80)]+$base;
+            'notes'=>$txt($facts['notes']??null,1000),'model'=>$txt($row['model']??null,80),
+            'content'=>HubAiContent::validate($review,$input,$catalog)]+$base;
     }
 
     /** AI only narrows a real template query. It does not create JTL groups. */
