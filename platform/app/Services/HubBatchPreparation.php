@@ -20,9 +20,29 @@ final class HubBatchPreparation
                 $found=$q->fetchAll(\PDO::FETCH_ASSOC);
                 if(count($found)===1)$archive=$found[0];
             }
-            $out[$ean]=self::proposal($row,$job,$archive)+['revision'=>$row['revision'],'item_id'=>$row['id']];
+            $p=self::proposal($row,$job,$archive);
+            if(in_array($p['state'],['review','missing'],true)){
+                try {
+                    $template=(new HubArticleMirror())->standardProposals($db,$p['draft'],config('hw24_jtl_reference_observations',[]));
+                    $p=self::mergeTemplate($p,$template);
+                }catch(\Throwable){$p['template_reason']='Vorlagenquelle derzeit nicht bestätigt';}
+            }
+            $out[$ean]=$p+['revision'=>$row['revision'],'item_id'=>$row['id']];
         }
         return $out;
+    }
+
+    public static function mergeTemplate(array $p,array $template): array
+    {
+        if(!in_array($p['state']??null,['review','missing'],true))return $p;
+        foreach($template['fields']??[] as $field=>$v){
+            if(!in_array($field,ScanResearch::FIELDS,true)||trim((string)($p['draft'][$field]??''))!==''||!is_string($v)||$v==='')continue;
+            $p['draft'][$field]=$v;$p['fields'][$field]=$v;$p['sources'][$field]=$template['sources'][$field];
+        }
+        $p['missing']=array_values(array_filter(ScanResearch::REQUIRED,fn($f)=>trim((string)($p['draft'][$f]??''))===''));
+        $p['state']=$p['missing']===[]?'review':'missing';
+        $p['template_count']=$template['count']??0;$p['template_reason']=$template['reason']??'';
+        return $p;
     }
 
     public static function proposal(array $row,array $job,array $archive): array
