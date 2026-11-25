@@ -59,6 +59,7 @@ final class HubBatchPreparation
         }
         $p['missing']=array_values(array_filter(ScanResearch::REQUIRED,fn($f)=>trim((string)($p['draft'][$f]??''))===''));
         $p['state']=$p['missing']===[]?'review':'missing';
+        if(isset($template['manufacturer_hint']))$p['manufacturer_hint']=$template['manufacturer_hint'];
         $p['template_count']=$template['count']??0;$p['template_reason']=$template['reason']??'';
         return $p;
     }
@@ -86,7 +87,7 @@ final class HubBatchPreparation
         if(trim((string)($draft['ASIN']??''))!==''&&strtoupper(trim((string)$draft['ASIN']))!==$p['asin'])
             return $out+['reason'=>'ASIN-Konflikt im Entwurf'];
         if(trim((string)($draft['Hersteller']??''))!==''&&$p['manufacturer']!==''&&
-            mb_strtolower(trim((string)$draft['Hersteller']))!==mb_strtolower($p['manufacturer']))
+            !HubManufacturerPolicy::equivalent((string)$draft['Hersteller'],$p['manufacturer']))
             return $out+['reason'=>'Herstellerkonflikt im Entwurf'];
         $add('GTIN',$ean,'Scan');
         $add('ASIN',$p['asin'],$source);
