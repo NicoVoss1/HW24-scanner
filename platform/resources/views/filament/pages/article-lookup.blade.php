@@ -284,6 +284,10 @@
                     @if($fieldReview['ok']??false)
                         <strong>{{ $fieldReview['filled'] }} / {{ $fieldReview['total'] }} geprüfte Zielfelder mit belegtem Wert</strong>
                         <p>Spiegelstand: {{ $fieldReview['snapshot_at']??'nicht belegt' }}. Nicht zugeordnet bedeutet nicht, dass das Feld in JTL fehlt.</p>
+                        @if($fieldReview['gross_calculation']??null)
+                            <p><strong>Rechnerischer Brutto-VK: {{ $fieldReview['gross_calculation']['value'] }} ({{ $fieldReview['gross_calculation']['rate'] }} %)</strong> · {{ $fieldReview['gross_calculation']['source'] }}</p>
+                        @endif
+                        @if(is_numeric($fieldReview['average_ek_net']??null))<p>Ø EK netto (JTL fEKNetto): {{ number_format((float)$fieldReview['average_ek_net'],2,',','.') }} · kein bestätigter Lieferanten-EK.</p>@endif
                         @if($seoSuggestions!==[])
                             <details><summary>SEO-Basisvorschläge · {{ count($seoSuggestions) }} Felder</summary>
                                 @foreach($seoSuggestions as $label=>$value)<p><strong>{{ $label }}</strong> · {{ $value }}</p>@endforeach
