@@ -50,13 +50,13 @@ final class HubArticleMirror
     }
 
     /** Same source generation, verified label, exact brand/group/volume. No provider requests. */
-    public function standardProposals(PDO $db,array $draft,array $observations): array
+    public function standardProposals(PDO $db,array $draft,array $observations,string $groupHint=''): array
     {
         $brand=trim((string)($draft['Hersteller']??''));
         $group=trim((string)($draft['Warengruppe']??''));
         $category=HubCategoryPolicy::suggest((string)($draft['Artikelname']??''),$group);
         // The category is a search key, never an invented JTL group.
-        if($group==='')$group=$category['Kategorie Ebene 2']??'';
+        if($group==='')$group=$groupHint!==''?$groupHint:($category['Kategorie Ebene 2']??'');
         $amount=str_replace(',','.',trim((string)($draft['Inhalt/Menge']??'')));
         $unit=trim((string)($draft['Maßeinheit']??''));
         if($brand===''||$group===''||!self::consistentVolume((string)($draft['Artikelname']??''),$amount,$unit))
