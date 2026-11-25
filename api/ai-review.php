@@ -153,7 +153,10 @@ if($reviewVersion===2){
 }
 $currentInput=['article'=>$fields,'amazon_candidates'=>$candidates];
 if($reviewVersion===2)$currentInput+=['review_version'=>2,'product_facts'=>$productFacts];
-if($reviewVersion===3)$currentInput+=['review_version'=>3];
+if($reviewVersion===3){
+ $currentInput+=['review_version'=>3];
+ $webKey=str_pad($fields['ean'],14,'0',STR_PAD_LEFT);
+}
 
 // Paid calls only start if the immutable review archive is installed and readable.
 $reviewDbPath=dirname(__DIR__,2).'/hw24_private/scanlist-db.php';
@@ -179,9 +182,10 @@ try {
 // users must not pay twice for an identical already-archived product report.
 // The ledger lock protects against simultaneous paid duplicates from two browser tabs.
 try{
- $previousStmt=$reviewDb->prepare('SELECT id,model,review_json,input_json,usd_cost,created_at_utc
-  FROM hw24_ai_reviews WHERE ean=? ORDER BY id DESC LIMIT 1');
- $previousStmt->execute([$fields['ean']]);
+ $previousStmt=$reviewDb->prepare($reviewVersion===3?
+  "SELECT id,model,review_json,input_json,usd_cost,created_at_utc FROM hw24_ai_reviews WHERE CHAR_LENGTH(ean) IN (8,12,13,14) AND LPAD(ean,14,'0')=? ORDER BY id DESC LIMIT 1":
+  'SELECT id,model,review_json,input_json,usd_cost,created_at_utc FROM hw24_ai_reviews WHERE ean=? ORDER BY id DESC LIMIT 1');
+ $previousStmt->execute([$reviewVersion===3?$webKey:$fields['ean']]);
  $previous=$previousStmt->fetch();
 }catch(Throwable $e){
  error_log('HW24 AI duplicate lookup unavailable: '.get_class($e));
@@ -271,6 +275,7 @@ $input=[
 $payload=['model'=>$model,'store'=>false,'input'=>$input,'max_output_tokens'=>$reviewVersion===2?2500:1250,
  'text'=>['format'=>['type'=>'json_schema','name'=>'hw24_product_review','schema'=>$schema,'strict'=>true]]];
 if($reviewVersion===3){
+ if(!empty($ledger['web_pending'][$webKey]))answer(409,['ok'=>false,'error'=>'web_previous_charge_unconfirmed','do_not_retry_without_checking_usage'=>true]);
  $payload['tools']=[['type'=>'web_search']];
  $payload['tool_choice']='required';
  $payload['max_tool_calls']=1;
@@ -279,6 +284,7 @@ if($reviewVersion===3){
  $ledger['months'][$month]['usd']=$total+$webReserve;
  $ledger['months'][$month]['calls']=$count+1;
  $ledger['days'][$day]=$dailyCalls+1;
+ $ledger['web_pending'][$webKey]=gmdate('c');
  $ledger['latest']=['at_utc'=>gmdate('c'),'usd'=>$webReserve,'basis'=>'web_research_reserved','model'=>$model];
  rewind($handle);$encoded=json_encode($ledger,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
  if(!ftruncate($handle,0)||fwrite($handle,$encoded)!==strlen($encoded)||!fflush($handle))
@@ -377,6 +383,12 @@ try {
   json_encode($parsed,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
   round($price,8),$in,$cached,$out]);
  $reviewId=(int)$reviewDb->lastInsertId();
+ if($reviewVersion===3){
+  unset($ledger['web_pending'][$webKey]);
+  rewind($handle);$finalLedger=json_encode($ledger,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+  if(!ftruncate($handle,0)||fwrite($handle,$finalLedger)!==strlen($finalLedger)||!fflush($handle))
+   answer(503,['ok'=>false,'error'=>'web_final_ledger_unconfirmed','review_id'=>$reviewId,'do_not_retry_without_checking_usage'=>true]);
+ }
 }catch(Throwable $e){
  error_log('HW24 AI archive INSERT failed after billable request: '.get_class($e));
  answer(503,['ok'=>false,'error'=>'review_storage_write_failed',
