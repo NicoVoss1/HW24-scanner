@@ -42,15 +42,18 @@ final class HubStockReader
             $groups=[];
             $eans=array_values(array_unique(array_filter($eans,static fn($v)=>is_string($v)&&preg_match('/^(?:[0-9]{8}|[0-9]{12}|[0-9]{13}|[0-9]{14})$/D',$v))));
             if(count($eans)>3000)throw new RuntimeException('Batch too large');
-            foreach(array_chunk($eans,250) as $chunk){
-                $q=$db->prepare('SELECT jtl_article_id,ean,truncated_flag,rows_type,row_count,total_stock,available_stock,in_orders,incoming FROM hw24_hub_stock_source WHERE source_id=? AND ean IN ('.implode(',',array_fill(0,count($chunk),'?')).')');
+            $canonical=[];
+            foreach($eans as $ean){try{$canonical[$ean]=ResearchQueue::canonical($ean);}catch(\Throwable){}}
+            foreach(array_chunk(array_values(array_unique($canonical)),250) as $chunk){
+                $q=$db->prepare('SELECT jtl_article_id,ean,truncated_flag,rows_type,row_count,total_stock,available_stock,in_orders,incoming FROM hw24_hub_stock_source WHERE source_id=? AND CHAR_LENGTH(ean) IN (8,12,13,14) AND LPAD(ean,14,\'0\') IN ('.implode(',',array_fill(0,count($chunk),'?')).')');
                 $q->execute([$m['source_id'],...$chunk]);
                 while($r=$q->fetch(PDO::FETCH_ASSOC)){
-                    if(in_array((string)$r['ean'],$chunk,true))$groups[(string)$r['ean']][]=$r;
+                    try{$key=ResearchQueue::canonical((string)$r['ean']);}catch(\Throwable){continue;}
+                    if(in_array($key,$chunk,true))$groups[$key][]=$r;
                 }
             }
             $out=[];
-            foreach($eans as $ean)$out[$ean]=self::present($groups[$ean]??[]);
+            foreach($canonical as $ean=>$key)$out[$ean]=self::present($groups[$key]??[]);
             $db->commit();
             return ['ok'=>true,'at'=>ScanEntryPresentation::germanDate($m['last_completed_utc']),'items'=>$out];
         }catch(\Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
