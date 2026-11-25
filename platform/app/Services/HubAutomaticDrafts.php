@@ -66,7 +66,13 @@ final class HubAutomaticDrafts
         $stock=$this->stock->read(array_column($completed,'ean'));
         if(($stock['ok']??false)!==true)throw new RuntimeException('Fresh mirror required');
         // Limit archive requests and provider time per CLI invocation.
-        $completed=array_slice($completed,0,3);
+        $confirmedRows=[];
+        foreach($completed as $row){
+            if(($stock['items'][$row['ean']]['state']??null)!=='absent'){$summary['exceptions']++;continue;}
+            $confirmedRows[]=$row;
+        }
+        $completed=array_slice($confirmedRows,0,3);
+        if(!$completed)return $summary;
         $proposals=$this->prepare->prepare($completed,$jobs,$allowOnePaidReview);
         foreach($completed as $row){
             if($summary['saved']>=3)break;
