@@ -318,7 +318,7 @@
                             <summary>Alle geprüften Felder anzeigen</summary>
                             <dl style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:12px;overflow-wrap:anywhere;margin-top:12px">
                                 @foreach($fieldReview['fields'] as $label=>$info)
-                                    <div><dt><strong>{{ $label }}</strong></dt><dd>{{ match($info['state']){'value','observed_reference','reference'=>$info['value'],'empty_snapshot'=>'Im Spiegel nicht belegt',default=>'Noch nicht zugeordnet'} }}</dd><small>{{ $info['source'] }}</small></div>
+                                    <div><dt><strong>{{ $label }}</strong></dt><dd>{{ match($info['state']){'value','observed_reference','reference'=>$info['value'],'empty_snapshot'=>'Im Spiegel nicht belegt','missing_source'=>'Quelle bekannt, Spiegelwert fehlt',default=>'Quellzuordnung noch offen'} }}</dd><small>{{ $info['source'] }}</small></div>
                                 @endforeach
                             </dl>
                         </details>
