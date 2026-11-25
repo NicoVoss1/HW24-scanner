@@ -15,7 +15,7 @@ use Throwable;
  * migrations. Caller supplies private PDO; never uses framework SQLite by
  * default. Only normalized successful live observations; not cache reads.
  */
-final class AmazonPriceArchive
+final class AmazonPriceArchive implements PriceArchiveStore
 {
     public function __construct(private PDO $db, private int $retentionDays)
     {
