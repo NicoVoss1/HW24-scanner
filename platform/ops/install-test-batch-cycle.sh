@@ -16,7 +16,8 @@ g(){ runuser -u nicovoss -- git -C "$repo" "$@"; }
 sql(){ mariadb --no-defaults --protocol=socket --socket=/run/mysqld/mysqld.sock -u root --database=hw24_artikelmanager "$@"; }
 exec 9>/run/lock/hw24-test-price-archive-deploy.lock
 flock -w 30 9 || { echo 'STOP: deployment/worker active'; exit 1; }
-[[ -z "$(g status --porcelain --untracked-files=no)" ]] && g merge-base --is-ancestor "$target" HEAD
+[[ -z "$(g status --porcelain --untracked-files=no)" ]] || { echo "STOP: tracked local changes"; exit 1; }
+g merge-base --is-ancestor "$target" HEAD
 [[ "$(g rev-parse HEAD)" == "$(g rev-parse origin/release/hw24-test)" ]]
 [[ "$(plesk db -Ne "SELECT h.www_root FROM domains d JOIN hosting h ON d.id=h.dom_id WHERE d.name='test-artikelmanager.hairworld24.de'")" == "$app/public" ]]
 [[ "$(stat -c '%U %G %a' "$private")" == 'nicovoss psacln 750' ]]
