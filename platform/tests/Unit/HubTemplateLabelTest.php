@@ -20,4 +20,20 @@ final class HubTemplateLabelTest extends TestCase
         self::assertFalse(HubArticleMirror::consistentVolume('Haarfarbe (60 ml)','0.06','ml'));
         self::assertFalse(HubArticleMirror::consistentVolume('Haarfarbe (60 ml)','50','ml'));
     }
+    public function test_template_consensus_preserves_existing_values_and_refuses_disagreement(): void
+    {
+        $o=require dirname(__DIR__,2).'/config/hw24_jtl_reference_observations.php';
+        $rows=[
+            ['jtl_article_id'=>1,'warengruppe'=>'Haarfarben','kLieferStatus'=>'1','kSteuerklasse'=>'1','cLagerAktiv'=>'Y','cTeilbar'=>'N'],
+            ['jtl_article_id'=>2,'warengruppe'=>'Haarfarben','kLieferStatus'=>'1','kSteuerklasse'=>'2','cLagerAktiv'=>'Y','cTeilbar'=>'N'],
+        ];
+        $p=HubArticleMirror::templateConsensus($rows,['Stückzahl teilbar'=>'Y'],$o);
+        self::assertSame('Haarfarben',$p['fields']['Warengruppe']);
+        self::assertSame('2-4 Werktage',$p['fields']['Lieferstatus']);
+        self::assertSame('Y',$p['fields']['Bestandsführung aktiv']);
+        self::assertArrayNotHasKey('Steuerklasse',$p['fields']);
+        self::assertArrayNotHasKey('Stückzahl teilbar',$p['fields']);
+        self::assertArrayNotHasKey('Netto-VK',$p['fields']);
+    }
+
 }
