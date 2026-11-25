@@ -394,7 +394,7 @@
                                     @foreach($jtlFieldReview['fields'] as $field=>$info)
                                         <div>
                                             <dt>{{ $field }}</dt>
-                                            <dd>{{ match($info['state']){'value'=>$info['value'],'reference'=>$info['value'],'observed_reference'=>$info['value'],'empty_snapshot'=>'Im Spiegel nicht belegt',default=>'Noch nicht zugeordnet'} }}</dd>
+                                            <dd>{{ match($info['state']){'value'=>$info['value'],'reference'=>$info['value'],'observed_reference'=>$info['value'],'empty_snapshot'=>'Im Spiegel nicht belegt','missing_source'=>'Quelle bekannt, Spiegelwert fehlt',default=>'Quellzuordnung noch offen'} }}</dd>
                                             <div class="hw24-sub">{{ $info['source'] }}</div>
                                         </div>
                                     @endforeach
