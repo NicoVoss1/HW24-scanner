@@ -19,6 +19,7 @@ use App\Services\HubTemplateDefaults;
 use App\Services\HubArticleMirror;
 use App\Services\HubSeoDefaults;
 use App\Services\HubBatchPreparation;
+use App\Services\HubStockReader;
 use App\Services\ScanQueueIntake;
 
 /**
@@ -225,6 +226,7 @@ final class ScanWorkbench extends Page
 
     public array $draftFields = [];
     #[Locked] public array $batchPreparation = [];
+    #[Locked] public array $batchStock = [];
     #[Locked] public string $batchPreparationMessage = '';
     public bool $confirmBatchPreparation = false;
     public string $templateNumber = '';
@@ -297,6 +299,16 @@ final class ScanWorkbench extends Page
         $this->persistentResearchMessage=trim($this->enqueueConfirmedResearch($eans));
         $this->confirmResearch=false;
         $this->refreshPersistentResearch();
+    }
+
+    public function refreshBatchStock(): void
+    {
+        $this->batchStock=[];
+        if($this->selectedBatchId===null)return;
+        try{
+            $eans=array_column(array_filter($this->items,fn($r)=>$r['review']!=='removed'),'ean');
+            $this->batchStock=app(HubStockReader::class)->read($eans);
+        }catch(\Throwable){$this->batchStock=['ok'=>false,'message'=>'Aktueller Wawi-Bestand nicht bestätigt.'];}
     }
 
     public function refreshPersistentResearch(): void
@@ -624,7 +636,7 @@ final class ScanWorkbench extends Page
 
     public function loadBatches(LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'batches', 'selectedBatchId', 'batchPreparation','batchPreparationMessage','confirmBatchPreparation','diagnostic', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','templateNumber','templateReview','templateCandidates','draftProvenance','confirmDraft','draftMessage']);
+        $this->reset(['items', 'batches', 'selectedBatchId', 'batchPreparation','batchStock','batchPreparationMessage','confirmBatchPreparation','diagnostic', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','templateNumber','templateReview','templateCandidates','draftProvenance','confirmDraft','draftMessage']);
 
         $result = $bridge->fetch('scan.batches', ['op' => 'batches']);
         $raw = is_array($result['data'] ?? null) ? $result['data'] : [];
@@ -665,7 +677,7 @@ final class ScanWorkbench extends Page
 
     public function loadBatch(int $batchId, LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'selectedBatchId', 'batchPreparation','batchPreparationMessage','confirmBatchPreparation','exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','templateNumber','templateReview','templateCandidates','draftProvenance','confirmDraft','draftMessage']);
+        $this->reset(['items', 'selectedBatchId', 'batchPreparation','batchStock','batchPreparationMessage','confirmBatchPreparation','exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','templateNumber','templateReview','templateCandidates','draftProvenance','confirmDraft','draftMessage']);
         // Never let the browser request arbitrary batch IDs.
         $allowed = array_column($this->batches, 'id');
         if (!in_array($batchId, $allowed, true)) {
@@ -711,6 +723,7 @@ final class ScanWorkbench extends Page
             'http' => $result['http_status'] ?? null,
             'message' => 'Gespeicherte Positionen geladen. Recherche und Entwurf sind getrennte, ausdrücklich ausgelöste Aktionen.',
         ];
+        $this->refreshBatchStock();
         $this->refreshPersistentResearch();
     }
 
