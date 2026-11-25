@@ -71,4 +71,32 @@ final class PersistentScanResearchTest extends TestCase
         Http::assertSentCount(3);
     }
 
+    public function test_three_steps_and_article_navigation_do_not_call_providers(): void
+    {
+        config()->set('hw24_legacy.base_url','https://artikelmanager.hairworld24.de');
+        config()->set('hw24_legacy.user','test-only');
+        config()->set('hw24_legacy.password','fake-test-only');
+        Http::preventStrayRequests();
+        Http::fake(function($r){
+            if(str_contains($r->url(),'op=batches'))return Http::response(['ok'=>true,'batches'=>[['id'=>7,'label'=>'TEST Workflow']]]);
+            if(str_contains($r->url(),'op=items'))return Http::response(['ok'=>true,'items'=>[
+                ['id'=>1,'ean'=>'4006381333931','artikelname'=>'Artikel A','review_state'=>'scan_only'],
+                ['id'=>2,'ean'=>'5901234123457','artikelname'=>'Entfernt','review_state'=>'removed'],
+                ['id'=>3,'ean'=>'036000291452','artikelname'=>'Artikel B','review_state'=>'scan_only'],
+            ]]);
+            return Http::response(['ok'=>false],404);
+        });
+        Livewire::test(ScanWorkbench::class)->assertSet('workflowStep',1)
+            ->call('loadBatches')->call('loadBatch',7)
+            ->call('openDraft','4006381333931')->assertSet('workflowStep',2)
+            ->assertSet('workingEan','4006381333931')
+            ->call('moveDraft',1)->assertSet('workingEan','036000291452')
+            ->call('moveDraft',1)->assertSet('workingEan','036000291452')
+            ->call('moveDraft',-1)->assertSet('workingEan','4006381333931')
+            ->call('showWorkflowStep',3)->assertSet('workflowStep',3)
+            ->call('showWorkflowStep',99)->assertSet('workflowStep',3);
+        Http::assertSentCount(2);
+        Http::assertNotSent(fn($r)=>$r->method()!=='GET'||str_contains($r->url(),'amazon.php'));
+    }
+
 }
