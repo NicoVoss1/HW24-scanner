@@ -448,6 +448,27 @@
                         @endif
                         <p>Eine neue Einzelprüfung benötigt ein bestätigtes gemeinsames Archiv, Betreiberfreigabe, Budget und Produktnamen. Vorhandene Berichte werden wiederverwendet.</p>
                     </div>
+                    <div class="hw24-note">
+                        <h3>JTL-Vorlagenartikel · Standardfelder</h3>
+                        <p>Für Neuanlagen: genaue Artikelnummer Deiner gepflegten Vorlage wählen. Keine Übernahme von EAN, HAN, ASIN, Artikelnummer, Preisen, Mengen oder fremden Beschreibungstexten.</p>
+                        <div class="hw24-action">
+                            <label>Vorlagenartikelnummer <input type="text" class="hw24-btn" wire:model="templateNumber" placeholder="JTL-Artikelnummer"></label>
+                            <button type="button" class="hw24-btn" wire:click="loadTemplate" wire:loading.attr="disabled">Vorlage prüfen</button>
+                            <button type="button" class="hw24-btn" wire:click="fillEmptyTexts">Leere Beschreibungen aus Artikelnamen füllen</button>
+                        </div>
+                        @if($templateReview!==[])
+                            @if($templateReview['ok']??false)
+                                <p><strong>{{ $templateReview['name'] }}</strong> · {{ $templateReview['manufacturer'] }} / {{ $templateReview['group'] }} · {{ $templateReview['snapshot_at']??'Zeitpunkt nicht belegt' }}</p>
+                                @if(!$templateReview['category_confirmed'])<p>Produkttyp nicht eindeutig abgeglichen. Eignung der Vorlage manuell kontrollieren.</p>@endif
+                                <dl class="hw24-facts">
+                                    @forelse($templateReview['fields'] as $f=>$v)
+                                        <div><dt>{{ $f }} · Hinzufügen</dt><dd>{{ $v }}</dd></div>
+                                    @empty<p>Keine leeren belegbaren Standardfelder.</p>@endforelse
+                                </dl>
+                                <button type="button" class="hw24-btn" wire:click="applyTemplate" wire:loading.attr="disabled" wire:confirm="Hersteller, Warengruppe und Produkttyp passen? Nur angezeigte leere Felder ergänzen.">Standardfelder übernehmen</button>
+                            @else<p>{{ $templateReview['message'] }}</p>@endif
+                        @endif
+                    </div>
                     @php($categoryProposal=$this->categoryProposal())
                     @if($categoryProposal)
                         <div class="hw24-note">
@@ -462,6 +483,7 @@
                         @foreach(\App\Services\ScanResearch::FIELDS as $field)
                             <label style="font-size:12px">
                                 {{ $field }}{{ in_array($field,\App\Services\ScanResearch::REQUIRED,true)?' *':'' }}
+                                @if(isset($draftProvenance[$field]) && $draftProvenance[$field]['value']===($draftFields[$field]??null))<span class="hw24-sub"> · {{ $draftProvenance[$field]['source'] }}</span>@endif
                                 @if(in_array($field,['Kurzbeschreibung','Beschreibung','Anmerkung','Meta-Description (SEO)'],true))
                                     <textarea class="hw24-btn" style="display:block;width:100%;text-align:left" wire:model.blur="draftFields.{{ $field }}"></textarea>
                                 @else
