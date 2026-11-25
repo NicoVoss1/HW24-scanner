@@ -20,6 +20,7 @@ use App\Services\HubArticleMirror;
 use App\Services\HubSeoDefaults;
 use App\Services\HubBatchPreparation;
 use App\Services\HubStockReader;
+use App\Services\HubBatchRelease;
 use App\Services\ScanQueueIntake;
 
 /**
@@ -227,6 +228,11 @@ final class ScanWorkbench extends Page
     public array $draftFields = [];
     #[Locked] public array $batchPreparation = [];
     #[Locked] public array $batchStock = [];
+    #[Locked] public array $releaseCandidates = [];
+    #[Locked] public array $releaseExceptions = [];
+    #[Locked] public int $releaseDone = 0;
+    #[Locked] public string $releaseMessage = '';
+    public bool $confirmBatchRelease = false;
     #[Locked] public string $batchPreparationMessage = '';
     public bool $confirmBatchPreparation = false;
     public string $templateNumber = '';
@@ -405,6 +411,61 @@ final class ScanWorkbench extends Page
         }
         $this->exportState=[];
         $this->batchPreparationMessage=$saved.' Entwürfe gespeichert, '.$failed.' Fehler/Konflikte. '.($failed?'Vor erneutem Speichern Stapel neu laden.':'Weitere Vorschläge können separat bestätigt werden.').' Keine JTL-Freigabe.';
+    }
+
+    public function previewBatchRelease(): void
+    {
+        $this->reset(['releaseCandidates','releaseExceptions','releaseDone','releaseMessage','confirmBatchRelease']);
+        if(!$this->canWriteScan()||!$this->canQueueResearch()||auth()->id()===null)return;
+        $this->refreshBatchStock();
+        $ready=count(array_filter($this->items,fn($r)=>$r['review']==='ready'));
+        foreach($this->items as $row){
+            if($row['resolution']!=='new_candidate'||in_array($row['review'],['removed','ready'],true)||
+                ($this->selectedEans!==[]&&!in_array($row['ean'],$this->selectedEans,true)))continue;
+            $reason=HubBatchRelease::reason($row,$this->batchStock['items'][$row['ean']]??[]);
+            if($reason!==null){$this->releaseExceptions[]=['ean'=>$row['ean'],'reason'=>$reason];continue;}
+            if(count($this->releaseCandidates)+$ready>=200){
+                $this->releaseExceptions[]=['ean'=>$row['ean'],'reason'=>'Prüfexport-Limit 200 erreicht'];continue;
+            }
+            $this->releaseCandidates[]=['ean'=>$row['ean'],'id'=>$row['id'],'revision'=>$row['revision'],
+                'name'=>$row['draft']['Artikelname']];
+        }
+        $this->releaseMessage=count($this->releaseCandidates).' Entwürfe zur gemeinsamen Freigabe geeignet; '.count($this->releaseExceptions).' Ausnahmen. Bitte Vorschau fachlich prüfen.';
+    }
+
+    /** Browser-driven bounded chunks after one explicit confirmation. */
+    public function releaseBatchChunk(LegacyApprovedActionBridge $bridge,HubStockReader $stockReader): bool
+    {
+        if(!$this->confirmBatchRelease||!$this->canWriteScan()||!$this->canQueueResearch()||auth()->id()===null||!$this->releaseCandidates)return false;
+        $this->exportState=[];
+        $chunk=array_slice($this->releaseCandidates,0,3);
+        try{$stock=$stockReader->read(array_column($chunk,'ean'));}
+        catch(\Throwable){$this->confirmBatchRelease=false;$this->releaseMessage='Wawi-Stand nicht bestätigt. Freigabe angehalten.';return false;}
+        foreach($chunk as $candidate){
+            $ean=$candidate['ean'];$row=$this->rowFor($ean);
+            if(!$row||$row['id']!==$candidate['id']||$row['revision']!==$candidate['revision']||
+                HubBatchRelease::reason($row,$stock['items'][$ean]??[])!==null){
+                $this->confirmBatchRelease=false;$this->releaseMessage='Entwurf oder Wawi-Zuordnung hat sich geändert. Freigabe angehalten; Stapel neu laden.';return false;
+            }
+            $r=$bridge->post('scan.edit',['op'=>'edit','batch_id'=>$this->selectedBatchId,'item_id'=>$row['id'],
+                'expected_revision'=>$row['revision'],'fields'=>[],'field_sources'=>[],'mark_ready'=>true]);
+            $d=$r['data']??[];
+            if(($r['ok']??false)!==true||($d['review_state']??null)!=='ready'||!is_array($d['draft']??null)||
+                (int)($d['revision']??-1)!==$row['revision']+1){
+                $this->confirmBatchRelease=false;$this->releaseMessage='Freigabe nicht vollständig bestätigt. Stapel neu laden; bereits bestätigte Freigaben bleiben gespeichert.';return false;
+            }
+            foreach($this->items as &$stored){
+                if($stored['id']!==$row['id'])continue;
+                $stored['revision']=(int)$d['revision'];$stored['draft']=array_intersect_key($d['draft'],array_flip(ScanResearch::FIELDS));
+                $stored['review']='ready';$stored['review_label']='Für Ameise-Prüfexport freigegeben';$stored['updated_at']=null;break;
+            }
+            unset($stored);
+            array_shift($this->releaseCandidates);$this->releaseDone++;
+        }
+        $more=$this->releaseCandidates!==[];
+        $this->releaseMessage=$this->releaseDone.' für den Ameise-Prüfexport freigegeben. '.count($this->releaseCandidates).' offen. Kein JTL-Import.';
+        if(!$more)$this->confirmBatchRelease=false;
+        return $more;
     }
 
     public function showWorkflowStep(int $step): void
@@ -636,7 +697,7 @@ final class ScanWorkbench extends Page
 
     public function loadBatches(LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'batches', 'selectedBatchId', 'batchPreparation','batchStock','batchPreparationMessage','confirmBatchPreparation','diagnostic', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','templateNumber','templateReview','templateCandidates','draftProvenance','confirmDraft','draftMessage']);
+        $this->reset(['items', 'batches', 'selectedBatchId', 'batchPreparation','batchStock','releaseCandidates','releaseExceptions','releaseDone','releaseMessage','confirmBatchRelease','batchPreparationMessage','confirmBatchPreparation','diagnostic', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','templateNumber','templateReview','templateCandidates','draftProvenance','confirmDraft','draftMessage']);
 
         $result = $bridge->fetch('scan.batches', ['op' => 'batches']);
         $raw = is_array($result['data'] ?? null) ? $result['data'] : [];
@@ -677,7 +738,7 @@ final class ScanWorkbench extends Page
 
     public function loadBatch(int $batchId, LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'selectedBatchId', 'batchPreparation','batchStock','batchPreparationMessage','confirmBatchPreparation','exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','templateNumber','templateReview','templateCandidates','draftProvenance','confirmDraft','draftMessage']);
+        $this->reset(['items', 'selectedBatchId', 'batchPreparation','batchStock','releaseCandidates','releaseExceptions','releaseDone','releaseMessage','confirmBatchRelease','batchPreparationMessage','confirmBatchPreparation','exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','templateNumber','templateReview','templateCandidates','draftProvenance','confirmDraft','draftMessage']);
         // Never let the browser request arbitrary batch IDs.
         $allowed = array_column($this->batches, 'id');
         if (!in_array($batchId, $allowed, true)) {
