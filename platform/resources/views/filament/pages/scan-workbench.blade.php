@@ -111,7 +111,7 @@
                 </div>
                 <label style="font-size:12px;line-height:1.6;display:flex;gap:9px;align-items:center;margin-top:10px">
                     <input type="checkbox" wire:model.live="confirmScanWrite">
-                    <span>Ich bestätige ausdrücklich das Speichern in der bestehenden Scanliste. Keine Lager-/Bestandsbuchung.</span>
+                    <span>Ich bestätige ausdrücklich das Speichern in der bestehenden Scanliste. Keine Lager-/Bestandsbuchung.@if($this->autoQueueResearch()) Die serverseitige Recherche wird nach bestätigter Speicherung angemeldet.@endif</span>
                 </label>
                 @if($actionState !== [])
                     <p class="hw24-note {{ ($actionState['ok']??false) ? '' : 'hw24-note-warn' }}" role="status">
@@ -125,7 +125,7 @@
         <section class="hw24-card" x-data="{running:false}">
             <div class="hw24-card-head"><h3>03 · CSV-Datei direkt importieren (TEST)</h3></div>
             <div class="hw24-card-body">
-                <p class="hw24-description">Vorbereiteten Neuware-Export als UTF-8-CSV auswählen. Excel-Dateien zuvor als CSV speichern. Die ursprüngliche Inventurliste mit B-Ware und Kommentaren muss zuerst klassifiziert werden. Keine JTL- oder WMS-Buchung und keine externe Recherche.</p>
+                <p class="hw24-description">Vorbereiteten Neuware-Export als UTF-8-CSV auswählen. Excel-Dateien zuvor als CSV speichern. Die ursprüngliche Inventurliste mit B-Ware und Kommentaren muss zuerst klassifiziert werden. Keine JTL- oder WMS-Buchung. @if($this->autoQueueResearch()) Bestätigte Positionen werden zur serverseitigen Recherche angemeldet.@else Keine automatische externe Recherche.@endif</p>
                 <p>Aktiver Stapel: {{ $selectedBatchId ?? 'Bitte oben einen TEST-Stapel auswählen' }}</p>
                 <div class="hw24-action" style="margin-top:12px">
                     <input type="file" accept=".csv,text/csv" wire:model="csvFile" aria-label="Neuware-CSV auswählen">
@@ -145,7 +145,7 @@
                         </tbody></table>
                     </div>
                     <p class="hw24-description">Vorschau der ersten zehn Positionen. Mengen sind Importinformationen, keine Bestandsbuchungen. Speichern nur in ausdrücklich mit TEST bezeichneten Stapeln.</p>
-                    <label class="hw24-action"><input type="checkbox" wire:model.live="confirmCsvImport" x-bind:disabled="running"> Ich bestätige den Import in den ausgewählten TEST-Stapel.</label>
+                    <label class="hw24-action"><input type="checkbox" wire:model.live="confirmCsvImport" x-bind:disabled="running"> Ich bestätige den Import in den ausgewählten TEST-Stapel.@if($this->autoQueueResearch()) Gespeicherte Positionen auch zur Recherche anmelden.@endif</label>
                     <div class="hw24-action" style="margin-top:12px">
                         <button type="button" class="hw24-btn" x-bind:disabled="running || !@js($this->canWriteScan()) || !$wire.confirmCsvImport || $wire.csvOffset >= $wire.csvRows.length" x-on:click="if (!confirm('CSV in den gemeinsamen HW24-Datenspeicher importieren? Nur TEST-Stapel, keine JTL-Buchung.')) return; running=true; try { for(let i=0;i&lt;100 &amp;&amp; running;i++){ if(!(await $wire.importCsvChunk())) break; } } finally {running=false;}">CSV-Import starten / fortsetzen</button>
                         <button type="button" class="hw24-btn" x-bind:disabled="!running" x-on:click="running=false">Nach aktuellem Abschnitt pausieren</button>
@@ -167,12 +167,22 @@
                         <div class="hw24-action" style="margin-top:10px">
                             <button type="button" class="hw24-btn" wire:click="selectAllResearch" x-bind:disabled="running">Alle Artikel markieren</button>
                             <button type="button" class="hw24-btn" wire:click="$set('selectedEans', [])" x-bind:disabled="running">Auswahl zurücksetzen</button>
-                            <label><input type="checkbox" wire:model.live="confirmResearch" x-bind:disabled="running"> Amazon-Katalogabfragen für Auswahl bestätigen</label>
+                            <label><input type="checkbox" wire:model.live="confirmResearch" x-bind:disabled="running"> Recherche für Auswahl bestätigen</label>
+                            @if($this->canQueueResearch())
+                                <button type="button" class="hw24-btn" wire:click="enqueueSelectedResearch" wire:loading.attr="disabled" @disabled(!$confirmResearch)>Auswahl dauerhaft zur Recherche anmelden</button>
+                                <button type="button" class="hw24-btn" wire:click="refreshPersistentResearch" wire:loading.attr="disabled">Recherche-Status aktualisieren</button>
+                            @else
                             <button type="button" class="hw24-btn" x-bind:disabled="running || !$wire.confirmResearch" x-on:click="running=true; try { await $wire.prepareResearch(); for(let i=0;i&lt;3000 &amp;&amp; running;i++){ if(!(await $wire.researchNext()))break; await new Promise(r=>setTimeout(r,11000)); } } finally {running=false;}">Auswahl recherchieren</button>
                             <button type="button" class="hw24-btn" x-bind:disabled="!running" x-on:click="running=false">Pausieren</button>
+                            @endif
                         </div>
-                        <p role="status">{{ count($selectedEans) }} markiert · {{ $researchOffset }} / {{ count($researchQueue) }} recherchiert · {{ $researchMessage }}</p>
-                        <p>Rechercheübersicht gilt für diese Browser-Sitzung. Die Amazon-Katalogantwort selbst wird durch die bestehende API archiviert, soweit deren Speicherfunktion aktiv ist.</p>
+                        @if($this->canQueueResearch())
+                            <p role="status">{{ count($selectedEans) }} markiert · {{ count($persistentResearch) }} Positionen in der gemeinsamen Warteschlange · {{ $persistentResearchMessage }}</p>
+                            <p>Aufträge bleiben beim Schließen des Browsers erhalten. Verarbeitung nur bei laufendem serverseitigem Worker. Keine automatische kostenpflichtige KI.</p>
+                        @else
+                            <p role="status">{{ count($selectedEans) }} markiert · {{ $researchOffset }} / {{ count($researchQueue) }} recherchiert · {{ $researchMessage }}</p>
+                            <p>Rechercheübersicht gilt für diese Browser-Sitzung. Die Amazon-Katalogantwort selbst wird durch die bestehende API archiviert, soweit deren Speicherfunktion aktiv ist.</p>
+                        @endif
                     </div>
                     <div class="hw24-action" style="margin:12px 0">
                         <button type="button" class="hw24-btn" wire:click="loadBatchAiMarkers" wire:loading.attr="disabled" wire:target="loadBatchAiMarkers">
@@ -192,7 +202,7 @@
                     @if($items !== [])
                         <div class="hw24-table-wrap" style="margin-top:14px">
                             <table>
-                                <thead><tr><th>Auswahl</th><th>EAN</th><th>Artikel</th><th>Scans</th><th>Erfasst am / Uhrzeit</th><th>Erfassungsart</th><th>JTL-Abgleich</th><th>Prüfstatus</th><th>KI-Archiv</th><th>Amazon / Bearbeitung</th></tr></thead>
+                                <thead><tr><th>Auswahl</th><th>EAN</th><th>Artikel</th><th>Scans</th><th>Erfasst am / Uhrzeit</th><th>Erfassungsart</th><th>JTL-Abgleich</th><th>Prüfstatus</th><th>KI-Archiv</th>@if($this->canQueueResearch())<th>Rechercheauftrag</th>@endif<th>Amazon / Bearbeitung</th></tr></thead>
                                 <tbody>
                                     @foreach($items as $i => $item)
                                         <tr wire:key="hw24-scan-item-{{ $selectedBatchId }}-{{ $i }}">
@@ -221,6 +231,20 @@
                                                     <span class="hw24-sub">Noch nicht geprüft</span>
                                                 @endif
                                             </td>
+                                            @if($this->canQueueResearch())
+                                                <td style="min-width:155px">
+                                                    @if(isset($persistentResearch[$item['ean']]))
+                                                        @php($job=$persistentResearch[$item['ean']])
+                                                        <strong>{{ match($job['status']){'queued'=>'Wartend','leased'=>'In Bearbeitung','retry'=>'Wiederholung geplant','completed'=>'Kernrecherche abgeschlossen','blocked'=>'Prüfung erforderlich',default=>'Unbekannt'} }}</strong>
+                                                        <div class="hw24-sub">Auftrag #{{ $job['id'] }} · {{ $job['attempt_count'] }} Versuch(e)</div>
+                                                        @if($job['last_error_code'])<div class="hw24-sub">{{ $job['last_error_code'] }}</div>@endif
+                                                        @if(isset($job['evidence']['catalog_snapshot_id']))<div class="hw24-sub">Katalog #{{ $job['evidence']['catalog_snapshot_id'] }}</div>@endif
+                                                        @if(isset($job['evidence']['price_snapshot_id']))<div class="hw24-sub">Preisarchiv #{{ $job['evidence']['price_snapshot_id'] }}</div>@endif
+                                                    @else
+                                                        <span class="hw24-sub">Nicht angemeldet</span>
+                                                    @endif
+                                                </td>
+                                            @endif
                                             <td>
                                                 @if(isset($researchResults[$item['ean']]))
                                                     @php($evidence=$researchResults[$item['ean']])
