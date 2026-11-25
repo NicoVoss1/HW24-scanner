@@ -12,7 +12,7 @@
             </select></label>
             <label>Benutzer-ID <input wire:model.live.debounce.500ms="actorFilter" maxlength="18" inputmode="numeric" style="display:block;border:1px solid #94a3b8;border-radius:6px;padding:8px;background:transparent"></label>
             <label>EAN / ASIN <input wire:model.live.debounce.500ms="identifierFilter" maxlength="14" style="display:block;border:1px solid #94a3b8;border-radius:6px;padding:8px;background:transparent"></label>
-            <x-filament::button wire:click="$refresh">Aktualisieren</x-filament::button>
+            <x-filament::button title="Gespeicherte Abfrage- und Auditdaten aktualisieren." wire:click="$refresh">Aktualisieren</x-filament::button>
         </div>
         @if(!$storageAvailable)
             <p>Audit-Speicher nicht erreichbar oder Migration noch nicht installiert. Keine Aussage über vorhandene Altbelege möglich.</p>
