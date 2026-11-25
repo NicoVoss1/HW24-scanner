@@ -27,6 +27,17 @@ final class HubBatchPreparation
                     $p=self::mergeTemplate($p,$template);
                 }catch(\Throwable){$p['template_reason']='Vorlagenquelle derzeit nicht bestätigt';}
             }
+            if(in_array($p['state'],['review','missing'],true)){
+                try {
+                    $id=(int)($job['evidence']['price_snapshot_id']??0);
+                    if($id>0&&AmazonPriceArchiveRuntime::enabled()){
+                        foreach(AmazonPriceArchiveRuntime::open()->latest($p['draft']['ASIN'],2) as $price){
+                            if((int)$price['id']!==$id)continue;
+                            $p['market_price']=['id'=>$id,'at'=>$price['observed_at_utc'],'buybox'=>$price['buybox'],'lowest'=>$price['lowest']];break;
+                        }
+                    }
+                }catch(\Throwable){/* Market observation is optional; never use it as an own price. */}
+            }
             $out[$ean]=$p+['revision'=>$row['revision'],'item_id'=>$row['id']];
         }
         return $out;
