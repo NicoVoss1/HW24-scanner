@@ -366,7 +366,7 @@ final class ScanWorkbench extends Page
         $this->jtlFieldReview=[];
         $ean=$this->workingEan;
         if($ean===null||$this->rowFor($ean)===null)return;
-        $this->jtlFieldReview=ScanResearchPresentation::jtlFields($ean,$bridge->fetch('jtl.article',['q'=>$ean]));
+        $this->jtlFieldReview=ScanResearchPresentation::jtlFields($ean,$bridge->fetch('jtl.article',['q'=>$ean]),config('hw24_jtl_reference_observations',[]));
     }
 
     public function researchOne(string $ean,LegacyReadBridge $bridge): void
