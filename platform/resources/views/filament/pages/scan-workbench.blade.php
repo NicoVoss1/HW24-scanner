@@ -601,7 +601,11 @@
                         @if($releaseCandidates!==[])
                             <details open><summary>{{ count($releaseCandidates) }} Entwürfe zur Freigabe</summary>
                                 <div style="max-height:300px;overflow-y:auto">
-                                    @foreach($releaseCandidates as $candidate)<p>{{ $candidate['ean'] }} · {{ $candidate['name'] }}</p>@endforeach
+                                    @foreach($releaseCandidates as $candidate)
+                                        <details><summary>{{ $candidate['ean'] }} · {{ $candidate['name'] }}</summary>
+                                            @foreach($candidate['fields'] as $label=>$value)@if(trim((string)$value)!=='')<p><strong>{{ $label }}:</strong> {{ $value }}</p>@endif @endforeach
+                                        </details>
+                                    @endforeach
                                 </div>
                             </details>
                             <label><input type="checkbox" wire:model.live="confirmBatchRelease" x-bind:disabled="releasing"> Angezeigte Entwürfe fachlich geprüft, für Ameise-Prüfexport freigeben.</label>
