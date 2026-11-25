@@ -33,6 +33,7 @@ final class LegacyReadBridge
         'scan.items' => 'api/scanliste.php',
         'scan.export' => 'api/scanliste.php',
         'curated.article' => 'api/curated.php',
+        'history.article' => 'api/historie.php',
     ];
 
     public function fetch(string $service, array $parameters = []): array
@@ -61,11 +62,19 @@ final class LegacyReadBridge
                 ->timeout(12)->withoutRedirecting()->get($base.'/'.$path,$parameters);
             $status=$response->status();
             $json=$response->json();
+            $retryAfter=$response->header('Retry-After');
+            $retrySeconds=null;
+            if(is_string($retryAfter)&&preg_match('/^\d{1,6}$/D',$retryAfter)) {
+                $retrySeconds=min(86400,(int)$retryAfter);
+            } elseif(is_string($retryAfter)&&($stamp=strtotime($retryAfter))!==false) {
+                $retrySeconds=min(86400,max(0,$stamp-time()));
+            }
             return $finish([
                 'ok'=>$response->successful() && is_array($json) && (($json['ok']??false)===true),
                 'service'=>$service,
                 'state'=>$response->successful()?'responded':'upstream_error',
                 'http_status'=>$status,
+                'retry_after_seconds'=>$retrySeconds,
                 'data'=>is_array($json)?$json:null,
             ]);
         } catch (\Throwable $e) {
