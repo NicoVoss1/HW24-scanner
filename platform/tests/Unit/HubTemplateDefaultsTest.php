@@ -24,7 +24,7 @@ final class HubTemplateDefaultsTest extends TestCase
         self::assertTrue($r['ok']);
         self::assertTrue($r['category_confirmed']);
         self::assertSame(['Hersteller'=>'Schwarzkopf','Warengruppe'=>'Haarfarben',
-            'Lieferstatus'=>'2-4 Werktage','Bestandsführung aktiv'=>'Ja'],$r['fields']);
+            'Lieferstatus'=>'2-4 Werktage','Bestandsführung aktiv'=>'Y'],$r['fields']);
         foreach(['Artikelnummer','GTIN','HAN','ASIN','Netto-VK','Beschreibung','Inhalt/Menge'] as $field)
             self::assertArrayNotHasKey($field,$r['fields']);
     }
