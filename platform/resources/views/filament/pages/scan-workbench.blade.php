@@ -276,6 +276,9 @@
                             @endforeach
                             . Kein automatisch kalkulierter eigener VK; Einkauf, Gebühren, Versand und Steuer berücksichtigen.
                         </p>
+                        @if(isset($workingPrice['archive']))
+                            @include('filament.partials.amazon-price-history',['archive'=>$workingPrice['archive']])
+                        @endif
                     @endif
                     <div class="hw24-note">
                         <h3>KI-Recherche zur ausgewählten EAN</h3>
