@@ -48,6 +48,19 @@ final class ScanResearchPresentation
         ];
     }
 
+    /** Dated, operator-verified reference values; never represent these as freshly synced. */
+    private static function observedReference(string $field,int $id): ?string
+    {
+        $o=config('hw24_jtl_reference_observations',[]);
+        $v=match($field){
+            'Lieferstatus'=>$o['delivery_status_by_language'][$id.':1']??null,
+            'Steuerklasse'=>$o['tax_classes'][$id]['name']??null,
+            'Maßeinheit'=>$o['mass_unit_examples'][$id]['display_code']??null,
+            default=>null,
+        };
+        return is_string($v)&&trim($v)!==''?$v:null;
+    }
+
     /** Current mirror only, exact EAN, no guessed reference names or derived prices. */
     public static function jtlFields(string $ean,array $response): array
     {
@@ -62,28 +75,46 @@ final class ScanResearchPresentation
             'Hersteller'=>'hersteller','Artikeltyp'=>'artikeltyp','Warengruppe'=>'warengruppe_name','Steuerklasse'=>'steuerklasse_name',
             'Währung'=>'waehrung','Kosten'=>'kosten','Netto-VK'=>'netto_vk','Brutto-VK'=>'brutto_vk',
             'Kurzbeschreibung'=>'kurzbeschreibung','Beschreibung'=>'beschreibung','Titel-Tag (SEO)'=>'seo_titel',
-            'Meta-Description (SEO)'=>'seo_beschreibung','Versandklasse'=>'versandklasse_name'];
+            'Meta-Description (SEO)'=>'seo_beschreibung','Versandklasse'=>'versandklasse_name','Lieferstatus'=>'lieferstatus_name','Maßeinheit'=>'masseinheit_name'];
         $refs=['Warengruppe'=>'kWarengruppe','Steuerklasse'=>'kSteuerklasse','Versandklasse'=>'kVersandklasse',
             'Maßeinheit'=>'kMassEinheit','Lieferstatus'=>'kLieferStatus','Hersteller'=>'kHersteller'];
+        $rawFields=['Inhalt/Menge'=>'fMassMenge','Anmerkung'=>'cAnmerkung','Artikel aktiv'=>'cAktiv',
+            'Bestandsführung aktiv'=>'cLagerAktiv','Überverkäufe möglich'=>'cLagerKleinerNull',
+            'Stückzahl teilbar'=>'cTeilbar','Zusätzliche Bearbeitungszeit'=>'nBearbeitungszeit',
+            'Beschaffungszeit automatisch ermitteln'=>'nAutomatischeLiefertageberechnung',
+            'Top-Artikel'=>'cTopArtikel','Neu im Sortiment'=>'cNeu'];
         $fields=[];
         foreach(ScanResearch::FIELDS as $field){
             $key=$direct[$field]??null;
             $value=$key!==null?($a[$key]??null):null;
             $id=$refs[$field]??null;
+            $rawKey=$rawFields[$field]??null;
+            $origin=$key!==null?'JTL-Spiegel: '.$key:'Keine geprüfte Zuordnung';
+            if($rawKey!==null&&array_key_exists($rawKey,$source)){
+                $value=$source[$rawKey];$origin='JTL-Spiegel: '.$rawKey;
+            }
             if(self::filled($value)){
                 $state='value';$display=(string)$value;
             }elseif($id!==null&&isset($source[$id])&&is_numeric($source[$id])&&(int)$source[$id]>0){
-                $state='reference';$display='ID '.(int)$source[$id].' – Klartext nicht belegt';
+                $ref=(int)$source[$id];
+                $label=self::observedReference($field,$ref);
+                if($label!==null){
+                    $state='observed_reference';$display=$label.' (ID '.$ref.')';
+                    $origin='JTL-Auslesung 23.11.2026 · noch nicht laufend synchronisiert';
+                }else{
+                    $state='reference';$display='ID '.$ref.' – Klartext nicht belegt';
+                    $origin='JTL-Spiegel: '.$id;
+                }
             }elseif($key!==null&&array_key_exists($key,$a)){
                 // A null optional mirror mapping does not prove that JTL itself is empty.
                 $state='empty_snapshot';$display='';
             }else{
                 $state='unmapped';$display='';
             }
-            $fields[$field]=['state'=>$state,'value'=>$display,'source'=>$key!==null?'JTL-Spiegel: '.$key:'Keine geprüfte Zuordnung'];
+            $fields[$field]=['state'=>$state,'value'=>$display,'source'=>$origin];
         }
         return ['ok'=>true,'snapshot_at'=>ScanEntryPresentation::germanDate($raw['snapshot_at']??null),
-            'fields'=>$fields,'filled'=>count(array_filter($fields,fn($v)=>$v['state']==='value')),
+            'fields'=>$fields,'filled'=>count(array_filter($fields,fn($v)=>in_array($v['state'],['value','observed_reference'],true))),
             'total'=>count($fields),'name'=>(string)($a['artikelname']??'')];
     }
 }
