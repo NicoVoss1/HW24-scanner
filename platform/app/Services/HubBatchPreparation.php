@@ -5,6 +5,26 @@ namespace App\Services;
 /** Build a proposal from a verified archived item; no provider calls and no existing value replacement. */
 final class HubBatchPreparation
 {
+    /** One bounded read-only batch; reuse existing archive, never query Amazon here. */
+    public function prepare(array $rows,array $jobs): array
+    {
+        $db=HubPeerMirror::connect();
+        $q=$db->prepare('SELECT * FROM hw24_hub_catalog_reuse WHERE snapshot_id=? LIMIT 2');
+        $out=[];
+        foreach($rows as $row){
+            $ean=(string)$row['ean'];$job=$jobs[$ean]??[];
+            if(($row['resolution']??null)!=='new_candidate'||in_array($row['review']??null,['removed','ready'],true))continue;
+            $archive=[];
+            if(($job['status']??null)==='completed'&&(int)($job['evidence']['catalog_snapshot_id']??0)>0){
+                $q->execute([(int)$job['evidence']['catalog_snapshot_id']]);
+                $found=$q->fetchAll(\PDO::FETCH_ASSOC);
+                if(count($found)===1)$archive=$found[0];
+            }
+            $out[$ean]=self::proposal($row,$job,$archive)+['revision'=>$row['revision'],'item_id'=>$row['id']];
+        }
+        return $out;
+    }
+
     public static function proposal(array $row,array $job,array $archive): array
     {
         $ean=(string)($row['ean']??'');$e=$job['evidence']??[];
