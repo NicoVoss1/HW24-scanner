@@ -6,6 +6,8 @@ namespace App\Filament\Pages;
 use App\Services\LegacyReadBridge;
 use App\Services\ScanResearchPresentation;
 use App\Services\HubPeerMirror;
+use App\Services\HubArticleMirror;
+use App\Services\HubSeoDefaults;
 use App\Services\HubCategoryPolicy;
 use App\Services\ResearchQueueRuntime;
 use App\Services\ResearchQueue;
@@ -24,6 +26,7 @@ final class ArticleLookup extends Page
 
     public string $identifier = '';
     #[Locked] public array $fieldReview = [];
+    #[Locked] public array $seoSuggestions = [];
     #[Locked] public array $peerReview = [];
     #[Locked] public array $queueReview = [];
     #[Locked] public array $categoryProposal = [];
@@ -55,9 +58,9 @@ final class ArticleLookup extends Page
 
     public string $sourceQuery = '';
 
-    public function findArticle(LegacyReadBridge $bridge): void
+    public function findArticle(LegacyReadBridge $bridge,HubArticleMirror $mirror): void
     {
-        $this->reset(['lookup', 'amazon', 'ai', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery', 'existingEvidence', 'articleRelated','fieldReview','peerReview','queueReview','categoryProposal','pflegeMessage']);
+        $this->reset(['lookup', 'amazon', 'ai', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery', 'existingEvidence', 'articleRelated','fieldReview','seoSuggestions','peerReview','queueReview','categoryProposal','pflegeMessage']);
         $id = trim($this->identifier);
         if (! preg_match('/^[\pL\pN][\pL\pN._\/-]{1,63}$/uD', $id)) {
             $this->addError('identifier', 'Bitte EAN, HAN oder JTL-Artikelnummer eingeben.');
@@ -65,7 +68,7 @@ final class ArticleLookup extends Page
         }
         $this->resetErrorBag('identifier');
 
-        $result = $bridge->fetch('jtl.article', ['q' => $id]);
+        $result = $mirror->enrich($bridge->fetch('jtl.article', ['q' => $id]));
         $raw = is_array($result['data'] ?? null) ? $result['data'] : [];
         $matches = [];
         foreach (array_slice(is_array($raw['matches'] ?? null) ? $raw['matches'] : [], 0, 15) as $row) {
@@ -92,6 +95,9 @@ final class ArticleLookup extends Page
             $ean=(string)$matches[0]['ean'];
             $this->readExistingEvidence($bridge,$ean);
             $this->fieldReview=ScanResearchPresentation::jtlFields($ean,$result,config('hw24_jtl_reference_observations',[]));
+            $this->seoSuggestions=HubSeoDefaults::propose(['Artikelname'=>$raw['matches'][0]['artikelname']??'',
+                'Titel-Tag (SEO)'=>$raw['matches'][0]['seo_titel']??'',
+                'Meta-Description (SEO)'=>$raw['matches'][0]['seo_beschreibung']??'']);
             $this->categoryProposal=HubCategoryPolicy::suggest((string)($raw['matches'][0]['artikelname']??''),(string)($raw['matches'][0]['warengruppe_name']??''))??[];
             if(config('hw24_research_queue.enabled')===true){
                 try{$this->queueReview=ResearchQueueRuntime::queue()->statuses([$ean])[$ean]??[];}catch(\Throwable){}
