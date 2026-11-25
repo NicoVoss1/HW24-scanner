@@ -8,6 +8,7 @@ use App\Services\ScanResearchPresentation;
 use App\Services\HubPeerMirror;
 use App\Services\HubArticleMirror;
 use App\Services\HubResearchEvidence;
+use App\Services\HubAiEvidence;
 use App\Services\HubSeoDefaults;
 use App\Services\HubCategoryPolicy;
 use App\Services\ResearchQueueRuntime;
@@ -119,6 +120,8 @@ final class ArticleLookup extends Page
             if($catalog===null){$this->sharedResearchReview=['state'=>'unavailable'];return;}
             $this->sharedResearchReview=HubResearchEvidence::existingComparison($this->fieldReview,$catalog);
             if($this->sharedResearchReview['state']==='review'){
+                try{$this->sharedResearchReview['ai']=app(HubAiEvidence::class)->read($ean,$catalog);}
+                catch(\Throwable){$this->sharedResearchReview['ai']=['state'=>'unavailable'];}
                 $price=HubResearchEvidence::marketPrice($this->queueReview,$catalog['item']['asin']);
                 if($price!==null)$this->sharedResearchReview['market_price']=$price;
             }
