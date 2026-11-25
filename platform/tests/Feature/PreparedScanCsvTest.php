@@ -51,4 +51,30 @@ final class PreparedScanCsvTest extends TestCase
         Http::assertSent(fn($r)=>$r->method()==='POST'&&($r->data()['op']??null)==='import_rows'
             &&($r->data()['rows'][0]['ean']??null)==='036000291452');
     }
+    public function test_csv_picker_has_german_empty_state_and_can_clear_file(): void
+    {
+        config()->set('hw24_legacy.base_url','https://artikelmanager.hairworld24.de');
+        config()->set('hw24_legacy.user','test-only');
+        config()->set('hw24_legacy.password','fake-test-password');
+        Http::fake(function($r){
+            if(str_contains($r->url(),'op=batches'))return Http::response(['ok'=>true,'batches'=>[['id'=>7,'label'=>'TEST Neuware']]]);
+            if(str_contains($r->url(),'op=items'))return Http::response(['ok'=>true,'items'=>[
+                ['id'=>1,'ean'=>'036000291452','artikelname'=>'Testartikel','scan_count'=>1,'resolution'=>'existing','review_state'=>'scan_only'],
+            ]]);
+            return Http::response(['ok'=>false],404);
+        });
+        Http::preventStrayRequests();
+        Livewire::test(ScanWorkbench::class)->call('loadBatches')->call('loadBatch',7)
+            ->assertSee('CSV-Datei auswählen')->assertSee('Noch keine Datei gewählt')
+            ->assertSee('Testartikel')->assertSee('Erfassung, Quellen und Archivdetails')
+            ->call('previewCsv')->assertHasErrors(['csvFile'=>'required'])
+            ->assertSee('Bitte zuerst eine CSV-Datei auswählen.')
+            ->set('csvFile',UploadedFile::fake()->createWithContent('probe.csv',"EAN;Information\n036000291452;Test\n"))
+            ->assertHasNoErrors(['csvFile'])->assertSee('probe.csv')
+            ->call('previewCsv')->assertSet('csvState.ok',true)
+            ->call('clearCsvFile')->assertSet('csvFile',null)->assertSet('csvRows',[])
+            ->assertSee('Noch keine Datei gewählt');
+        Http::assertSentCount(2);
+    }
+
 }
