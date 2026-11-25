@@ -7,6 +7,7 @@ use App\Services\LegacyReadBridge;
 use App\Services\ScanResearchPresentation;
 use App\Services\HubPeerMirror;
 use App\Services\HubArticleMirror;
+use App\Services\HubResearchEvidence;
 use App\Services\HubSeoDefaults;
 use App\Services\HubCategoryPolicy;
 use App\Services\ResearchQueueRuntime;
@@ -29,6 +30,7 @@ final class ArticleLookup extends Page
     #[Locked] public array $seoSuggestions = [];
     #[Locked] public array $peerReview = [];
     #[Locked] public array $queueReview = [];
+    #[Locked] public array $sharedResearchReview = [];
     #[Locked] public array $categoryProposal = [];
     #[Locked] public string $pflegeMessage = '';
 
@@ -60,7 +62,7 @@ final class ArticleLookup extends Page
 
     public function findArticle(LegacyReadBridge $bridge,HubArticleMirror $mirror): void
     {
-        $this->reset(['lookup', 'amazon', 'ai', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery', 'existingEvidence', 'articleRelated','fieldReview','seoSuggestions','peerReview','queueReview','categoryProposal','pflegeMessage']);
+        $this->reset(['lookup', 'amazon', 'ai', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery', 'existingEvidence', 'articleRelated','fieldReview','seoSuggestions','peerReview','queueReview','sharedResearchReview','categoryProposal','pflegeMessage']);
         $id = trim($this->identifier);
         if (! preg_match('/^[\pL\pN][\pL\pN._\/-]{1,63}$/uD', $id)) {
             $this->addError('identifier', 'Bitte EAN, HAN oder JTL-Artikelnummer eingeben.');
@@ -100,9 +102,27 @@ final class ArticleLookup extends Page
                 'Meta-Description (SEO)'=>$raw['matches'][0]['seo_beschreibung']??'']);
             $this->categoryProposal=HubCategoryPolicy::suggest((string)($raw['matches'][0]['artikelname']??''),(string)($raw['matches'][0]['warengruppe_name']??''))??[];
             if(config('hw24_research_queue.enabled')===true){
-                try{$this->queueReview=ResearchQueueRuntime::queue()->statuses([$ean])[$ean]??[];}catch(\Throwable){}
+                try{$this->queueReview=ResearchQueueRuntime::queue()->statuses([$ean])[$ean]??[];
+                    $this->readSharedResearch($ean);
+                }catch(\Throwable){}
             }
         }
+    }
+
+    private function readSharedResearch(string $ean): void
+    {
+        $this->sharedResearchReview=[];
+        if(($this->queueReview['status']??null)!=='completed')return;
+        try{
+            $archive=HubResearchEvidence::archivedCatalog(HubPeerMirror::connect(),$this->queueReview);
+            $catalog=HubResearchEvidence::catalogItem($ean,$this->queueReview,$archive);
+            if($catalog===null){$this->sharedResearchReview=['state'=>'unavailable'];return;}
+            $this->sharedResearchReview=HubResearchEvidence::existingComparison($this->fieldReview,$catalog);
+            if($this->sharedResearchReview['state']==='review'){
+                $price=HubResearchEvidence::marketPrice($this->queueReview,$catalog['item']['asin']);
+                if($price!==null)$this->sharedResearchReview['market_price']=$price;
+            }
+        }catch(\Throwable){$this->sharedResearchReview=['state'=>'unavailable'];}
     }
 
     public function compareExistingArticle(HubPeerMirror $reader): void
@@ -122,6 +142,7 @@ final class ArticleLookup extends Page
             $q=ResearchQueueRuntime::queue();
             $r=$q->enqueue($ean,'filament:'.auth()->id());
             $this->queueReview=$q->statuses([$ean])[$ean]??[];
+            $this->readSharedResearch($ean);
             $this->pflegeMessage=$r['created']?'Artikel zur Recherche angemeldet.':'Vorhandener Auftrag wiederverwendet. Kein neuer Provider-Aufruf.';
         }catch(\Throwable){$this->pflegeMessage='Rechercheanmeldung nicht bestätigt.';}
     }
