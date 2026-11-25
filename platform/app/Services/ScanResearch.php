@@ -51,12 +51,17 @@ final class ScanResearch
     public static function research(string $ean,LegacyReadBridge $bridge): array
     {
         $j=$bridge->fetch('jtl.article',['q'=>$ean]);
+        $a=$bridge->fetch('amazon.catalog',['ean'=>$ean]);
+        return self::fromResponses($ean,$j,$a);
+    }
+
+    /** Reuse existing identity/pack evidence without a second provider call. */
+    public static function fromResponses(string $ean,array $j,array $a): array
+    {
         $jraw=is_array($j['data']??null)?$j['data']:[];
         $matches=is_array($jraw['matches']??null)?$jraw['matches']:[];
         $status=($j['ok']??false)&&($jraw['jtl_status']??null)==='current_snapshot'
             ?match(count($matches)){0=>'new_candidate',1=>'existing',default=>'multiple'}:'unverified';
-        // Reuse catalog endpoint; it already handles archive/cache and SP-API.
-        $a=$bridge->fetch('amazon.catalog',['ean'=>$ean]);
         $raw=is_array($a['data']??null)?$a['data']:[];
         $items=[];
         if(($a['ok']??false)===true){
