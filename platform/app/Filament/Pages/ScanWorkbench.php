@@ -12,6 +12,7 @@ use Livewire\WithFileUploads;
 use App\Services\PreparedScanCsv;
 use App\Services\ScanEntryPresentation;
 use App\Services\ScanResearch;
+use App\Services\ScanResearchPresentation;
 use App\Services\ScanQueueIntake;
 
 /**
@@ -149,6 +150,7 @@ final class ScanWorkbench extends Page
     #[Locked] public string $researchMessage = '';
     #[Locked] public ?string $workingEan = null;
     #[Locked] public array $workingPrice = [];
+    #[Locked] public array $jtlFieldReview = [];
     #[Locked] public array $workingAi = [];
     public bool $confirmSingleAi = false;
     public function loadWorkingAi(LegacyReadBridge $bridge): void
@@ -332,7 +334,7 @@ final class ScanWorkbench extends Page
     {
         $row=$this->rowFor($ean);
         if($row===null)return;
-        $this->reset(['draftFields','confirmDraft','draftMessage','workingPrice','workingAi','confirmSingleAi']);
+        $this->reset(['draftFields','confirmDraft','draftMessage','workingPrice','jtlFieldReview','workingAi','confirmSingleAi']);
         $this->workingEan=$ean;
         foreach(ScanResearch::FIELDS as $field){
             $v=$row['draft'][$field]??'';
@@ -340,6 +342,15 @@ final class ScanWorkbench extends Page
         }
         $this->draftFields['GTIN']=$ean;
         if($this->draftFields['Artikelname']==='')$this->draftFields['Artikelname']=$row['name'];
+    }
+
+    /** Explicit, read-only field assessment, never a marketplace/AI request. */
+    public function loadJtlFieldReview(LegacyReadBridge $bridge): void
+    {
+        $this->jtlFieldReview=[];
+        $ean=$this->workingEan;
+        if($ean===null||$this->rowFor($ean)===null)return;
+        $this->jtlFieldReview=ScanResearchPresentation::jtlFields($ean,$bridge->fetch('jtl.article',['q'=>$ean]));
     }
 
     public function researchOne(string $ean,LegacyReadBridge $bridge): void
@@ -425,7 +436,7 @@ final class ScanWorkbench extends Page
 
     public function loadBatches(LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'batches', 'selectedBatchId', 'diagnostic', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','workingAi','confirmSingleAi','draftFields','confirmDraft','draftMessage']);
+        $this->reset(['items', 'batches', 'selectedBatchId', 'diagnostic', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','workingAi','confirmSingleAi','draftFields','confirmDraft','draftMessage']);
 
         $result = $bridge->fetch('scan.batches', ['op' => 'batches']);
         $raw = is_array($result['data'] ?? null) ? $result['data'] : [];
@@ -466,7 +477,7 @@ final class ScanWorkbench extends Page
 
     public function loadBatch(int $batchId, LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'selectedBatchId', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','workingAi','confirmSingleAi','draftFields','confirmDraft','draftMessage']);
+        $this->reset(['items', 'selectedBatchId', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','workingAi','confirmSingleAi','draftFields','confirmDraft','draftMessage']);
         // Never let the browser request arbitrary batch IDs.
         $allowed = array_column($this->batches, 'id');
         if (!in_array($batchId, $allowed, true)) {
@@ -498,7 +509,7 @@ final class ScanWorkbench extends Page
                 'revision'=>(int)($item['revision']??0),
                 'draft'=>array_intersect_key(is_array($item['draft']??null)?$item['draft']:[],array_flip(ScanResearch::FIELDS)),
                 'ean' => mb_substr((string) ($item['ean'] ?? ''), 0, 14),
-                'name' => mb_substr((string) ($item['artikelname'] ?? ''), 0, 180),
+                'name' => (string) ($item['artikelname'] ?? ''),
                 'article_number' => mb_substr((string) ($item['artikelnummer'] ?? ''), 0, 100),
                 'scans' => max(0, (int) ($item['scan_count'] ?? 0)),
                 'resolution' => mb_substr((string) ($item['resolution'] ?? 'unverified'), 0, 40),
