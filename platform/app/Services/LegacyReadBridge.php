@@ -57,6 +57,7 @@ final class LegacyReadBridge
             if (!is_string($key) || !preg_match('/^[a-z_]{1,35}$/D',$key) || !is_scalar($value))
                 throw new RuntimeException('Invalid HW24 read parameter');
         }
+        $send=static function() use($user,$password,$base,$path,$parameters,$service): array {
         try {
             $response = Http::withBasicAuth($user, $password)->acceptJson()
                 ->timeout(12)->withoutRedirecting()->get($base.'/'.$path,$parameters);
@@ -69,18 +70,20 @@ final class LegacyReadBridge
             } elseif(is_string($retryAfter)&&($stamp=strtotime($retryAfter))!==false) {
                 $retrySeconds=min(86400,max(0,$stamp-time()));
             }
-            return $finish([
+            return [
                 'ok'=>$response->successful() && is_array($json) && (($json['ok']??false)===true),
                 'service'=>$service,
                 'state'=>$response->successful()?'responded':'upstream_error',
                 'http_status'=>$status,
                 'retry_after_seconds'=>$retrySeconds,
                 'data'=>is_array($json)?$json:null,
-            ]);
+            ];
         } catch (\Throwable $e) {
             // No secrets, URL query params or raw upstream payloads in logs.
-            return $finish(['ok'=>false,'service'=>$service,'state'=>'upstream_unreachable',
-                'http_status'=>null,'data'=>null]);
+            return ['ok'=>false,'service'=>$service,'state'=>'upstream_unreachable',
+                'http_status'=>null,'data'=>null];
         }
+        };
+        return $finish(NativeAmazonGate::run($service,$send));
     }
 }
