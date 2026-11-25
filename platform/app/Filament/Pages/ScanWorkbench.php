@@ -383,10 +383,11 @@ final class ScanWorkbench extends Page
         $this->templateCandidates=$mirror->templates($this->draftFields,config('hw24_jtl_reference_observations',[]));
     }
 
-    public function chooseMatchingTemplate(string $number,LegacyReadBridge $bridge): void
+    public function chooseMatchingTemplate(int $index,LegacyReadBridge $bridge): void
     {
-        if(($this->templateCandidates['ok']??false)!==true||
-            !in_array($number,array_column($this->templateCandidates['items']??[],'number'),true))return;
+        if(($this->templateCandidates['ok']??false)!==true)return;
+        $number=$this->templateCandidates['items'][$index]['number']??null;
+        if(!is_string($number))return;
         $this->templateNumber=$number;
         $this->loadTemplate($bridge);
     }
