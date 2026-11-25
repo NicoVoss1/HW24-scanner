@@ -7,6 +7,7 @@ use App\Domain\Jtl\ArticleCard;
 use App\Domain\Amazon\OfferEvidence;
 use App\Services\LegacyApprovedActionBridge;
 use App\Services\LegacyReadBridge;
+use App\Services\AmazonPriceArchiveRuntime;
 use Filament\Pages\Page;
 use Livewire\Attributes\Locked;
 
@@ -213,7 +214,8 @@ final class IntelligenceWorkbench extends Page
             $this->pricing=['ok'=>false,'message'=>'ASIN nicht in der zuvor geprüften Katalogauskunft enthalten.'];
             return;
         }
-        $r=$bridge->fetch('amazon.pricing',['asin'=>$asin]);
+        $capture=AmazonPriceArchiveRuntime::fetch($asin,$bridge);
+        $r=$capture['response'];
         $raw=is_array($r['data']??null)?$r['data']:[];
         $prices=[];
         foreach(['buybox_prices'=>'Buy Box','lowest_prices'=>'Niedrigster Angebotspreis'] as $key=>$label){
@@ -264,6 +266,7 @@ final class IntelligenceWorkbench extends Page
                 $offerBoard['offers'],static fn(array $offer): bool=>($offer['seller_name']??null)!==null
             )),
             'winner_count'=>$offerBoard['winners'],
+            'archive'=>$capture['archive'],
             'message'=>'Amazon-Angebotsdaten mit Buy Box, günstigstem sichtbarem Gesamtpreis und Seller-Feedback. Keine automatische Lieferanten- oder eigene Angebotsidentität.'];
     }
 
