@@ -33,6 +33,14 @@ final class HubArticleMirror
         return $response;
     }
 
+    /** Exact operator-specified label, case insensitive; no substring matches. */
+    public static function hasTemplateLabel(string $labels): bool
+    {
+        $parts=preg_split('/[;,|\r\n]+/u',$labels)?:[];
+        foreach($parts as $part)if(mb_strtolower(trim($part))==='vorlagen')return true;
+        return false;
+    }
+
     /** Explicit template label + exact manufacturer/group/quantity/unit; no guessed equivalences. */
     public function templates(array $draft,array $observations): array
     {
@@ -49,7 +57,7 @@ final class HubArticleMirror
             $db=HubPeerMirror::connect();$db->beginTransaction();$m=self::meta($db);
             $q=$db->prepare("SELECT artikelnummer,artikelname,hersteller,warengruppe,ean,menge,einheit_id,label_namen
                 FROM hw24_hub_article_details WHERE source_id=? AND label_namen LIKE ? AND hersteller=? AND warengruppe=? AND einheit_id=? ORDER BY jtl_article_id LIMIT 201");
-            $q->execute([$m['source_id'],'%Vorlage zur Anlage%',$brand,$group,(string)$ids[0]]);
+            $q->execute([$m['source_id'],'%Vorlagen%',$brand,$group,(string)$ids[0]]);
             $rows=$q->fetchAll(PDO::FETCH_ASSOC);$db->commit();
             if(count($rows)>200)throw new RuntimeException('Too many candidates');
             $out=[];
@@ -59,8 +67,7 @@ final class HubArticleMirror
                    !is_numeric($row['menge'])||(float)$row['menge']!==(float)$amount||
                    (string)$row['ean']===(string)($draft['GTIN']??''))continue;
                 // Exact label or delimited label, not a substring of a different label.
-                $labels=preg_split('/[;,|\r\n]+/u',(string)$row['label_namen']);
-                if(!in_array('Vorlage zur Anlage',array_map('trim',$labels?:[]),true))continue;
+                if(!self::hasTemplateLabel((string)$row['label_namen']))continue;
                 $out[]=['number'=>$row['artikelnummer'],'name'=>$row['artikelname'],'amount'=>$row['menge'],'unit'=>$unit];
             }
             return ['ok'=>true,'items'=>$out,'snapshot_at'=>ScanEntryPresentation::germanDate($m['last_completed_utc'])];
