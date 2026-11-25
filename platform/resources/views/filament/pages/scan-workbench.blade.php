@@ -454,8 +454,19 @@
                         <div class="hw24-action">
                             <label>Vorlagenartikelnummer <input type="text" class="hw24-btn" wire:model="templateNumber" placeholder="JTL-Artikelnummer"></label>
                             <button type="button" class="hw24-btn" wire:click="loadTemplate" wire:loading.attr="disabled">Vorlage prüfen</button>
+                            <button type="button" class="hw24-btn" wire:click="findMatchingTemplates" wire:loading.attr="disabled">Passende gekennzeichnete Vorlagen suchen</button>
+                            <button type="button" class="hw24-btn" wire:click="fillSeoDefaults">Leere SEO-Felder vorschlagen</button>
                             <button type="button" class="hw24-btn" wire:click="fillEmptyTexts">Leere Beschreibungen aus Artikelnamen füllen</button>
                         </div>
+                        @if($templateCandidates!==[])
+                            @if($templateCandidates['ok']??false)
+                                <p>{{ count($templateCandidates['items']) }} passende Vorlagen · {{ $templateCandidates['snapshot_at']??'Zeitpunkt offen' }}</p>
+                                @foreach($templateCandidates['items'] as $candidate)
+                                    <p>{{ $candidate['name'] }} · {{ $candidate['number'] }} · {{ $candidate['amount'] }} {{ $candidate['unit'] }}
+                                    <button type="button" class="hw24-btn" wire:click='chooseMatchingTemplate(@js($candidate["number"]))'>Als Vorlage prüfen</button></p>
+                                @endforeach
+                            @else<p>{{ $templateCandidates['message'] }}</p>@endif
+                        @endif
                         @if($templateReview!==[])
                             @if($templateReview['ok']??false)
                                 <p><strong>{{ $templateReview['name'] }}</strong> · {{ $templateReview['manufacturer'] }} / {{ $templateReview['group'] }} · {{ $templateReview['snapshot_at']??'Zeitpunkt nicht belegt' }}</p>
