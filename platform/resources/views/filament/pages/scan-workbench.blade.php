@@ -241,6 +241,11 @@
                                         <details style="padding:8px;border-bottom:1px solid #dbe5ef">
                                             <summary>{{ $ean }} · {{ $proposal['draft']['Artikelname']??'' }} · {{ count($proposal['fields']) }} Vorschläge · {{ $proposal['reason'] }}</summary>
                                             @if($proposal['missing']!==[])<p>Basisfelder offen: {{ implode(', ',$proposal['missing']) }}</p>@endif
+                                            @if(isset($proposal['ai']))
+                                                <p>KI-Archiv: {{ match($proposal['ai']['state']){'verified_review'=>'Geprüfter Bericht','missing'=>'Noch kein gemeinsamer Bericht','stale'=>'Abweichende Recherchegrundlage','identity_conflict'=>'Identitätskonflikt','review'=>'Manuelle Prüfung','not_checked'=>'In diesem Durchgang nicht geprüft',default=>'Nicht bestätigt'} }} @if(isset($proposal['ai']['id'])) · #{{ $proposal['ai']['id'] }} @endif</p>
+                                                @if(!empty($proposal['ai']['group_hint']))<p>KI-Warengruppenvorschlag: {{ $proposal['ai']['group_hint'] }} (Übernahme nur aus passender JTL-Vorlage)</p>@endif
+                                                @if(!empty($proposal['ai']['title_hint']))<p>KI-Titelvorschlag: {{ $proposal['ai']['title_hint'] }} (Prüfvorschlag)</p>@endif
+                                            @endif
                                             @if(isset($proposal['template_reason']))<p>JTL-Vorlagen: {{ $proposal['template_count']??0 }} · {{ $proposal['template_reason'] }}</p>@endif
                                             @if(isset($proposal['market_price']))
                                                 <p>Amazon-Marktpreisarchiv #{{ $proposal['market_price']['id'] }} · {{ $proposal['market_price']['at'] }} UTC · nicht eigener VK</p>
