@@ -43,7 +43,10 @@ final class AmazonPriceArchiveRuntime
         $key=file_get_contents($keyFile);
         if(!is_string($key)||!preg_match('/^[a-f0-9]{64}$/D',trim($key)))
             throw new RuntimeException('Invalid archive encryption key');
-        return new EncryptedAmazonPriceArchive($pdo,hex2bin(trim($key)),$cfg['retention_days']);
+        $master=hex2bin(trim($key));
+        if(!is_string($cfg['key_fingerprint']??null)||!hash_equals($cfg['key_fingerprint'],hash('sha256',$master)))
+            throw new RuntimeException('Archive encryption key fingerprint mismatch');
+        return new EncryptedAmazonPriceArchive($pdo,$master,$cfg['retention_days']);
     }
 
     private static function heartbeat(): string
