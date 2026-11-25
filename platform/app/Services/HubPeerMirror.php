@@ -8,7 +8,7 @@ use RuntimeException;
 /** Read only the fixed projections exposed by the private mirror views. */
 final class HubPeerMirror
 {
-    private static function connect(): PDO
+    public static function connect(): PDO
     {
         $p=dirname(base_path(),2).'/hw24-hub-reader.json';
         if(!is_file($p)||is_link($p)||!is_readable($p)||(fileperms($p)&0077)!==0)
