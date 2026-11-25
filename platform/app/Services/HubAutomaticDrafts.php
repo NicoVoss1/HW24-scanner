@@ -32,7 +32,15 @@ final class HubAutomaticDrafts
         return true;
     }
 
-    public function run(int $batchId,bool $confirmed,bool $allowOnePaidReview=false): array
+    /** A durable cursor prevents problematic rows from blocking subsequent candidates. */
+    public static function rotate(array $rows,int $cursor): array
+    {
+        usort($rows,fn($a,$b)=>(int)$a['id']<=>(int)$b['id']);
+        return array_merge(array_values(array_filter($rows,fn($r)=>(int)$r['id']>$cursor)),
+            array_values(array_filter($rows,fn($r)=>(int)$r['id']<=$cursor)));
+    }
+
+    public function run(int $batchId,bool $confirmed,bool $allowOnePaidReview=false,int $cursor=0): array
     {
         if(!$confirmed||!app()->runningInConsole()||config('hw24_research_queue.enabled')!==true||
             config('hw24_research_queue.scan_intake_enabled')!==true||
@@ -50,7 +58,7 @@ final class HubAutomaticDrafts
             $rows[]=['id'=>(int)$row['id'],'revision'=>0,'ean'=>(string)$row['ean'],
                 'resolution'=>'new_candidate','review'=>'scan_only','draft'=>[]];
         }
-        $summary=['batch'=>$batchId,'eligible'=>count($rows),'saved'=>0,'waiting'=>0,'exceptions'=>0,'status'=>'ok'];
+        $summary=['batch'=>$batchId,'eligible'=>count($rows),'saved'=>0,'waiting'=>0,'exceptions'=>0,'cursor'=>$cursor,'status'=>'ok'];
         if(!$rows)return $summary;
         $jobs=ResearchQueueRuntime::queue()->statuses(array_column($rows,'ean'));
         $completed=[];
@@ -62,7 +70,7 @@ final class HubAutomaticDrafts
         }
         if(!$completed)return $summary;
         // At most 50 read-only evaluations and 3 draft writes per cycle.
-        $completed=array_slice($completed,0,50);
+        $completed=array_slice(self::rotate($completed,$cursor),0,50);
         $stock=$this->stock->read(array_column($completed,'ean'));
         if(($stock['ok']??false)!==true)throw new RuntimeException('Fresh mirror required');
         // Limit archive requests and provider time per CLI invocation.
@@ -71,7 +79,9 @@ final class HubAutomaticDrafts
             if(($stock['items'][$row['ean']]['state']??null)!=='absent'){$summary['exceptions']++;continue;}
             $confirmedRows[]=$row;
         }
+        $lastChecked=(int)end($completed)['id'];
         $completed=array_slice($confirmedRows,0,3);
+        $summary['cursor']=$completed?(int)end($completed)['id']:$lastChecked;
         if(!$completed)return $summary;
         $proposals=$this->prepare->prepare($completed,$jobs,$allowOnePaidReview);
         foreach($proposals as $p){
