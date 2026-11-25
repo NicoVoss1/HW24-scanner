@@ -70,18 +70,57 @@ final class ResearchQueue
     }
     public function enqueue(string $ean,string $actor): array
     {
-        self::actor($actor);$key=self::canonical($ean);
-        return $this->transaction(function($gate,$now)use($ean,$key,$actor){
-            $r=$this->q('SELECT id,status FROM hw24_research_jobs WHERE gtin_key=?',[$key])->fetch(PDO::FETCH_ASSOC);
-            if($r){
-                $this->event((int)$r['id'],$actor,'linked',null,$now);
-                return ['id'=>(int)$r['id'],'status'=>$r['status'],'created'=>false];
+        return $this->enqueueMany([$ean],$actor)[0];
+    }
+    /** All accepted identifiers in a chunk are linked atomically; no provider calls. */
+    public function enqueueMany(array $eans,string $actor): array
+    {
+        self::actor($actor);
+        if(count($eans)<1||count($eans)>1000)throw new InvalidArgumentException('Invalid enqueue batch size');
+        $keys=[];
+        foreach($eans as $ean){
+            if(!is_string($ean))throw new InvalidArgumentException('Invalid GTIN type');
+            $keys[$ean]=self::canonical($ean);
+        }
+        return $this->transaction(function($gate,$now)use($keys,$actor){
+            $out=[];
+            foreach($keys as $original=>$key){
+                $ean=(string)$original;
+                $r=$this->q('SELECT id,status FROM hw24_research_jobs WHERE gtin_key=?',[$key])->fetch(PDO::FETCH_ASSOC);
+                if($r){
+                    $this->event((int)$r['id'],$actor,'linked',null,$now);
+                    $out[]=['id'=>(int)$r['id'],'status'=>$r['status'],'created'=>false];
+                    continue;
+                }
+                $this->q("INSERT INTO hw24_research_jobs(gtin_key,ean,status,requested_at_utc) VALUES(?,?,'queued',?)",[$key,$ean,$now]);
+                $id=(int)$this->db->lastInsertId();
+                $this->event($id,$actor,'queued',null,$now);
+                $out[]=['id'=>$id,'status'=>'queued','created'=>true];
             }
-            $this->q("INSERT INTO hw24_research_jobs(gtin_key,ean,status,requested_at_utc) VALUES(?,?,'queued',?)",[$key,$ean,$now]);
-            $id=(int)$this->db->lastInsertId();
-            $this->event($id,$actor,'queued',null,$now);
-            return ['id'=>$id,'status'=>'queued','created'=>true];
+            return $out;
         });
+    }
+    /** Read status for a bounded authorized scan selection, without provider calls. */
+    public function statuses(array $eans): array
+    {
+        if(count($eans)>3000)throw new InvalidArgumentException('Too many identifiers');
+        $keys=[];
+        foreach($eans as $ean){
+            if(!is_string($ean))throw new InvalidArgumentException('Invalid identifier');
+            $keys[$ean]=self::canonical($ean);
+        }
+        $byKey=[];
+        foreach(array_chunk(array_values(array_unique($keys)),500) as $chunk){
+            $sql='SELECT id,gtin_key,status,attempt_count,completed_at_utc,last_error_code,evidence_json FROM hw24_research_jobs WHERE gtin_key IN ('.implode(',',array_fill(0,count($chunk),'?')).')';
+            foreach($this->q($sql,$chunk)->fetchAll(PDO::FETCH_ASSOC) as $row){
+                $key=$row['gtin_key'];unset($row['gtin_key']);
+                $row['evidence']=json_decode($row['evidence_json']??'{}',true,16,JSON_THROW_ON_ERROR);
+                unset($row['evidence_json']);$byKey[$key]=$row;
+            }
+        }
+        $out=[];
+        foreach($keys as $ean=>$key)if(isset($byKey[$key]))$out[$ean]=$byKey[$key];
+        return $out;
     }
     /** One active lease across ALL trusted queue workers. */
     public function claim(string $actor): ?array
