@@ -4,6 +4,11 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Services\LegacyReadBridge;
+use App\Services\ScanResearchPresentation;
+use App\Services\HubPeerMirror;
+use App\Services\HubCategoryPolicy;
+use App\Services\ResearchQueueRuntime;
+use App\Services\ResearchQueue;
 use App\Domain\Jtl\SourceSnapshot;
 use App\Domain\Jtl\ArticleCard;
 use App\Domain\Jtl\RelatedSourceEvidence;
@@ -13,11 +18,16 @@ use Livewire\Attributes\Locked;
 final class ArticleLookup extends Page
 {
     protected static ?string $title = 'Artikel & Schnittstellen';
-    protected static ?string $navigationLabel = 'Artikel & APIs';
+    protected static ?string $navigationLabel = 'Artikelpflege (Bestand)';
     protected static ?string $slug = 'artikel';
     protected string $view = 'filament.pages.article-lookup';
 
     public string $identifier = '';
+    #[Locked] public array $fieldReview = [];
+    #[Locked] public array $peerReview = [];
+    #[Locked] public array $queueReview = [];
+    #[Locked] public array $categoryProposal = [];
+    #[Locked] public string $pflegeMessage = '';
 
     #[Locked]
     public array $lookup = [];
@@ -47,7 +57,7 @@ final class ArticleLookup extends Page
 
     public function findArticle(LegacyReadBridge $bridge): void
     {
-        $this->reset(['lookup', 'amazon', 'ai', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery', 'existingEvidence', 'articleRelated']);
+        $this->reset(['lookup', 'amazon', 'ai', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery', 'existingEvidence', 'articleRelated','fieldReview','peerReview','queueReview','categoryProposal','pflegeMessage']);
         $id = trim($this->identifier);
         if (! preg_match('/^[\pL\pN][\pL\pN._\/-]{1,63}$/uD', $id)) {
             $this->addError('identifier', 'Bitte EAN, HAN oder JTL-Artikelnummer eingeben.');
@@ -79,8 +89,35 @@ final class ArticleLookup extends Page
                 (string)($matches[0]['ean']??''))) {
             // Only cheap, read-only archival metadata after an explicit user search.
             // No amazon.catalog / amazon.pricing / OpenAI POST is called here.
-            $this->readExistingEvidence($bridge,(string)$matches[0]['ean']);
+            $ean=(string)$matches[0]['ean'];
+            $this->readExistingEvidence($bridge,$ean);
+            $this->fieldReview=ScanResearchPresentation::jtlFields($ean,$result,config('hw24_jtl_reference_observations',[]));
+            $this->categoryProposal=HubCategoryPolicy::suggest((string)($raw['matches'][0]['artikelname']??''),(string)($raw['matches'][0]['warengruppe_name']??''))??[];
+            if(config('hw24_research_queue.enabled')===true){
+                try{$this->queueReview=ResearchQueueRuntime::queue()->statuses([$ean])[$ean]??[];}catch(\Throwable){}
+            }
         }
+    }
+
+    public function compareExistingArticle(HubPeerMirror $reader): void
+    {
+        $ean=$this->verifiedEan();
+        if($ean===null||($this->fieldReview['ok']??false)!==true)return;
+        try{$this->peerReview=$reader->read($ean);}
+        catch(\Throwable){$this->peerReview=['ok'=>false,'message'=>'Kein bestätigter Vergleich möglich.'];}
+    }
+
+    public function queueExistingArticle(): void
+    {
+        $ean=$this->verifiedEan();
+        if($ean===null||($this->fieldReview['ok']??false)!==true||auth()->id()===null||config('hw24_research_queue.enabled')!==true)return;
+        try{
+            ResearchQueue::canonical($ean);
+            $q=ResearchQueueRuntime::queue();
+            $r=$q->enqueue($ean,'filament:'.auth()->id());
+            $this->queueReview=$q->statuses([$ean])[$ean]??[];
+            $this->pflegeMessage=$r['created']?'Artikel zur Recherche angemeldet.':'Vorhandener Auftrag wiederverwendet. Kein neuer Provider-Aufruf.';
+        }catch(\Throwable){$this->pflegeMessage='Rechercheanmeldung nicht bestätigt.';}
     }
 
     private function readExistingEvidence(LegacyReadBridge $bridge,string $ean): void
