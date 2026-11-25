@@ -8,9 +8,9 @@ use Throwable;
 final class ResearchQueueWorker
 {
     public function __construct(private ResearchQueue $queue,private ResearchJobProcessor $processor){}
-    public function runOne(string $actor): ?array
+    public function runOne(string $actor,?array $allowedIds=null): ?array
     {
-        $lease=$this->queue->claim($actor);
+        $lease=$this->queue->claim($actor,$allowedIds);
         if($lease===null)return null;
         try{$result=$this->processor->process($lease['ean']);}
         catch(Throwable){$result=['outcome'=>'archive_unavailable','retry_after'=>0,'evidence'=>[]];}
