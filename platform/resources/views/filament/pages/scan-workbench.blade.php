@@ -260,7 +260,7 @@
                                     <div class="hw24-position-main">
                                         <div><input type="checkbox" wire:model.live="selectedEans" value="{{ $item['ean'] }}" aria-label="EAN {{ $item['ean'] }} markieren" @disabled($item['review']==='removed')></div>
                                         <div>
-                                            <div class="hw24-position-title">{{ $item['name'] ?: ($item['draft']['Artikelname']??'Noch nicht identifiziert') }}</div>
+                                            <div class="hw24-position-title">{{ $item['name'] ?: (($item['draft']['Artikelname']??'') ?: 'Noch nicht identifiziert') }}</div>
                                             <div class="hw24-sub">{{ $item['name']?'Artikelname aus gespeichertem Scan-/JTL-Stand':'Artikelname aus Entwurf, sofern vorhanden' }}</div>
                                             @if(!empty($item['draft']['Artikelname']) && $item['name'] && $item['draft']['Artikelname']!==$item['name'])<div class="hw24-sub">Entwurfsname: {{ $item['draft']['Artikelname'] }}</div>@endif
                                             <div class="hw24-sub">EAN {{ $item['ean'] }} · {{ $item['article_number'] ?: 'Artikelnummer offen' }}</div>
@@ -281,7 +281,7 @@
                                             @if(($ai['found']??false)===true)
                                                 <div class="hw24-sub">KI-Archiv: {{ $ai['count'] }} Bericht(e)</div>
                                             @elseif($ai!==null)
-                                                <div class="hw24-sub">Kein bestätigter KI-Archivtreffer</div>
+                                                <div class="hw24-sub">Kein bestätigter Archivtreffer im KI-Archiv</div>
                                             @else
                                                 @if(($job['evidence']['ai_state']??null)==='read')
                                                     <div class="hw24-sub">KI-Archiv: {{ $job['evidence']['ai_count']??'?' }} Bericht(e) · {{ ($job['evidence']['ai_scope']??null)==='shared_workspace'?'Gemeinsames Archiv':'Bisheriges Konto' }}</div>
@@ -290,7 +290,7 @@
                                                 @endif
                                             @endif
                                             @if($item['resolution']==='existing')
-                                                <div class="hw24-sub"><strong>Stammdatenprüfung separat erforderlich</strong> · aktueller JTL-Feldstand noch nicht bewertet</div>
+                                                <div class="hw24-sub"><strong>Stammdaten separat prüfen</strong> · Recherche ist keine Pflegefreigabe</div>
                                             @elseif($item['resolution']==='new_candidate')
                                                 <div class="hw24-sub">Entwurf: {{ $coverage['filled'] }}/{{ $coverage['total'] }} Felder belegt · {{ count($coverage['missing_required']) }} Basis-Pflichtfelder offen</div>
                                                 <div class="hw24-sub">Nächster Schritt: Entwurf prüfen und ergänzen.</div>
