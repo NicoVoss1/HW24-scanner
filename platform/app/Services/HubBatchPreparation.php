@@ -6,10 +6,10 @@ namespace App\Services;
 final class HubBatchPreparation
 {
     /** One bounded read-only batch; reuse existing archive, never query Amazon here. */
-    public function prepare(array $rows,array $jobs): array
+    public function prepare(array $rows,array $jobs,bool $allowOnePaidReview=false): array
     {
         $db=HubPeerMirror::connect();
-        $out=[];$aiReads=0;
+        $out=[];$aiReads=0;$paidAttempted=false;
         foreach($rows as $row){
             $ean=(string)$row['ean'];$job=$jobs[$ean]??[];
             if(($row['resolution']??null)!=='new_candidate'||in_array($row['review']??null,['removed','ready'],true))continue;
@@ -23,8 +23,13 @@ final class HubBatchPreparation
                     try{$ai=app(HubAiEvidence::class)->read($ean,$catalog);}
                     catch(\Throwable){$ai=['state'=>'unavailable'];}
                 }
+                if($catalog!==null&&$allowOnePaidReview&&!$paidAttempted&&$ai['state']==='missing'){
+                    $paidAttempted=true;
+                    try{$ai=app(HubAiEvidence::class)->analyze($ean,$catalog,$p['draft'],app(LegacyApprovedActionBridge::class));}
+                    catch(\Throwable){$ai=['state'=>'paid_not_confirmed'];}
+                }
                 $p['ai']=$ai;
-                if(in_array($ai['state'],['identity_conflict','review','stale'],true)){
+                if(in_array($ai['state'],['identity_conflict','review','stale','paid_not_confirmed'],true)){
                     $p['state']='waiting';$p['fields']=[];$p['sources']=[];
                     $p['reason']='KI-Archiv erfordert Prüfung; keine automatische Übernahme';
                 }
