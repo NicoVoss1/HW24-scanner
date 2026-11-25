@@ -306,6 +306,28 @@
                                 @foreach(\App\Services\ScanResearchPresentation::sources($queueReview) as $label=>$value)<p>{{ $label }}: {{ $value }}</p>@endforeach
                             </details>
                         @endif
+                        @if($sharedResearchReview!==[])
+                            <details open>
+                                <summary>Gemeinsame Artikelrecherche · JTL / Amazon</summary>
+                                @if(($sharedResearchReview['state']??null)==='identity_conflict')
+                                    <p>ASIN-Konflikt: Produktzuordnung zuerst klären. Keine Übernahme.</p>
+                                @elseif(($sharedResearchReview['state']??null)==='review')
+                                    <p>Katalogarchiv #{{ $sharedResearchReview['catalog_id'] }} · {{ $sharedResearchReview['at']??'Zeitpunkt offen' }} UTC</p>
+                                    @forelse($sharedResearchReview['differences'] as $label=>$difference)
+                                        <p><strong>{{ $label }}</strong><br>JTL: {{ $difference['old']!==''?$difference['old']:'Kein belegter Spiegelwert' }}<br>Amazon: {{ $difference['candidate'] }} · {{ $difference['source'] }} · manuell prüfen</p>
+                                    @empty<p>Keine Abweichung in den bisher verglichenen Katalogfeldern.</p>@endforelse
+                                    @if(isset($sharedResearchReview['market_price']))
+                                        <p>Marktpreisarchiv #{{ $sharedResearchReview['market_price']['id'] }} · {{ $sharedResearchReview['market_price']['at'] }} UTC</p>
+                                        @foreach(['buybox'=>'Buy Box','lowest'=>'Niedrigste Angebote'] as $key=>$label)
+                                            @foreach($sharedResearchReview['market_price'][$key] as $price)
+                                                @if(isset($price['landed_price']['amount'],$price['landed_price']['currency']))<p>{{ $label }}: {{ $price['landed_price']['amount'] }} {{ $price['landed_price']['currency'] }}</p>@endif
+                                            @endforeach
+                                        @endforeach
+                                        <p>Marktpreise sind keine eigenen Verkaufspreise.</p>
+                                    @endif
+                                @else<p>Kein aktuell lesbares, eindeutig zugeordnetes Katalogarchiv. Keine neue Anbieterabfrage ausgelöst.</p>@endif
+                            </details>
+                        @endif
                         @if($peerReview!==[])
                             @if($peerReview['ok']??false)
                                 <p>{{ $peerReview['peer_count'] }} Vergleichsartikel gleicher Warengruppe und Hersteller.</p>
