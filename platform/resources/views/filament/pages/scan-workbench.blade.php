@@ -463,7 +463,7 @@
                                 <p>{{ count($templateCandidates['items']) }} passende Vorlagen · {{ $templateCandidates['snapshot_at']??'Zeitpunkt offen' }}</p>
                                 @foreach($templateCandidates['items'] as $candidate)
                                     <p>{{ $candidate['name'] }} · {{ $candidate['number'] }} · {{ $candidate['amount'] }} {{ $candidate['unit'] }}
-                                    <button type="button" class="hw24-btn" wire:click='chooseMatchingTemplate(@js($candidate["number"]))'>Als Vorlage prüfen</button></p>
+                                    <button type="button" class="hw24-btn" wire:click="chooseMatchingTemplate({{ $loop->index }})">Als Vorlage prüfen</button></p>
                                 @endforeach
                             @else<p>{{ $templateCandidates['message'] }}</p>@endif
                         @endif
