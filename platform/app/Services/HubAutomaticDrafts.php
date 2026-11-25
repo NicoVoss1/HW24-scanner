@@ -74,11 +74,16 @@ final class HubAutomaticDrafts
         $completed=array_slice($confirmedRows,0,3);
         if(!$completed)return $summary;
         $proposals=$this->prepare->prepare($completed,$jobs,$allowOnePaidReview);
+        foreach($proposals as $p){
+            if(($p['ai']['state']??null)==='paid_not_confirmed'){
+                $summary['status']='paid_review_not_confirmed';return $summary;
+            }
+        }
         foreach($completed as $row){
             if($summary['saved']>=3)break;
             $ean=$row['ean'];$p=$proposals[$ean]??[];
-            if(($p['ai']['state']??null)==='paid_not_confirmed'){
-                $summary['status']='paid_review_not_confirmed';return $summary;
+            if($allowOnePaidReview&&($p['ai']['state']??null)!=='verified_review'){
+                $summary['exceptions']++;continue;
             }
             if(($stock['items'][$ean]['state']??null)!=='absent'||
                 !in_array($p['state']??null,['review','missing'],true)||empty($p['fields'])||
