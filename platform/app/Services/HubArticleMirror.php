@@ -75,8 +75,17 @@ final class HubArticleMirror
                 WHERE d.source_id=? AND d.hersteller=? AND d.warengruppe=? AND d.einheit_id=?
                 AND d.label_namen LIKE '%Vorlagen%' ORDER BY d.jtl_article_id LIMIT 201");
             $q->execute([$m['source_id'],$brand,$group,(string)$ids[0]]);
-            $rows=$q->fetchAll(PDO::FETCH_ASSOC);$db->commit();
+            $rows=$q->fetchAll(PDO::FETCH_ASSOC);
             if(count($rows)>200)throw new RuntimeException('Too many templates');
+            // Common group standards, independent of brand or size, only when all labelled rows agree.
+            $q=$db->prepare("SELECT d.jtl_article_id,d.hersteller,d.warengruppe,d.artikelname,d.ean,d.label_namen,
+                p.kLieferStatus,p.kSteuerklasse,p.cLagerAktiv,p.cLagerKleinerNull,p.cTeilbar
+                FROM hw24_hub_article_details d JOIN hw24_hub_peer_source p
+                ON p.source_id=d.source_id AND p.jtl_article_id=d.jtl_article_id
+                WHERE d.source_id=? AND d.warengruppe=? AND d.label_namen LIKE '%Vorlagen%'
+                ORDER BY d.jtl_article_id LIMIT 501");
+            $q->execute([$m['source_id'],$group]);$groupRows=$q->fetchAll(PDO::FETCH_ASSOC);$db->commit();
+            if(count($groupRows)>500)$groupRows=[];
         }catch(\Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
         $valid=[];
         foreach($rows as $row){
@@ -94,7 +103,31 @@ final class HubArticleMirror
             $result['manufacturer_hint']=$brand;
         }
         if(!$valid)$result['reason']=$rows?'Gekennzeichnete Kandidaten gefunden, aber Label, Menge oder Identität nicht eindeutig passend':'Keine Vorlage für Hersteller '.$brand.' / Warengruppe '.$group.' / '.$amount.' '.$unit.' gefunden';
+        $common=self::groupStandards($groupRows,$draft,$group,$observations);
+        foreach($common['fields'] as $field=>$value){
+            if(isset($result['fields'][$field]))continue;
+            $result['fields'][$field]=$value;$result['sources'][$field]=$common['sources'][$field];
+        }
+        if($common['fields'])$result['reason'].=' · Herstellerübergreifende Warengruppenstandards geprüft';
         return $result;
+    }
+
+    public static function groupStandards(array $rows,array $draft,string $group,array $observations): array
+    {
+        $valid=[];$brands=[];
+        foreach($rows as $r){
+            if(!self::hasTemplateLabel((string)($r['label_namen']??''))||
+                mb_strtolower(trim((string)($r['warengruppe']??'')))!==mb_strtolower(trim($group))||
+                trim((string)($r['hersteller']??''))===''||(int)($r['jtl_article_id']??0)<1||
+                (string)($r['ean']??'')===(string)($draft['GTIN']??''))continue;
+            $valid[(int)$r['jtl_article_id']]=$r;
+            $brands[mb_strtolower(HubManufacturerPolicy::jtlSearchName($r['hersteller']))]=true;
+        }
+        if(count($brands)<2)return ['fields'=>[],'sources'=>[]];
+        $out=self::templateConsensus(array_values($valid),$draft,$observations);
+        foreach($out['sources'] as &$source)$source='Herstellerübergreifender Warengruppenstandard: '.$source;
+        unset($source);
+        return $out;
     }
 
     /** Only unanimous observed operational defaults; unknown reference labels stay open. */
