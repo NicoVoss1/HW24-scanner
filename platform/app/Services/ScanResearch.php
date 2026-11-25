@@ -88,7 +88,7 @@ final class ScanResearch
             'more'=>($raw['has_next_page']??false)===true,'error'=>self::txt($raw['error']??null,100)];
     }
 
-    public static function pricing(string $asin,LegacyReadBridge $bridge,?AmazonPriceArchive $archive=null): array
+    public static function pricing(string $asin,LegacyReadBridge $bridge,?PriceArchiveStore $archive=null): array
     {
         $capture=$archive!==null?AmazonPriceResearch::fetch($asin,$bridge,$archive):AmazonPriceArchiveRuntime::fetch($asin,$bridge);
         $r=$capture['response'];
