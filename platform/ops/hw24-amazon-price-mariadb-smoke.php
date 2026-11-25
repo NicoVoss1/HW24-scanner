@@ -7,6 +7,7 @@ $name=(string)getenv('HW24_SMOKE_DB');
 if (!preg_match('/^hw24_price_smoke_[0-9a-f]{16}$/D',$name)) {
     throw new RuntimeException('Temporary smoke DB only');
 }
+require __DIR__.'/../app/Services/PriceArchiveStore.php';
 require __DIR__.'/../app/Services/AmazonPriceArchive.php';
 $db=new PDO('mysql:unix_socket=/run/mysqld/mysqld.sock;dbname='.$name.';charset=utf8mb4','root','',[
     PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,
