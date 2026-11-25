@@ -523,6 +523,7 @@
                             @if($workingAi['found'])
                                 <p>{{ $workingAi['title'] }} · {{ $workingAi['manufacturer'] }} · {{ $workingAi['group'] }}</p>
                                 <p>{{ $workingAi['reason'] }} {{ $workingAi['notes'] }}</p>
+                                <p>Farbton: {{ $workingAi['shade']?:'Offen' }} · Inhalt: {{ $workingAi['volume']?:'Offen' }} {{ $workingAi['unit'] }} · Typ: {{ $workingAi['type']?:'Offen' }}</p>
                                 @if(($workingAi['cost']??null)!==null)<p>Archivierte geschätzte Kosten: {{ number_format($workingAi['cost'],6,',','.') }} USD</p>@endif
                                 @if(!empty($workingAi['sources']))
                                     <p><strong>Archivierte Webquellen:</strong></p>
@@ -531,6 +532,7 @@
                                 <button title="KI-Vorschläge für leere Entwurffelder zur Prüfung übernehmen." type="button" class="hw24-btn" wire:click="useAiSuggestion" wire:confirm="KI-Vorschläge in leere Entwurffelder übernehmen?">KI-Vorschläge übernehmen</button>
                             @endif
                         @endif
+                        @if($draftMessage!=='')<p role="status"><strong>{{ $draftMessage }}</strong></p>@endif
                         <p>Neue Abfragen benötigen bestätigten Archivzugriff, Budget und Deine Kostenfreigabe. Webrecherche ist eine eigene kostenpflichtige Option; Produktdaten aus Webquellen bleiben Prüfvorschläge. Vorhandene Berichte werden wiederverwendet.</p>
                     </div>
                     <div class="hw24-note">
