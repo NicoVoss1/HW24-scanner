@@ -1,0 +1,89 @@
+<?php
+declare(strict_types=1);
+namespace App\Services;
+
+/** Present persisted source checks and draft coverage without conflating either with approval. */
+final class ScanResearchPresentation
+{
+    public static function filled(mixed $value): bool
+    {
+        return is_scalar($value)&&trim((string)$value)!=='';
+    }
+
+    public static function draftCoverage(array $row): array
+    {
+        $draft=is_array($row['draft']??null)?$row['draft']:[];
+        $draft['GTIN']=$row['ean']??'';
+        if(!self::filled($draft['Artikelname']??null))$draft['Artikelname']=$row['name']??'';
+        return [
+            'filled'=>count(array_filter(ScanResearch::FIELDS,fn($f)=>self::filled($draft[$f]??null))),
+            'total'=>count(ScanResearch::FIELDS),
+            'missing_required'=>array_values(array_filter(ScanResearch::REQUIRED,fn($f)=>!self::filled($draft[$f]??null))),
+        ];
+    }
+
+    public static function sources(array $job): array
+    {
+        $e=is_array($job['evidence']??null)?$job['evidence']:[];
+        $count=static fn(string $key): string => is_int($e[$key]??null)?(string)$e[$key]:'nicht belegt';
+        $archive=static fn(string $key): string => is_int($e[$key]??null)?' · Archiv #'.$e[$key]:'';
+        return [
+            'JTL-Wawi / Spiegel'=>match($e['jtl_state']??null){
+                'existing'=>'Artikel vorhanden','new_candidate'=>'Kein Treffer im aktuellen Spiegel','multiple'=>'Mehrere Treffer – prüfen','unverified'=>'Nicht verifiziert',default=>'Nicht belegt'},
+            'Historische Artikeldaten'=>match($e['history_state']??null){
+                'read'=>$count('history_count').' Treffer gelesen','unavailable'=>'Nicht verfügbar',default=>'Nicht belegt'},
+            'OpenAI-Archiv'=>match($e['ai_state']??null){
+                'read'=>$count('ai_count').' Bericht(e) in der Abfrage · '.match($e['ai_scope']??null){'shared_workspace'=>'Gemeinsames Archiv','legacy_account'=>'Bisheriges Konto',default=>'Umfang unbekannt'},
+                'unavailable'=>'Nicht verfügbar',default=>'Nicht belegt'},
+            'Amazon-Katalog'=>match($e['catalog_state']??null){
+                'live'=>'Live abgefragt'.$archive('catalog_snapshot_id'),'cache'=>'Gespeicherte Antwort verwendet'.$archive('catalog_snapshot_id'),
+                'unavailable'=>'Nicht verfügbar','unverified'=>'Archiv nicht bestätigt',default=>'Nicht belegt'},
+            'Amazon-Marktpreise'=>match($e['price_state']??null){
+                'live_archived'=>'Live abgefragt und archiviert'.$archive('price_snapshot_id'),
+                'archive_reused'=>'Archiv wiederverwendet'.$archive('price_snapshot_id'),
+                'identity_unverified'=>'Produktidentität offen','no_match'=>'Kein Katalogtreffer',
+                'archive_unverified'=>'Archiv nicht bestätigt','unavailable'=>'Nicht verfügbar',default=>'Nicht belegt'},
+            'Amazon-Händler'=>match($e['seller_state']??null){
+                'read'=>$count('seller_count').' bestätigte Namenszuordnung(en)','no_ids'=>'Keine Händler-IDs','unavailable'=>'Nicht verfügbar',default=>'Nicht belegt'},
+        ];
+    }
+
+    /** Current mirror only, exact EAN, no guessed reference names or derived prices. */
+    public static function jtlFields(string $ean,array $response): array
+    {
+        $raw=is_array($response['data']??null)?$response['data']:[];
+        $matches=$raw['matches']??null;
+        if(($response['ok']??false)!==true||($raw['jtl_status']??null)!=='current_snapshot'||
+            !is_array($matches)||count($matches)!==1||($raw['limited']??false)===true||
+            !is_array($matches[0])||(string)($matches[0]['ean']??'')!==$ean)
+            return ['ok'=>false,'message'=>'Kein eindeutiger aktueller JTL-Spiegeltreffer zur EAN. Keine Feldbewertung möglich.'];
+        $a=$matches[0];$source=is_array($a['jtl_source_fields']??null)?$a['jtl_source_fields']:[];
+        $direct=['Artikelnummer'=>'artikelnummer','GTIN'=>'ean','HAN'=>'han','ASIN'=>'asin','Artikelname'=>'artikelname',
+            'Hersteller'=>'hersteller','Artikeltyp'=>'artikeltyp','Warengruppe'=>'warengruppe_name','Steuerklasse'=>'steuerklasse_name',
+            'Währung'=>'waehrung','Kosten'=>'kosten','Netto-VK'=>'netto_vk','Brutto-VK'=>'brutto_vk',
+            'Kurzbeschreibung'=>'kurzbeschreibung','Beschreibung'=>'beschreibung','Titel-Tag (SEO)'=>'seo_titel',
+            'Meta-Description (SEO)'=>'seo_beschreibung','Versandklasse'=>'versandklasse_name'];
+        $refs=['Warengruppe'=>'kWarengruppe','Steuerklasse'=>'kSteuerklasse','Versandklasse'=>'kVersandklasse',
+            'Maßeinheit'=>'kMassEinheit','Lieferstatus'=>'kLieferStatus','Hersteller'=>'kHersteller'];
+        $fields=[];
+        foreach(ScanResearch::FIELDS as $field){
+            $key=$direct[$field]??null;
+            $value=$key!==null?($a[$key]??null):null;
+            $id=$refs[$field]??null;
+            if(self::filled($value)){
+                $state='value';$display=(string)$value;
+            }elseif($id!==null&&isset($source[$id])&&is_numeric($source[$id])&&(int)$source[$id]>0){
+                $state='reference';$display='ID '.(int)$source[$id].' – Klartext nicht belegt';
+            }elseif($key!==null&&array_key_exists($key,$a)){
+                // A null optional mirror mapping does not prove that JTL itself is empty.
+                $state='empty_snapshot';$display='';
+            }else{
+                $state='unmapped';$display='';
+            }
+            $fields[$field]=['state'=>$state,'value'=>$display,'source'=>$key!==null?'JTL-Spiegel: '.$key:'Keine geprüfte Zuordnung'];
+        }
+        return ['ok'=>true,'snapshot_at'=>ScanEntryPresentation::germanDate($raw['snapshot_at']??null),
+            'fields'=>$fields,'filled'=>count(array_filter($fields,fn($v)=>$v['state']==='value')),
+            'total'=>count($fields),'name'=>(string)($a['artikelname']??'')];
+    }
+}
