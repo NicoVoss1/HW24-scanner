@@ -428,7 +428,7 @@ final class ScanWorkbench extends Page
                 $this->releaseExceptions[]=['ean'=>$row['ean'],'reason'=>'Prüfexport-Limit 200 erreicht'];continue;
             }
             $this->releaseCandidates[]=['ean'=>$row['ean'],'id'=>$row['id'],'revision'=>$row['revision'],
-                'name'=>$row['draft']['Artikelname']];
+                'name'=>$row['draft']['Artikelname'],'fields'=>array_intersect_key($row['draft'],array_flip(ScanResearch::FIELDS))];
         }
         $this->releaseMessage=count($this->releaseCandidates).' Entwürfe zur gemeinsamen Freigabe geeignet; '.count($this->releaseExceptions).' Ausnahmen. Bitte Vorschau fachlich prüfen.';
     }
