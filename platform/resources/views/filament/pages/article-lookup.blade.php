@@ -318,6 +318,16 @@
                                     @empty<p>Keine Abweichung in den bisher verglichenen Katalogfeldern.</p>@endforelse
                                     @if(isset($sharedResearchReview['ai']))
                                         <p><strong>Gemeinsames KI-Archiv:</strong> {{ match($sharedResearchReview['ai']['state']){'verified_review'=>'Geprüfter Bericht','missing'=>'Kein gemeinsamer Bericht','stale'=>'Abweichende Recherchegrundlage','identity_conflict'=>'Identitätskonflikt','review'=>'Manuelle Prüfung',default=>'Nicht bestätigt'} }} @if(isset($sharedResearchReview['ai']['id'])) · #{{ $sharedResearchReview['ai']['id'] }} @endif</p>
+                                                @if(($sharedResearchReview['ai']['content']['state']??null)==='review')
+                                                    <details><summary>KI-Texte und belegte Artikelattribute · Prüfvorschläge</summary>
+                                                        @foreach($sharedResearchReview['ai']['content']['fields']??[] as $label=>$value)<p><strong>{{ $label }}</strong>: {{ $value }}</p>@endforeach
+                                                        @foreach($sharedResearchReview['ai']['content']['attributes']??[] as $channel=>$attributes)
+                                                            <p><strong>{{ match($channel){'article'=>'Artikelmerkmale','shopify'=>'Shopify','ebay'=>'eBay',default=>'Attribute'} }}</strong></p>
+                                                            @foreach($attributes as $label=>$value)<p>{{ $label }}: {{ $value }}</p>@endforeach
+                                                        @endforeach
+                                                        <p>Keine Veröffentlichung oder direkte Änderung eines Verkaufskanals.</p>
+                                                    </details>
+                                                @endif
                                         @if(!empty($sharedResearchReview['ai']['title_hint']))<p>KI-Titelvorschlag: {{ $sharedResearchReview['ai']['title_hint'] }} · noch nicht übernommen</p>@endif
                                         @if(!empty($sharedResearchReview['ai']['group_hint']))<p>KI-Warengruppenvorschlag: {{ $sharedResearchReview['ai']['group_hint'] }} · noch nicht übernommen</p>@endif
                                     @endif
