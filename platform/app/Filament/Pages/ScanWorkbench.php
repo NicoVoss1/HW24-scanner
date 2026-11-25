@@ -12,6 +12,7 @@ use Livewire\WithFileUploads;
 use App\Services\PreparedScanCsv;
 use App\Services\ScanEntryPresentation;
 use App\Services\ScanResearch;
+use App\Services\ScanQueueIntake;
 
 /**
  * First functional migration step: show the actual old scan batches read-only.
@@ -88,6 +89,12 @@ final class ScanWorkbench extends Page
         $this->csvOffset+=count($rows);
         $more=$this->csvOffset<count($this->csvRows);
         $this->csvState['message']=$more?'Teilimport bestätigt.':'CSV-Import abgeschlossen. Gespeicherte Positionen erneut laden.';
+        if($this->autoQueueResearch()){
+            $msg=$this->enqueueConfirmedResearch(array_column($rows,'ean'));
+            $this->csvState['message'].=$msg;
+            if(str_contains($msg,'nicht vollständig bestätigt'))$this->csvState['research_warning']=true;
+        }
+        if($this->csvState['research_warning']??false)$this->csvState['message'].=' Mindestens eine Recherchezuordnung bitte nach dem Import prüfen.';
         if(!$more)$this->confirmCsvImport=false;
         return $more;
     }
@@ -120,6 +127,8 @@ final class ScanWorkbench extends Page
     public array $diagnostic = [];
 
 
+    #[Locked] public array $persistentResearch = [];
+    #[Locked] public string $persistentResearchMessage = '';
     public array $selectedEans = [];
     public bool $confirmResearch = false;
     #[Locked] public array $researchQueue = [];
@@ -218,6 +227,57 @@ final class ScanWorkbench extends Page
     {
         foreach($this->items as $row)if($row['ean']===$ean && self::validGtin($ean) && $row['review']!=='removed')return $row;
         return null;
+    }
+
+    private function isTestResearchBatch(): bool
+    {
+        foreach($this->batches as $batch)
+            if($batch['id']===$this->selectedBatchId && preg_match('/^TEST(?:\\b|[-_])/iu',$batch['label']))return true;
+        return false;
+    }
+
+    public function canQueueResearch(): bool
+    {
+        return $this->isTestResearchBatch()&&app(ScanQueueIntake::class)->enabled();
+    }
+
+    public function autoQueueResearch(): bool
+    {
+        return $this->canQueueResearch()&&app(ScanQueueIntake::class)->automatic();
+    }
+
+    /** Only accepted scan rows or explicitly acknowledged import chunk. */
+    private function enqueueConfirmedResearch(array $eans): string
+    {
+        try {
+            $r=app(ScanQueueIntake::class)->enqueue($eans);
+            return ' Recherche: '.$r['new'].' neue Aufträge, '.($r['total']-$r['new']).' bereits vorhanden.';
+        }catch(\Throwable){
+            return ' Recherchezuordnung nicht vollständig bestätigt. Gespeicherte Positionen neu laden und zur Recherche anmelden; nicht erneut scannen.';
+        }
+    }
+
+    public function enqueueSelectedResearch(): void
+    {
+        if(!$this->canQueueResearch()||!$this->confirmResearch)return;
+        $eans=[];
+        foreach($this->items as $row){
+            if($row['review']!=='removed'&&self::validGtin($row['ean'])&&in_array($row['ean'],$this->selectedEans,true))$eans[]=$row['ean'];
+        }
+        if(!$eans){$this->persistentResearchMessage='Keine gültigen markierten Positionen.';return;}
+        $this->persistentResearchMessage=trim($this->enqueueConfirmedResearch($eans));
+        $this->confirmResearch=false;
+        $this->refreshPersistentResearch();
+    }
+
+    public function refreshPersistentResearch(): void
+    {
+        $this->persistentResearch=[];
+        if(!$this->canQueueResearch())return;
+        $eans=[];
+        foreach($this->items as $row)if($row['review']!=='removed'&&self::validGtin($row['ean']))$eans[]=$row['ean'];
+        try{$this->persistentResearch=app(ScanQueueIntake::class)->statuses(array_values(array_unique($eans)));}
+        catch(\Throwable){$this->persistentResearchMessage.=' Warteschlangenstatus momentan nicht verfügbar.';}
     }
 
     public function selectAllResearch(): void
@@ -353,7 +413,7 @@ final class ScanWorkbench extends Page
 
     public function loadBatches(LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'batches', 'selectedBatchId', 'diagnostic', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','workingAi','confirmSingleAi','draftFields','confirmDraft','draftMessage']);
+        $this->reset(['items', 'batches', 'selectedBatchId', 'diagnostic', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','workingAi','confirmSingleAi','draftFields','confirmDraft','draftMessage']);
 
         $result = $bridge->fetch('scan.batches', ['op' => 'batches']);
         $raw = is_array($result['data'] ?? null) ? $result['data'] : [];
@@ -394,7 +454,7 @@ final class ScanWorkbench extends Page
 
     public function loadBatch(int $batchId, LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'selectedBatchId', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','workingAi','confirmSingleAi','draftFields','confirmDraft','draftMessage']);
+        $this->reset(['items', 'selectedBatchId', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','workingAi','confirmSingleAi','draftFields','confirmDraft','draftMessage']);
         // Never let the browser request arbitrary batch IDs.
         $allowed = array_column($this->batches, 'id');
         if (!in_array($batchId, $allowed, true)) {
@@ -439,6 +499,7 @@ final class ScanWorkbench extends Page
             'http' => $result['http_status'] ?? null,
             'message' => 'Gespeicherte Positionen geladen. Recherche und Entwurf sind getrennte, ausdrücklich ausgelöste Aktionen.',
         ];
+        $this->refreshPersistentResearch();
     }
 
     /**
@@ -550,7 +611,13 @@ final class ScanWorkbench extends Page
         $this->scanEan='';
         $this->confirmScanWrite=false;
         $this->loadBatch($batch,$read);
-        $this->actionState=['ok'=>true,'message'=>'EAN in der bestehenden Scanliste gespeichert. Keine JTL-Lagerbuchung durchgeführt.'];
+        $message='EAN in der bestehenden Scanliste gespeichert. Keine JTL-Lagerbuchung durchgeführt.';
+        if($this->autoQueueResearch()){
+            if($this->rowFor($ean)!==null)$message.=$this->enqueueConfirmedResearch([$ean]);
+            else $message.=' Recherche noch nicht angemeldet: gespeicherte Position bitte neu laden und markieren.';
+            $this->refreshPersistentResearch();
+        }
+        $this->actionState=['ok'=>true,'message'=>$message];
     }
 
     private static function validGtin(string $ean): bool
