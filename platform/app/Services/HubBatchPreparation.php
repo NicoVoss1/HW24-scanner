@@ -39,6 +39,14 @@ final class HubBatchPreparation
                 try {
                     $template=(new HubArticleMirror())->standardProposals($db,$p['draft'],config('hw24_jtl_reference_observations',[]),HubAiEvidence::groupHint($p['draft'],$p['ai']??[]));
                     $p=self::mergeTemplate($p,$template);
+                    // Only normalize the explicitly known catalog alias with a matching JTL template.
+                    $hint=$template['manufacturer_hint']??null;
+                    $name=(string)($p['draft']['Hersteller']??'');
+                    if(is_string($hint)&&$hint!==$name&&$name===($catalog['item']['manufacturer']??null)&&
+                        HubManufacturerPolicy::equivalent($name,$hint)){
+                        $p['draft']['Hersteller']=$hint;$p['fields']['Hersteller']=$hint;
+                        $p['sources']['Hersteller']='Bestätigte Herstellerzuordnung: '.$name.' → '.$hint.'; passende JTL-Vorlage';
+                    }
                 }catch(\Throwable){$p['template_reason']='Vorlagenquelle derzeit nicht bestätigt';}
             }
             if(in_array($p['state'],['review','missing'],true)){
