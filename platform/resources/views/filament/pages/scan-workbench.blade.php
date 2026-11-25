@@ -572,6 +572,30 @@
         <section class="hw24-card">
             <div class="hw24-card-head"><h3>05 · JTL-Ameise-Prüfexport direkt in Filament</h3></div>
             <div class="hw24-card-body">
+                @if($this->canQueueResearch() && $this->canWriteScan())
+                    <div class="hw24-note" x-data="{releasing:false}">
+                        <h3>Sammelfreigabe gespeicherter Neuanlagen</h3>
+                        <p>Markierte Entwürfe oder ohne Markierung alle offenen Neuanlagen prüfen. Nur vollständig belegte Basisfelder und im aktuellen Wawi-Spiegel nicht vorhandene GTINs sind geeignet. Exportvorlage und fachliche Pflichtfelder weiterhin prüfen.</p>
+                        <button type="button" class="hw24-btn" wire:click="previewBatchRelease" x-bind:disabled="releasing" wire:loading.attr="disabled">Freigabevorschau erstellen</button>
+                        @if($releaseMessage!=='')<p role="status">{{ $releaseMessage }}</p>@endif
+                        @if($releaseExceptions!==[])
+                            <details open><summary>{{ count($releaseExceptions) }} Ausnahmen</summary>
+                                @foreach($releaseExceptions as $exception)<p>{{ $exception['ean'] }} · {{ $exception['reason'] }}</p>@endforeach
+                            </details>
+                        @endif
+                        @if($releaseCandidates!==[])
+                            <details open><summary>{{ count($releaseCandidates) }} Entwürfe zur Freigabe</summary>
+                                <div style="max-height:300px;overflow-y:auto">
+                                    @foreach($releaseCandidates as $candidate)<p>{{ $candidate['ean'] }} · {{ $candidate['name'] }}</p>@endforeach
+                                </div>
+                            </details>
+                            <label><input type="checkbox" wire:model.live="confirmBatchRelease" x-bind:disabled="releasing"> Angezeigte Entwürfe fachlich geprüft, für Ameise-Prüfexport freigeben.</label>
+                            <button type="button" class="hw24-btn" x-bind:disabled="releasing || !$wire.confirmBatchRelease"
+                                x-on:click="if(!confirm('Geprüfte Entwürfe gemeinsam freigeben? Kein JTL-Import.'))return; releasing=true; try{for(let i=0;i&lt;67 &amp;&amp; releasing;i++){if(!(await $wire.releaseBatchChunk()))break;}}finally{releasing=false;}">Geprüfte Entwürfe gemeinsam freigeben</button>
+                            <button type="button" class="hw24-btn" x-bind:disabled="!releasing" x-on:click="releasing=false">Nach aktuellem Abschnitt pausieren</button>
+                        @endif
+                    </div>
+                @endif
                 <p class="hw24-description">Die bestehende Scanlisten-API prüft vor dem CSV-Export den aktuellen JTL-Snapshot, freigegebene Neuanlagen, doppelte Artikelnummern und Pflichtfelder. Maximal 200 freigegebene Positionen. Nur ein Prüfexport, kein JTL-Direktimport.</p>
                 <div class="hw24-action">
                     <details style="width:100%;margin:8px 0">
