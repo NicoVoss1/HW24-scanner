@@ -60,6 +60,21 @@ final class ScanResearchPresentation
         return is_string($v)&&trim($v)!==''?$v:null;
     }
 
+    /** A calculation, not a JTL original, only if every observed zone for this tax class agrees. */
+    public static function grossCalculation(array $a,array $observations): ?array
+    {
+        if(self::filled($a['brutto_vk']??null))return null;
+        $class=(int)($a['steuerklasse_id']??$a['jtl_source_fields']['kSteuerklasse']??0);
+        $net=$a['netto_vk']??null;
+        if($class<1||!is_numeric($net)||!is_finite((float)$net)||(float)$net<0)return null;
+        $rates=[];
+        foreach($observations['tax_rate_percent_by_class_and_zone']??[] as $key=>$rate)
+            if(str_starts_with((string)$key,$class.':')&&is_numeric($rate))$rates[]=(float)$rate;
+        if(count($rates)<2||count(array_unique($rates))!==1)return null;
+        return ['value'=>number_format(round((float)$net*(1+$rates[0]/100),2),2,',','.'),'rate'=>$rates[0],
+            'source'=>'Berechnung aus JTL Netto-VK und den am 23.11.2026 beobachteten übereinstimmenden Steuersätzen; kein bestätigter JTL-Bruttowert.'];
+    }
+
     /** Current mirror only, exact EAN, no guessed reference names or derived prices. */
     public static function jtlFields(string $ean,array $response,array $observations=[]): array
     {
@@ -73,7 +88,7 @@ final class ScanResearchPresentation
         $direct=['Artikelnummer'=>'artikelnummer','GTIN'=>'ean','HAN'=>'han','ASIN'=>'asin','Artikelname'=>'artikelname',
             'Hersteller'=>'hersteller','Artikeltyp'=>'artikeltyp','Warengruppe'=>'warengruppe_name','Steuerklasse'=>'steuerklasse_name',
             'Währung'=>'waehrung','Kosten'=>'kosten','Netto-VK'=>'netto_vk','Brutto-VK'=>'brutto_vk',
-            'Netto-EK in Standardwährung'=>'netto_ek','Artikelgewicht'=>'artikelgewicht','Versandgewicht'=>'versandgewicht','Herkunftsland'=>'herkunftsland',
+            'Netto-EK in Standardwährung'=>'netto_ek_standard_currency','Artikelgewicht'=>'artikelgewicht','Versandgewicht'=>'versandgewicht','Herkunftsland'=>'herkunftsland',
             'Kurzbeschreibung'=>'kurzbeschreibung','Beschreibung'=>'beschreibung','Titel-Tag (SEO)'=>'seo_titel',
             'Meta-Description (SEO)'=>'seo_beschreibung','Versandklasse'=>'versandklasse_name','Lieferstatus'=>'lieferstatus_name','Maßeinheit'=>'masseinheit_name'];
         $refs=['Warengruppe'=>'kWarengruppe','Steuerklasse'=>'kSteuerklasse','Versandklasse'=>'kVersandklasse',
@@ -117,6 +132,8 @@ final class ScanResearchPresentation
         }
         return ['ok'=>true,'snapshot_at'=>ScanEntryPresentation::germanDate($raw['snapshot_at']??null),
             'fields'=>$fields,'filled'=>count(array_filter($fields,fn($v)=>in_array($v['state'],['value','observed_reference'],true))),
-            'total'=>count($fields),'name'=>(string)($a['artikelname']??'')];
+            'total'=>count($fields),'name'=>(string)($a['artikelname']??''),
+            'average_ek_net'=>$a['netto_ek']??null,
+            'gross_calculation'=>self::grossCalculation($a,$observations)];
     }
 }
