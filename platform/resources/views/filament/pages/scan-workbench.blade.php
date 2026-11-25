@@ -80,12 +80,7 @@
         </header>
 
         @include('filament.partials.hub-release-status')
-        <nav aria-label="Arbeitsablauf" class="hw24-action" style="margin-top:16px">
-            @foreach([1=>'Erfassen',2=>'Prüfen & bearbeiten',3=>'Freigeben & exportieren'] as $step=>$label)
-                <button type="button" class="hw24-btn" wire:click="showWorkflowStep({{ $step }})" aria-current="{{ $workflowStep===$step?'step':'false' }}" style="{{ $workflowStep===$step?'background:#164b72;color:white':'' }}">{{ $step }} · {{ $label }}</button>
-            @endforeach
-        </nav>
-        <div @if($workflowStep!==1) hidden @endif>
+        <p class="hw24-note"><strong>EAN erfassen · automatisch recherchieren · Vorschläge prüfen · Ameise exportieren</strong></p>
         <section class="hw24-card">
             <div class="hw24-card-head"><h3>01 · Vorhandene Scan-Stapel anzeigen</h3></div>
             <div class="hw24-card-body">
@@ -212,17 +207,38 @@
             </div>
         </section>
 
-        <div class="hw24-action" style="margin-top:14px">
-            <button type="button" class="hw24-btn" wire:click="showWorkflowStep(2)" @disabled($selectedBatchId===null)>Weiter zur Prüfung →</button>
-        </div>
-        </div>
-        <div @if($workflowStep!==2) hidden @endif>
         @if($selectedBatchId !== null)
             <section class="hw24-card">
                 <div class="hw24-card-head"><h3>04 · Gespeicherte Positionen aus Stapel {{ $selectedBatchId }}</h3></div>
                 <div class="hw24-card-body">
                     <p class="hw24-description">Maximal 3.000 Positionen aus der vorhandenen MariaDB. Erfassungszeit in deutscher Ortszeit (MEZ/MESZ). CSV-Import und echte Scan-Ereignisse werden nur bei gespeichertem Nachweis angezeigt. Keine Lagerbuchung oder direkte Artikelanlage in JTL.</p>
                     <span class="hw24-stat">{{ count($items) }} Positionen geladen</span>
+                    @if($this->canQueueResearch())
+                        <div class="hw24-note">
+                            <h3>Artikel gemeinsam aufbereiten</h3>
+                            <p>Gespeicherte Rechercheergebnisse wiederverwenden. Ohne Markierung alle offenen Neuanlagen (max. 200). Keine zweite Amazon-Abfrage, keine bezahlte KI.</p>
+                            <div class="hw24-action">
+                                <button type="button" class="hw24-btn" wire:click="prepareBatchDrafts" wire:loading.attr="disabled">Artikelentwürfe aufbereiten</button>
+                                <button type="button" class="hw24-btn" wire:click="refreshPersistentResearch" wire:loading.attr="disabled">Recherche-Status aktualisieren</button>
+                            </div>
+                            @if($batchPreparationMessage!=='')<p role="status">{{ $batchPreparationMessage }}</p>@endif
+                            @if($batchPreparation!==[])
+                                <div style="max-height:400px;overflow-y:auto">
+                                    @foreach($batchPreparation as $ean=>$proposal)
+                                        <details style="padding:8px;border-bottom:1px solid #dbe5ef">
+                                            <summary>{{ $ean }} · {{ $proposal['draft']['Artikelname']??'' }} · {{ count($proposal['fields']) }} Vorschläge · {{ $proposal['reason'] }}</summary>
+                                            @if($proposal['missing']!==[])<p>Basisfelder offen: {{ implode(', ',$proposal['missing']) }}</p>@endif
+                                            @foreach($proposal['fields'] as $field=>$value)
+                                                <p><strong>{{ $field }}:</strong> {{ $value }} <small>({{ $proposal['sources'][$field] }})</small></p>
+                                            @endforeach
+                                        </details>
+                                    @endforeach
+                                </div>
+                                <label><input type="checkbox" wire:model.live="confirmBatchPreparation"> Vorschläge geprüft; nur leere Felder ergänzen.</label>
+                                <button type="button" class="hw24-btn" wire:click="savePreparedBatch" @disabled(!$confirmBatchPreparation) wire:loading.attr="disabled">Bis zu 10 Entwürfe speichern</button>
+                            @endif
+                        </div>
+                    @endif
                     <div class="hw24-note" x-data="{running:false}">
                         <h3>JTL &amp; Amazon Sammelrecherche</h3>
                         <p>Ausgewählte Artikel nacheinander mit vorhandenen APIs prüfen. Katalog kann Cache oder SP-API verwenden. Keine kostenpflichtige KI automatisch.</p>
@@ -514,13 +530,6 @@
             </section>
         @endif
 
-        @if($selectedBatchId===null)<p class="hw24-note">Bitte zuerst einen Stapel im Schritt Erfassen auswählen.</p>@endif
-        <div class="hw24-action" style="margin-top:14px">
-            <button type="button" class="hw24-btn" wire:click="showWorkflowStep(1)">← Erfassen</button>
-            <button type="button" class="hw24-btn" wire:click="showWorkflowStep(3)" @disabled($selectedBatchId===null)>Weiter zum Export →</button>
-        </div>
-        </div>
-        <div @if($workflowStep!==3) hidden @endif>
         <section class="hw24-card">
             <div class="hw24-card-head"><h3>05 · JTL-Ameise-Prüfexport direkt in Filament</h3></div>
             <div class="hw24-card-body">
@@ -552,8 +561,6 @@
             </div>
         </section>
 
-        <div class="hw24-action" style="margin-top:14px"><button type="button" class="hw24-btn" wire:click="showWorkflowStep(2)">← Zurück zur Prüfung</button></div>
-        </div>
         <details class="hw24-card">
             <summary class="hw24-card-head">Expertenansicht · bisherige Scan-Funktionen</summary>
             <div class="hw24-card-body">
