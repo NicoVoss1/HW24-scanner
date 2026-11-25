@@ -32,18 +32,30 @@ final class ScanWorkbench extends Page
 
     public function updatedCsvFile(): void
     {
+        $this->resetValidation('csvFile');
         $this->reset(['csvRows','csvState','csvOffset','csvBatchId','confirmCsvImport']);
+    }
+
+    public function clearCsvFile(): void
+    {
+        $this->reset(['csvFile','csvRows','csvState','csvOffset','csvBatchId','confirmCsvImport']);
+        $this->resetValidation('csvFile');
     }
 
     public function previewCsv(): void
     {
+        $this->resetValidation('csvFile');
         $this->reset(['csvRows','csvState','csvOffset','csvBatchId','confirmCsvImport']);
         if($this->selectedBatchId===null){
             $this->csvState=['ok'=>false,'message'=>'Bitte zuerst einen TEST-Stapel auswählen.'];
             return;
         }
         try {
-            $this->validate(['csvFile'=>'required|file|max:1024']);
+            $this->validate(['csvFile'=>'required|file|max:1024'],[
+                'csvFile.required'=>'Bitte zuerst eine CSV-Datei auswählen.',
+                'csvFile.file'=>'Die ausgewählte Datei konnte nicht geladen werden.',
+                'csvFile.max'=>'Die CSV-Datei darf maximal 1 MB groß sein.',
+            ]);
             if(strtolower((string)$this->csvFile->getClientOriginalExtension())!=='csv')
                 throw new \InvalidArgumentException('Bitte vorbereitete UTF-8-CSV auswählen. XLSX zuerst als CSV speichern.');
             $text=file_get_contents($this->csvFile->getRealPath(),false,null,0,1048577);
