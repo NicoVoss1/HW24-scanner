@@ -36,20 +36,30 @@ if($inputRate<=0||$outputRate<=0||$cacheRate<=0||$budget<=0||$daily<1||
   $daily>10000||$budget>1000)answer(503,['ok'=>false,'error'=>'invalid_cost_limits']);
 $ledgerPath=dirname(__DIR__,2).'/hw24_private/hw24-ai-usage.json';
 umask(0077); // new ledger files never readable by the world
+$ledgerExisted=is_file($ledgerPath);
 $handle=@fopen($ledgerPath,'c+');
 if(!$handle||!flock($handle,LOCK_EX))answer(503,['ok'=>false,'error'=>'usage_ledger_unavailable']);
 // Lock serializes requests so two reviews cannot both pass the same limit.
 register_shutdown_function(static function()use($handle){
  if(is_resource($handle)){flock($handle,LOCK_UN);fclose($handle);}
 });
-rewind($handle);$ledger=json_decode((string)stream_get_contents($handle),true);
-if(!is_array($ledger))$ledger=['months'=>[],'days'=>[],'latest'=>null];
+rewind($handle);$ledgerRaw=(string)stream_get_contents($handle);
+$ledger=json_decode($ledgerRaw,true);
+if(!is_array($ledger)){
+ if($ledgerExisted||$ledgerRaw!=='')answer(503,['ok'=>false,'error'=>'usage_ledger_invalid']);
+ $ledger=['months'=>[],'days'=>[],'latest'=>null];
+}
+if(!is_array($ledger['months']??null)||!is_array($ledger['days']??null))
+ answer(503,['ok'=>false,'error'=>'usage_ledger_invalid']);
 $month=gmdate('Y-m');$day=gmdate('Y-m-d');
 $total=(float)($ledger['months'][$month]['usd']??0);
 $count=(int)($ledger['months'][$month]['calls']??0);
 $dailyCalls=(int)($ledger['days'][$day]??0);
 // Web search is an additional explicitly enabled, cost-bearing capability.
-$webEnabled=($cfg['web_research_enabled']??false)===true;
+$webFlag=dirname(__DIR__,2).'/hw24_private/hw24-web-research.enabled';
+$webEnabled=($cfg['web_research_enabled']??false)===true||
+ (is_file($webFlag)&&!is_link($webFlag)&&fileowner($webFlag)===0&&
+  (fileperms($webFlag)&0027)===0&&is_readable($webFlag)&&trim((string)file_get_contents($webFlag))==='manual-only-v3');
 $webCallRate=0.01; // USD per web_search call; verify against provider pricing before activation.
 $webReserve=max(0.04,round(128000*$inputRate/1000000+1250*$outputRate/1000000+$webCallRate+0.02,6));
 $status=['ok'=>true,'enabled'=>true,'configured'=>true,'model'=>$model,
@@ -213,6 +223,8 @@ if($previous&&!$forceRecheck){
    'note'=>'Kein neuer OpenAI-Aufruf; gemeinsamer Bericht für alle berechtigten HW24-Benutzer geladen']);
 }
 // Rechecks are a deliberately separate cost-bearing action with additional user confirmation.
+$pendingKey=str_pad($fields['ean'],14,'0',STR_PAD_LEFT);
+if(!empty($ledger['web_pending'][$pendingKey]))answer(409,['ok'=>false,'error'=>'web_previous_charge_unconfirmed','do_not_retry_without_checking_usage'=>true]);
 if($total>=($budget-($reviewVersion===3?$webReserve:0.04)))answer(429,['ok'=>false,'error'=>'monthly_budget_limit','usd_month'=>$total]);
 if($dailyCalls>=$daily)answer(429,['ok'=>false,'error'=>'daily_request_limit']);
 if(!function_exists('curl_init'))answer(503,['ok'=>false,'error'=>'curl_unavailable']);
