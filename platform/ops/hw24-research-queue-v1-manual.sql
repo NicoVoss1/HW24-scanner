@@ -15,6 +15,7 @@ CREATE TABLE hw24_research_jobs (
  leased_by VARCHAR(180) NULL,
  last_error_code VARCHAR(64) CHARACTER SET ascii NULL,
  completed_at_utc DATETIME NULL,
+ evidence_json TEXT NULL,
  PRIMARY KEY(id),
  UNIQUE KEY uq_hw24_research_gtin (gtin_key),
  KEY ix_hw24_research_ready(status,next_attempt_utc,requested_at_utc,id)
