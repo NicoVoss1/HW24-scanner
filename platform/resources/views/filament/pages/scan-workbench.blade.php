@@ -79,6 +79,13 @@
                target="_blank" rel="noopener noreferrer">Scanliste vollständig öffnen</a>
         </header>
 
+        @include('filament.partials.hub-release-status')
+        <nav aria-label="Arbeitsablauf" class="hw24-action" style="margin-top:16px">
+            @foreach([1=>'Erfassen',2=>'Prüfen & bearbeiten',3=>'Freigeben & exportieren'] as $step=>$label)
+                <button type="button" class="hw24-btn" wire:click="showWorkflowStep({{ $step }})" aria-current="{{ $workflowStep===$step?'step':'false' }}" style="{{ $workflowStep===$step?'background:#164b72;color:white':'' }}">{{ $step }} · {{ $label }}</button>
+            @endforeach
+        </nav>
+        <div @if($workflowStep!==1) hidden @endif>
         <section class="hw24-card">
             <div class="hw24-card-head"><h3>01 · Vorhandene Scan-Stapel anzeigen</h3></div>
             <div class="hw24-card-body">
@@ -205,6 +212,11 @@
             </div>
         </section>
 
+        <div class="hw24-action" style="margin-top:14px">
+            <button type="button" class="hw24-btn" wire:click="showWorkflowStep(2)" @disabled($selectedBatchId===null)>Weiter zur Prüfung →</button>
+        </div>
+        </div>
+        <div @if($workflowStep!==2) hidden @endif>
         @if($selectedBatchId !== null)
             <section class="hw24-card">
                 <div class="hw24-card-head"><h3>04 · Gespeicherte Positionen aus Stapel {{ $selectedBatchId }}</h3></div>
@@ -342,6 +354,13 @@
             <section class="hw24-card">
                 <div class="hw24-card-head"><h3>Artikel identifizieren und Entwurf bearbeiten · {{ $workingEan }}</h3></div>
                 <div class="hw24-card-body">
+                    @php($editEans=$this->editableEans())
+                    @php($editIndex=array_search($workingEan,$editEans,true))
+                    <nav class="hw24-action" aria-label="Artikel wechseln" style="margin-bottom:12px">
+                        <button type="button" class="hw24-btn" wire:click="moveDraft(-1)" wire:confirm="Zum vorherigen Artikel wechseln? Nicht gespeicherte Änderungen werden verworfen." @disabled($editIndex===false||$editIndex===0)>← Vorheriger Artikel</button>
+                        <strong>Artikel {{ $editIndex===false?'?':$editIndex+1 }} von {{ count($editEans) }}</strong>
+                        <button type="button" class="hw24-btn" wire:click="moveDraft(1)" wire:confirm="Zum nächsten Artikel wechseln? Nicht gespeicherte Änderungen werden verworfen." @disabled($editIndex===false||$editIndex>=count($editEans)-1)>Nächster Artikel →</button>
+                    </nav>
                     <div class="hw24-action">
                         <button type="button" class="hw24-btn" wire:click="loadJtlFieldReview" wire:loading.attr="disabled" wire:target="loadJtlFieldReview">JTL-Stammdaten prüfen (nur lesen)</button>
                         <button type="button" class="hw24-btn" wire:click="loadPeerReview" wire:loading.attr="disabled" wire:target="loadPeerReview">Vergleichsartikel aus JTL prüfen</button>
@@ -462,6 +481,13 @@
             </section>
         @endif
 
+        @if($selectedBatchId===null)<p class="hw24-note">Bitte zuerst einen Stapel im Schritt Erfassen auswählen.</p>@endif
+        <div class="hw24-action" style="margin-top:14px">
+            <button type="button" class="hw24-btn" wire:click="showWorkflowStep(1)">← Erfassen</button>
+            <button type="button" class="hw24-btn" wire:click="showWorkflowStep(3)" @disabled($selectedBatchId===null)>Weiter zum Export →</button>
+        </div>
+        </div>
+        <div @if($workflowStep!==3) hidden @endif>
         <section class="hw24-card">
             <div class="hw24-card-head"><h3>05 · JTL-Ameise-Prüfexport direkt in Filament</h3></div>
             <div class="hw24-card-body">
@@ -493,8 +519,10 @@
             </div>
         </section>
 
-        <section class="hw24-card">
-            <div class="hw24-card-head"><h3>06 · Alle vorhandenen Scan-Funktionen weiter nutzen</h3></div>
+        <div class="hw24-action" style="margin-top:14px"><button type="button" class="hw24-btn" wire:click="showWorkflowStep(2)">← Zurück zur Prüfung</button></div>
+        </div>
+        <details class="hw24-card">
+            <summary class="hw24-card-head">Expertenansicht · bisherige Scan-Funktionen</summary> Scan-Funktionen weiter nutzen</h3></div>
             <div class="hw24-card-body">
                 <p class="hw24-description">Die bestehende, funktionsfähige Scanliste bleibt bis zur vollständigen sicheren Migration die führende Oberfläche für Erfassung, Änderung, Freigabe und Prüfexport.</p>
                 <div class="hw24-action">
@@ -503,6 +531,6 @@
                 </div>
                 <p class="hw24-note hw24-note-warn">Diese Links öffnen die geschützte bisherige LIVE-Anwendung in einem neuen Tab. Dort gelten die bestehenden Berechtigungen und Freigaben. Ein CSV-Prüfexport ist kein direkter Import in JTL-Wawi.</p>
             </div>
-        </section>
+        </details>
     </div>
 </x-filament-panels::page>
