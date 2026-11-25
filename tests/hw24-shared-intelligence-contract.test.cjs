@@ -44,7 +44,7 @@ ensure(purchase.includes("WHERE p.id=? AND p.created_by=?"),
 console.log('Shared HW24 product archive and user-audit separation: contract passed');
 
 /* V2 contract is opt-in; this is source verification, not a provider call. */
-ensure(review.includes("'review_versions'=>[1,2]"),'Advertise supported versions before charging');
+ensure(review.includes("'review_versions'=>$webEnabled?[1,2,3]:[1,2]"),'Advertise supported versions before charging');
 ensure(review.includes("$body['review_version']??1"),'Legacy client defaults to V1');
 ensure(review.includes("v2_verified_single_candidate_required"),'V2 requires one verified single candidate');
 ensure(review.includes("'product_facts'=>$productFacts"),'Archive extended source facts with input');
@@ -53,3 +53,9 @@ ensure(review.indexOf('review_duplicate_check_unavailable')<review.indexOf('curl
 ensure(review.includes('Keine nicht belegten Wirkungs-'),'No unsupported product benefit claims');
 ensure(review.includes("'max_output_tokens'=>$reviewVersion===2?2500:1250"),'Bound output by version');
 console.log('HW24 optional V2 AI copy contract: passed');
+
+ensure(review.includes("$payload['max_tool_calls']=1"),'Manual web search capped to one tool call');
+ensure(review.includes("web_previous_charge_unconfirmed"),'Ambiguous web charge blocks retry');
+ensure(review.includes("'web_search_call.action.sources'"),'Search sources are retrieved from provider tool');
+ensure(review.includes("$parsed['webSources']=array_values($sources)"),'Provider sources archived with review');
+ensure(review.includes("web_research_disabled"),'Web feature explicitly disabled until authorized');
