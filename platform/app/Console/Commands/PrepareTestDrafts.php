@@ -7,8 +7,8 @@ use Illuminate\Console\Command;
 
 final class PrepareTestDrafts extends Command
 {
-    protected $signature='hw24:prepare-test-drafts {batch : ID of the approved open TEST scan batch} {--confirm : Approve automatic draft-only preparation}';
-    protected $description='Prepare at most three untouched TEST drafts from verified completed research, without provider calls or release';
+    protected $signature='hw24:prepare-test-drafts {batch : ID of the approved open TEST scan batch} {--confirm : Approve automatic draft-only preparation} {--ai-one : Explicitly allow at most one new paid AI review}';
+    protected $description='Prepare at most three untouched TEST drafts from verified completed research, without release; optional one approved paid AI review';
 
     public function handle(HubAutomaticDrafts $service): int
     {
@@ -18,7 +18,7 @@ final class PrepareTestDrafts extends Command
             return self::FAILURE;
         }
         try{
-            $result=$service->run($id,true);
+            $result=$service->run($id,true,(bool)$this->option('ai-one'));
             $this->line(json_encode($result,JSON_THROW_ON_ERROR));
             return $result['status']==='ok'?self::SUCCESS:self::FAILURE;
         }catch(\Throwable){
