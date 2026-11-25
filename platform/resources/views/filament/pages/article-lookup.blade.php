@@ -79,7 +79,7 @@
         <header class="hw24-head">
             <div>
                 <p class="hw24-kicker">HAIRWORLD24 · Produktdatenplattform</p>
-                <h2>Artikelpflege · Bestand</h2>
+                <h2>Artikelzentrale · Artikelpflege Bestand</h2>
                 <p>Stammdaten, Bestand und Preise aus dem JTL-Spiegel. Originalquellen und Marktplatzangebote bleiben nachvollziehbar getrennt.</p>
             </div>
             <a class="hw24-link" href="{{ route('filament.admin.pages.dashboard') }}">Zum Management-Cockpit</a>
@@ -242,8 +242,8 @@
                                     <dl class="hw24-fields">
                                         <div class="hw24-field"><dt>JTL-Lagerbestand</dt><dd>{{ is_numeric($item['bestand']) ? number_format((float) $item['bestand'], 0, ',', '.') : 'Nicht belegt' }}</dd><p class="hw24-note">Gespiegelter Bestand, nicht lieferbare Menge</p></div>
                                         <div class="hw24-field"><dt>Füllmenge / Maßmenge</dt><dd>{{ $massLabel }}</dd><p class="hw24-note">Originalwert, Einheit ungeprüft</p></div>
-                                        <div class="hw24-field"><dt>Lieferstatus</dt><dd>{{ $item['lieferstatus_name'] ?: (!empty($item['lieferstatus_id']) ? 'ID ' . $item['lieferstatus_id'] . ' · Klartext offen' : 'Nicht belegt') }}</dd></div>
-                                        <div class="hw24-field"><dt>Steuerklasse</dt><dd>{{ $item['steuerklasse_name'] ?: (!empty($item['steuerklasse_id']) ? 'ID ' . $item['steuerklasse_id'] . ' · Klartext offen' : 'Nicht belegt') }}</dd></div>
+                                        <div class="hw24-field"><dt>Lieferstatus</dt><dd>{{ $item['lieferstatus_name'] ?: (($fieldReview['fields']['Lieferstatus']['state']??null)==='observed_reference'?$fieldReview['fields']['Lieferstatus']['value']:(!empty($item['lieferstatus_id']) ? 'ID ' . $item['lieferstatus_id'] . ' · Klartext offen' : 'Nicht belegt')) }}</dd></div>
+                                        <div class="hw24-field"><dt>Steuerklasse</dt><dd>{{ $item['steuerklasse_name'] ?: (($fieldReview['fields']['Steuerklasse']['state']??null)==='observed_reference'?$fieldReview['fields']['Steuerklasse']['value']:(!empty($item['steuerklasse_id']) ? 'ID ' . $item['steuerklasse_id'] . ' · Klartext offen' : 'Nicht belegt')) }}</dd></div>
                                     </dl>
                                 </div>
                             </div>
