@@ -15,6 +15,21 @@ final class HubTemplateLabelTest extends TestCase
         self::assertNull(\App\Services\HubCategoryPolicy::suggest('Revlon Colorsmetique High Coverage Shampoo'));
     }
     
+    public function test_observed_alias_and_group_consensus_do_not_copy_product_fields(): void
+    {
+        self::assertSame('Revlon',\App\Services\HubManufacturerPolicy::jtlSearchName('Revlon Professional'));
+        self::assertFalse(\App\Services\HubManufacturerPolicy::equivalent('Revlon Professional','Wella'));
+        $o=require dirname(__DIR__,2).'/config/hw24_jtl_reference_observations.php';
+        $a=['jtl_article_id'=>1,'hersteller'=>'Revlon','warengruppe'=>'Haarfarben','label_namen'=>'Vorlagen zur Anlage','kSteuerklasse'=>'1','cLagerAktiv'=>'Y','kLieferStatus'=>'1','ean'=>'8432225099521'];
+        $b=array_replace($a,['jtl_article_id'=>2,'hersteller'=>'Wella','ean'=>'4006381333931','kLieferStatus'=>'2']);
+        self::assertSame([],HubArticleMirror::groupStandards([$a],[],'Haarfarben',$o)['fields']);
+        $r=HubArticleMirror::groupStandards([$a,$b],['Hersteller'=>'Matrix'],'Haarfarben',$o);
+        self::assertSame('Normaler Steuersatz',$r['fields']['Steuerklasse']);
+        self::assertSame('Y',$r['fields']['Bestandsführung aktiv']);
+        self::assertArrayNotHasKey('Lieferstatus',$r['fields']);
+        foreach(['Hersteller','Netto-VK','HAN','Inhalt/Menge','Artikelgewicht'] as $f)self::assertArrayNotHasKey($f,$r['fields']);
+    }
+
     public function test_only_exact_operator_confirmed_label(): void
     {
         foreach(['Vorlagen zur Anlage',' VORLAGEN ZUR ANLAGE ','Neu; Vorlagen zur Anlage','Vorlagen zur Anlage, Pflege','A|Vorlagen zur Anlage'] as $s)
