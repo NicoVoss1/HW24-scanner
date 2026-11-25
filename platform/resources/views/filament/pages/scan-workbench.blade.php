@@ -228,6 +228,15 @@
                                         <details style="padding:8px;border-bottom:1px solid #dbe5ef">
                                             <summary>{{ $ean }} · {{ $proposal['draft']['Artikelname']??'' }} · {{ count($proposal['fields']) }} Vorschläge · {{ $proposal['reason'] }}</summary>
                                             @if($proposal['missing']!==[])<p>Basisfelder offen: {{ implode(', ',$proposal['missing']) }}</p>@endif
+                                            @if(isset($proposal['template_reason']))<p>JTL-Vorlagen: {{ $proposal['template_count']??0 }} · {{ $proposal['template_reason'] }}</p>@endif
+                                            @if(isset($proposal['market_price']))
+                                                <p>Amazon-Marktpreisarchiv #{{ $proposal['market_price']['id'] }} · {{ $proposal['market_price']['at'] }} UTC · nicht eigener VK</p>
+                                                @foreach(['buybox'=>'Buy Box','lowest'=>'Niedrigste Angebote'] as $key=>$label)
+                                                    @foreach($proposal['market_price'][$key] as $price)
+                                                        @if(isset($price['landed_price']['amount'],$price['landed_price']['currency']))<p>{{ $label }}: {{ $price['landed_price']['amount'] }} {{ $price['landed_price']['currency'] }}</p>@endif
+                                                    @endforeach
+                                                @endforeach
+                                            @endif
                                             @foreach($proposal['fields'] as $field=>$value)
                                                 <p><strong>{{ $field }}:</strong> {{ $value }} <small>({{ $proposal['sources'][$field] }})</small></p>
                                             @endforeach
