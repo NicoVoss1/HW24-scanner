@@ -151,6 +151,7 @@ final class ScanWorkbench extends Page
     #[Locked] public int $researchOffset = 0;
     #[Locked] public string $researchMessage = '';
     #[Locked] public ?string $workingEan = null;
+    #[Locked] public int $workflowStep = 1;
     #[Locked] public array $workingPrice = [];
     #[Locked] public array $jtlFieldReview = [];
     #[Locked] public array $peerReview = [];
@@ -333,12 +334,32 @@ final class ScanWorkbench extends Page
         return $more;
     }
 
+    public function showWorkflowStep(int $step): void
+    {
+        if(in_array($step,[1,2,3],true))$this->workflowStep=$step;
+    }
+
+    public function editableEans(): array
+    {
+        return array_values(array_unique(array_column(array_filter($this->items,fn($row)=>
+            ($row['review']??null)!=='removed'&&self::validGtin((string)($row['ean']??''))),'ean')));
+    }
+
+    public function moveDraft(int $direction): void
+    {
+        if(!in_array($direction,[-1,1],true))return;
+        $eans=$this->editableEans();$i=array_search($this->workingEan,$eans,true);
+        if($i===false||!isset($eans[$i+$direction]))return;
+        $this->openDraft($eans[$i+$direction]);
+    }
+
     public function openDraft(string $ean): void
     {
         $row=$this->rowFor($ean);
         if($row===null)return;
         $this->reset(['draftFields','confirmDraft','draftMessage','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi']);
         $this->workingEan=$ean;
+        $this->workflowStep=2;
         foreach(ScanResearch::FIELDS as $field){
             $v=$row['draft'][$field]??'';
             $this->draftFields[$field]=is_scalar($v)?(string)$v:'';
