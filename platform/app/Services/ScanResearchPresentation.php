@@ -125,6 +125,10 @@ final class ScanResearchPresentation
             }elseif($key!==null&&array_key_exists($key,$a)){
                 // A null optional mirror mapping does not prove that JTL itself is empty.
                 $state='empty_snapshot';$display='';
+            }elseif($key!==null||$rawKey!==null||$id!==null){
+                $state='missing_source';$display='';
+                if($rawKey!==null)$origin='JTL tArtikel: '.$rawKey;
+                elseif($id!==null)$origin='JTL tArtikel: '.$id;
             }else{
                 $state='unmapped';$display='';
             }
