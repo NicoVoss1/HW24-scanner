@@ -123,10 +123,16 @@ final class ResearchQueue
         return $out;
     }
     /** One active lease across ALL trusted queue workers. */
-    public function claim(string $actor): ?array
+    public function claim(string $actor,?array $allowedIds=null): ?array
     {
         self::actor($actor);
-        return $this->transaction(function($gate,$now)use($actor){
+        if($allowedIds!==null){
+            if(count($allowedIds)>3000)throw new InvalidArgumentException('Too many allowed jobs');
+            foreach($allowedIds as $id)if(!is_int($id)||$id<1)throw new InvalidArgumentException('Invalid job ID');
+            $allowedIds=array_values(array_unique($allowedIds));
+            if(!$allowedIds)return null;
+        }
+        return $this->transaction(function($gate,$now)use($actor,$allowedIds){
             if($gate['active_job_id']!==null){
                 $r=$this->q('SELECT * FROM hw24_research_jobs WHERE id=?',[$gate['active_job_id']])->fetch(PDO::FETCH_ASSOC);
                 if(!$r||$r['status']!=='leased'||$r['lease_until_utc']===null)throw new RuntimeException('Inconsistent active lease');
@@ -140,9 +146,10 @@ final class ResearchQueue
                 return null;
             }
             if($gate['next_allowed_utc']>$now)return null;
+            $scope=$allowedIds===null?'':' AND id IN ('.implode(',',array_fill(0,count($allowedIds),'?')).')';
             $r=$this->q("SELECT id,ean,attempt_count FROM hw24_research_jobs WHERE status IN ('queued','retry')
-                AND attempt_count<? AND (next_attempt_utc IS NULL OR next_attempt_utc<=?)
-                ORDER BY requested_at_utc,id LIMIT 1",[self::MAX_ATTEMPTS,$now])->fetch(PDO::FETCH_ASSOC);
+                AND attempt_count<? AND (next_attempt_utc IS NULL OR next_attempt_utc<=?)".$scope.
+                " ORDER BY requested_at_utc,id LIMIT 1",[self::MAX_ATTEMPTS,$now,...($allowedIds??[])])->fetch(PDO::FETCH_ASSOC);
             if(!$r)return null;
             $id=(int)$r['id'];$token=bin2hex(random_bytes(16));$until=self::add($now,self::LEASE_SECONDS);
             $this->q("UPDATE hw24_research_jobs SET status='leased',attempt_count=attempt_count+1,lease_token=?,lease_until_utc=?,leased_by=?,next_attempt_utc=NULL WHERE id=?",
