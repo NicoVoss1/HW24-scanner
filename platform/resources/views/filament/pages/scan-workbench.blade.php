@@ -244,6 +244,16 @@
                                             @if(isset($proposal['ai']))
                                                 <p>KI-Archiv: {{ match($proposal['ai']['state']){'verified_review'=>'Geprüfter Bericht','missing'=>'Noch kein gemeinsamer Bericht','stale'=>'Abweichende Recherchegrundlage','identity_conflict'=>'Identitätskonflikt','review'=>'Manuelle Prüfung','not_checked'=>'In diesem Durchgang nicht geprüft',default=>'Nicht bestätigt'} }} @if(isset($proposal['ai']['id'])) · #{{ $proposal['ai']['id'] }} @endif</p>
                                                 @if(!empty($proposal['ai']['group_hint']))<p>KI-Warengruppenvorschlag: {{ $proposal['ai']['group_hint'] }} (Übernahme nur aus passender JTL-Vorlage)</p>@endif
+                                                @if(($proposal['ai']['content']['state']??null)==='review')
+                                                    <details><summary>KI-Texte und belegte Artikelattribute · Prüfvorschläge</summary>
+                                                        @foreach($proposal['ai']['content']['fields']??[] as $label=>$value)<p><strong>{{ $label }}</strong>: {{ $value }}</p>@endforeach
+                                                        @foreach($proposal['ai']['content']['attributes']??[] as $channel=>$attributes)
+                                                            <p><strong>{{ match($channel){'article'=>'Artikelmerkmale','shopify'=>'Shopify','ebay'=>'eBay',default=>'Attribute'} }}</strong></p>
+                                                            @foreach($attributes as $label=>$value)<p>{{ $label }}: {{ $value }}</p>@endforeach
+                                                        @endforeach
+                                                        <p>Keine Veröffentlichung oder direkte Änderung eines Verkaufskanals.</p>
+                                                    </details>
+                                                @endif
                                                 @if(!empty($proposal['ai']['title_hint']))<p>KI-Titelvorschlag: {{ $proposal['ai']['title_hint'] }} (Prüfvorschlag)</p>@endif
                                             @endif
                                             @if(isset($proposal['template_reason']))<p>JTL-Vorlagen: {{ $proposal['template_count']??0 }} · {{ $proposal['template_reason'] }}</p>@endif
