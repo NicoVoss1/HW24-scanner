@@ -39,7 +39,7 @@ final class HubTemplateDefaults
             if(!isset($values[$f])&&is_string($v)&&trim($v)!=='')$values[$f]=$v;
         foreach(['Bestandsführung aktiv'=>'cLagerAktiv','Überverkäufe möglich'=>'cLagerKleinerNull',
             'Stückzahl teilbar'=>'cTeilbar'] as $f=>$key){
-            if(in_array($src[$key]??null,['Y','N'],true))$values[$f]=$src[$key]==='Y'?'Ja':'Nein';
+            if(in_array($src[$key]??null,['Y','N'],true))$values[$f]=$src[$key];
         }
         // Only empty target fields. Explicit zero and all existing text remain untouched.
         $fields=[];
