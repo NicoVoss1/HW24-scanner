@@ -49,9 +49,8 @@ final class ScanResearchPresentation
     }
 
     /** Dated, operator-verified reference values; never represent these as freshly synced. */
-    private static function observedReference(string $field,int $id): ?string
+    private static function observedReference(string $field,int $id,array $o): ?string
     {
-        $o=config('hw24_jtl_reference_observations',[]);
         $v=match($field){
             'Lieferstatus'=>$o['delivery_status_by_language'][$id.':1']??null,
             'Steuerklasse'=>$o['tax_classes'][$id]['name']??null,
@@ -62,7 +61,7 @@ final class ScanResearchPresentation
     }
 
     /** Current mirror only, exact EAN, no guessed reference names or derived prices. */
-    public static function jtlFields(string $ean,array $response): array
+    public static function jtlFields(string $ean,array $response,array $observations=[]): array
     {
         $raw=is_array($response['data']??null)?$response['data']:[];
         $matches=$raw['matches']??null;
@@ -97,7 +96,7 @@ final class ScanResearchPresentation
                 $state='value';$display=(string)$value;
             }elseif($id!==null&&isset($source[$id])&&is_numeric($source[$id])&&(int)$source[$id]>0){
                 $ref=(int)$source[$id];
-                $label=self::observedReference($field,$ref);
+                $label=self::observedReference($field,$ref,$observations);
                 if($label!==null){
                     $state='observed_reference';$display=$label.' (ID '.$ref.')';
                     $origin='JTL-Auslesung 23.11.2026 · noch nicht laufend synchronisiert';
