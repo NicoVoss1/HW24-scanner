@@ -37,8 +37,16 @@ final class HubArticleMirror
     public static function hasTemplateLabel(string $labels): bool
     {
         $parts=preg_split('/[;,|\r\n]+/u',$labels)?:[];
-        foreach($parts as $part)if(mb_strtolower(trim($part))==='vorlagen')return true;
+        foreach($parts as $part)if(mb_strtolower(trim($part))==='vorlagen zur anlage')return true;
         return false;
+    }
+
+    /** Actual label, name volume and stored volume must agree. */
+    public static function consistentVolume(string $name,mixed $quantity,string $unit): bool
+    {
+        if(mb_strtolower($unit)!=='ml'||!is_numeric($quantity)||(float)$quantity<=0)return false;
+        if(preg_match_all('/\\b(\\d+(?:[,.]\\d+)?)\\s*ml\\b/iu',$name,$m)!==1)return false;
+        return (float)str_replace(',','.',$m[1][0])===(float)$quantity;
     }
 
     /** Explicit template label + exact manufacturer/group/quantity/unit; no guessed equivalences. */
@@ -68,6 +76,7 @@ final class HubArticleMirror
                    (string)$row['ean']===(string)($draft['GTIN']??''))continue;
                 // Exact label or delimited label, not a substring of a different label.
                 if(!self::hasTemplateLabel((string)$row['label_namen']))continue;
+                if(!self::consistentVolume((string)$row['artikelname'],$row['menge'],$unit))continue;
                 $out[]=['number'=>$row['artikelnummer'],'name'=>$row['artikelname'],'amount'=>$row['menge'],'unit'=>$unit];
             }
             return ['ok'=>true,'items'=>$out,'snapshot_at'=>ScanEntryPresentation::germanDate($m['last_completed_utc'])];
