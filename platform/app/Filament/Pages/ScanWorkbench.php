@@ -183,6 +183,10 @@ final class ScanWorkbench extends Page
         $raw=$r['data']??[];
         $ok=($r['ok']??false)===true&&is_array($raw['reviews']??null);
         $row=$ok?($raw['reviews'][0]??null):null;
+        if($row!==null){
+            try{if(!is_array($row)||(int)($row['id']??0)<1||\App\Services\ResearchQueue::canonical((string)($row['ean']??''))!==\App\Services\ResearchQueue::canonical($ean)){$ok=false;$row=null;}}
+            catch(\Throwable){$ok=false;$row=null;}
+        }
         $body=is_array($row['review']??null)?$row['review']:[];
         $facts=is_array($body['productFacts']??null)?$body['productFacts']:[];
         $this->workingAi=['ok'=>$ok,'http'=>$r['http_status']??null,'found'=>is_array($row),
@@ -193,6 +197,10 @@ final class ScanWorkbench extends Page
             'notes'=>mb_substr((string)($facts['notes']??''),0,1200),
             'reason'=>mb_substr((string)($body['reason']??''),0,1200),
             'status'=>(string)($body['status']??''),
+            'shade'=>mb_substr((string)($facts['shade']??''),0,140),
+            'volume'=>is_numeric($facts['volume']??null)?(string)$facts['volume']:'',
+            'unit'=>mb_substr((string)($facts['unit']??''),0,80),
+            'type'=>mb_substr((string)($facts['articleType']??''),0,140),
             'web'=>(($row['input']['review_version']??null)===3),
             'sources'=>HubManualAiResearch::sources($body),
             'cost'=>is_numeric($row['usd_cost']??null)?(float)$row['usd_cost']:null];
@@ -203,7 +211,7 @@ final class ScanWorkbench extends Page
         $row=$this->workingEan!==null?$this->rowFor($this->workingEan):null;
         if(!$row||$row['resolution']!=='new_candidate'||in_array($row['review'],['removed','ready'],true)||
             ($this->workingAi['ok']??false)!==true||($this->workingAi['found']??false)!==true||
-            ($this->workingAi['status']??'')==='mismatch')return;
+            !in_array($this->workingAi['status']??'',['pass','review'],true))return;
         if(($this->workingAi['web']??false)&&empty($this->workingAi['sources'])){
             $this->draftMessage='Keine belegten Webquellen; bitte Produktidentität manuell klären.';return;
         }
