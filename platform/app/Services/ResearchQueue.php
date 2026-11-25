@@ -114,24 +114,31 @@ final class ResearchQueue
         });
     }
     /** Completion is a trusted worker decision; provider evidence check belongs to next phase. */
-    public function finish(int $id,string $token,string $actor,string $outcome,int $retryAfter=0): string
+    public function finish(int $id,string $token,string $actor,string $outcome,int $retryAfter=0,array $evidence=[]): string
     {
         self::actor($actor);
         if($id<1||!preg_match('/^[a-f0-9]{32}$/D',$token)||
-            !in_array($outcome,['completed','rate_limited','network_error','provider_error','identity_conflict'],true)
+            !in_array($outcome,['completed','rate_limited','network_error','provider_error','identity_conflict','archive_unavailable','no_catalog_match'],true)
             ||$retryAfter<0||$retryAfter>86400)throw new InvalidArgumentException('Invalid queue result');
-        return $this->transaction(function($gate,$now)use($id,$token,$actor,$outcome,$retryAfter){
+        // Only bounded internal references/status metadata, never provider payloads.
+        $allowed=['jtl_state','history_state','history_count','ai_state','ai_scope','ai_count','catalog_state','catalog_snapshot_id','price_state','price_snapshot_id','seller_state','seller_count'];
+        foreach($evidence as $k=>$v){
+            if(!in_array($k,$allowed,true)||(!is_int($v)&&(!is_string($v)||!preg_match('/^[a-zA-Z0-9_]{1,40}$/D',$v))))
+                throw new InvalidArgumentException('Invalid evidence metadata');
+        }
+        $json=json_encode($evidence,JSON_THROW_ON_ERROR);
+        return $this->transaction(function($gate,$now)use($id,$token,$actor,$outcome,$retryAfter,$json){
             $r=$this->q('SELECT * FROM hw24_research_jobs WHERE id=?',[$id])->fetch(PDO::FETCH_ASSOC);
             if(!$r||(int)$gate['active_job_id']!==$id||$r['status']!=='leased'||$r['leased_by']!==$actor||
                 !is_string($r['lease_token'])||!hash_equals($r['lease_token'],$token)||$r['lease_until_utc']<=$now)
                 throw new RuntimeException('Lease not current');
             $attempt=(int)$r['attempt_count'];$status='completed';$delay=0;
             if($outcome!=='completed'){
-                $status=$outcome==='identity_conflict'||$attempt>=self::MAX_ATTEMPTS?'blocked':'retry';
+                $status=in_array($outcome,['identity_conflict','no_catalog_match'],true)||$attempt>=self::MAX_ATTEMPTS?'blocked':'retry';
                 $delay=max($retryAfter,$outcome==='rate_limited'?60:min(1800,90*(2**($attempt-1))));
             }
-            $this->q('UPDATE hw24_research_jobs SET status=?,next_attempt_utc=?,completed_at_utc=?,last_error_code=?,lease_token=NULL,lease_until_utc=NULL,leased_by=NULL WHERE id=?',
-                [$status,$status==='retry'?self::add($now,$delay):null,$status==='completed'?$now:null,$outcome==='completed'?null:$outcome,$id]);
+            $this->q('UPDATE hw24_research_jobs SET status=?,next_attempt_utc=?,completed_at_utc=?,last_error_code=?,evidence_json=?,lease_token=NULL,lease_until_utc=NULL,leased_by=NULL WHERE id=?',
+                [$status,$status==='retry'?self::add($now,$delay):null,$status==='completed'?$now:null,$outcome==='completed'?null:$outcome,$json,$id]);
             $pause=$outcome==='rate_limited'?max(self::GAP_SECONDS,$delay):self::GAP_SECONDS;
             $this->q("UPDATE hw24_research_gate SET active_job_id=NULL,next_allowed_utc=? WHERE scope_key='shared_workspace'",
                 [max($gate['next_allowed_utc'],self::add($now,$pause))]);
@@ -146,14 +153,14 @@ final class ResearchQueue
         $this->transaction(function($gate,$now)use($id,$actor){
             $r=$this->q('SELECT status FROM hw24_research_jobs WHERE id=?',[$id])->fetchColumn();
             if(!in_array($r,['completed','blocked'],true))throw new RuntimeException('Job not eligible for explicit refresh');
-            $this->q("UPDATE hw24_research_jobs SET status='queued',attempt_count=0,requested_at_utc=?,next_attempt_utc=NULL,completed_at_utc=NULL,last_error_code=NULL WHERE id=?",[$now,$id]);
+            $this->q("UPDATE hw24_research_jobs SET status='queued',attempt_count=0,requested_at_utc=?,next_attempt_utc=NULL,completed_at_utc=NULL,last_error_code=NULL,evidence_json=NULL WHERE id=?",[$now,$id]);
             $this->event($id,$actor,'requeued',null,$now);
         });
     }
     /** Shared status view excludes operator identities and lease tokens. */
     public function status(int $id): ?array
     {
-        $r=$this->q('SELECT id,ean,status,attempt_count,requested_at_utc,next_attempt_utc,last_error_code,completed_at_utc FROM hw24_research_jobs WHERE id=?',[$id])->fetch(PDO::FETCH_ASSOC);
+        $r=$this->q('SELECT id,ean,status,attempt_count,requested_at_utc,next_attempt_utc,last_error_code,completed_at_utc,evidence_json FROM hw24_research_jobs WHERE id=?',[$id])->fetch(PDO::FETCH_ASSOC);
         return $r?:null;
     }
 }
