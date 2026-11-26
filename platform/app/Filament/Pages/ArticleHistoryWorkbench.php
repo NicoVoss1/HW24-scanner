@@ -12,6 +12,7 @@ final class ArticleHistoryWorkbench extends Page
     protected static ?string $slug='artikelhistorie';
     protected static ?int $navigationSort=25;
     protected string $view='filament.pages.article-history-workbench';
+    public function getMaxContentWidth(): \Filament\Support\Enums\Width { return \Filament\Support\Enums\Width::Full; }
     public string $search='';
     public string $kind='';
     public string $run='';
