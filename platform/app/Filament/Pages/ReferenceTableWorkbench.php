@@ -4,6 +4,8 @@ namespace App\Filament\Pages;
 
 use Filament\Pages\Page;
 use PDO;
+use App\Services\HubHistoricalEdits;
+use Livewire\Attributes\Locked;
 
 class ReferenceTableWorkbench extends Page
 {
@@ -29,6 +31,39 @@ class ReferenceTableWorkbench extends Page
         $this->sortDescending=$this->sortColumn===$position?!$this->sortDescending:false;$this->sortColumn=$position;$this->rowPage=1;
     }
     public int $rowPage=1;
+    #[Locked] public int $editSheet=0;
+    #[Locked] public int $editRow=0;
+    #[Locked] public int $editRevision=0;
+    #[Locked] public array $editColumns=[];
+    public array $editValues=[];
+    public string $editMessage='';
+    public function openEdit(int $sheet,int $row):void{
+        abort_unless(static::canAccess()&&!static::AMEISE,403);
+        if($this->editRow!==0){$this->editMessage='Bitte zuerst die geöffnete Bearbeitung speichern oder schließen.';return;}
+        try{
+            $r=HubHistoricalEdits::row(HubHistoricalEdits::connect(),$sheet,$row);
+            $columns=[];$values=[];
+            foreach($r['columns'] as $c){
+                $pos=(int)$c['position'];
+                if(!HubHistoricalEdits::editable($r['name'],$pos,$r['formulas']))continue;
+                $columns[]=$c;$values[(string)$pos]=(string)($r['values'][(string)$pos]??'');
+            }
+            $this->editSheet=$sheet;$this->editRow=$row;$this->editRevision=$r['revision'];
+            $this->editColumns=$columns;$this->editValues=$values;$this->editMessage='';
+        }catch(\Throwable){$this->editMessage='Zeile konnte nicht sicher geladen werden.';}
+    }
+    public function cancelEdit():void{
+        $this->reset(['editSheet','editRow','editRevision','editColumns','editValues','editMessage']);
+    }
+    public function saveEdit():void{
+        abort_unless(static::canAccess()&&!static::AMEISE,403);
+        if($this->editRow<1||$this->editSheet<1)return;
+        try{
+            $db=HubHistoricalEdits::connect(true);
+            $revision=HubHistoricalEdits::save($db,$this->editSheet,$this->editRow,$this->editRevision,$this->editValues,(string)auth()->id());
+            $this->cancelEdit();$this->editMessage='Gespeichert · Revision '.$revision.' · Original unverändert.';
+        }catch(\Throwable){$this->editMessage='Nicht gespeichert: mögliche parallele Änderung oder ungültiger Wert. Eingaben bleiben erhalten; bitte Originalstand prüfen.';}
+    }
     public static function canAccess(): bool{return QueryAuditWorkbench::canAccess();}
     public function mount():void{
         abort_unless(static::canAccess(),403);
@@ -56,8 +91,14 @@ class ReferenceTableWorkbench extends Page
             $ids=array_map(fn($r)=>(string)$r['id'],$sources);
             $id=in_array($this->sheet,$ids,true)?(int)$this->sheet:(int)$sources[0]['id'];
             $selected=null;foreach($sources as $source)if((int)$source['id']===$id){$selected=$source;break;}
-            $ct=static::AMEISE?'ameise_columns':'workbook_columns';$rt=static::AMEISE?'ameise_rows':'workbook_rows';$fk=static::AMEISE?'export_id':'sheet_id';
+            $ct=static::AMEISE?'ameise_columns':'workbook_columns';$rt=static::AMEISE?'ameise_rows':HubHistoricalEdits::projection($db);$fk=static::AMEISE?'export_id':'sheet_id';
             $q=$db->prepare("SELECT position,name,filled_count FROM $ct WHERE $fk=? ORDER BY position");$q->execute([$id]);$all=$q->fetchAll(PDO::FETCH_ASSOC);
+            if(!static::AMEISE&&HubHistoricalEdits::installed($db)){
+                $q=$db->prepare("SELECT DISTINCT v.key FROM workbook_row_edits e,json_each(e.patch_json) v WHERE e.sheet_id=? AND trim(CAST(v.value AS TEXT))<>''");$q->execute([$id]);
+                $edited=array_map('strval',$q->fetchAll(PDO::FETCH_COLUMN));
+                foreach($all as &$c)if(in_array((string)$c['position'],$edited,true))$c['filled_count']=max(1,(int)$c['filled_count']);
+                unset($c);
+            }
             $cols=self::visibleColumns($all,$this->showEmpty);
             $where="$fk=?";$params=[$id];
             $search=mb_substr(trim($this->search),0,100);
