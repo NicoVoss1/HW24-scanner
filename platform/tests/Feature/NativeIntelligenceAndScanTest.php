@@ -44,7 +44,9 @@ final class NativeIntelligenceAndScanTest extends TestCase
             ->assertSee('Alle letzten KI-Prüfungen anzeigen')
             ->assertSee('Neue KI-Prüfung ausdrücklich beauftragen');
         Livewire::test(ScanWorkbench::class)
-            ->assertSee('EAN speichern')
+            ->assertSee('EAN erfassen')
+            ->assertSee('AKTIVER SCAN-STAPEL')
+            ->assertSee('Fortlaufende Barcode-Erfassung')
             ->assertSee('JTL-Ameise-Prüfexport');
         Http::assertNothingSent();
     }
