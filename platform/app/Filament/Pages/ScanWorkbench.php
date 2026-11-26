@@ -342,6 +342,24 @@ final class ScanWorkbench extends Page
         $this->refreshPersistentResearch();
     }
 
+    public bool $showRemovedPositions=false;
+
+    public function adjustPosition(string $ean,string $action,LegacyApprovedActionBridge $bridge,LegacyReadBridge $read): void
+    {
+        $row=$this->rowFor($ean);$batch=$this->selectedBatchId;
+        if(!$row||$batch===null||!$this->canWriteScan()||auth()->id()===null||
+            !in_array($action,['reduce','remove'],true)||($action==='reduce'&&(int)$row['scans']<=1))return;
+        $r=$bridge->post('scan.adjust',['op'=>'adjust','batch_id'=>$batch,'item_id'=>$row['id'],
+            'expected_revision'=>$row['revision'],'action'=>$action]);
+        $d=$r['data']??[];
+        if(($r['ok']??false)!==true||(int)($d['item_id']??0)!==$row['id']||
+            (int)($d['revision']??-1)!==$row['revision']+1){
+            $this->actionState=['ok'=>false,'message'=>'Änderung nicht bestätigt. Bitte Stapel neu laden; nicht blind erneut ausführen.'];return;
+        }
+        $this->loadBatch($batch,$read);
+        $this->actionState=['ok'=>true,'message'=>$action==='remove'?'Position logisch gelöscht. Recherchearchive bleiben erhalten.':'Erfasste Menge reduziert. Keine Wawi-Buchung.'];
+    }
+
     public function refreshBatchStock(): void
     {
         $this->batchStock=[];
