@@ -61,4 +61,24 @@ final class ArticleHistoryCaptureTest extends TestCase
         self::assertFalse(\Hw24ArticleHistoryCapture::sameCatalog($a,'other_'.str_repeat('b',32)));
     }
 
+    public function test_extended_ledger_tracks_price_and_text_without_touching_original():void
+    {
+        $db=new PDO('sqlite::memory:',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+        $row=array_replace(array_fill_keys(array_keys(\Hw24ExtendedArticleHistoryCapture::FIELDS),null),$this->row('0615908418057','Artikel'),['netto_vk'=>'10','han'=>'00012']);
+        \Hw24ExtendedArticleHistoryCapture::capture($db,$this->meta('2026-11-26 20:00:00',1),[1=>$row]);
+        $row['netto_vk']='11';$row['han']='00013';
+        $r=\Hw24ExtendedArticleHistoryCapture::capture($db,$this->meta('2026-11-26 20:15:00',1),[1=>$row]);
+        self::assertSame(2,$r['fields']);
+        self::assertSame(['han','netto_vk'],$db->query('SELECT field_key FROM history_events ORDER BY field_key')->fetchAll(PDO::FETCH_COLUMN));
+        self::assertCount(19,\Hw24ArticleHistoryCapture::FIELDS);
+        self::assertCount(47,\Hw24ExtendedArticleHistoryCapture::FIELDS);
+    }
+    public function test_reference_display_keeps_verified_name_and_id_without_inventing_unknown_label():void
+    {
+        $page=\App\Filament\Pages\ArticleHistoryWorkbench::class;
+        self::assertSame('Matrix (ID 7)',$page::displayValue('kHersteller','7',['kHersteller'=>'7','hersteller'=>'Matrix'],[]));
+        self::assertSame('Klartext nicht übermittelt (ID 7)',$page::displayValue('kHersteller','7',['kHersteller'=>'8','hersteller'=>'Falsch'],[]));
+        self::assertSame('Ja (Y)',$page::displayValue('cAktiv','Y',[],[]));
+        self::assertSame('Normaler Steuersatz (ID 1) · Referenz 23.11.2026',$page::displayValue('kSteuerklasse','1',[],['tax_classes'=>[1=>['name'=>'Normaler Steuersatz']]]));
+    }
 }
