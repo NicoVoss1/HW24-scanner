@@ -43,7 +43,7 @@ final class ArticleHistoryWorkbench extends Page
             $where=$clauses?' WHERE '.implode(' AND ',$clauses):'';
             $q=$db->prepare('SELECT COUNT(*) FROM history_events e'.$where);$q->execute($params);$total=(int)$q->fetchColumn();
             $q=$db->prepare('SELECT e.*,r.snapshot_at,r.captured_at,
-                (SELECT p.snapshot_at FROM history_runs p WHERE p.id<r.id AND p.source_id=r.source_id ORDER BY p.id DESC LIMIT 1) AS previous_at
+                (SELECT p.snapshot_at FROM history_runs p WHERE p.id<r.id ORDER BY p.id DESC LIMIT 1) AS previous_at
                 FROM history_events e JOIN history_runs r ON r.id=e.run_id'.$where.' ORDER BY e.id DESC LIMIT 200');
             $q->execute($params);
             return ['available'=>true,'runs'=>$runs,'events'=>$q->fetchAll(PDO::FETCH_ASSOC),'total'=>$total,'labels'=>\Hw24ArticleHistoryCapture::FIELDS];
