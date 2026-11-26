@@ -108,14 +108,12 @@ final class HubBatchPreparation
             if(is_array($a)&&is_string($a['value']??null)&&trim($a['value'])!==''&&mb_strlen(trim($a['value']))<=140)$parts[trim($a['value'])]=true;
         }
         if(count($parts)===1)$add('HAN',(string)array_key_first($parts),$source.' part_number');
-        // Explicit single volume in title, no weights or inferred pack quantities.
-        if(preg_match_all('/\b(\d+(?:[,.]\d+)?)\s*ml\b/iu',$p['title'],$m)===1){
-            $amount=str_replace(',','.',$m[1][0]);
-            if((float)$amount>0&&(trim((string)($draft['Maßeinheit']??''))===''||mb_strtolower(trim((string)$draft['Maßeinheit']))==='ml')){
-                $add('Inhalt/Menge',$amount,$source.' Titelangabe');
-                $add('Maßeinheit','ml',$source.' Titelangabe');
-            }
+        $volume=HubCatalogFacts::volume($p['title'],$attributes,$draft);
+        if($volume['state']==='conflict'){
+            $out['fields']=[];$out['sources']=[];$out['state']='waiting';
+            return $out+['reason'=>'Widersprüchliche Füllmenge oder Maßeinheit','draft'=>$row['draft']??[]];
         }
+        foreach($volume['fields'] as $f=>$v)$add($f,$v,$source.' '.$volume['source']);
         foreach(HubCategoryPolicy::suggest((string)($draft['Artikelname']??''),(string)($draft['Warengruppe']??''))??[] as $f=>$v)
             $add($f,$v,'HW24-Kategorieregel');
         foreach(HubTemplateDefaults::emptyTexts($draft) as $f=>$v)$add($f,$v,'HW24-Regel: eigener Artikelname');
