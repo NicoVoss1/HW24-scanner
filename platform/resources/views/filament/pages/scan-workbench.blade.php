@@ -330,6 +330,9 @@
                                                 @endif
                                                 @if(!empty($proposal['ai']['title_hint']))<p>KI-Titelvorschlag: {{ $proposal['ai']['title_hint'] }} (Prüfvorschlag)</p>@endif
                                             @endif
+                                            @foreach($proposal['references']??[] as $source=>$reference)
+                                                <p>{{ $source==='ameise'?'Ameise-Referenz':'Historische Excel-Liste' }}: {{ match($reference['state']){'found'=>'Treffer','missing'=>'Kein Treffer','ambiguous'=>'Mehrdeutig',default=>'Archiv nicht verfügbar'} }} · {{ $reference['count'] }} Zeilen @if($reference['archive']) · Archiv #{{ $reference['archive'] }} @endif</p>
+                                            @endforeach
                                             @if(isset($proposal['template_reason']))<p>JTL-Vorlagen: {{ $proposal['template_count']??0 }} · {{ $proposal['template_reason'] }}</p>@endif
                                             @if(isset($proposal['market_price']))
                                                 <p>Amazon-Marktpreisarchiv #{{ $proposal['market_price']['id'] }} · {{ $proposal['market_price']['at'] }} UTC · nicht eigener VK</p>
