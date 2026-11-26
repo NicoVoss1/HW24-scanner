@@ -109,7 +109,8 @@
                                             @if(isset($overview['stock']['at']))<div class="hw24-sub">{{ $overview['stock']['existing'] }} JTL-Artikel · {{ $overview['stock']['absent'] }} nicht vorhanden · {{ $overview['stock']['unknown'] }} unklar<br>Stand: {{ $overview['stock']['at'] }}</div>@endif
                                         </td>
                                         <td>{{ $batch['updated'] ?: 'Nicht belegt' }}</td>
-                                        <td><button title="Diesen Stapel mit seinen einzelnen Artikeln zur Bearbeitung öffnen." type="button" class="hw24-btn" wire:click="loadBatch({{ $batch['id'] }})" wire:loading.attr="disabled" wire:target="loadBatch">Positionen anzeigen</button></td>
+                                        <td><button title="Diesen Stapel mit seinen einzelnen Artikeln zur Bearbeitung öffnen." type="button" class="hw24-btn" wire:click="loadBatch({{ $batch['id'] }})" wire:loading.attr="disabled" wire:target="loadBatch">Positionen anzeigen</button>
+                                            @if($recycleBinAvailable && $this->canWriteScan())<button type="button" class="hw24-btn" title="Stapel und Positionen nur ausblenden; Recherchearchive bleiben erhalten." wire:click="recycleBatch({{ $batch['id'] }},'remove')" wire:confirm="Ganzen Stapel in den Papierkorb verschieben? Keine Recherche wird gelöscht." wire:loading.attr="disabled">Stapel löschen</button>@endif</td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -122,6 +123,24 @@
             </div>
         </section>
 
+        @if($recycleBinAvailable)
+            <section class="hw24-card">
+                <div class="hw24-card-head"><h3>Papierkorb · Scan-Stapel</h3></div>
+                <div class="hw24-card-body">
+                    <button type="button" class="hw24-btn" wire:click="toggleDeletedBatches" wire:loading.attr="disabled">{{ $showDeletedBatches?'Gelöschte Stapel ausblenden':'Gelöschte Stapel anzeigen' }}</button>
+                    @if($showDeletedBatches)
+                        @forelse($deletedBatches as $batch)
+                            <div class="hw24-action" wire:key="deleted-batch-{{ $batch['id'] }}">
+                                <strong>{{ $batch['label'] }}</strong><span>Gelöscht: {{ $batch['deleted_at'] }} UTC</span>
+                                @if($this->canWriteScan())<button type="button" class="hw24-btn" wire:click="recycleBatch({{ $batch['id'] }},'restore')" wire:confirm="Diesen Stapel wiederherstellen?" wire:loading.attr="disabled">Wiederherstellen</button>@endif
+                            </div>
+                        @empty
+                            <p>Keine gelöschten Stapel zurückgegeben.</p>
+                        @endforelse
+                    @endif
+                </div>
+            </section>
+        @endif
         <section class="hw24-card">
             <div class="hw24-card-head"><h3>02 · Neue Stapel anlegen und EANs direkt in Filament scannen</h3></div>
             <div class="hw24-card-body">
@@ -401,6 +420,8 @@
                                                 <button title="Artikelentwurf öffnen und einzelne Felder prüfen oder bearbeiten." type="button" class="hw24-btn" wire:click="openDraft('{{ $item['ean'] }}')">Artikel bearbeiten</button>
                                                 <button type="button" class="hw24-btn" title="Öffnet die KI-Ausnahmeprüfung für diese EAN und lädt vorhandene Berichte. Noch keine kostenpflichtige Abfrage." wire:click="openAiResearch('{{ $item['ean'] }}')" wire:loading.attr="disabled" wire:target="openAiResearch">OpenAI · KI recherchieren</button>
                                                 <a class="hw24-link" href="{{ url('/admin/intelligence').'?ean='.rawurlencode($item['ean']) }}">Recherche-Details öffnen</a>
+                                            @elseif($recycleBinAvailable && $this->canWriteScan())
+                                                <button type="button" class="hw24-btn" wire:click="restorePosition('{{ $item['ean'] }}')" wire:confirm="Position mit ursprünglicher erfasster Menge wiederherstellen?" wire:loading.attr="disabled">Position wiederherstellen</button>
                                             @endif
                                         </div>
                                     </div>
