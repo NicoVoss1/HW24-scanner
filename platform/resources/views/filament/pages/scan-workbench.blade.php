@@ -319,9 +319,11 @@
                             @endif
                         </p>
                     @endif
+                    <label class="hw24-sub"><input type="checkbox" wire:model.live="showRemovedPositions"> Gelöschte Positionen anzeigen</label>
                     @if($items !== [])
                         <div class="hw24-position-list" style="margin-top:14px" role="list" aria-label="Gespeicherte Artikel">
                             @foreach($items as $i => $item)
+                                @if($item['review']==='removed' && !$showRemovedPositions) @continue @endif
                                 @php($job=$persistentResearch[$item['ean']]??null)
                                 @php($ai=$batchAiMarkers[$item['ean']]??null)
                                 @php($evidence=$researchResults[$item['ean']]??null)
@@ -353,6 +355,12 @@
                                             @endif
                                         </div>
                                         <div class="hw24-position-status">
+                                            @php($progress=\App\Services\HubScanProgress::present($item,$job??[],$batchStock['items'][$item['ean']]??[]))
+                                            <dl class="hw24-facts" style="margin:5px 0">
+                                                @foreach($progress as $stage=>$state)
+                                                    <div><dt>{{ $stage }}</dt><dd>{{ $state }}</dd></div>
+                                                @endforeach
+                                            </dl>
                                             @if($this->canQueueResearch())
                                                 <span class="hw24-job-status" data-status="{{ $job['status']??'missing' }}">{{ match($job['status']??'missing'){'queued'=>'Wartend','leased'=>'In Bearbeitung','retry'=>'Wiederholung geplant','completed'=>'Quellenrecherche durchgeführt','blocked'=>'Prüfung erforderlich','missing'=>'Nicht angemeldet',default=>'Unbekannt'} }}</span>
                                                 @if($job)
@@ -386,6 +394,10 @@
                                         </div>
                                         <div class="hw24-position-actions">
                                             @if($item['review']!=='removed')
+                                                @if($this->canWriteScan())
+                                                    <button type="button" class="hw24-btn" title="Erfasste Menge um ein Stück reduzieren. Keine Lagerbuchung." wire:click="adjustPosition('{{ $item['ean'] }}','reduce')" wire:confirm="Erfasste Stückzahl um eins reduzieren?" wire:loading.attr="disabled" @disabled($item['scans']<=1)>− 1 Stück</button>
+                                                    <button type="button" class="hw24-btn" title="Position logisch löschen; alle Recherchearchive bleiben erhalten." wire:click="adjustPosition('{{ $item['ean'] }}','remove')" wire:confirm="Position aus diesem Stapel entfernen? Recherchearchive bleiben erhalten." wire:loading.attr="disabled">Position löschen</button>
+                                                @endif
                                                 <button title="Artikelentwurf öffnen und einzelne Felder prüfen oder bearbeiten." type="button" class="hw24-btn" wire:click="openDraft('{{ $item['ean'] }}')">Artikel bearbeiten</button>
                                                 <button type="button" class="hw24-btn" title="Öffnet die KI-Ausnahmeprüfung für diese EAN und lädt vorhandene Berichte. Noch keine kostenpflichtige Abfrage." wire:click="openAiResearch('{{ $item['ean'] }}')" wire:loading.attr="disabled" wire:target="openAiResearch">OpenAI · KI recherchieren</button>
                                                 <a class="hw24-link" href="{{ url('/admin/intelligence').'?ean='.rawurlencode($item['ean']) }}">Recherche-Details öffnen</a>
