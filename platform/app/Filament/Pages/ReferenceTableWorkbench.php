@@ -35,13 +35,16 @@ class ReferenceTableWorkbench extends Page
     #[Locked] public int $editRow=0;
     #[Locked] public int $editRevision=0;
     #[Locked] public array $editColumns=[];
+    #[Locked] public array $editAudit=[];
     public array $editValues=[];
     public string $editMessage='';
     public function openEdit(int $sheet,int $row):void{
         abort_unless(static::canAccess()&&!static::AMEISE,403);
         if($this->editRow!==0){$this->editMessage='Bitte zuerst die geöffnete Bearbeitung speichern oder schließen.';return;}
         try{
-            $r=HubHistoricalEdits::row(HubHistoricalEdits::connect(),$sheet,$row);
+            $db=HubHistoricalEdits::connect();
+            $r=HubHistoricalEdits::row($db,$sheet,$row);
+            $audit=HubHistoricalEdits::events($db,$sheet,$row);
             $columns=[];$values=[];
             foreach($r['columns'] as $c){
                 $pos=(int)$c['position'];
@@ -49,11 +52,11 @@ class ReferenceTableWorkbench extends Page
                 $columns[]=$c;$values[(string)$pos]=(string)($r['values'][(string)$pos]??'');
             }
             $this->editSheet=$sheet;$this->editRow=$row;$this->editRevision=$r['revision'];
-            $this->editColumns=$columns;$this->editValues=$values;$this->editMessage='';
+            $this->editColumns=$columns;$this->editValues=$values;$this->editAudit=$audit;$this->editMessage='';
         }catch(\Throwable){$this->editMessage='Zeile konnte nicht sicher geladen werden.';}
     }
     public function cancelEdit():void{
-        $this->reset(['editSheet','editRow','editRevision','editColumns','editValues','editMessage']);
+        $this->reset(['editSheet','editRow','editRevision','editColumns','editValues','editAudit','editMessage']);
     }
     public function saveEdit():void{
         abort_unless(static::canAccess()&&!static::AMEISE,403);
