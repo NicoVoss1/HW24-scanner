@@ -9,12 +9,17 @@
         @if(!$ameise && $editRow>0)
             <section id="historical-row-editor" style="padding:16px;border:1px solid #829bb2;border-radius:8px">
                 <h3 style="font-size:18px;font-weight:700">Historische Artikelpflege · Zeile {{ $editRow }} · Revision {{ $editRevision }}</h3>
-                <p>Alle bearbeitbaren Felder dieser Zeile, einschließlich leerer Felder. GTIN-Identität und Excel-Formelzellen bleiben geschützt. Änderungen werden erst mit Speichern übernommen.</p>
+                <p>Ausschließlich vorhandene Auswahlwerte. Standardfelder verwenden die vorhandenen Listenwerte; produktbezogene Felder nur Werte desselben Artikels. GTIN und Formelzellen bleiben geschützt. Fehlt ein geeigneter Wert, ist Recherche erforderlich.</p>
                 <form wire:submit="saveEdit">
                     <div class="hw24-edit-grid">
                         @foreach($editColumns as $c)
                             <label>{{ \App\Filament\Pages\ReferenceTableWorkbench::excelColumn((int)$c['position']) }} · {{ $c['name']?:'(ohne Überschrift)' }}
-                                <textarea rows="{{ mb_strlen($editValues[(string)$c['position']]??'')>100?4:2 }}" maxlength="30000" wire:model="editValues.{{ $c['position'] }}"></textarea>
+                                <select wire:model="editValues.{{ $c['position'] }}" aria-label="{{ $c['name']?:'Auswahlwert' }}">
+                                    @foreach($editOptions[(string)$c['position']]??[] as $option)
+                                        <option value="{{ $option['token'] }}">{{ $option['label'] }}</option>
+                                    @endforeach
+                                </select>
+                                @if(count($editOptions[(string)$c['position']]??[])<=1)<small>Keine weitere belegte Auswahl · Recherche erforderlich, falls der Wert fehlt.</small>@endif
                             </label>
                         @endforeach
                     </div>
