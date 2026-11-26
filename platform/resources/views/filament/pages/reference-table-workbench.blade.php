@@ -3,8 +3,25 @@
         @include('filament.pages.reference-grid-styles')
         <div style="background:#dceeff;color:#143d62;padding:16px;border-radius:8px">
             <h2 style="font-size:20px;font-weight:700">{{ $ameise?'JTL-Ameise-Stammdaten':'Historische Artikeldaten' }}</h2>
-            <p>Originale Spaltenreihenfolge · datierte Referenz · lesende Vorschau, keine Änderung in JTL.</p>
+            <p>Originale Spaltenreihenfolge · {{ $ameise?'Unveränderlicher JTL-Export':'Historische Artikelpflege mit Änderungsprotokoll' }} · keine direkte Änderung in JTL.</p>
         </div>
+        @if($editMessage!=='')<p role="status" style="padding:12px;border:1px solid #829bb2;border-radius:8px">{{ $editMessage }}</p>@endif
+        @if(!$ameise && $editRow>0)
+            <section id="historical-row-editor" style="padding:16px;border:1px solid #829bb2;border-radius:8px">
+                <h3 style="font-size:18px;font-weight:700">Historische Artikelpflege · Zeile {{ $editRow }} · Revision {{ $editRevision }}</h3>
+                <p>Alle bearbeitbaren Felder dieser Zeile, einschließlich leerer Felder. GTIN-Identität und Excel-Formelzellen bleiben geschützt. Änderungen werden erst mit Speichern übernommen.</p>
+                <form wire:submit="saveEdit">
+                    <div class="hw24-edit-grid">
+                        @foreach($editColumns as $c)
+                            <label>{{ \App\Filament\Pages\ReferenceTableWorkbench::excelColumn((int)$c['position']) }} · {{ $c['name']?:'(ohne Überschrift)' }}
+                                <textarea rows="{{ mb_strlen($editValues[(string)$c['position']]??'')>100?4:2 }}" maxlength="30000" wire:model="editValues.{{ $c['position'] }}"></textarea>
+                            </label>
+                        @endforeach
+                    </div>
+                    <div class="hw24-pagebar"><button class="hw24-btn" type="submit" wire:loading.attr="disabled">Änderungen speichern</button><button class="hw24-btn" type="button" wire:click="cancelEdit">Ohne Speichern schließen</button></div>
+                </form>
+            </section>
+        @endif
         @if(!$available)
             <p>Privates Referenzarchiv noch nicht verfügbar oder nicht bestätigt.</p>
         @else
@@ -37,7 +54,7 @@
                     <tbody>
                         @forelse($rows as $r)
                         <tr wire:key="reference-row-{{ $selected['id'] }}-{{ $r['row_number'] }}" class="{{ ($r['status']??'')==='LP geb.'?'hw24-status-lp':(($r['status']??'')==='WE geb.'?'hw24-status-we':'') }}">
-                            <td>{{ $r['row_number'] }}</td>
+                            <td>{{ $r['row_number'] }} @unless($ameise)<button type="button" class="hw24-btn" wire:click="openEdit({{ $selected['id'] }},{{ $r['row_number'] }})" wire:loading.attr="disabled" @disabled($editRow>0)>Pflegen</button>@endunless</td>
                             @foreach($columns as $c)
                             @php($value=$r['values'][(string)$c['position']]??'')
                             <td>@if(mb_strlen($value)>160)<details><summary>{{ mb_substr($value,0,160) }} …</summary><div style="white-space:pre-wrap">{{ $value }}</div></details>@else{{ $value }}@endif</td>
