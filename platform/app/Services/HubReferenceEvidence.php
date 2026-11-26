@@ -100,7 +100,19 @@ final class HubReferenceEvidence
      */
     public static function merge(array $proposal,array $original,array $catalog,array $references): array
     {
-        $proposal['references']=array_map(fn($r)=>['state'=>$r['state'],'count'=>count($r['rows']??[]),'archive'=>$r['archive']??null],$references);
+        $proposal['references']=array_map(fn($r)=>['state'=>$r['state'],'count'=>count($r['rows']??[]),'archive'=>$r['archive']??null,
+            'populated'=>max([0,...array_column($r['rows']??[],'populated_count')])],$references);
+        // Even when Amazon has no verified single-pack match, expose historical
+        // product facts as a human review aid, never as an automatically saved draft.
+        $historical=$references['historical']??[];
+        if(($historical['state']??null)==='found'&&count($historical['rows']??[])===1){
+            $row=$historical['rows'][0];
+            $hints=[];
+            foreach(['GTIN','ASIN','Artikelname','Hersteller','HAN','Kurzbeschreibung','Beschreibung'] as $name){
+                if(is_string($row['fields'][$name]??null))$hints[$name]=mb_substr($row['fields'][$name],0,500);
+            }
+            $proposal['reference_hints']=['row'=>$row['row'],'fields'=>$hints,'requires_review'=>$row['requires_review']??true];
+        }
         if(!in_array($proposal['state']??null,['review','missing'],true))return $proposal;
         if(in_array($references['ameise']['state']??null,['found','ambiguous'],true)){
             $proposal['state']='waiting';$proposal['fields']=[];$proposal['sources']=[];$proposal['draft']=$original;
