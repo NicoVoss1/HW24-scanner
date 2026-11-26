@@ -15,8 +15,10 @@ final class HubBatchPreparation
             if(($row['resolution']??null)!=='new_candidate'||in_array($row['review']??null,['removed','ready'],true))continue;
             $archive=HubResearchEvidence::archivedCatalog($db,$job);
             $p=self::proposal($row,$job,$archive);
+            $catalog=HubResearchEvidence::catalogItem($ean,$job,$archive);
+            $p=HubReferenceEvidence::merge($p,$row['draft']??[],$catalog??[],HubReferenceEvidence::lookup($ean));
+            $p=HubReferenceEvidence::hanFallback($p,$ean);
             if(in_array($p['state'],['review','missing'],true)){
-                $catalog=HubResearchEvidence::catalogItem($ean,$job,$archive);
                 $ai=['state'=>'not_checked'];
                 if($catalog!==null&&$aiReads<3){
                     $aiReads++;
