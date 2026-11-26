@@ -331,8 +331,13 @@
                                                 @if(!empty($proposal['ai']['title_hint']))<p>KI-Titelvorschlag: {{ $proposal['ai']['title_hint'] }} (Prüfvorschlag)</p>@endif
                                             @endif
                                             @foreach($proposal['references']??[] as $source=>$reference)
-                                                <p>{{ $source==='ameise'?'Ameise-Referenz':'Historische Excel-Liste' }}: {{ match($reference['state']){'found'=>'Treffer','missing'=>'Kein Treffer','ambiguous'=>'Mehrdeutig',default=>'Archiv nicht verfügbar'} }} · {{ $reference['count'] }} Zeilen @if($reference['archive']) · Archiv #{{ $reference['archive'] }} @endif</p>
+                                                <p>{{ $source==='ameise'?'Ameise-Referenz':'Historische Excel-Liste' }}: {{ match($reference['state']){'found'=>'Treffer','missing'=>'Kein Treffer','ambiguous'=>'Mehrdeutig',default=>'Archiv nicht verfügbar'} }} · {{ $reference['count'] }} Zeilen @if($reference['archive']) · Archiv #{{ $reference['archive'] }} @endif @if(!empty($reference['populated'])) · bis zu {{ $reference['populated'] }} befüllte Originalfelder @endif @if(\App\Filament\Pages\QueryAuditWorkbench::canAccess()) · <a class="hw24-link" href="{{ $source==='ameise'?\App\Filament\Pages\AmeiseReferenceWorkbench::getUrl(['ean'=>(string)$ean]):\App\Filament\Pages\ReferenceTableWorkbench::getUrl(['ean'=>(string)$ean]) }}">Originalfelder durchsuchen</a>@endif</p>
                                             @endforeach
+                                            @if(!empty($proposal['reference_hints']['fields']))
+                                                <details><summary>Historische Produktfakten · Zeile {{ $proposal['reference_hints']['row'] }} · Prüfvorschläge</summary>
+                                                @foreach($proposal['reference_hints']['fields'] as $field=>$value)<p><strong>{{ $field }}:</strong> {{ $value }}</p>@endforeach
+                                                <p>Archivwerte sind nicht automatisch aktuelle Artikelwerte. @if($proposal['reference_hints']['requires_review']) Bearbeitungshinweise im Original prüfen. @endif</p></details>
+                                            @endif
                                             @if(isset($proposal['template_reason']))<p>JTL-Vorlagen: {{ $proposal['template_count']??0 }} · {{ $proposal['template_reason'] }}</p>@endif
                                             @if(isset($proposal['market_price']))
                                                 <p>Amazon-Marktpreisarchiv #{{ $proposal['market_price']['id'] }} · {{ $proposal['market_price']['at'] }} UTC · nicht eigener VK</p>
