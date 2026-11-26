@@ -35,6 +35,31 @@ final class HubTestBatchCycle
         return array_values($ids);
     }
 
+    /** Open TEST batches only, owned by the configured authorized legacy account. */
+    public function discover(): array
+    {
+        $b=$this->read->fetch('scan.batches',['op'=>'batches']);
+        $rows=$b['data']['batches']??null;
+        if(($b['ok']??false)!==true||!is_array($rows)||count($rows)>=50)
+            throw new RuntimeException('Batch scope unavailable or list limit reached');
+        $ids=[];
+        foreach($rows as $row){
+            $id=(int)($row['id']??0);
+            if(HubAutomaticDrafts::allowedBatch([$row],$id))$ids[$id]=$id;
+        }
+        sort($ids,SORT_NUMERIC);
+        return array_values($ids);
+    }
+
+    /** Round-robin across approved scope, independent of names or scan count. */
+    public static function nextBatch(array $ids,int $last): ?int
+    {
+        if(!$ids)return null;
+        sort($ids,SORT_NUMERIC);
+        foreach($ids as $id)if($id>$last)return $id;
+        return $ids[0];
+    }
+
     public function run(int $batchId,bool $confirmed,bool $allowResearch,int $cursor=0): array
     {
         if(!$confirmed||!app()->runningInConsole()||
