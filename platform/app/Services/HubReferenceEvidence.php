@@ -48,7 +48,8 @@ final class HubReferenceEvidence
         }elseif($source==='historical'){
             $meta=$db->query("SELECT s.id,s.workbook_id FROM workbook_sheets s WHERE s.name='JTL-Import aus AB 1Produkte_ALL' ORDER BY s.workbook_id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
             if(!$meta)return ['state'=>'missing','rows'=>[]];
-            $q=$db->prepare("SELECT row_number,values_json FROM workbook_rows WHERE sheet_id=? AND (ltrim(CAST(json_extract(values_json,'$.\"5\"') AS TEXT),'0')=? OR ltrim(CAST(json_extract(values_json,'$.\"4\"') AS TEXT),'0')=?) LIMIT 51");
+            $projection=HubHistoricalEdits::projection($db);
+            $q=$db->prepare("SELECT row_number,values_json FROM $projection WHERE sheet_id=? AND (ltrim(CAST(json_extract(values_json,'$.\"5\"') AS TEXT),'0')=? OR ltrim(CAST(json_extract(values_json,'$.\"4\"') AS TEXT),'0')=?) LIMIT 51");
             $q->execute([$meta['id'],$key,$key]);
             $map=['5'=>'GTIN','6'=>'ASIN','8'=>'Artikelname','9'=>'Kurzbeschreibung','10'=>'Beschreibung','49'=>'Hersteller','56'=>'HAN'];
         }else throw new \InvalidArgumentException('Unknown reference source');
