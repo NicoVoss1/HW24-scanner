@@ -1,4 +1,6 @@
 <x-filament-panels::page>
+    <div class="hw24-grid">
+    @include('filament.pages.reference-grid-styles')
     <div style="background:#dceeff;color:#143d62;padding:16px;border-radius:10px">
         <h2 style="font-size:20px;font-weight:700">JTL-Artikelhistorie · Vorher / Nachher</h2>
         <p>Lesender Vergleich bestätigter Spiegelstände. Kein Rückschluss auf die genaue Änderungszeit, den Bearbeiter oder eine physische Löschung in JTL.</p>
@@ -8,15 +10,15 @@
     @else
         <section>
             <h3 style="font-weight:700">Spiegelstände (UTC)</h3>
-            <div style="overflow-x:auto">
+            <div class="hw24-scroll">
                 <table style="width:100%;border-collapse:collapse;font-size:13px">
-                    <thead><tr style="background:#dceeff;color:#143d62"><th>Spiegelstand</th><th>Erfasst</th><th>Vergleich</th><th>Artikel</th><th>Neu</th><th>Geändert</th><th>Nicht mehr im Spiegel</th></tr></thead>
+                    <thead><tr ><th>Spiegelstand</th><th>Erfasst</th><th>Vergleich</th><th>Artikel</th><th>Neu</th><th>Geändert</th><th>Nicht mehr im Spiegel</th></tr></thead>
                     <tbody>
                         @foreach($runs as $r)
-                        <tr wire:key="history-run-{{ $r['id'] }}" @if($run===(string)$r['id']) style="background:#dceeff;color:#143d62" @endif>
-                            <td><button type="button" wire:click="selectRun({{ $r['id'] }})" style="text-decoration:underline">{{ $r['snapshot_at'] }}</button></td>
+                        <tr wire:key="history-run-{{ $r['id'] }}" @if($run===(string)$r['id']) class="hw24-selected" @endif>
+                            <td><button type="button" class="hw24-btn" wire:click="selectRun({{ $r['id'] }})" >{{ $r['snapshot_at'] }}</button></td>
                             <td>{{ $r['captured_at'] }}</td><td>{{ $r['kind']==='baseline'?'Ausgangsstand / Quellwechsel':'Vergleich' }}</td>
-                            <td>{{ $r['row_count'] }} <button type="button" wire:click="selectRun({{ $r['id'] }})" style="text-decoration:underline">Änderungen anzeigen</button></td><td>{{ $r['new_count'] }}</td><td>{{ $r['changed_count'] }}</td><td>{{ $r['missing_count'] }}</td>
+                            <td>{{ $r['row_count'] }} <button type="button" class="hw24-btn" wire:click="selectRun({{ $r['id'] }})" >Änderungen anzeigen</button></td><td>{{ $r['new_count'] }}</td><td>{{ $r['changed_count'] }}</td><td>{{ $r['missing_count'] }}</td>
                         </tr>
                         @endforeach
                     </tbody>
@@ -25,19 +27,19 @@
         </section>
         <section>
             <h3 style="background:#dceeff;color:#143d62;padding:12px;font-weight:700">Änderungen @if($run!=='') · Spiegel #{{ $run }} @else · Alle Stände @endif</h3>
-            <div style="display:flex;flex-wrap:wrap;gap:12px;margin:12px 0">
-                <label>EAN / Artikelnummer / Name <input type="text" wire:model.live.debounce.500ms="search" maxlength="100" class="rounded-lg border-gray-300 dark:bg-gray-800"></label>
-                <label>Änderungsart <select wire:model.live="kind" class="rounded-lg border-gray-300 dark:bg-gray-800">
+            <div class="hw24-toolbar">
+                <label>EAN / Artikelnummer / Name <input type="search" wire:model.live.debounce.500ms="search" maxlength="100" placeholder="EAN, Artikelnummer oder Name …"></label>
+                <label>Änderungsart <select wire:model.live="kind">
                     <option value="">Alle</option><option value="new">Neuanlage im Spiegel</option><option value="changed">Feld geändert</option><option value="missing">Nicht mehr im Spiegel</option>
                 </select></label>
-                <label>Feld <select wire:model.live="field" class="rounded-lg border-gray-300 dark:bg-gray-800"><option value="">Alle Felder</option>@foreach($labels as $key=>$label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></label>
-                <button type="button" wire:click="$set('run','')" style="text-decoration:underline">Alle Spiegelstände</button>
-                <button type="button" wire:click="$refresh" style="text-decoration:underline">Aktualisieren</button>
+                <label>Feld <select wire:model.live="field"><option value="">Alle Felder</option>@foreach($labels as $key=>$label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></label>
+                <button type="button" class="hw24-btn" wire:click="$set('run','')" >Alle Spiegelstände</button>
+                <button type="button" class="hw24-btn" wire:click="$refresh" >Aktualisieren</button>
             </div>
             <p>{{ $total }} Ereignisse · Seite {{ $page }} von {{ max(1,ceil($total/100)) }}</p>
-            <div style="overflow:auto;max-height:70vh">
+            <div class="hw24-scroll">
                 <table style="width:100%;border-collapse:collapse;font-size:12px;text-align:left">
-                    <thead style="position:sticky;top:0;background:#dceeff;color:#143d62"><tr>
+                    <thead ><tr>
                         @foreach(['Spiegelstand (UTC)','Artikelnummer','EAN','Artikelname','Änderungsart','Feld','Vorher','Nachher','Vorheriger Stand (UTC)','Erfasst (UTC)'] as $label)<th style="padding:8px">{{ $label }}</th>@endforeach
                     </tr></thead>
                     <tbody>
@@ -60,9 +62,10 @@
                 </table>
             </div>
             <div style="display:flex;gap:12px;margin:12px 0">
-                <button type="button" wire:click="movePage(-1)" @disabled($page<=1)>Zurück</button>
-                <button type="button" wire:click="movePage(1)" @disabled($page*100>=$total)>Weiter</button>
+                <button type="button" class="hw24-btn" wire:click="movePage(-1)" @disabled($page<=1)>Zurück</button>
+                <button type="button" class="hw24-btn" wire:click="movePage(1)" @disabled($page*100>=$total)>Weiter</button>
             </div>
         </section>
     @endif
+    </div>
 </x-filament-panels::page>
