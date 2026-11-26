@@ -66,11 +66,32 @@ final class HubReferenceEvidence
                 if(is_string($v)&&trim($v)!=='')$fields[$label]=$v;
             }
             $rows[]=['row'=>(int)$r['row_number'],'article_id'=>$r['article_id']??null,'fields'=>$fields,
+                'populated_count'=>count(array_filter($raw,fn($v)=>is_string($v)&&trim($v)!=='')),
                 'requires_review'=>$source==='historical'&&(
                     trim((string)($raw['35']??''))!==''||in_array($raw['11']??'', ['bearbeiten'],true)||
                     in_array($raw['12']??'', ['bearbeiten'],true))];
         }
         return ['state'=>$rows?'found':'missing','rows'=>$rows,'archive'=>(int)$meta['id'],'date'=>$meta['export_date']??null];
+    }
+
+    /** Display archival field differences as review evidence, never as current values. */
+    public static function comparison(array $current,array $references):array
+    {
+        $out=[];
+        foreach($references as $source=>$ref){
+            $rows=[];
+            foreach(array_slice($ref['rows']??[],0,5) as $r){
+                $fields=[];
+                foreach($r['fields']??[] as $name=>$value){
+                    $live=$current[$name]??[];
+                    if(($live['state']??null)==='value'&&trim((string)($live['value']??''))===trim($value))continue;
+                    $fields[$name]=['current'=>(string)($live['value']??''),'state'=>$live['state']??'unmapped','reference'=>mb_substr($value,0,500)];
+                }
+                $rows[]=['row'=>$r['row'],'populated_count'=>$r['populated_count']??0,'fields'=>$fields,'requires_review'=>$r['requires_review']??false];
+            }
+            $out[$source]=['state'=>$ref['state'],'archive'=>$ref['archive']??null,'date'=>$ref['date']??null,'total'=>count($ref['rows']??[]),'rows'=>$rows];
+        }
+        return $out;
     }
 
     /** Only fill historical text and HAN if one clean row and its stored ASIN
