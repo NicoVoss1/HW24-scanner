@@ -16,7 +16,7 @@
             .hw24-scan-workbench .hw24-action{display:flex;flex-wrap:wrap;align-items:center;gap:11px}
             .hw24-scan-workbench .hw24-note{border-radius:10px;padding:12px 15px;border:1px solid #cbddeb;background:#f2f8fc;font-size:12px;line-height:1.65;color:#264968;margin-top:13px}
             .hw24-scan-workbench .hw24-note-warn{border-color:#efd2ab;background:#fff8e9;color:#88490c}
-            .hw24-scan-workbench .hw24-table-wrap{overflow:auto;max-height:530px;border:1px solid #dbe5ef;border-radius:10px}
+            .hw24-scan-workbench .hw24-table-wrap{overflow-x:auto;border:1px solid #dbe5ef;border-radius:10px}
             .hw24-scan-workbench table{width:100%;min-width:650px;font-size:12px;border-collapse:collapse;text-align:left}
             .hw24-scan-workbench th{padding:11px;color:#54677b;background:#f4f7fa;text-transform:uppercase;letter-spacing:.03em;font-size:11px;white-space:nowrap}
             .hw24-scan-workbench td{padding:12px;border-top:1px solid #e0e8f0;vertical-align:middle}
@@ -34,8 +34,8 @@
             html.dark .hw24-scan-workbench td{border-color:#34465c}
             html.dark .hw24-scan-workbench .hw24-description,html.dark .hw24-scan-workbench .hw24-sub{color:#cbd5e1}
 
-            .hw24-scan-workbench .hw24-table-wrap{max-width:100%;overflow-y:auto;overflow-x:hidden}
-            .hw24-scan-workbench table{min-width:0;table-layout:fixed}
+            .hw24-scan-workbench .hw24-table-wrap{max-width:100%;overflow-x:auto}
+            .hw24-scan-workbench table{min-width:800px;table-layout:auto}
             .hw24-scan-workbench th,.hw24-scan-workbench td{white-space:normal;overflow-wrap:anywhere}
             .hw24-scan-workbench .hw24-btn:disabled{opacity:.48;cursor:not-allowed}
             .hw24-scan-workbench .hw24-upload{display:flex;align-items:center;flex-wrap:wrap;gap:14px;border:1px dashed #9ebbd4;border-radius:12px;padding:16px;background:#f5f9fd}
@@ -44,7 +44,7 @@
             .hw24-scan-workbench .hw24-file-pick:focus-within{outline:3px solid #60a5fa;outline-offset:2px}
             .hw24-scan-workbench .hw24-file-pick:has(input:disabled){opacity:.5;cursor:not-allowed}
             .hw24-scan-workbench .hw24-file-info{flex:1 1 180px;min-width:0;overflow-wrap:anywhere;font-size:13px;line-height:1.55}
-            .hw24-scan-workbench .hw24-position-list{container-type:inline-size;border:1px solid #dbe5ef;border-radius:11px;max-height:680px;overflow-y:auto}
+            .hw24-scan-workbench .hw24-position-list{container-type:inline-size;border:1px solid #dbe5ef;border-radius:11px;max-height:none;overflow:visible}
             .hw24-scan-workbench .hw24-position{padding:13px 14px;border-top:1px solid #e0e8f0;font-size:13px;line-height:1.5}
             .hw24-scan-workbench .hw24-position:first-child{border-top:0}
             .hw24-scan-workbench .hw24-position-main{display:grid;grid-template-columns:24px minmax(0,1.65fr) minmax(0,1fr) minmax(0,.85fr);align-items:start;gap:12px}
@@ -310,7 +310,7 @@
                             </div>
                             @if($batchPreparationMessage!=='')<p role="status">{{ $batchPreparationMessage }}</p>@endif
                             @if($batchPreparation!==[])
-                                <div style="max-height:400px;overflow-y:auto">
+                                <div style="overflow-x:auto">
                                     @foreach($batchPreparation as $ean=>$proposal)
                                         <details style="padding:8px;border-bottom:1px solid #dbe5ef">
                                             <summary>{{ $ean }} · {{ $proposal['draft']['Artikelname']??'' }} · {{ count($proposal['fields']) }} Vorschläge · {{ $proposal['reason'] }}</summary>
@@ -709,7 +709,7 @@
                         @endif
                         @if($releaseCandidates!==[])
                             <details open><summary>{{ count($releaseCandidates) }} Entwürfe zur Freigabe</summary>
-                                <div style="max-height:300px;overflow-y:auto">
+                                <div style="overflow-x:auto">
                                     @foreach($releaseCandidates as $candidate)
                                         <details><summary>{{ $candidate['ean'] }} · {{ $candidate['name'] }}</summary>
                                             @foreach($candidate['fields'] as $label=>$value)@if(trim((string)$value)!=='')<p><strong>{{ $label }}:</strong> {{ $value }}</p>@endif @endforeach
