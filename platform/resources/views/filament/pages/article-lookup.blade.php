@@ -101,6 +101,29 @@
         </nav>
 
         <div class="hw24-stack">
+            @if($referenceReview && \App\Filament\Pages\QueryAuditWorkbench::canAccess())
+            <section class="hw24-panel">
+                <div class="hw24-panel-head"><h3>Gemeinsame Referenzrecherche · {{ $referenceEan }}</h3></div>
+                <div class="hw24-panel-body">
+                    <p class="hw24-description">Historische Originalwerte sind Prüfvorschläge, keine aktuellen Preise oder Bestände. Vollständige Originalzeilen über die Archivlinks öffnen.</p>
+                    @foreach($referenceReview as $source=>$reference)
+                        <details open>
+                            <summary><strong>{{ $source==='ameise'?'JTL-Ameise-Stammdaten':'Historische Artikeldaten' }}</strong> · {{ match($reference['state']){'found'=>'Treffer','missing'=>'Kein Treffer','ambiguous'=>'Mehrdeutig',default=>'Nicht verfügbar'} }} · {{ $reference['total'] }} Zeilen</summary>
+                            <p class="hw24-toolbar"><a class="hw24-link" href="{{ $source==='ameise'?\App\Filament\Pages\AmeiseReferenceWorkbench::getUrl(['ean'=>$referenceEan]):\App\Filament\Pages\ReferenceTableWorkbench::getUrl(['ean'=>$referenceEan]) }}">Alle Originalfelder im Archiv durchsuchen</a></p>
+                            @foreach($reference['rows'] as $row)
+                                <p>Originalzeile {{ $row['row'] }} · {{ $row['populated_count'] }} befüllte Originalfelder @if($row['requires_review']) · Prüfhinweis vorhanden @endif</p>
+                                <div class="hw24-table-wrap"><table class="hw24-result-table"><thead><tr><th>Feld</th><th>JTL aktuell</th><th>Archivwert (Auszug)</th></tr></thead><tbody>
+                                @forelse($row['fields'] as $field=>$value)
+                                    <tr><td>{{ $field }}</td><td>{{ $value['current']!==''?$value['current']:'Nicht bestätigt' }}</td><td style="overflow-wrap:anywhere;max-width:520px">{{ $value['reference'] }}</td></tr>
+                                @empty<tr><td colspan="3">Keine Abweichungen in den bisher zugeordneten Feldern.</td></tr>@endforelse
+                                </tbody></table></div>
+                            @endforeach
+                            @if($reference['total']>5)<p>Weitere Treffer im Originalarchiv öffnen.</p>@endif
+                        </details>
+                    @endforeach
+                </div>
+            </section>
+            @endif
             <section class="hw24-panel" aria-labelledby="hw24-search-heading">
                 <div class="hw24-panel-head"><h3 id="hw24-search-heading">01 · Artikel finden</h3><span class="hw24-chip">JTL · nur lesend</span></div>
                 <div class="hw24-panel-body">
