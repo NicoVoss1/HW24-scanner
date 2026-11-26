@@ -3,8 +3,13 @@
     @include('filament.pages.reference-grid-styles')
     <div style="background:#dceeff;color:#143d62;padding:16px;border-radius:10px">
         <h2 style="font-size:20px;font-weight:700">JTL-Artikelhistorie · Vorher / Nachher</h2>
-        <p>Lesender Vergleich bestätigter Spiegelstände. Kein Rückschluss auf die genaue Änderungszeit, den Bearbeiter oder eine physische Löschung in JTL.</p>
+        <p>Vergleich bestätigter Spiegelstände. Der JTL-Änderungszeitpunkt und letzte Bearbeiter sind separate Quellfelder, sofern mitgeliefert. Sie belegen nicht den Autor jeder einzelnen Feldänderung.</p>
     </div>
+    <div class="hw24-toolbar">
+        <label>Historienumfang <select wire:model.live="scope"><option value="extended">Erweiterte Historie</option><option value="original">Bisherige Historie (19 Felder)</option></select></label>
+        <span>{{ $scopeLabel }} · {{ $fieldCount }} erfasste Felddefinitionen</span>
+    </div>
+    @if($scope==='extended' && $scopeLabel==='Bisherige Spiegelhistorie (19 Felder)')<p>Erweiterte Erfassung noch nicht installiert. Bisherige Historie wird weiterhin angezeigt.</p>@endif
     @if(!$available)
         <p>Historien-Datenbank noch nicht verfügbar oder nicht bestätigt. Zuerst privaten Ausgangsstand erfassen.</p>
     @else
@@ -51,7 +56,7 @@
                             <td style="padding:6px">{{ match($e['kind']){'new'=>'Neu im Spiegel','changed'=>'Geändert','missing'=>'Nicht mehr im Spiegel',default=>'Unbekannt'} }}</td>
                             <td style="padding:6px">{{ $labels[$e['field_key']]??'Artikel' }}</td>
                             @foreach(['old_value','new_value'] as $key)
-                            <td style="padding:6px;min-width:140px;max-width:380px;overflow-wrap:anywhere">@if($e['kind']==='changed'){{ $e[$key]===null?'Nicht belegt':($e[$key]===''?'Leer':$e[$key]) }}@else — @endif</td>
+                            <td style="padding:6px;min-width:140px;max-width:380px;overflow-wrap:anywhere">@if($e['kind']==='changed'){{ $e[$key.'_display'] }}@else — @endif</td>
                             @endforeach
                             <td style="padding:6px;white-space:nowrap">{{ $e['previous_at'] }}</td><td style="padding:6px;white-space:nowrap">{{ $e['captured_at'] }}</td>
                         </tr>
