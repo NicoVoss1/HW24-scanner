@@ -103,9 +103,59 @@ try {
       PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,
       PDO::ATTR_EMULATE_PREPARES=>false,PDO::ATTR_TIMEOUT=>5]);
   if($op==='batches'&&$method==='GET'){
-    $s=$pdo->prepare('SELECT id,label,created_at_utc,updated_at_utc FROM hw24_scan_batches
-                       WHERE created_by=? AND closed_at_utc IS NULL ORDER BY id DESC LIMIT 50');
-    $s->execute([$actor]);respond(200,['ok'=>true,'batches'=>$s->fetchAll()]);
+    $closed=($_GET['deleted']??'')==='1';
+    $s=$pdo->prepare('SELECT id,label,created_at_utc,updated_at_utc,closed_at_utc FROM hw24_scan_batches
+                       WHERE created_by=? AND closed_at_utc IS '.($closed?'NOT NULL':'NULL').' ORDER BY id DESC LIMIT 50');
+    $s->execute([$actor]);respond(200,['ok'=>true,'batches'=>$s->fetchAll(),
+      'capabilities'=>['recycle_bin_v1'=>true]]);
+  }
+  if($op==='batch_recycle'&&$method==='POST'){
+    $batch=filter_var($body['batch_id']??null,FILTER_VALIDATE_INT);
+    $action=$body['action']??null;$expected=$body['expected_updated_at']??null;
+    if(!$batch||$batch<1||!in_array($action,['remove','restore'],true)||
+      !is_string($expected)||strlen($expected)>32)respond(400,['ok'=>false,'error'=>'invalid_batch_recycle']);
+    $pdo->beginTransaction();
+    $s=$pdo->prepare('SELECT id,closed_at_utc,updated_at_utc FROM hw24_scan_batches WHERE id=? AND created_by=? FOR UPDATE');
+    $s->execute([$batch,$actor]);$row=$s->fetch();
+    if(!$row){$pdo->rollBack();respond(404,['ok'=>false,'error'=>'batch_not_found']);}
+    if((string)$row['updated_at_utc']!==$expected||($row['closed_at_utc']!==null)!==($action==='restore')){
+      $pdo->rollBack();respond(409,['ok'=>false,'error'=>'batch_state_changed']);
+    }
+    // A closed batch retains every position, event, draft and independent archive.
+    $sql='UPDATE hw24_scan_batches SET closed_at_utc='.($action==='remove'?'UTC_TIMESTAMP(6)':'NULL').',
+        updated_at_utc=UTC_TIMESTAMP(6) WHERE id=? AND created_by=?';
+    $s=$pdo->prepare($sql);$s->execute([$batch,$actor]);$pdo->commit();
+    respond(200,['ok'=>true,'batch_id'=>$batch,'deleted'=>$action==='remove']);
+  }
+  if($op==='restore_item'&&$method==='POST'){
+    $batch=filter_var($body['batch_id']??null,FILTER_VALIDATE_INT);
+    $item=filter_var($body['item_id']??null,FILTER_VALIDATE_INT);
+    $expected=$body['expected_revision']??null;
+    if(!$batch||$batch<1||!$item||$item<1||!is_int($expected)||$expected<0)
+      respond(400,['ok'=>false,'error'=>'invalid_restore_request']);
+    $pdo->beginTransaction();getBatch($pdo,$batch,$actor,true);
+    $s=$pdo->prepare('SELECT id,revision,review_state,scan_count,draft_json FROM hw24_scan_items WHERE batch_id=? AND id=? FOR UPDATE');
+    $s->execute([$batch,$item]);$row=$s->fetch();
+    if(!$row){$pdo->rollBack();respond(404,['ok'=>false,'error'=>'item_not_found']);}
+    if($row['review_state']!=='removed'||(int)$row['revision']!==$expected){
+      $pdo->rollBack();respond(409,['ok'=>false,'error'=>'revision_conflict']);
+    }
+    $draft=json_decode((string)($row['draft_json']??''),true);
+    if(!is_array($draft))$draft=[];
+    // Never restore previous export approval without a new current JTL check.
+    $state=$draft?'draft':'scan_only';
+    $s=$pdo->prepare('UPDATE hw24_scan_items SET review_state=?,revision=revision+1,updated_at_utc=UTC_TIMESTAMP(6) WHERE id=? AND batch_id=?');
+    $s->execute([$state,$item,$batch]);
+    $before=$draft+['__scan_count'=>(int)$row['scan_count'],'__review_state'=>'removed'];
+    $after=$draft+['__scan_count'=>(int)$row['scan_count'],'__review_state'=>$state];
+    $s=$pdo->prepare('INSERT INTO hw24_scan_draft_audit
+      (scan_item_id,revision,changed_by,change_kind,previous_json,next_json) VALUES (?,?,?,?,?,?)');
+    $s->execute([$item,$expected+1,$actor,'restore_item',
+      json_encode($before,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
+      json_encode($after,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
+    $s=$pdo->prepare('UPDATE hw24_scan_batches SET updated_at_utc=UTC_TIMESTAMP(6) WHERE id=?');
+    $s->execute([$batch]);$pdo->commit();
+    respond(200,['ok'=>true,'item_id'=>$item,'revision'=>$expected+1,'review_state'=>$state]);
   }
   if($op==='items'&&$method==='GET'){
     $id=filter_var($_GET['batch_id']??null,FILTER_VALIDATE_INT);
