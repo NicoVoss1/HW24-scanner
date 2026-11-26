@@ -83,6 +83,14 @@ final class HubHistoricalEdits
             $db->exec('COMMIT');return $events?$revision:$expected;
         }catch(\Throwable $e){$db->exec('ROLLBACK');throw $e;}
     }
+    public static function events(PDO $db,int $sheet,int $row):array
+    {
+        if(!self::installed($db))return [];
+        $q=$db->prepare('SELECT e.revision,e.position,c.name,e.old_value,e.new_value,e.actor,e.at_utc FROM workbook_edit_events e LEFT JOIN workbook_columns c ON c.sheet_id=e.sheet_id AND c.position=e.position WHERE e.sheet_id=? AND e.row_number=? ORDER BY e.id DESC LIMIT 100');
+        $q->execute([$sheet,$row]);
+        return $q->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     /** Effective read-only projection used by table, search and research. */
     public static function projection(PDO $db):string
     {
