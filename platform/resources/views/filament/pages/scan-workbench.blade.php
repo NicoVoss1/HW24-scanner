@@ -178,7 +178,9 @@
                         const batch=$wire.selectedBatchId;
                         const ean=this.$refs.barcode.value.trim();
                         if(!batch){this.message='Zuerst einen Scan-Stapel auswählen.';return;}
-                        if(!/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(ean)){this.message='Barcodeformat prüfen.';return;}
+                        if(!/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(ean)||/^0+$/.test(ean)){this.message='Barcodeformat prüfen.';return;}
+                        let sum=0,w=3;for(let i=ean.length-2;i>=0;i--){sum+=Number(ean[i])*w;w=w===3?1:3;}
+                        if((10-sum%10)%10!==Number(ean[ean.length-1])){this.message='EAN-Prüfziffer falsch. Barcode bitte korrigieren.';return;}
                         if(this.pending.length>=250){this.message='Erfassungspuffer voll. Bitte Verarbeitung fortsetzen.';return;}
                         if(this.pending.length &amp;&amp; this.pending[0].batch!==batch){this.message='Offene Scans gehören zum vorherigen Stapel. Diesen zuerst auswählen.';return;}
                         if(!window.crypto?.randomUUID){this.message='Sicherer Scanner-Kontext nicht verfügbar.';return;}
@@ -209,9 +211,9 @@
                         <label for="hw24-scan-ean" style="font-size:12px;font-weight:750;flex:1 1 230px">
                             EAN / GTIN scannen
                             <input class="hw24-btn" style="display:block;width:100%;text-align:left;margin-top:5px;font-size:17px" id="hw24-scan-ean" type="text" maxlength="14" inputmode="numeric" autocomplete="off" x-ref="barcode"
-                                x-bind:disabled="!$wire.selectedBatchId" placeholder="Barcode scannen oder eintippen und Enter">
+                                x-bind:disabled="!$wire.selectedBatchId" @disabled(!$this->canWriteScan()) placeholder="Barcode scannen oder eintippen und Enter">
                         </label>
-                        <button type="submit" class="hw24-btn" x-bind:disabled="!$wire.selectedBatchId">EAN erfassen</button>
+                        <button type="submit" class="hw24-btn" x-bind:disabled="!$wire.selectedBatchId" @disabled(!$this->canWriteScan())>EAN erfassen</button>
                     </form>
                     <div class="hw24-sub" role="status" aria-live="polite">
                         <strong x-text="saved+' bestätigt · '+pending.length+' im Puffer'"></strong>
