@@ -116,6 +116,9 @@ final class HubBatchPreparation
             return $out+['reason'=>'Widersprüchliche Füllmenge oder Maßeinheit','draft'=>$row['draft']??[]];
         }
         foreach($volume['fields'] as $f=>$v)$add($f,$v,$source.' '.$volume['source']);
+        $weight=HubCatalogFacts::itemWeight($attributes);
+        foreach($weight['fields'] as $f=>$v)$add($f,$v,$source.' '.$weight['source']);
+        if($weight['state']==='conflict')$out['weight_review']='Widersprüchliche Artikelgewichte im Katalog, keine Übernahme.';
         foreach(HubCategoryPolicy::suggest((string)($draft['Artikelname']??''),(string)($draft['Warengruppe']??''))??[] as $f=>$v)
             $add($f,$v,'HW24-Kategorieregel');
         foreach(HubTemplateDefaults::emptyTexts($draft) as $f=>$v)$add($f,$v,'HW24-Regel: eigener Artikelname');
