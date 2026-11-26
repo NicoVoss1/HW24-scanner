@@ -13,10 +13,10 @@
                     <thead><tr style="background:#dceeff;color:#143d62"><th>Spiegelstand</th><th>Erfasst</th><th>Vergleich</th><th>Artikel</th><th>Neu</th><th>Geändert</th><th>Nicht mehr im Spiegel</th></tr></thead>
                     <tbody>
                         @foreach($runs as $r)
-                        <tr wire:key="history-run-{{ $r['id'] }}" style="border-bottom:1px solid #aac2d5">
-                            <td><button type="button" wire:click="$set('run','{{ $r['id'] }}')" style="text-decoration:underline">{{ $r['snapshot_at'] }}</button></td>
+                        <tr wire:key="history-run-{{ $r['id'] }}" @if($run===(string)$r['id']) style="background:#dceeff;color:#143d62" @endif>
+                            <td><button type="button" wire:click="selectRun({{ $r['id'] }})" style="text-decoration:underline">{{ $r['snapshot_at'] }}</button></td>
                             <td>{{ $r['captured_at'] }}</td><td>{{ $r['kind']==='baseline'?'Ausgangsstand / Quellwechsel':'Vergleich' }}</td>
-                            <td>{{ $r['row_count'] }}</td><td>{{ $r['new_count'] }}</td><td>{{ $r['changed_count'] }}</td><td>{{ $r['missing_count'] }}</td>
+                            <td>{{ $r['row_count'] }} <button type="button" wire:click="selectRun({{ $r['id'] }})" style="text-decoration:underline">Änderungen anzeigen</button></td><td>{{ $r['new_count'] }}</td><td>{{ $r['changed_count'] }}</td><td>{{ $r['missing_count'] }}</td>
                         </tr>
                         @endforeach
                     </tbody>
@@ -24,34 +24,45 @@
             </div>
         </section>
         <section>
-            <h3 style="font-weight:700">Feldgenaue Veränderungen</h3>
+            <h3 style="background:#dceeff;color:#143d62;padding:12px;font-weight:700">Änderungen @if($run!=='') · Spiegel #{{ $run }} @else · Alle Stände @endif</h3>
             <div style="display:flex;flex-wrap:wrap;gap:12px;margin:12px 0">
                 <label>EAN / Artikelnummer / Name <input type="text" wire:model.live.debounce.500ms="search" maxlength="100" class="rounded-lg border-gray-300 dark:bg-gray-800"></label>
                 <label>Änderungsart <select wire:model.live="kind" class="rounded-lg border-gray-300 dark:bg-gray-800">
                     <option value="">Alle</option><option value="new">Neuanlage im Spiegel</option><option value="changed">Feld geändert</option><option value="missing">Nicht mehr im Spiegel</option>
                 </select></label>
+                <label>Feld <select wire:model.live="field" class="rounded-lg border-gray-300 dark:bg-gray-800"><option value="">Alle Felder</option>@foreach($labels as $key=>$label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></label>
                 <button type="button" wire:click="$set('run','')" style="text-decoration:underline">Alle Spiegelstände</button>
                 <button type="button" wire:click="$refresh" style="text-decoration:underline">Aktualisieren</button>
             </div>
-            <p>{{ $total }} Ereignisse passend · maximal 200 angezeigt. @if($run!=='') Filter Spiegel #{{ $run }}. @endif</p>
-            @forelse($events as $e)
-                <div wire:key="article-history-event-{{ $e['id'] }}" style="border:1px solid #b5cfe3;border-radius:8px;padding:12px;margin:8px 0">
-                    <strong>{{ $e['article_name']??'Artikel ohne bestätigten Namen' }}</strong>
-                    <p>Artikelnummer: {{ $e['article_number']??'Nicht belegt' }} · EAN: {{ $e['ean']??'Nicht belegt' }} · kArtikel {{ $e['article_id'] }}</p>
-                    <p style="font-size:12px">Vorher: {{ $e['previous_at']??'Nicht belegt' }} UTC · Nachher: {{ $e['snapshot_at'] }} UTC · erfasst: {{ $e['captured_at'] }} UTC</p>
-                    @if($e['kind']==='changed')
-                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;overflow-wrap:anywhere">
-                            <div><strong>{{ $labels[$e['field_key']]??$e['field_key'] }}</strong></div>
-                            <div><small>Alter Spiegelwert</small><p>{{ $e['old_value']===null?'Nicht belegt':($e['old_value']===''?'Leer':$e['old_value']) }}</p></div>
-                            <div><small>Neuer Spiegelwert</small><p>{{ $e['new_value']===null?'Nicht belegt':($e['new_value']===''?'Leer':$e['new_value']) }}</p></div>
-                        </div>
-                    @else
-                        <p>{{ $e['kind']==='new'?'Neu im Vergleich zum vorigen Spiegelstand':'Im aktuellen vollständigen Spiegel nicht mehr enthalten; keine bestätigte JTL-Löschung' }}</p>
-                    @endif
-                </div>
-            @empty
-                <p>Keine passenden beobachteten Veränderungen. Ein einzelner Ausgangsstand enthält noch keine Änderungsereignisse.</p>
-            @endforelse
+            <p>{{ $total }} Ereignisse · Seite {{ $page }} von {{ max(1,ceil($total/100)) }}</p>
+            <div style="overflow:auto;max-height:70vh">
+                <table style="width:100%;border-collapse:collapse;font-size:12px;text-align:left">
+                    <thead style="position:sticky;top:0;background:#dceeff;color:#143d62"><tr>
+                        @foreach(['Spiegelstand (UTC)','Artikelnummer','EAN','Artikelname','Änderungsart','Feld','Vorher','Nachher','Vorheriger Stand (UTC)','Erfasst (UTC)'] as $label)<th style="padding:8px">{{ $label }}</th>@endforeach
+                    </tr></thead>
+                    <tbody>
+                    @forelse($events as $e)
+                        <tr wire:key="article-history-event-{{ $e['id'] }}" style="border-bottom:1px solid #b5cfe3;vertical-align:top">
+                            <td style="padding:6px;white-space:nowrap">{{ $e['snapshot_at'] }}</td>
+                            <td style="padding:6px">{{ $e['article_number'] }}</td><td style="padding:6px">{{ $e['ean'] }}</td>
+                            <td style="padding:6px;min-width:220px">{{ $e['article_name'] }}<small> · ID {{ $e['article_id'] }}</small></td>
+                            <td style="padding:6px">{{ match($e['kind']){'new'=>'Neu im Spiegel','changed'=>'Geändert','missing'=>'Nicht mehr im Spiegel',default=>'Unbekannt'} }}</td>
+                            <td style="padding:6px">{{ $labels[$e['field_key']]??'Artikel' }}</td>
+                            @foreach(['old_value','new_value'] as $key)
+                            <td style="padding:6px;min-width:140px;max-width:380px;overflow-wrap:anywhere">@if($e['kind']==='changed'){{ $e[$key]===null?'Nicht belegt':($e[$key]===''?'Leer':$e[$key]) }}@else — @endif</td>
+                            @endforeach
+                            <td style="padding:6px;white-space:nowrap">{{ $e['previous_at'] }}</td><td style="padding:6px;white-space:nowrap">{{ $e['captured_at'] }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="10" style="padding:16px">Keine passenden Änderungen in diesem Spiegelstand. Der Ausgangsstand selbst erzeugt keine Änderungsereignisse.</td></tr>
+                    @endforelse
+                    </tbody>
+                </table>
+            </div>
+            <div style="display:flex;gap:12px;margin:12px 0">
+                <button type="button" wire:click="movePage(-1)" @disabled($page<=1)>Zurück</button>
+                <button type="button" wire:click="movePage(1)" @disabled($page*100>=$total)>Weiter</button>
+            </div>
         </section>
     @endif
 </x-filament-panels::page>
