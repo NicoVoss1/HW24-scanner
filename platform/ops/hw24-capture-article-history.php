@@ -53,6 +53,16 @@ final class Hw24ArticleHistoryCapture
           CREATE INDEX IF NOT EXISTS history_events_run ON history_events(run_id,id);
           CREATE INDEX IF NOT EXISTS history_events_article ON history_events(article_id,id);');
     }
+    /** The authenticated jtl-sync.php receiver constructs eazybusiness_<run_id>
+     * for each complete snapshot of the configured JTL database. Different run
+     * IDs therefore do not indicate different warehouses or databases.
+     */
+    public static function sameCatalog(string $previous,string $current): bool
+    {
+        return $previous===$current||
+            (preg_match('/^eazybusiness_[a-f0-9]{32}$/D',$previous)===1&&
+             preg_match('/^eazybusiness_[a-f0-9]{32}$/D',$current)===1);
+    }
     public static function capture(PDO $db,array $m,array $rows): array
     {
         if(count($rows)!==(int)$m['last_row_count']||!$rows)throw new RuntimeException('Incomplete snapshot');
@@ -70,7 +80,7 @@ final class Hw24ArticleHistoryCapture
             }
             $last=$db->query('SELECT * FROM history_runs ORDER BY id DESC LIMIT 1')->fetch(PDO::FETCH_ASSOC);
             if($last&&strcmp($m['last_completed_utc'],$last['snapshot_at'])<=0)throw new RuntimeException('Snapshot chronology uncertain.');
-            $baseline=!$last||$last['source_id']!==$m['source_id'];
+            $baseline=!$last||!self::sameCatalog($last['source_id'],$m['source_id']);
             $old=[];
             if(!$baseline)foreach($db->query('SELECT article_id,fields_json FROM history_current') as $r)
                 $old[(int)$r['article_id']]=json_decode($r['fields_json'],true,32,JSON_THROW_ON_ERROR);
