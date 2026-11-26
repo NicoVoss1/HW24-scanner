@@ -33,6 +33,31 @@ final class HubCatalogFacts
         return ['state'=>'verified','fields'=>$fields,'source'=>implode(' + ',array_keys($origins))];
     }
 
+    /** Item weight only: JTL uses kilograms. Never substitute package or dispatch weight. */
+    public static function itemWeight(array $attributes):array
+    {
+        $values=[];
+        foreach(is_array($attributes['item_weight']??null)?$attributes['item_weight']:[] as $a){
+            if(!is_array($a)||isset($a['marketplace_id'])&&$a['marketplace_id']!=='A1PA6795UKMFR9')continue;
+            $value=$a['value']??null;$unit=$a['unit']??null;
+            if(!is_scalar($value)||!is_string($unit)||!preg_match('/^\d+(?:\.\d{1,8})?$/D',(string)$value))continue;
+            $factor=match(mb_strtolower(trim($unit))){
+                'kg','kilogram','kilograms'=>1,
+                'g','gram','grams'=>0.001,
+                'mg','milligram','milligrams'=>0.000001,
+                'lb','pound','pounds'=>0.45359237,
+                'oz','ounce','ounces'=>0.028349523125,default=>null};
+            if($factor===null)continue;
+            $n=(float)$value*$factor;
+            if(!is_finite($n)||$n<0.000001||$n>10000)continue;
+            $v=rtrim(rtrim(number_format($n,6,'.',''),'0'),'.');
+            if($v!=='0')$values[$v]=true;
+        }
+        if(count($values)>1)return ['state'=>'conflict','fields'=>[]];
+        if(!$values)return ['state'=>'missing','fields'=>[]];
+        return ['state'=>'verified','fields'=>['Artikelgewicht'=>(string)array_key_first($values)],'source'=>'item_weight (kg)'];
+    }
+
     private static function ml(mixed $value,mixed $unit): ?string
     {
         if(!is_scalar($value)||!is_string($unit)||!preg_match('/^\d+(?:\.\d{1,6})?$/D',(string)$value))return null;
