@@ -10,7 +10,7 @@
             .hw24-scan-workbench .hw24-lead{font-size:13px;line-height:1.65;color:#e2edf7;max-width:620px}
             .hw24-scan-workbench .hw24-open{background:white;color:#14416b;padding:10px 14px;border-radius:9px;display:inline-flex;align-items:center;text-decoration:none;font-size:12px;font-weight:800}
             .hw24-scan-workbench .hw24-card{margin-top:16px;border:1px solid #dbe5ef;border-radius:14px;background:#fff;overflow:hidden}
-            .hw24-scan-workbench .hw24-card-head{padding:15px 18px;background:#f5f8fb;border-bottom:1px solid #dbe5ef}
+            .hw24-scan-workbench .hw24-card-head{padding:15px 18px;background:#dceeff;border-bottom:1px solid #b5d6ef;color:#143d62}
             .hw24-scan-workbench .hw24-card-body{padding:18px}
             .hw24-scan-workbench .hw24-description{color:#586b82;font-size:12px;line-height:1.65;margin:0 0 14px}
             .hw24-scan-workbench .hw24-action{display:flex;flex-wrap:wrap;align-items:center;gap:11px}
@@ -30,7 +30,7 @@
             @media(max-width:720px){.hw24-scan-workbench .hw24-hero{padding:18px}.hw24-scan-workbench h2{font-size:19px}.hw24-scan-workbench .hw24-card-body{padding:14px}}
             html.dark .hw24-scan-workbench{color:#edf2fb}
             html.dark .hw24-scan-workbench .hw24-card{background:#182434;border-color:#34465c}
-            html.dark .hw24-scan-workbench .hw24-card-head,html.dark .hw24-scan-workbench th{background:#223046;border-color:#34465c;color:#e2e8f0}
+            html.dark .hw24-scan-workbench .hw24-card-head,html.dark .hw24-scan-workbench th{background:#244969;border-color:#41698a;color:#e7f4ff}
             html.dark .hw24-scan-workbench td{border-color:#34465c}
             html.dark .hw24-scan-workbench .hw24-description,html.dark .hw24-scan-workbench .hw24-sub{color:#cbd5e1}
 
@@ -81,6 +81,12 @@
 
         @include('filament.partials.hub-release-status')
         <p class="hw24-note"><strong>EAN erfassen · automatisch recherchieren · Vorschläge prüfen · Ameise exportieren</strong></p>
+        @php($activeBatch=collect($batches)->firstWhere('id',$selectedBatchId))
+        <div class="hw24-note" style="border:2px solid #78b9e8;background:#dceeff;color:#143d62;padding:16px" role="status">
+            <div style="font-size:12px;font-weight:700">AKTIVER SCAN-STAPEL</div>
+            <strong style="font-size:19px">{{ $activeBatch['label']??'Noch kein Stapel ausgewählt' }}</strong>
+            @if($activeBatch)<div>Stapel #{{ $activeBatch['id'] }} · {{ \App\Services\HubScanSummary::fromRows($items)['positions'] }} Positionen · {{ \App\Services\HubScanSummary::fromRows($items)['quantity'] }} Stück erfasst</div>@endif
+        </div>
         <section class="hw24-card">
             <div class="hw24-card-head"><h3>01 · Vorhandene Scan-Stapel anzeigen</h3></div>
             <div class="hw24-card-body">
@@ -101,8 +107,8 @@
                             <thead><tr><th>Stapel</th><th>Positionen / Stück</th><th>Wawi Gesamt / verfügbar</th><th>Letzte Änderung UTC</th><th>Aktion</th></tr></thead>
                             <tbody>
                                 @foreach($batches as $batch)
-                                    <tr wire:key="hw24-scanbatch-{{ $batch['id'] }}">
-                                        <td><strong>{{ $batch['label'] }}</strong><div class="hw24-sub">Stapel-ID {{ $batch['id'] }}</div></td>
+                                    <tr wire:key="hw24-scanbatch-{{ $batch['id'] }}" @if($selectedBatchId===$batch['id']) style="background:#dceeff;color:#143d62" aria-current="true" @endif>
+                                        <td><strong>{{ $batch['label'] }}</strong> @if($selectedBatchId===$batch['id'])<span class="hw24-stat">Aktiv</span>@endif<div class="hw24-sub">Stapel-ID {{ $batch['id'] }}</div></td>
                                         @php($overview=$batchOverview[$batch['id']]??[])
                                         <td><strong>{{ $overview['positions']??'Nicht belegt' }}</strong> Positionen<br><strong>{{ $overview['quantity']??'Nicht belegt' }}</strong> Stück erfasst</td>
                                         <td><strong>{{ $overview['stock']['total']??'Nicht belegt' }}</strong> gesamt<br><strong>{{ $overview['stock']['available']??'Nicht belegt' }}</strong> verfügbar
@@ -158,21 +164,63 @@
                             wire:loading.attr="disabled" wire:target="createBatch"
                             @disabled(!$this->canWriteScan() || !$confirmScanWrite)>Neuen Stapel speichern</button>
                 </div>
-                <div class="hw24-action" style="margin:10px 0">
-                    <label for="hw24-scan-ean" style="font-size:12px;font-weight:750;flex:1 1 230px">
-                        EAN / GTIN im gewählten Stapel erfassen
-                        <input class="hw24-btn" style="display:block;width:100%;text-align:left;margin-top:5px" id="hw24-scan-ean" type="search" maxlength="14" inputmode="numeric" autocomplete="off"
-                            wire:model="scanEan" placeholder="Barcode scannen oder eintippen">
-                    </label>
-                    <button title="EAN erfassen; wiederholter Scan erhöht die erfasste Stückzahl, keine Wawi-Buchung." type="button" class="hw24-btn" wire:click="scanEanIntoBatch"
-                            wire:confirm="Diese EAN jetzt verbindlich in den ausgewählten HW24-Scan-Stapel schreiben? Keine JTL-Buchung."
-                            wire:loading.attr="disabled" wire:target="scanEanIntoBatch"
-                            @disabled(!$this->canWriteScan() || !$confirmScanWrite || $selectedBatchId === null)>EAN speichern</button>
-                </div>
-                <label style="font-size:12px;line-height:1.6;display:flex;gap:9px;align-items:center;margin-top:10px">
+                <label style="font-size:12px;display:flex;gap:8px;align-items:center;margin:8px 0">
                     <input type="checkbox" wire:model.live="confirmScanWrite">
-                    <span>Ich bestätige ausdrücklich das Speichern in der bestehenden Scanliste. Keine Lager-/Bestandsbuchung.@if($this->autoQueueResearch()) Die serverseitige Recherche wird nach bestätigter Speicherung angemeldet.@endif</span>
+                    <span>Nur für die Neuanlage eines Stapels: Speichern bestätigen.</span>
                 </label>
+                <div class="hw24-note" style="background:#dceeff;border-color:#78b9e8;color:#143d62">
+                    <strong>Fortlaufende Barcode-Erfassung · {{ $activeBatch['label']??'Kein Stapel ausgewählt' }}</strong>
+                    <p>Scanner mit Enter-Suffix verwenden. Jeder Scan wird im aktiven Stapel erfasst. Kein Lagerbestand wird gebucht. @if($this->autoQueueResearch()) Recherche wird nach bestätigter Speicherung automatisch angemeldet.@else Automatische Recherche für diesen Stapel nicht bestätigt.@endif</p>
+                </div>
+                <div wire:ignore x-data="{
+                    pending:[], running:false, paused:false, saved:0, message:'',
+                    add(){
+                        const batch=$wire.selectedBatchId;
+                        const ean=this.$refs.barcode.value.trim();
+                        if(!batch){this.message='Zuerst einen Scan-Stapel auswählen.';return;}
+                        if(!/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(ean)){this.message='Barcodeformat prüfen.';return;}
+                        if(this.pending.length>=250){this.message='Erfassungspuffer voll. Bitte Verarbeitung fortsetzen.';return;}
+                        if(this.pending.length &amp;&amp; this.pending[0].batch!==batch){this.message='Offene Scans gehören zum vorherigen Stapel. Diesen zuerst auswählen.';return;}
+                        if(!window.crypto?.randomUUID){this.message='Sicherer Scanner-Kontext nicht verfügbar.';return;}
+                        this.pending.push({batch,ean,key:window.crypto.randomUUID()});
+                        this.$refs.barcode.value='';
+                        if(!this.paused)this.drain();
+                        this.$refs.barcode.focus();
+                    },
+                    async drain(){
+                        if(this.running||this.paused||!this.pending.length)return;
+                        this.running=true;
+                        const batch=this.pending[0].batch;
+                        try{
+                            while(this.pending.length){
+                                const p=this.pending[0];
+                                if($wire.selectedBatchId!==p.batch){this.paused=true;this.message='Stapel gewechselt. Ursprünglichen Stapel auswählen und fortsetzen.';break;}
+                                const result=await $wire.captureBarcode(p.batch,p.ean,p.key);
+                                if(!result?.ok){this.paused=true;this.message=result?.message??'Speicherung nicht bestätigt.';break;}
+                                this.pending.shift();this.saved++;this.message=result.message;
+                            }
+                            if(!this.pending.length &amp;&amp; !this.paused)await $wire.refreshCapturedBatch(batch);
+                        }catch(e){this.paused=true;this.message='Verbindung unterbrochen. Offene Scans bleiben in diesem Browserfenster; nicht erneut scannen.';}
+                        finally{this.running=false;if(this.pending.length &amp;&amp; !this.paused)this.drain();}
+                    },
+                    resume(){this.paused=false;this.drain();this.$refs.barcode.focus();}
+                }" x-on:beforeunload.window="if(pending.length){$event.preventDefault();$event.returnValue='';}">
+                    <form class="hw24-action" style="margin:10px 0" x-on:submit.prevent="add()">
+                        <label for="hw24-scan-ean" style="font-size:12px;font-weight:750;flex:1 1 230px">
+                            EAN / GTIN scannen
+                            <input class="hw24-btn" style="display:block;width:100%;text-align:left;margin-top:5px;font-size:17px" id="hw24-scan-ean" type="text" maxlength="14" inputmode="numeric" autocomplete="off" x-ref="barcode"
+                                x-bind:disabled="!$wire.selectedBatchId" placeholder="Barcode scannen oder eintippen und Enter">
+                        </label>
+                        <button type="submit" class="hw24-btn" x-bind:disabled="!$wire.selectedBatchId">EAN erfassen</button>
+                    </form>
+                    <div class="hw24-sub" role="status" aria-live="polite">
+                        <strong x-text="saved+' bestätigt · '+pending.length+' im Puffer'"></strong>
+                        <span x-text="message"></span>
+                        <span x-show="running"> · Speicherung läuft</span>
+                    </div>
+                    <button x-show="paused" type="button" class="hw24-btn" x-on:click="resume()" x-bind:disabled="running">Offene Scans mit derselben Ereignis-ID fortsetzen</button>
+                    <p class="hw24-sub">Erfassungspuffer bleibt nur in diesem Browserfenster. Bei Störung nicht erneut scannen und Fenster nicht schließen, bis alle Scans bestätigt sind.</p>
+                </div>
                 @if($actionState !== [])
                     <p class="hw24-note {{ ($actionState['ok']??false) ? '' : 'hw24-note-warn' }}" role="status">
                         {{ $actionState['message'] }}
@@ -186,7 +234,7 @@
             <div class="hw24-card-head"><h3>03 · CSV-Datei direkt importieren (TEST)</h3></div>
             <div class="hw24-card-body">
                 <p class="hw24-description">Vorbereiteten Neuware-Export als UTF-8-CSV auswählen. Excel-Dateien zuvor als CSV speichern. Die ursprüngliche Inventurliste mit B-Ware und Kommentaren muss zuerst klassifiziert werden. Keine JTL- oder WMS-Buchung. @if($this->autoQueueResearch()) Bestätigte Positionen werden zur serverseitigen Recherche angemeldet.@else Keine automatische externe Recherche.@endif</p>
-                <p>Aktiver Stapel: {{ $selectedBatchId ?? 'Bitte oben einen TEST-Stapel auswählen' }}</p>
+                <p><strong>Aktiver Stapel: {{ $activeBatch['label']??'Bitte oben einen TEST-Stapel auswählen' }} @if($activeBatch) · #{{ $activeBatch['id'] }} @endif</strong></p>
                 <div class="hw24-upload" style="margin-top:12px" x-data="{uploading:false}" x-on:livewire-upload-start="uploading=true" x-on:livewire-upload-finish="uploading=false" x-on:livewire-upload-error="uploading=false" x-on:livewire-upload-cancel="uploading=false">
                     <label class="hw24-file-pick">
                         <span aria-hidden="true">＋</span> CSV-Datei auswählen
@@ -233,7 +281,7 @@
 
         @if($selectedBatchId !== null)
             <section class="hw24-card">
-                <div class="hw24-card-head"><h3>04 · Gespeicherte Positionen aus Stapel {{ $selectedBatchId }}</h3></div>
+                <div class="hw24-card-head"><h3>04 · Gespeicherte Positionen · {{ $activeBatch['label']??'Stapel' }} (#{{ $selectedBatchId }})</h3></div>
                 <div class="hw24-card-body">
                     <p class="hw24-description">Maximal 3.000 Positionen aus der vorhandenen MariaDB. Erfassungszeit in deutscher Ortszeit (MEZ/MESZ). CSV-Import und echte Scan-Ereignisse werden nur bei gespeichertem Nachweis angezeigt. Keine Lagerbuchung oder direkte Artikelanlage in JTL.</p>
                     @php($scanSummary=\App\Services\HubScanSummary::fromRows($items))
