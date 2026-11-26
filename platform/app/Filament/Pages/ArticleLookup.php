@@ -28,6 +28,8 @@ final class ArticleLookup extends Page
 
     public string $identifier = '';
     #[Locked] public array $fieldReview = [];
+    #[Locked] public array $referenceReview = [];
+    #[Locked] public string $referenceEan = '';
     #[Locked] public array $seoSuggestions = [];
     #[Locked] public array $peerReview = [];
     #[Locked] public array $queueReview = [];
@@ -63,7 +65,7 @@ final class ArticleLookup extends Page
 
     public function findArticle(LegacyReadBridge $bridge,HubArticleMirror $mirror): void
     {
-        $this->reset(['lookup', 'amazon', 'ai', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery', 'existingEvidence', 'articleRelated','fieldReview','seoSuggestions','peerReview','queueReview','sharedResearchReview','categoryProposal','pflegeMessage']);
+        $this->reset(['lookup', 'amazon', 'ai', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery', 'existingEvidence', 'articleRelated','fieldReview','referenceReview','referenceEan','seoSuggestions','peerReview','queueReview','sharedResearchReview','categoryProposal','pflegeMessage']);
         $id = trim($this->identifier);
         if (! preg_match('/^[\pL\pN][\pL\pN._\/-]{1,63}$/uD', $id)) {
             $this->addError('identifier', 'Bitte EAN, HAN oder JTL-Artikelnummer eingeben.');
@@ -107,6 +109,15 @@ final class ArticleLookup extends Page
                     $this->readSharedResearch($ean);
                 }catch(\Throwable){}
             }
+        }
+        if(QueryAuditWorkbench::canAccess()){
+            $referenceEan=count($matches)===1?(string)($matches[0]['ean']??''):$id;
+            try{
+                ResearchQueue::canonical($referenceEan);
+                $this->referenceEan=$referenceEan;
+                $this->referenceReview=\App\Services\HubReferenceEvidence::comparison(
+                    $this->fieldReview['fields']??[],\App\Services\HubReferenceEvidence::lookup($referenceEan));
+            }catch(\Throwable){}
         }
     }
 
