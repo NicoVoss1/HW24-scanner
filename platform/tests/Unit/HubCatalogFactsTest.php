@@ -20,4 +20,11 @@ final class HubCatalogFactsTest extends TestCase
         self::assertSame('missing',F::volume('Haarfarbe',['unit_count'=>[['value'=>60,'unit'=>'count']]],[])['state']);
         self::assertSame(['Maßeinheit'=>'ml'],F::volume('Haarfarbe 60 ml',[],['Inhalt/Menge'=>'60'])['fields']);
     }
+    public function test_item_weight_converts_to_kg_and_rejects_conflicting_or_package_values():void
+    {
+        self::assertSame(['Artikelgewicht'=>'0.25'],F::itemWeight(['item_weight'=>[['value'=>250,'unit'=>'grams'],['value'=>0.25,'unit'=>'kilograms']]])['fields']);
+        self::assertSame('conflict',F::itemWeight(['item_weight'=>[['value'=>250,'unit'=>'grams'],['value'=>300,'unit'=>'grams']]])['state']);
+        self::assertSame('missing',F::itemWeight(['item_package_weight'=>[['value'=>250,'unit'=>'grams']]])['state']);
+        self::assertSame('missing',F::itemWeight(['item_weight'=>[['value'=>250,'unit'=>'grams','marketplace_id'=>'foreign']]])['state']);
+    }
 }
