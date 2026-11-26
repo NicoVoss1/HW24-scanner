@@ -28,4 +28,7 @@ html.dark .hw24-grid input::placeholder{color:#aabed2}
 .hw24-grid .hw24-colcode{display:block;font-size:11px;opacity:.85}
 .hw24-grid details summary{cursor:pointer;text-decoration:underline}
 .hw24-grid .hw24-selected td{background:var(--grid-head);color:var(--grid-text)}
+.hw24-grid .hw24-edit-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:16px;margin:16px 0}
+.hw24-grid textarea{width:100%;min-height:64px;border:1px solid #829bb2;border-radius:7px;background:var(--grid-input);color:var(--grid-text);padding:10px;font:inherit;resize:vertical}
+.hw24-grid .hw24-sheet th:first-child,.hw24-grid .hw24-sheet td:first-child{width:110px;min-width:110px;max-width:110px}
 </style>
