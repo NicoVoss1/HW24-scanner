@@ -343,6 +343,9 @@ final class ScanWorkbench extends Page
     }
 
     public bool $showRemovedPositions=false;
+    #[Locked] public bool $recycleBinAvailable=false;
+    #[Locked] public bool $showDeletedBatches=false;
+    #[Locked] public array $deletedBatches=[];
 
     public function adjustPosition(string $ean,string $action,LegacyApprovedActionBridge $bridge,LegacyReadBridge $read): void
     {
@@ -358,6 +361,56 @@ final class ScanWorkbench extends Page
         }
         $this->loadBatch($batch,$read);
         $this->actionState=['ok'=>true,'message'=>$action==='remove'?'Position logisch gelöscht. Recherchearchive bleiben erhalten.':'Erfasste Menge reduziert. Keine Wawi-Buchung.'];
+    }
+
+    public function toggleDeletedBatches(LegacyReadBridge $read): void
+    {
+        $this->deletedBatches=[];$this->showDeletedBatches=!$this->showDeletedBatches;
+        if(!$this->showDeletedBatches||!$this->recycleBinAvailable)return;
+        $r=$read->fetch('scan.batches',['op'=>'batches','deleted'=>'1']);
+        $d=$r['data']??[];
+        if(($r['ok']??false)!==true||($d['capabilities']['recycle_bin_v1']??false)!==true){
+            $this->showDeletedBatches=false;return;
+        }
+        foreach(array_slice($d['batches']??[],0,50) as $row){
+            if(!is_array($row)||(int)($row['id']??0)<1||empty($row['closed_at_utc']))continue;
+            $this->deletedBatches[]=['id'=>(int)$row['id'],'label'=>mb_substr((string)$row['label'],0,160),
+                'updated'=>(string)$row['updated_at_utc'],'deleted_at'=>(string)$row['closed_at_utc']];
+        }
+    }
+
+    public function recycleBatch(int $batch,string $action,LegacyApprovedActionBridge $write,LegacyReadBridge $read): void
+    {
+        if(!$this->recycleBinAvailable||!$this->canWriteScan()||auth()->id()===null||!in_array($action,['remove','restore'],true))return;
+        $rows=$action==='remove'?$this->batches:$this->deletedBatches;
+        $selected=null;
+        foreach($rows as $row)if($row['id']===$batch){$selected=$row;break;}
+        if(!$selected)return;
+        $r=$write->post('scan.batch_recycle',['op'=>'batch_recycle','batch_id'=>$batch,'action'=>$action,
+            'expected_updated_at'=>$selected['updated']]);
+        $d=$r['data']??[];
+        if(($r['ok']??false)!==true||(int)($d['batch_id']??0)!==$batch||
+            ($d['deleted']??null)!==($action==='remove')){
+            $this->diagnostic=['ok'=>false,'message'=>'Stapeländerung nicht bestätigt. Bitte Liste neu laden.'];return;
+        }
+        $this->loadBatches($read);
+        $this->diagnostic=['ok'=>true,'message'=>$action==='remove'?'Stapel in den Papierkorb verschoben. Alle Positionen und Archive bleiben erhalten.':'Stapel wiederhergestellt.'];
+    }
+
+    public function restorePosition(string $ean,LegacyApprovedActionBridge $write,LegacyReadBridge $read): void
+    {
+        if(!$this->recycleBinAvailable||!$this->canWriteScan()||auth()->id()===null||$this->selectedBatchId===null)return;
+        $row=null;foreach($this->items as $item)if($item['ean']===$ean&&$item['review']==='removed'){$row=$item;break;}
+        if(!$row)return;
+        $r=$write->post('scan.restore_item',['op'=>'restore_item','batch_id'=>$this->selectedBatchId,'item_id'=>$row['id'],
+            'expected_revision'=>$row['revision']]);
+        $d=$r['data']??[];
+        if(($r['ok']??false)!==true||(int)($d['item_id']??0)!==$row['id']||
+            (int)($d['revision']??-1)!==$row['revision']+1){
+            $this->actionState=['ok'=>false,'message'=>'Wiederherstellung nicht bestätigt. Bitte Stapel neu laden.'];return;
+        }
+        $this->loadBatch($this->selectedBatchId,$read);
+        $this->actionState=['ok'=>true,'message'=>'Position mit erfasster Menge wiederhergestellt. Exportfreigabe erneut prüfen.'];
     }
 
     public function refreshBatchStock(): void
@@ -752,6 +805,7 @@ final class ScanWorkbench extends Page
     {
         $this->reset(['items', 'batches', 'batchOverview', 'selectedBatchId', 'batchPreparation','batchStock','releaseCandidates','releaseExceptions','releaseDone','releaseMessage','confirmBatchRelease','batchPreparationMessage','confirmBatchPreparation','diagnostic', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','templateNumber','templateReview','templateCandidates','draftProvenance','confirmDraft','draftMessage']);
 
+        $this->recycleBinAvailable=false;$this->showDeletedBatches=false;$this->deletedBatches=[];
         $result = $bridge->fetch('scan.batches', ['op' => 'batches']);
         $raw = is_array($result['data'] ?? null) ? $result['data'] : [];
 
@@ -765,6 +819,7 @@ final class ScanWorkbench extends Page
             return;
         }
 
+        $this->recycleBinAvailable=($raw['capabilities']['recycle_bin_v1']??false)===true;
         foreach (array_slice($raw['batches'], 0, 50) as $entry) {
             if (!is_array($entry)) {
                 continue;
