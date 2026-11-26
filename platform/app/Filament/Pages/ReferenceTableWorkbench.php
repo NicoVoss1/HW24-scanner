@@ -19,18 +19,26 @@ class ReferenceTableWorkbench extends Page
     public string $filterValue='';
     public string $status='';
     public bool $showEmpty=false;
-    public int $columnPage=1;
+    public int $rowsPerPage=25;
+    public string $sortColumn='';
+    public bool $sortDescending=false;
+    public function getMaxContentWidth(): \Filament\Support\Enums\Width { return \Filament\Support\Enums\Width::Full; }
+    public function clearFilters():void { $this->reset(['search','filterColumn','filterValue','status','sortColumn','sortDescending','rowPage']); }
+    public function sortByColumn(string $position):void {
+        if(!preg_match('/^[1-9][0-9]{0,3}$/D',$position))return;
+        $this->sortDescending=$this->sortColumn===$position?!$this->sortDescending:false;$this->sortColumn=$position;$this->rowPage=1;
+    }
     public int $rowPage=1;
     public static function canAccess(): bool{return QueryAuditWorkbench::canAccess();}
     public function mount():void{abort_unless(static::canAccess(),403);}
-    public function updated($name):void{if(in_array($name,['sheet','search','filterColumn','filterValue','status','showEmpty'],true)){$this->rowPage=1;if(in_array($name,['sheet','showEmpty'],true))$this->columnPage=1;}}
+    public function updated($name):void{if(in_array($name,['sheet','search','filterColumn','filterValue','status','showEmpty','rowsPerPage'],true))$this->rowPage=1; if($name==='sheet'){$this->filterColumn='';$this->filterValue='';$this->sortColumn='';$this->sortDescending=false;}}
     public function step(string $axis,int $delta):void{
-        if(!in_array($axis,['rowPage','columnPage'],true))return;
+        if($axis!=='rowPage')return;
         $this->$axis=max(1,min(100000,$this->$axis+max(-1,min(1,$delta))));
     }
     protected function getViewData():array{
         abort_unless(static::canAccess(),403);
-        $empty=['available'=>false,'sources'=>[],'selected'=>null,'columns'=>[],'allColumns'=>[],'rows'=>[],'total'=>0,'rp'=>1,'cp'=>1,'columnTotal'=>0,'ameise'=>static::AMEISE];
+        $empty=['available'=>false,'sources'=>[],'selected'=>null,'columns'=>[],'allColumns'=>[],'rows'=>[],'total'=>0,'rp'=>1,'perPage'=>25,'columnTotal'=>0,'ameise'=>static::AMEISE];
         try{
             $dir=dirname(base_path(),2).'/'.(static::AMEISE?'ameise-reference':'historical-reference');$path=$dir.'/reference.sqlite';
             if(!is_dir($dir)||is_link($dir)||(fileperms($dir)&0077)!==0||!is_file($path)||is_link($path)||(fileperms($path)&0077)!==0)return $empty;
@@ -44,9 +52,7 @@ class ReferenceTableWorkbench extends Page
             $selected=null;foreach($sources as $source)if((int)$source['id']===$id){$selected=$source;break;}
             $ct=static::AMEISE?'ameise_columns':'workbook_columns';$rt=static::AMEISE?'ameise_rows':'workbook_rows';$fk=static::AMEISE?'export_id':'sheet_id';
             $q=$db->prepare("SELECT position,name,filled_count FROM $ct WHERE $fk=? ORDER BY position");$q->execute([$id]);$all=$q->fetchAll(PDO::FETCH_ASSOC);
-            $cols=array_values(array_filter($all,fn($c)=>!static::AMEISE||$this->showEmpty||(int)$c['filled_count']>0));
-            $cp=max(1,min($this->columnPage,max(1,(int)ceil(count($cols)/12))));
-            $visible=array_slice($cols,($cp-1)*12,12);
+            $cols=self::visibleColumns($all,$this->showEmpty);
             $where="$fk=?";$params=[$id];
             $search=mb_substr(trim($this->search),0,100);
             if($search!==''){$where.=" AND EXISTS (SELECT 1 FROM json_each(values_json) v WHERE instr(lower(CAST(v.value AS TEXT)),lower(?))>0)";$params[]=$search;}
@@ -57,15 +63,23 @@ class ReferenceTableWorkbench extends Page
             }
             if(!static::AMEISE&&in_array($this->status,['LP geb.','WE geb.'],true)){$where.=' AND status=?';$params[]=$this->status;}
             $q=$db->prepare("SELECT COUNT(*) FROM $rt WHERE $where");$q->execute($params);$total=(int)$q->fetchColumn();
-            $rp=max(1,min($this->rowPage,max(1,(int)ceil($total/50))));$offset=($rp-1)*50;
+            $perPage=in_array($this->rowsPerPage,[10,25,50],true)?$this->rowsPerPage:25;
+            $rp=max(1,min($this->rowPage,max(1,(int)ceil($total/$perPage))));$offset=($rp-1)*$perPage;
+            $sort='row_number';
+            if(in_array($this->sortColumn,$positions,true)){
+                $sort="CAST(json_extract(values_json, '\$.\"".(int)$this->sortColumn."\"') AS TEXT) COLLATE NOCASE ".($this->sortDescending?'DESC':'ASC').', row_number';
+            }
             $extra=static::AMEISE?'':' ,status';
-            $q=$db->prepare("SELECT row_number,values_json $extra FROM $rt WHERE $where ORDER BY row_number LIMIT 50 OFFSET $offset");$q->execute($params);
+            $q=$db->prepare("SELECT row_number,values_json $extra FROM $rt WHERE $where ORDER BY $sort LIMIT $perPage OFFSET $offset");$q->execute($params);
             $rows=[];foreach($q->fetchAll(PDO::FETCH_ASSOC) as $row){
                 $row['values']=json_decode($row['values_json'],true,32,JSON_THROW_ON_ERROR);
                 unset($row['values_json']);$rows[]=$row;
             }
-            return ['available'=>true,'sources'=>$sources,'selected'=>$selected,'columns'=>$visible,'allColumns'=>$all,'rows'=>$rows,'total'=>$total,'rp'=>$rp,'cp'=>$cp,'columnTotal'=>count($cols),'ameise'=>static::AMEISE];
+            return ['available'=>true,'sources'=>$sources,'selected'=>$selected,'columns'=>$cols,'allColumns'=>$all,'rows'=>$rows,'total'=>$total,'rp'=>$rp,'perPage'=>$perPage,'columnTotal'=>count($cols),'ameise'=>static::AMEISE];
         }catch(\Throwable){return $empty;}
+    }
+    public static function visibleColumns(array $columns,bool $showEmpty=false):array {
+        return array_values(array_filter($columns,fn($c)=>$showEmpty||(int)$c['filled_count']>0));
     }
     public static function excelColumn(int $position):string{
         $s='';while($position>0){$position--;$s=chr(65+$position%26).$s;$position=intdiv($position,26);}return $s;
