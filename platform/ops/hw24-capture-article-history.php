@@ -14,17 +14,26 @@ final class Hw24ArticleHistoryCapture
         'kLieferStatus'=>'Lieferstatus (ID)','kSteuerklasse'=>'Steuerklasse (ID)','kVersandklasse'=>'Versandklasse (ID)',
         'cLagerAktiv'=>'Bestandsführung aktiv','cLagerKleinerNull'=>'Überverkäufe möglich','cTeilbar'=>'Stückzahl teilbar',
     ];
-    public static function readMirror(PDO $db): array
+    public static function readMirrors(PDO $db,?string $after=null): array
     {
         $db->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
         $db->beginTransaction();
         try {
-            $meta=$db->query('SELECT source_id,last_completed_utc,last_row_count,age_minutes FROM hw24_hub_mirror_state ORDER BY last_completed_utc DESC,source_id LIMIT 2')->fetchAll(PDO::FETCH_ASSOC);
+            $meta=$db->query('SELECT source_id,last_completed_utc,last_row_count,age_minutes FROM hw24_hub_mirror_state ORDER BY last_completed_utc DESC,source_id LIMIT 4')->fetchAll(PDO::FETCH_ASSOC);
             $m=$meta[0]??null;
             if(!$m||!is_numeric($m['age_minutes'])||(int)$m['age_minutes']<0||(int)$m['age_minutes']>45||
                 !is_numeric($m['last_row_count'])||(int)$m['last_row_count']<1||
                 (isset($meta[1])&&$meta[1]['last_completed_utc']===$m['last_completed_utc']))
                 throw new RuntimeException('Aktueller eindeutiger Spiegel nicht bestätigt.');
+            // The receiver retains three READY snapshots. Read every still
+            // available generation newer than our checkpoint in one transaction.
+            $selected=$after===null?[$m]:array_values(array_filter($meta,fn($r)=>strcmp($r['last_completed_utc'],$after)>0));
+            if(!$selected)$selected=[$m];
+            $selected=array_reverse($selected);
+            $result=[];$previous=null;
+            foreach($selected as $m){
+            if($previous===$m['last_completed_utc'])throw new RuntimeException('Ambiguous snapshot order');
+            $previous=$m['last_completed_utc'];
             $q=$db->prepare('SELECT d.*,p.jtl_article_id AS peer_id,p.kWarengruppe,p.kHersteller,p.kLieferStatus,p.kSteuerklasse,p.kVersandklasse,p.cLagerAktiv,p.cLagerKleinerNull,p.cTeilbar FROM hw24_hub_article_details d LEFT JOIN hw24_hub_peer_source p ON p.source_id=d.source_id AND p.jtl_article_id=d.jtl_article_id WHERE d.source_id=? ORDER BY d.jtl_article_id');
             $q->execute([$m['source_id']]);$rows=[];
             while($row=$q->fetch(PDO::FETCH_ASSOC)){
@@ -40,7 +49,9 @@ final class Hw24ArticleHistoryCapture
                 $rows[$id]=$fields;
             }
             if(count($rows)!==(int)$m['last_row_count'])throw new RuntimeException('Spiegelzeilenzahl stimmt nicht.');
-            $db->commit();return [$m,$rows];
+            $result[]=[$m,$rows];
+            }
+            $db->commit();return $result;
         }catch(Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
     }
     public static function schema(PDO $db): void
@@ -127,8 +138,12 @@ if(PHP_SAPI==='cli'&&realpath($_SERVER['SCRIPT_FILENAME']??'')===__FILE__){
         $cfg=json_decode(file_get_contents($cfgPath),true,16,JSON_THROW_ON_ERROR);
         if(($cfg['user']??null)!=='hw24_hub_reader'||!is_string($cfg['password']??null))throw new RuntimeException('Reader not confirmed');
         $db=new PDO('mysql:unix_socket=/run/mysqld/mysqld.sock;dbname=hw24_artikelmanager;charset=utf8mb4',$cfg['user'],$cfg['password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_EMULATE_PREPARES=>false,PDO::ATTR_TIMEOUT=>5]);
-        [$m,$rows]=Hw24ArticleHistoryCapture::readMirror($db);
         $history=new PDO('sqlite:'.$path,null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
-        echo json_encode(Hw24ArticleHistoryCapture::capture($history,$m,$rows)+['source_id'=>$m['source_id'],'snapshot_at'=>$m['last_completed_utc']],JSON_THROW_ON_ERROR).PHP_EOL;
+        Hw24ArticleHistoryCapture::schema($history);
+        $after=$history->query('SELECT snapshot_at FROM history_runs ORDER BY id DESC LIMIT 1')->fetchColumn();
+        $runs=Hw24ArticleHistoryCapture::readMirrors($db,$after===false?null:(string)$after);
+        foreach($runs as [$m,$rows]){
+            echo json_encode(Hw24ArticleHistoryCapture::capture($history,$m,$rows)+['source_id'=>$m['source_id'],'snapshot_at'=>$m['last_completed_utc']],JSON_THROW_ON_ERROR).PHP_EOL;
+        }
     }catch(Throwable $e){fwrite(STDERR,"STOP: Historie nicht bestätigt. Keine JTL-Schreibaktion. ".get_class($e).PHP_EOL);exit(1);}
 }
