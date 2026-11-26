@@ -48,4 +48,17 @@ final class ArticleHistoryCaptureTest extends TestCase
         self::assertSame(1,(int)$db->query('SELECT COUNT(*) FROM history_runs')->fetchColumn());
         self::assertSame(0,(int)$db->query('SELECT COUNT(*) FROM history_events')->fetchColumn());
     }
+    public function test_receiver_run_ids_are_generations_of_same_catalog(): void
+    {
+        $db=new PDO('sqlite::memory:',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+        $a='eazybusiness_'.str_repeat('a',32);
+        $b='eazybusiness_'.str_repeat('b',32);
+        \Hw24ArticleHistoryCapture::capture($db,$this->meta('2026-11-26 22:47:08.594669',1,$a),[1=>$this->row('0615908418057','Alt')]);
+        $r=\Hw24ArticleHistoryCapture::capture($db,$this->meta('2026-11-26 23:02:08.594669',2,$b),[1=>$this->row('0615908418057','Neu'),2=>$this->row('0000030163393','Neuanlage')]);
+        self::assertSame('compared',$r['status']);
+        self::assertSame(1,$r['new']);self::assertSame(1,$r['changed']);
+        self::assertSame(2,(int)$db->query('SELECT COUNT(*) FROM history_events')->fetchColumn());
+        self::assertFalse(\Hw24ArticleHistoryCapture::sameCatalog($a,'other_'.str_repeat('b',32)));
+    }
+
 }
