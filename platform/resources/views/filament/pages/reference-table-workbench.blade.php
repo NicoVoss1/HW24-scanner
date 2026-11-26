@@ -20,6 +20,12 @@
                     </div>
                     <div class="hw24-pagebar"><button class="hw24-btn" type="submit" wire:loading.attr="disabled">Änderungen speichern</button><button class="hw24-btn" type="button" wire:click="cancelEdit">Ohne Speichern schließen</button></div>
                 </form>
+                <details style="margin-top:16px"><summary>Änderungshistorie dieser Zeile (bis zu 100 letzte Feldänderungen)</summary>
+                    <div class="hw24-scroll"><table style="width:100%"><thead><tr>@foreach(['Zeitpunkt UTC','Mitarbeiter-ID','Revision','Feld','Vorher','Nachher'] as $label)<th>{{ $label }}</th>@endforeach</tr></thead><tbody>
+                    @forelse($editAudit as $event)<tr><td>{{ $event['at_utc'] }}</td><td>{{ $event['actor'] }}</td><td>{{ $event['revision'] }}</td><td>{{ $event['name']?:$event['position'] }}</td><td style="white-space:pre-wrap">{{ $event['old_value'] }}</td><td style="white-space:pre-wrap">{{ $event['new_value'] }}</td></tr>
+                    @empty<tr><td colspan="6">Noch keine manuellen Änderungen.</td></tr>@endforelse
+                    </tbody></table></div>
+                </details>
             </section>
         @endif
         @if(!$available)
@@ -38,7 +44,7 @@
             <div class="hw24-toolbar">
                 <label class="hw24-check"><input type="checkbox" wire:model.live="showEmpty"> Vollständig leere Spalten einblenden</label>
                 <label style="flex:0 1 135px">Zeilen pro Seite<select wire:model.live="rowsPerPage"><option value="10">10</option><option value="25">25</option><option value="50">50</option></select></label>
-                <label>Direkt zu Spalte <select x-on:change="const el=$refs.sheet.querySelector('[data-col=&quot;'+$event.target.value+'&quot;]'); if(el){$refs.sheet.scrollLeft+=$event.target.value?(el.getBoundingClientRect().left-$refs.sheet.getBoundingClientRect().left-70):0}"><option value="">Spalte auswählen …</option>@foreach($columns as $c)<option value="{{ $c['position'] }}">{{ \App\Filament\Pages\ReferenceTableWorkbench::excelColumn((int)$c['position']) }} · {{ $c['name']?:'(leer)' }}</option>@endforeach</select></label>
+                <label>Direkt zu Spalte <select x-on:change="const el=$refs.sheet.querySelector('[data-col=&quot;'+$event.target.value+'&quot;]'); if(el){$refs.sheet.scrollLeft+=$event.target.value?(el.getBoundingClientRect().left-$refs.sheet.getBoundingClientRect().left-110):0}"><option value="">Spalte auswählen …</option>@foreach($columns as $c)<option value="{{ $c['position'] }}">{{ \App\Filament\Pages\ReferenceTableWorkbench::excelColumn((int)$c['position']) }} · {{ $c['name']?:'(leer)' }}</option>@endforeach</select></label>
                 <button class="hw24-btn" type="button" x-on:click="$refs.sheet.scrollLeft=0">Tabellenanfang</button>
             </div>
             @unless($ameise)<p><span style="background:#00B050;color:#10291b;padding:4px">LP geb.</span> <span style="background:#FFD84D;color:#493800;padding:4px">WE geb.</span> · vereinfachte Zeilenfärbung; Excel-Formeln werden nicht neu berechnet.</p>@endunless
