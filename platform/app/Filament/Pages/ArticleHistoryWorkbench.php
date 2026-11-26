@@ -15,6 +15,11 @@ final class ArticleHistoryWorkbench extends Page
     public string $search='';
     public string $kind='';
     public string $run='';
+    public string $field='';
+    public int $pageNumber=1;
+    public function updated($name): void { if(in_array($name,['search','kind','run','field'],true))$this->pageNumber=1; }
+    public function selectRun(int $id): void { $this->run=(string)$id;$this->pageNumber=1; }
+    public function movePage(int $delta): void { $this->pageNumber=max(1,min(100000,$this->pageNumber+max(-1,min(1,$delta)))); }
 
     public static function canAccess(): bool
     {
@@ -38,15 +43,17 @@ final class ArticleHistoryWorkbench extends Page
             $clauses=[];$params=[];
             if(in_array($this->kind,['new','changed','missing'],true)){$clauses[]='e.kind=?';$params[]=$this->kind;}
             if(preg_match('/^[1-9][0-9]{0,15}$/D',$this->run)){$clauses[]='e.run_id=?';$params[]=(int)$this->run;}
+            if(array_key_exists($this->field,\Hw24ArticleHistoryCapture::FIELDS)){$clauses[]='e.field_key=?';$params[]=$this->field;}
             $search=mb_substr(trim($this->search),0,100);
             if($search!==''){$clauses[]='(instr(COALESCE(e.ean,\'\'),?)>0 OR instr(COALESCE(e.article_number,\'\'),?)>0 OR instr(lower(COALESCE(e.article_name,\'\')),lower(?))>0)';array_push($params,$search,$search,$search);}
             $where=$clauses?' WHERE '.implode(' AND ',$clauses):'';
             $q=$db->prepare('SELECT COUNT(*) FROM history_events e'.$where);$q->execute($params);$total=(int)$q->fetchColumn();
+            $offset=(max(1,min($this->pageNumber,max(1,(int)ceil($total/100))))-1)*100;
             $q=$db->prepare('SELECT e.*,r.snapshot_at,r.captured_at,
                 (SELECT p.snapshot_at FROM history_runs p WHERE p.id<r.id ORDER BY p.id DESC LIMIT 1) AS previous_at
-                FROM history_events e JOIN history_runs r ON r.id=e.run_id'.$where.' ORDER BY e.id DESC LIMIT 200');
+                FROM history_events e JOIN history_runs r ON r.id=e.run_id'.$where.' ORDER BY e.id DESC LIMIT 100 OFFSET '.$offset);
             $q->execute($params);
-            return ['available'=>true,'runs'=>$runs,'events'=>$q->fetchAll(PDO::FETCH_ASSOC),'total'=>$total,'labels'=>\Hw24ArticleHistoryCapture::FIELDS];
+            return ['available'=>true,'runs'=>$runs,'events'=>$q->fetchAll(PDO::FETCH_ASSOC),'total'=>$total,'page'=>intdiv($offset,100)+1,'labels'=>\Hw24ArticleHistoryCapture::FIELDS];
         }catch(\Throwable){return $empty;}
     }
 }
