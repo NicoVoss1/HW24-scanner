@@ -9,7 +9,7 @@ use RuntimeException;
 
 final class RunScheduledTestBatch extends Command
 {
-    protected $signature='hw24:scheduled-test-batch {batch} {--daily-limit=12} {--confirm}';
+    protected $signature='hw24:scheduled-test-batch {batch} {--daily-limit=12} {--all-test : Explicitly enable all authorized open TEST batches} {--confirm}';
     protected $description='Run the approved TEST batch under a durable daily attempt limit; no paid AI or JTL import';
 
     private static function persist($handle,array $state): void
@@ -33,11 +33,23 @@ final class RunScheduledTestBatch extends Command
             if(!flock($handle,LOCK_EX|LOCK_NB))return self::SUCCESS;
             $state=json_decode((string)stream_get_contents($handle),true,16,JSON_THROW_ON_ERROR);
             if(!is_array($state))throw new RuntimeException('Invalid schedule state');
+            $target=$batch;
+            if($this->option('all-test')){
+                $target=HubTestBatchCycle::nextBatch($cycle->discover(),(int)($state['last_batch']??0));
+                if($target===null){$this->line('No authorized open TEST batches');return self::SUCCESS;}
+            }
             [$state,$allow]=HubBatchSchedule::reserve($state,$batch,$limit,gmdate('Y-m-d'));
             $state['last_started_utc']=gmdate('c');
             self::persist($handle,$state);
-            $r=$cycle->run($batch,true,$allow,$state['cursor']);
+            $priorCursor=$state['cursor'];
+            $cursor=$this->option('all-test')?(int)($state['batch_cursors'][$target]??0):$priorCursor;
+            $r=$cycle->run($target,true,$allow,$cursor);
             $state=HubBatchSchedule::finish($state,$allow,$r);
+            if($this->option('all-test')){
+                $state['batch_cursors'][$target]=$state['cursor'];
+                $state['cursor']=$priorCursor;
+                $state['last_batch']=$target;
+            }
             $state['last_finished_utc']=gmdate('c');
             self::persist($handle,$state);
             $this->line(json_encode($state,JSON_THROW_ON_ERROR));
