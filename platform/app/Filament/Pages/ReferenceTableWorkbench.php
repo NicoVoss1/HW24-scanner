@@ -30,7 +30,13 @@ class ReferenceTableWorkbench extends Page
     }
     public int $rowPage=1;
     public static function canAccess(): bool{return QueryAuditWorkbench::canAccess();}
-    public function mount():void{abort_unless(static::canAccess(),403);}
+    public function mount():void{
+        abort_unless(static::canAccess(),403);
+        $ean=request()->query('ean');
+        if(is_string($ean)){
+            try{\App\Services\ResearchQueue::canonical($ean);$this->search=$ean;}catch(\Throwable){}
+        }
+    }
     public function updated($name):void{if(in_array($name,['sheet','search','filterColumn','filterValue','status','showEmpty','rowsPerPage'],true))$this->rowPage=1; if($name==='sheet'){$this->filterColumn='';$this->filterValue='';$this->sortColumn='';$this->sortDescending=false;}}
     public function step(string $axis,int $delta):void{
         if($axis!=='rowPage')return;
