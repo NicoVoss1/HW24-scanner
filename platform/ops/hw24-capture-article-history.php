@@ -4,7 +4,7 @@ declare(strict_types=1);
 /** Standalone CLI; uses existing read-only mirror credentials and private SQLite.
  * Never writes to MariaDB/JTL. No raw article/customer data is committed to GitHub.
  */
-final class Hw24ArticleHistoryCapture
+class Hw24ArticleHistoryCapture
 {
     public const FIELDS=[
         'artikelnummer'=>'Artikelnummer','ean'=>'EAN / GTIN','artikelname'=>'Artikelname','hersteller'=>'Hersteller',
@@ -14,6 +14,7 @@ final class Hw24ArticleHistoryCapture
         'kLieferStatus'=>'Lieferstatus (ID)','kSteuerklasse'=>'Steuerklasse (ID)','kVersandklasse'=>'Versandklasse (ID)',
         'cLagerAktiv'=>'Bestandsführung aktiv','cLagerKleinerNull'=>'Überverkäufe möglich','cTeilbar'=>'Stückzahl teilbar',
     ];
+    protected const EXTENDED=false;
     public static function readMirrors(PDO $db,?string $after=null): array
     {
         $db->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
@@ -27,23 +28,25 @@ final class Hw24ArticleHistoryCapture
                 throw new RuntimeException('Aktueller eindeutiger Spiegel nicht bestätigt.');
             // The receiver retains three READY snapshots. Read every still
             // available generation newer than our checkpoint in one transaction.
-            $selected=$after===null?[$m]:array_values(array_filter($meta,fn($r)=>strcmp($r['last_completed_utc'],$after)>0));
+            $selected=$after===null?(static::EXTENDED?$meta:[$m]):array_values(array_filter($meta,fn($r)=>strcmp($r['last_completed_utc'],$after)>0));
             if(!$selected)$selected=[$m];
             $selected=array_reverse($selected);
             $result=[];$previous=null;
             foreach($selected as $m){
             if($previous===$m['last_completed_utc'])throw new RuntimeException('Ambiguous snapshot order');
             $previous=$m['last_completed_utc'];
-            $q=$db->prepare('SELECT d.*,p.jtl_article_id AS peer_id,p.kWarengruppe,p.kHersteller,p.kLieferStatus,p.kSteuerklasse,p.kVersandklasse,p.cLagerAktiv,p.cLagerKleinerNull,p.cTeilbar FROM hw24_hub_article_details d LEFT JOIN hw24_hub_peer_source p ON p.source_id=d.source_id AND p.jtl_article_id=d.jtl_article_id WHERE d.source_id=? ORDER BY d.jtl_article_id');
+            $extra=static::EXTENDED?',x.jtl_article_id AS extended_id,'.implode(',',array_map(fn($k)=>'x.'.$k,array_keys(Hw24ExtendedArticleHistoryCapture::EXTRA))):'';
+            $join=static::EXTENDED?' LEFT JOIN hw24_hub_history_extended x ON x.source_id=d.source_id AND x.jtl_article_id=d.jtl_article_id':'';
+            $q=$db->prepare('SELECT d.*,p.jtl_article_id AS peer_id,p.kWarengruppe,p.kHersteller,p.kLieferStatus,p.kSteuerklasse,p.kVersandklasse,p.cLagerAktiv,p.cLagerKleinerNull,p.cTeilbar'.$extra.' FROM hw24_hub_article_details d LEFT JOIN hw24_hub_peer_source p ON p.source_id=d.source_id AND p.jtl_article_id=d.jtl_article_id'.$join.' WHERE d.source_id=? ORDER BY d.jtl_article_id');
             $q->execute([$m['source_id']]);$rows=[];
             while($row=$q->fetch(PDO::FETCH_ASSOC)){
                 $id=(int)$row['jtl_article_id'];
-                if($id<1||isset($rows[$id])||(int)($row['peer_id']??0)!==$id)throw new RuntimeException('Spiegelprojektion nicht eindeutig/vollständig.');
+                if($id<1||isset($rows[$id])||(int)($row['peer_id']??0)!==$id||(static::EXTENDED&&(int)($row['extended_id']??0)!==$id))throw new RuntimeException('Spiegelprojektion nicht eindeutig/vollständig.');
                 $fields=[];
-                foreach(self::FIELDS as $key=>$label){
+                foreach(static::FIELDS as $key=>$label){
                     if(!array_key_exists($key,$row))throw new RuntimeException('Feld fehlt in Projektion.');
                     $v=$row[$key]===null?null:(string)$row[$key];
-                    if($v!==null&&in_array($key,['artikelgewicht','versandgewicht','menge'],true)&&preg_match('/^-?\d+\.\d+$/D',$v))$v=rtrim(rtrim($v,'0'),'.');
+                    if($v!==null&&in_array($key,['artikelgewicht','versandgewicht','menge','netto_vk','netto_ek','letzter_ek','amazon_vk','ebay_preis','total_stock','available_stock','in_orders','incoming'],true)&&preg_match('/^-?\d+\.\d+$/D',$v))$v=rtrim(rtrim($v,'0'),'.');
                     $fields[$key]=$v;
                 }
                 $rows[$id]=$fields;
@@ -113,7 +116,7 @@ final class Hw24ArticleHistoryCapture
                 }elseif($prev!==$row){
                     $counts['changed']++;
                     $version->execute([$run,$id,'changed',$json($row)]);$upsert->execute([$id,$json($row)]);
-                    foreach(self::FIELDS as $key=>$label)if($prev[$key]!==$row[$key]){
+                    foreach(static::FIELDS as $key=>$label)if($prev[$key]!==$row[$key]){
                         $counts['fields']++;
                         $event->execute([$run,$id,$row['artikelnummer'],$row['ean'],$row['artikelname'],'changed',$key,$prev[$key],$row[$key]]);
                     }
@@ -127,11 +130,48 @@ final class Hw24ArticleHistoryCapture
         }catch(Throwable $e){$db->exec('ROLLBACK');throw $e;}
     }
 }
+final class Hw24ExtendedArticleHistoryCapture extends Hw24ArticleHistoryCapture
+{
+    protected const EXTENDED=true;
+    public const EXTRA=[
+        'han'=>'Herstellerartikelnummer (HAN)',
+        'asin'=>'ASIN',
+        'kurzbeschreibung'=>'Kurzbeschreibung',
+        'beschreibung'=>'Beschreibung',
+        'seo_titel'=>'Titel-Tag (SEO)',
+        'seo_beschreibung'=>'Meta-Description (SEO)',
+        'netto_vk'=>'Netto-VK',
+        'netto_ek'=>'Durchschnittlicher EK netto',
+        'letzter_ek'=>'Letzter EK (Spiegel)',
+        'letzter_ek_datum'=>'Datum letzter EK',
+        'amazon_vk'=>'Amazon-VK (Spiegel)',
+        'ebay_preis'=>'eBay-Preis (Spiegel)',
+        'source_modified_at'=>'Letzte Artikeländerung laut Quelle',
+        'cAnmerkung'=>'Anmerkung',
+        'cAktiv'=>'Artikel aktiv',
+        'nBearbeitungszeit'=>'Zusätzliche Bearbeitungszeit',
+        'nAutomatischeLiefertageberechnung'=>'Beschaffungszeit automatisch ermitteln',
+        'cTopArtikel'=>'Top-Artikel',
+        'cNeu'=>'Neu im Sortiment',
+        'dMod'=>'JTL Änderungszeitpunkt',
+        'dErstelldatum'=>'JTL Erstelldatum',
+        'kBenutzerLetzteAenderung'=>'Letzter JTL-Bearbeiter (ID)',
+        'nMHD'=>'MHD-Feld (Rohwert)',
+        'nDelete'=>'Löschkennzeichen (Rohwert)',
+        'total_stock'=>'Auf Lager',
+        'available_stock'=>'Verfügbar',
+        'in_orders'=>'In Aufträgen',
+        'incoming'=>'Im Zulauf',
+    ];
+    public const FIELDS=parent::FIELDS+self::EXTRA;
+}
 if(PHP_SAPI==='cli'&&realpath($_SERVER['SCRIPT_FILENAME']??'')===__FILE__){
     try{
         umask(0077);
         $private='/var/www/vhosts/hairworld24.de/hw24-console-private';
-        $cfgPath=$private.'/hw24-hub-reader.json';$dir=$private.'/article-history';$path=$dir.'/history.sqlite';
+        $expanded=in_array('--extended',$argv??[],true);
+        $capture=$expanded?Hw24ExtendedArticleHistoryCapture::class:Hw24ArticleHistoryCapture::class;
+        $cfgPath=$private.'/hw24-hub-reader.json';$dir=$private.'/article-history';$path=$dir.($expanded?'/history-expanded.sqlite':'/history.sqlite');
         if(!is_dir($dir)||is_link($dir)||(fileperms($dir)&0077)!==0||is_link($path)||
             (file_exists($path)&&(fileperms($path)&0077)!==0)||!is_file($cfgPath)||is_link($cfgPath)||(fileperms($cfgPath)&0077)!==0)
             throw new RuntimeException('Private paths not confirmed');
@@ -139,11 +179,11 @@ if(PHP_SAPI==='cli'&&realpath($_SERVER['SCRIPT_FILENAME']??'')===__FILE__){
         if(($cfg['user']??null)!=='hw24_hub_reader'||!is_string($cfg['password']??null))throw new RuntimeException('Reader not confirmed');
         $db=new PDO('mysql:unix_socket=/run/mysqld/mysqld.sock;dbname=hw24_artikelmanager;charset=utf8mb4',$cfg['user'],$cfg['password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_EMULATE_PREPARES=>false,PDO::ATTR_TIMEOUT=>5]);
         $history=new PDO('sqlite:'.$path,null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
-        Hw24ArticleHistoryCapture::schema($history);
+        $capture::schema($history);
         $after=$history->query('SELECT snapshot_at FROM history_runs ORDER BY id DESC LIMIT 1')->fetchColumn();
-        $runs=Hw24ArticleHistoryCapture::readMirrors($db,$after===false?null:(string)$after);
+        $runs=$capture::readMirrors($db,$after===false?null:(string)$after);
         foreach($runs as [$m,$rows]){
-            echo json_encode(Hw24ArticleHistoryCapture::capture($history,$m,$rows)+['source_id'=>$m['source_id'],'snapshot_at'=>$m['last_completed_utc']],JSON_THROW_ON_ERROR).PHP_EOL;
+            echo json_encode($capture::capture($history,$m,$rows)+['source_id'=>$m['source_id'],'snapshot_at'=>$m['last_completed_utc']],JSON_THROW_ON_ERROR).PHP_EOL;
         }
     }catch(Throwable $e){fwrite(STDERR,"STOP: Historie nicht bestätigt. Keine JTL-Schreibaktion. ".get_class($e).PHP_EOL);exit(1);}
 }
