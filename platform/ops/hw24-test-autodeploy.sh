@@ -32,7 +32,7 @@ if [[ -f "$state/failed.sha" && "$(cat "$state/failed.sha")" == "$target" ]]; th
 g diff --no-renames --name-only -z "$old" "$target" > "$state/changed"
 while IFS= read -r -d '' f; do
     case "$f" in
-        platform/app/*.php|platform/resources/views/*.blade.php|platform/tests/*.php|platform/docs/*.md|docs/*.md|platform/ops/*.sh|platform/ops/*.php|platform/ops/*.sql|platform/ops/*.md) ;;
+        platform/app/*.php|platform/resources/views/*.blade.php|platform/tests/*.php|platform/docs/*.md|docs/*.md|platform/ops/*.sh|platform/ops/*.php|platform/ops/*.sql|platform/ops/*.md|platform/ops/import-ameise-reference.py|platform/ops/import-historical-workbook.py) ;;
         *) status "BLOCKED: separate approval required for $f"; exit 1 ;;
     esac
     if g cat-file -e "$target:$f" 2>/dev/null; then
