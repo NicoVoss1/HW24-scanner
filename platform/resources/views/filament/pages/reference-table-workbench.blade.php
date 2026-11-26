@@ -9,7 +9,7 @@
         <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:end">
             <label>Quelle / Tabelle <select wire:model.live="sheet" class="rounded-lg border-gray-300 dark:bg-gray-800"><option value="">Neuester Stand</option>@foreach($sources as $s)<option value="{{ $s['id'] }}">{{ $s['name'] }}</option>@endforeach</select></label>
             <label>Alle Spalten durchsuchen <input wire:model.live.debounce.500ms="search" type="text" maxlength="100" class="rounded-lg border-gray-300 dark:bg-gray-800"></label>
-            <label>Spaltenfilter <select wire:model.live="filterColumn" class="rounded-lg border-gray-300 dark:bg-gray-800"><option value="">Alle</option>@foreach($allColumns as $c)<option value="{{ $c['position'] }}">{{ static::excelColumn((int)$c['position']) }} · {{ $c['name']?:'(ohne Überschrift)' }}</option>@endforeach</select></label>
+            <label>Spaltenfilter <select wire:model.live="filterColumn" class="rounded-lg border-gray-300 dark:bg-gray-800"><option value="">Alle</option>@foreach($allColumns as $c)<option value="{{ $c['position'] }}">{{ \App\Filament\Pages\ReferenceTableWorkbench::excelColumn((int)$c['position']) }} · {{ $c['name']?:'(ohne Überschrift)' }}</option>@endforeach</select></label>
             <label>Filterwert <input wire:model.live.debounce.500ms="filterValue" type="text" maxlength="200" class="rounded-lg border-gray-300 dark:bg-gray-800"></label>
             @if($ameise)<label><input type="checkbox" wire:model.live="showEmpty"> Auch leere Spalten</label>
             @else<label>Bearbeitungsstatus <select wire:model.live="status" class="rounded-lg border-gray-300 dark:bg-gray-800"><option value="">Alle</option><option>LP geb.</option><option>WE geb.</option></select></label>@endif
@@ -25,7 +25,7 @@
             <table style="border-collapse:collapse;font-size:12px;text-align:left;width:100%">
                 <thead style="position:sticky;top:0;background:#dceeff;color:#143d62">
                     <tr><th style="padding:8px;position:sticky;left:0;background:#dceeff">Zeile</th>
-                    @foreach($columns as $c)<th style="min-width:135px;padding:8px;border:1px solid #b5cfe3"><small>{{ static::excelColumn((int)$c['position']) }}</small><br>{{ $c['name']?:'(leer)' }}</th>@endforeach</tr>
+                    @foreach($columns as $c)<th style="min-width:135px;padding:8px;border:1px solid #b5cfe3"><small>{{ \App\Filament\Pages\ReferenceTableWorkbench::excelColumn((int)$c['position']) }}</small><br>{{ $c['name']?:'(leer)' }}</th>@endforeach</tr>
                 </thead>
                 <tbody>
                     @forelse($rows as $r)
