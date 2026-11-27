@@ -5,8 +5,8 @@ namespace App\Services;
 /** Existing JTL article only. Sparse, explicitly selected update CSV, never a create file. */
 final class HubExistingArticleExport
 {
-    public const FIELDS=['HAN','ASIN','Artikelname','Kurzbeschreibung','Beschreibung','Titel-Tag (SEO)','Meta-Description (SEO)','Artikelgewicht','Inhalt/Menge','Maßeinheit'];
-    public static function candidates(array $current,array $article,array $catalog,array $ai,array $references,array $seo):array
+    public const FIELDS=['Hersteller','HAN','ASIN','Artikelname','Kurzbeschreibung','Beschreibung','Titel-Tag (SEO)','Meta-Description (SEO)','Artikelgewicht','Inhalt/Menge','Maßeinheit'];
+    public static function candidates(array $current,array $article,array $catalog,array $ai,array $references,array $seo,array $manufacturers=[]):array
     {
         $out=[];
         $add=static function(string $f,mixed $v,string $source)use(&$out,$current):void{
@@ -25,9 +25,37 @@ final class HubExistingArticleExport
         $identity=($p['gtin_match']??false)===true&&($p['pack_kind']??null)==='single'&&
             (trim((string)($article['asin']??''))===''||$article['asin']===$p['asin'])&&
             !empty($article['hersteller'])&&!empty($p['manufacturer'])&&HubManufacturerPolicy::equivalent($article['hersteller'],$p['manufacturer']);
+        // Missing manufacturer cannot be a prerequisite to researching itself.
+        // Match a verified single-pack EAN and non-conflicting current ASIN; only
+        // suggest an existing name/ID pair, never create a new manufacturer.
+        $brandEvidence=[];
+        $asin=trim((string)($article['asin']??''));
+        $catalogIdentity=($p['gtin_match']??false)===true&&($p['pack_kind']??null)==='single'&&
+            ($asin===''||$asin===($p['asin']??null));
+        if($catalogIdentity&&!empty($p['manufacturer']))$brandEvidence[]=['name'=>$p['manufacturer'],'source'=>'Amazon-Katalogarchiv #'.($catalog['id']??'?')];
+        foreach($references['ameise']['rows']??[] as $r){
+            if(($references['ameise']['state']??null)!=='found'||(string)($r['article_id']??'')!==(string)$article['jtl_article_id'])continue;
+            $h=$r['fields']??[];
+            if(!empty($h['Hersteller'])&&($asin===''||empty($h['ASIN'])||$h['ASIN']===$asin))
+                $brandEvidence[]=['name'=>$h['Hersteller'],'source'=>'Ameise-Archiv #'.($references['ameise']['archive']??'?').' · Zeile '.$r['row']];
+        }
+        $historical=$references['historical']??[];
+        if(($historical['state']??null)==='found'&&count($historical['rows']??[])===1&&!($historical['rows'][0]['requires_review']??true)){
+            $h=$historical['rows'][0]['fields']??[];
+            if(!empty($h['Hersteller'])&&!empty($h['ASIN'])&&($h['ASIN']===$asin||($catalogIdentity&&$h['ASIN']===($p['asin']??null))))
+                $brandEvidence[]=['name'=>$h['Hersteller'],'source'=>'Historische Artikeldaten #'.($historical['archive']??'?').' · Zeile '.$historical['rows'][0]['row']];
+        }
+        if($brandEvidence&&trim((string)($article['hersteller']??''))===''){
+            $first=$brandEvidence[0]['name'];$agree=true;
+            foreach($brandEvidence as $e)if(!HubManufacturerPolicy::equivalent($first,$e['name']))$agree=false;
+            $brand=$agree?HubManufacturerPolicy::resolve($first,$manufacturers):null;
+            if($brand!==null){
+                $add('Hersteller',$brand['name'],implode(' + ',array_column($brandEvidence,'source')).' · JTL-Hersteller '.$brand['name'].' (ID '.$brand['id'].')');
+            }
+        }
         if($identity){
             $origin='Amazon-Katalogarchiv #'.($catalog['id']??'?');
-            foreach(HubCatalogFacts::productFields($catalog) as $f=>$fact)$add($f,$fact['value'],$origin.$fact['suffix']);
+            foreach(HubCatalogFacts::productFields($catalog) as $f=>$fact)if($f!=='Hersteller')$add($f,$fact['value'],$origin.$fact['suffix']);
             // No volume/unit partial update without confirmed current paired value.
             if(($ai['state']??null)==='verified_review'&&($ai['content']['state']??null)==='review')
                 foreach($ai['content']['fields']??[] as $f=>$v)$add($f,$v,'KI-Archiv #'.($ai['id']??'?').' · prüfen');
