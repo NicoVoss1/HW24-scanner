@@ -7,11 +7,38 @@ use App\Domain\Amazon\OfferEvidence;
 /** Shared operator-triggered provider actions. No writes on rendering, no implicit paid calls. */
 final class HubArticleResearchWorkspace
 {
+    /** Existing encrypted observation, visibly historical; no pricing call. */
+    public static function archivedOffers(string $asin,LegacyReadBridge $bridge):array
+    {
+        if(!AmazonPriceArchiveRuntime::enabled())return [];
+        try{$row=AmazonPriceArchiveRuntime::open()->latest($asin,1)[0]??null;}catch(\Throwable){return [];}
+        if(!$row)return [];
+        $raw=['retrieved_at_utc'=>$row['observed_at_utc'].' UTC','total_offer_count'=>$row['total_offer_count'],
+            'buybox_prices'=>$row['buybox'],'lowest_prices'=>$row['lowest'],'offers'=>[]];
+        foreach($row['offers'] as $offer){
+            if(!is_array($offer))continue;
+            $raw['offers'][]=['seller_id'=>$offer['seller_id']??null,'item_price'=>$offer['item']??null,
+                'shipping'=>$offer['shipping']??null,'total'=>$offer['total']??null,'is_fba'=>$offer['fba']??null,
+                'is_buybox_winner'=>$offer['buybox']??null,'condition'=>$offer['condition']??null];
+        }
+        $names=[];$ids=OfferEvidence::sellerIds($raw);
+        if($ids){
+            try{$n=$bridge->fetch('amazon.sellers',['ids'=>implode(',',$ids)]);
+                if(($n['ok']??false)===true&&is_array($n['data']['names']??null))$names=$n['data']['names'];
+            }catch(\Throwable){}
+        }
+        return ['ok'=>true,'asin'=>$asin,'source'=>'archive','archive_id'=>$row['id']]+OfferEvidence::present($raw,$names);
+    }
     public static function offers(string $asin,LegacyReadBridge $bridge):array
     {
         $capture=AmazonPriceArchiveRuntime::fetch($asin,$bridge);
         $r=$capture['response'];$raw=$r['data']??[];
-        if(($r['ok']??false)!==true||!is_array($raw))return ['ok'=>false,'message'=>'Amazon-Angebote nicht bestätigt.'];
+        if(($r['ok']??false)!==true||!is_array($raw)){
+            $old=self::archivedOffers($asin,$bridge);
+            $delay=(int)($r['retry_after_seconds']??0);
+            $msg=($r['http_status']??null)===429?'Amazon-Abfrage derzeit gedrosselt. '.($delay>0?'Erneut frühestens in '.$delay.' Sekunden.':'Bitte später erneut prüfen.'):'Amazon-Angebote nicht bestätigt.';
+            return $old?($old+['message'=>$msg]):['ok'=>false,'message'=>$msg];
+        }
         $names=[];$ids=OfferEvidence::sellerIds($raw);
         if($ids){
             $n=$bridge->fetch('amazon.sellers',['ids'=>implode(',',$ids)]);
