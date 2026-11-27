@@ -55,9 +55,36 @@ final class HubBatchPreparation
                 $price=HubResearchEvidence::marketPrice($job,(string)($p['draft']['ASIN']??''));
                 if($price!==null)$p['market_price']=$price;
             }
+            $p['coverage']=self::coverage($p,$row['draft']??[]);
             $out[$ean]=$p+['revision'=>$row['revision'],'item_id'=>$row['id']];
         }
         return $out;
+    }
+
+    /** Every supported export field, including optional and deliberately unfilled fields. */
+    public static function coverage(array $p,array $original=[]):array
+    {
+        $draft=$p['draft']??$original;
+        $safe=in_array($p['state']??null,['review','missing'],true);
+        $fields=[];
+        foreach(ScanResearch::FIELDS as $field){
+            $old=trim((string)($original[$field]??''));
+            $value=trim((string)($draft[$field]??''));
+            if($field==='Artikelnummer'){$state='reserved';$source='JTL-Nummernkreis bei Neuanlage';}
+            elseif($old!==''){$state='existing';$source='Vorhandener Entwurf';}
+            elseif($safe&&$value!==''&&isset($p['fields'][$field])){$state='proposed';$source=$p['sources'][$field]??'Quelle prüfen';}
+            else{
+                $state='missing';
+                $source=match($field){
+                    'Netto-VK','Brutto-VK','Kosten','Netto-EK in Standardwährung'=>'Eigene Kalkulation / belegter Einkauf, kein fremder Marktpreis',
+                    'Lieferant','Artikelnummer (Lieferant)'=>'Tatsächliche Lieferantenbeziehung erforderlich',
+                    'Versandgewicht'=>'Separat belegtes Versandgewicht erforderlich',
+                    default=>$safe?'Keine eindeutige freigegebene Feldquelle':'Produktidentität oder Recherche noch offen',
+                };
+            }
+            $fields[$field]=['state'=>$state,'source'=>$source,'required'=>in_array($field,ScanResearch::REQUIRED,true)];
+        }
+        return $fields;
     }
 
     public static function mergeTemplate(array $p,array $template): array
