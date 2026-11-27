@@ -35,6 +35,7 @@ final class WarehousePriceWorkbench extends Page
     #[Locked] public array $amazonCatalog=[];
     #[Locked] public array $amazonMarket=[];
     #[Locked] public array $related=[];
+    #[Locked] public array $articleStock=[];
     #[Locked] public array $ownOffers=[];
     #[Locked] public array $ownOffersStatus=[];
 
@@ -47,7 +48,7 @@ final class WarehousePriceWorkbench extends Page
 
     public function findArticle(LegacyReadBridge $bridge): void
     {
-        $this->reset(['product','status','wms','movements','wmsOffset','amazonCatalog','amazonMarket','ownOffers','ownOffersStatus','related']);
+        $this->reset(['product','status','wms','movements','wmsOffset','amazonCatalog','amazonMarket','ownOffers','ownOffersStatus','related','articleStock']);
         $identifier=trim($this->identifier);
         if(!preg_match('/^[\pL\pN][\pL\pN._\/-]{1,63}$/uD',$identifier)){
             $this->status=['ok'=>false,'message'=>'Bitte gültige EAN, HAN oder Artikelnummer eingeben.'];
@@ -71,6 +72,8 @@ final class WarehousePriceWorkbench extends Page
             $this->status=['ok'=>false,'message'=>'JTL-Artikel-ID nicht eindeutig belegt.'];
             return;
         }
+        try{$stockRead=app(\App\Services\HubStockReader::class)->readArticle($id,(string)($raw['snapshot_at']??''));}catch(\Throwable){$stockRead=['ok'=>false];}
+        $this->articleStock=\App\Services\HubStockReader::workspace($stockRead,$this->related);
         $this->product=[
             'id'=>$id,
             'ean'=>$article['ean'],
