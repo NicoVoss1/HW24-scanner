@@ -51,7 +51,7 @@
                     @forelse($events as $e)
                         <tr wire:key="article-history-event-{{ $e['id'] }}" style="border-bottom:1px solid #b5cfe3;vertical-align:top">
                             <td style="padding:6px;white-space:nowrap">{{ $e['snapshot_at'] }}</td>
-                            <td style="padding:6px">{{ $e['article_number'] }}</td><td style="padding:6px">{{ $e['ean'] }}</td>
+                            <td style="padding:6px">{{ $e['article_number'] }} @if($e['article_number']!=='')<a style="display:block;text-decoration:underline" href="{{ \App\Filament\Pages\ArticleLookup::getUrl(['q'=>$e['article_number']]) }}">Artikelpflege öffnen</a>@endif</td><td style="padding:6px">{{ $e['ean'] }}</td>
                             <td style="padding:6px;min-width:220px">{{ $e['article_name'] }}<small> · ID {{ $e['article_id'] }}</small></td>
                             <td style="padding:6px">{{ match($e['kind']){'new'=>'Neu im Spiegel','changed'=>'Geändert','missing'=>'Nicht mehr im Spiegel',default=>'Unbekannt'} }}</td>
                             <td style="padding:6px">{{ $labels[$e['field_key']]??'Artikel' }}</td>
