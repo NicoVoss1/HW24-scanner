@@ -58,6 +58,27 @@ final class HubReferenceEvidence
         }catch(\Throwable){return [];}
     }
 
+    /** Existing exact original field values for explicit reference dropdowns.
+     * These are archived choices, not live master-data validation. */
+    public static function referenceLists():array
+    {
+        try{
+            $db=self::open('ameise');if(!$db)return [];
+            $id=$db->query('SELECT id FROM ameise_exports ORDER BY export_date DESC,id DESC LIMIT 1')->fetchColumn();
+            if(!$id)return [];
+            $out=[];
+            foreach(['Artikeltyp','Währung','Warengruppe','Versandklasse','Kategorie Ebene 1','Kategorie Ebene 2','Kategorie Ebene 3'] as $f){
+                $q=$db->prepare('SELECT position FROM ameise_columns WHERE export_id=? AND name=? LIMIT 2');$q->execute([$id,$f]);
+                $positions=$q->fetchAll(PDO::FETCH_COLUMN);if(count($positions)!==1)continue;
+                $p='$."'.(int)$positions[0].'"';
+                $q=$db->prepare("SELECT DISTINCT CAST(json_extract(values_json,?) AS TEXT) AS v FROM ameise_rows WHERE export_id=? AND json_type(values_json,?)='text' AND TRIM(CAST(json_extract(values_json,?) AS TEXT))<>'' AND length(CAST(json_extract(values_json,?) AS TEXT))<=300 ORDER BY v LIMIT 201");
+                $q->execute([$p,$id,$p,$p,$p]);$values=$q->fetchAll(PDO::FETCH_COLUMN);
+                if(count($values)<=200)$out[$f]=$values;
+            }
+            return $out;
+        }catch(\Throwable){return [];}
+    }
+
     public static function read(PDO $db,string $source,string $ean): array
     {
         $canonical=ResearchQueue::canonical($ean);$key=ltrim($canonical,'0');
