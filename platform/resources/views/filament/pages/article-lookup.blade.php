@@ -305,7 +305,9 @@
                 <div class="hw24-panel-head"><h3>Datenqualität &amp; Pflegevorschläge</h3></div>
                 <div style="padding:16px;display:grid;gap:12px">
                     @if(($lookup['jtl_status']??'')==='current_snapshot' && count($lookup['matches']??[])===1)
-                        @php($missingRequired=array_filter(\App\Services\ScanResearch::REQUIRED,fn($f)=>!in_array($fieldReview['fields'][$f]['state']??'unverified',['value','observed_reference'],true)))
+                        @php
+                            $missingRequired=array_filter(\App\Services\HubFieldPolicy::required(),fn($f)=>!in_array($fieldReview['fields'][$f]['state']??'unverified',['value','observed_reference'],true));
+                        @endphp
                         @if($missingRequired)
                             <div role="status" class="hw24-alert">
                                 <strong>Pflichtfelder fehlen oder sind nicht bestätigt: {{ implode(', ',$missingRequired) }}</strong>
