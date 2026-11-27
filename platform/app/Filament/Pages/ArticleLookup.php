@@ -29,6 +29,7 @@ final class ArticleLookup extends Page
     public string $identifier = '';
     #[Locked] public array $updateOptions=[];
     #[Locked] public array $updateIdentity=[];
+    #[Locked] public array $updateReview=[];
     public array $updateSelection=[];
     public bool $confirmUpdateExport=false;
     public string $updateMessage='';
@@ -70,7 +71,7 @@ final class ArticleLookup extends Page
 
     public function findArticle(LegacyReadBridge $bridge,HubArticleMirror $mirror): void
     {
-        $this->reset(['lookup', 'amazon', 'ai', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery', 'existingEvidence', 'articleRelated','fieldReview','referenceReview','referenceEan','seoSuggestions','peerReview','queueReview','sharedResearchReview','categoryProposal','pflegeMessage','updateOptions','updateIdentity','updateSelection','confirmUpdateExport','updateMessage']);
+        $this->reset(['lookup', 'amazon', 'ai', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery', 'existingEvidence', 'articleRelated','fieldReview','referenceReview','referenceEan','seoSuggestions','peerReview','queueReview','sharedResearchReview','categoryProposal','pflegeMessage','updateOptions','updateIdentity','updateReview','updateSelection','confirmUpdateExport','updateMessage']);
         $id = trim($this->identifier);
         if (! preg_match('/^[\pL\pN][\pL\pN._\/-]{1,63}$/uD', $id)) {
             $this->addError('identifier', 'Bitte EAN, HAN oder JTL-Artikelnummer eingeben.');
@@ -157,21 +158,23 @@ final class ArticleLookup extends Page
         try{
             $manufacturers=\App\Services\HubManufacturerPolicy::currentReferences(HubPeerMirror::connect(),(string)($raw['snapshot_at']??''));
         }catch(\Throwable){}
-        return \App\Services\HubExistingArticleExport::candidates($review['fields'],$article,$catalog,$ai,
+        $options=\App\Services\HubExistingArticleExport::candidates($review['fields'],$article,$catalog,$ai,
             \App\Services\HubReferenceEvidence::lookup($ean),$seo,$manufacturers);
+        return ['options'=>$options,'current'=>$review['fields']];
     }
 
     public function prepareExistingUpdate(LegacyReadBridge $bridge,HubArticleMirror $mirror):void
     {
         abort_unless(QueryAuditWorkbench::canAccess(),403);
-        $this->reset(['updateOptions','updateIdentity','updateSelection','confirmUpdateExport','updateMessage']);
+        $this->reset(['updateOptions','updateIdentity','updateReview','updateSelection','confirmUpdateExport','updateMessage']);
         if(($this->fieldReview['ok']??false)!==true||count($this->lookup['matches']??[])!==1){$this->updateMessage='Bitte zuerst einen eindeutigen Bestandsartikel laden.';return;}
         try{
             $article=$this->lookup['matches'][0];
             $identity=array_intersect_key($article,array_flip(['jtl_article_id','artikelnummer','ean']));
-            $this->updateOptions=$this->existingUpdateContext($bridge,$mirror,$identity);
+            $context=$this->existingUpdateContext($bridge,$mirror,$identity);
+            $this->updateOptions=$context['options'];$this->updateReview=$context['current'];
             $this->updateIdentity=$identity;
-            $this->updateMessage=$this->updateOptions?'Auswahl bereit. Nur belegte Vorschläge für leere Spiegelfelder.':'Keine exportierbaren Ergänzungen bestätigt. Recherche oder Feldzuordnung prüfen.';
+            $this->updateMessage=$this->updateOptions?'Auswahl bereit. Ergänzungen und explizit zu prüfende Textkorrekturen mit Quelle.':'Keine exportierbaren Ergänzungen bestätigt. Recherche oder Feldzuordnung prüfen.';
         }catch(\Throwable){$this->updateMessage='Aktueller Artikel oder Quellen nicht bestätigt. Kein Export.';}
     }
 
@@ -201,12 +204,16 @@ final class ArticleLookup extends Page
         abort_unless(QueryAuditWorkbench::canAccess(),403);
         if(!$this->confirmUpdateExport||!$this->updateIdentity)return;
         try{
-            $fresh=$this->existingUpdateContext($bridge,$mirror,$this->updateIdentity);
+            $context=$this->existingUpdateContext($bridge,$mirror,$this->updateIdentity);
+            $fresh=$context['options'];
             foreach($this->updateSelection as $f=>$token){
                 if($token==='')continue;
                 if(!is_string($token)||!isset($this->updateOptions[$f][$token],$fresh[$f][$token])||
                     $fresh[$f][$token]!==$this->updateOptions[$f][$token])throw new \RuntimeException('Source or field changed');
             }
+            $patch=\App\Services\HubFieldDecisions::resolve($fresh,$this->updateSelection);
+            $missing=\App\Services\HubFieldPolicy::missingAfterUpdate($context['current'],$patch['fields']);
+            if($missing){$this->confirmUpdateExport=false;$this->updateMessage='Pflichtfelder offen: '.implode(', ',$missing).'. Kein vollständiger Aktualisierungsexport.';return;}
             $csv=\App\Services\HubExistingArticleExport::csv($this->updateIdentity['artikelnummer'],$this->updateSelection,$fresh);
         }catch(\Throwable){
             $this->confirmUpdateExport=false;
