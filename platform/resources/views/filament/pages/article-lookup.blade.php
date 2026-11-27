@@ -12,7 +12,7 @@
             .hw24-editor .hw24-link{display:inline-flex;align-items:center;justify-content:center;border-radius:9px;background:#fff;color:#183957;padding:10px 14px;min-height:40px;font-size:12px;font-weight:750;text-decoration:none}
             .hw24-editor .hw24-link:hover{background:#e8f2fb}
             .hw24-editor .hw24-stack{display:grid;gap:16px;margin-top:17px}
-            .hw24-editor .hw24-panel{min-width:0;background:var(--hw24-bg);border:1px solid var(--hw24-border);border-radius:15px;overflow:hidden;box-shadow:0 1px 2px #0f172a0a}
+            .hw24-editor .hw24-panel{min-width:0;background:var(--hw24-bg);border:1px solid var(--hw24-border);border-radius:15px;box-shadow:0 1px 2px #0f172a0a}
             .hw24-editor .hw24-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:15px 18px;border-bottom:1px solid var(--hw24-border);background:var(--hw24-soft)}
             .hw24-editor .hw24-panel-head h3{font-size:15px;line-height:1.4;font-weight:750;margin:0}
             .hw24-editor .hw24-panel-body{padding:18px}
@@ -59,7 +59,7 @@
             .hw24-editor .hw24-source-table{width:100%;border-collapse:collapse;min-width:660px;font-size:12px;text-align:left}
             .hw24-editor .hw24-source-table th{text-align:left;background:var(--hw24-soft);padding:10px 12px;color:var(--hw24-muted)}
             .hw24-editor .hw24-source-table td{vertical-align:top;padding:11px 12px;border-top:1px solid var(--hw24-border);overflow-wrap:anywhere;max-width:440px}
-            .hw24-editor .hw24-source-scroll{max-height:530px;overflow:auto;border:1px solid var(--hw24-border);border-radius:9px}
+            .hw24-editor .hw24-source-scroll{overflow-x:auto;border:1px solid var(--hw24-border);border-radius:9px}
             .hw24-editor .hw24-source-table pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px}
             .hw24-editor .hw24-muted-label{color:var(--hw24-muted);font-size:11px;line-height:1.45}
             .hw24-editor .hw24-error{color:#b91c1c;font-size:12px;margin-top:8px}
@@ -309,7 +309,7 @@
                             <h3 style="font-size:18px;font-weight:700">Bestandsartikel · Ameise-Aktualisierung</h3>
                             <p>Nur belegte Vorschläge für derzeit leere Spiegelfelder. Keine Neuanlage, kein direkter JTL-Import. Vorhandene Werte bleiben erhalten.</p>
                             <div style="display:flex;flex-wrap:wrap;gap:10px;margin:10px 0">
-                                <x-filament::button wire:click="prepareExistingUpdate" wire:loading.attr="disabled">Recherchewerte zur Übernahme laden</x-filament::button>
+                                <x-filament::button wire:click="prepareExistingUpdate" wire:loading.attr="disabled">Recherchewerte aufbereiten</x-filament::button>
                                 @if($updateOptions)<x-filament::button color="gray" wire:click="selectUniqueUpdates" wire:loading.attr="disabled">Alle eindeutigen Vorschläge auswählen</x-filament::button>@endif
                             </div>
                             @if($updateMessage!=='')<p role="status">{{ $updateMessage }}</p>@endif
