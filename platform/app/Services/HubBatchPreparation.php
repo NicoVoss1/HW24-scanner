@@ -77,7 +77,7 @@ final class HubBatchPreparation
             $p['draft']['Hersteller']=$match['name'];$p['fields']['Hersteller']=$match['name'];
             $p['sources']['Hersteller'].=' · JTL-Hersteller '.$match['name'].' (ID '.$match['id'].')';
         }
-        $p['missing']=array_values(array_filter(ScanResearch::REQUIRED,fn($f)=>trim((string)($p['draft'][$f]??''))===''));
+        $p['missing']=array_values(array_filter(HubFieldPolicy::required(),fn($f)=>trim((string)($p['draft'][$f]??''))===''));
         $p['state']=$p['missing']===[]?'review':'missing';
         return $p;
     }
@@ -103,7 +103,7 @@ final class HubBatchPreparation
                     default=>$safe?'Keine eindeutige freigegebene Feldquelle':'Produktidentität oder Recherche noch offen',
                 };
             }
-            $fields[$field]=['state'=>$state,'source'=>$source,'required'=>in_array($field,ScanResearch::REQUIRED,true)];
+            $fields[$field]=['state'=>$state,'source'=>$source,'required'=>in_array($field,HubFieldPolicy::required(),true)];
         }
         return $fields;
     }
@@ -115,7 +115,7 @@ final class HubBatchPreparation
             if(!in_array($field,ScanResearch::FIELDS,true)||trim((string)($p['draft'][$field]??''))!==''||!is_string($v)||$v==='')continue;
             $p['draft'][$field]=$v;$p['fields'][$field]=$v;$p['sources'][$field]=$template['sources'][$field];
         }
-        $p['missing']=array_values(array_filter(ScanResearch::REQUIRED,fn($f)=>trim((string)($p['draft'][$f]??''))===''));
+        $p['missing']=array_values(array_filter(HubFieldPolicy::required(),fn($f)=>trim((string)($p['draft'][$f]??''))===''));
         $p['state']=$p['missing']===[]?'review':'missing';
         if(isset($template['manufacturer_hint']))$p['manufacturer_hint']=$template['manufacturer_hint'];
         $p['template_count']=$template['count']??0;$p['template_reason']=$template['reason']??'';
@@ -162,7 +162,7 @@ final class HubBatchPreparation
             $add($f,$v,'HW24-Kategorieregel');
         foreach(HubTemplateDefaults::emptyTexts($draft) as $f=>$v)$add($f,$v,'HW24-Regel: eigener Artikelname');
         foreach(HubSeoDefaults::propose($draft) as $f=>$v)$add($f,$v,'HW24-SEO-Basisregel (kein KI-Aufruf)');
-        $out['missing']=array_values(array_filter(ScanResearch::REQUIRED,fn($f)=>trim((string)($draft[$f]??''))===''));
+        $out['missing']=array_values(array_filter(HubFieldPolicy::required(),fn($f)=>trim((string)($draft[$f]??''))===''));
         $out['state']=$out['missing']===[]?'review':'missing';
         return $out+['reason'=>'Vorschlag, keine Freigabe','draft'=>$draft];
     }
