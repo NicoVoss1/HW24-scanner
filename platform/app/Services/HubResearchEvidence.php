@@ -36,6 +36,18 @@ final class HubResearchEvidence
             'at'=>$archive['fetched_at_utc']??null];
     }
 
+    /** One explicit catalog response can be reused directly after verifying its archive. */
+    public static function directCatalog(string $ean,array $result,PDO $db):?array
+    {
+        if(($result['amazon_ok']??false)!==true||($result['more']??null)!==false||
+            count($result['items']??[])!==1||!in_array($result['source']??null,['live','cache'],true)||
+            (int)($result['snapshot_id']??0)<1)return null;
+        $job=['status'=>'completed','evidence'=>['catalog_state'=>$result['source'],'catalog_snapshot_id'=>$result['snapshot_id']]];
+        $catalog=self::catalogItem($ean,$job,self::archivedCatalog($db,$job));
+        if($catalog===null||$catalog['item']['asin']!==($result['items'][0]['asin']??null))return null;
+        return $catalog;
+    }
+
     public static function marketPrice(array $job,string $asin): ?array
     {
         try{
