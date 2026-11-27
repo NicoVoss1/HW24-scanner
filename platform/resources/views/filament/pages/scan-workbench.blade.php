@@ -338,6 +338,14 @@
                                                 @foreach($proposal['reference_hints']['fields'] as $field=>$value)<p><strong>{{ $field }}:</strong> {{ $value }}</p>@endforeach
                                                 <p>Archivwerte sind nicht automatisch aktuelle Artikelwerte. @if($proposal['reference_hints']['requires_review']) Bearbeitungshinweise im Original prüfen. @endif</p></details>
                                             @endif
+                                            @if(!empty($proposal['coverage']))
+                                                <details><summary>Alle {{ count($proposal['coverage']) }} Ameise-Entwurfsfelder · {{ count(array_filter($proposal['coverage'],fn($c)=>in_array($c['state'],['existing','proposed'],true))) }} belegt / vorgeschlagen</summary>
+                                                <div class="hw24-table-wrap"><table><thead><tr><th>Feld</th><th>Status</th><th>Quelle / offene Voraussetzung</th></tr></thead><tbody>
+                                                @foreach($proposal['coverage'] as $name=>$coverage)
+                                                    <tr><td>{{ $name }} @if($coverage['required']) · Pflicht @endif</td><td>{{ match($coverage['state']){'existing'=>'Vorhanden','proposed'=>'Vorschlag','reserved'=>'JTL-Nummernkreis',default=>'Offen'} }}</td><td>{{ $coverage['source'] }}</td></tr>
+                                                @endforeach
+                                                </tbody></table></div></details>
+                                            @endif
                                             @if(isset($proposal['template_reason']))<p>JTL-Vorlagen: {{ $proposal['template_count']??0 }} · {{ $proposal['template_reason'] }}</p>@endif
                                             @if(isset($proposal['market_price']))
                                                 <p>Amazon-Marktpreisarchiv #{{ $proposal['market_price']['id'] }} · {{ $proposal['market_price']['at'] }} UTC · nicht eigener VK</p>
