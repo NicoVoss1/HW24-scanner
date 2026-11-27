@@ -10,6 +10,7 @@ final class HubBatchPreparation
     {
         $db=HubPeerMirror::connect();
         $out=[];$aiReads=0;$paidAttempted=false;
+        try{$manufacturerReferences=HubManufacturerPolicy::currentReferences($db);}catch(\Throwable){$manufacturerReferences=[];}
         foreach($rows as $row){
             $ean=(string)$row['ean'];$job=$jobs[$ean]??[];
             if(($row['resolution']??null)!=='new_candidate'||in_array($row['review']??null,['removed','ready'],true))continue;
@@ -18,6 +19,7 @@ final class HubBatchPreparation
             $catalog=HubResearchEvidence::catalogItem($ean,$job,$archive);
             $p=HubReferenceEvidence::merge($p,$row['draft']??[],$catalog??[],HubReferenceEvidence::lookup($ean));
             $p=HubReferenceEvidence::hanFallback($p,$ean);
+            $p=self::confirmManufacturer($p,$row['draft']??[],$manufacturerReferences);
             if(in_array($p['state'],['review','missing'],true)){
                 $ai=['state'=>'not_checked'];
                 if($catalog!==null&&$aiReads<3){
@@ -59,6 +61,25 @@ final class HubBatchPreparation
             $out[$ean]=$p+['revision'=>$row['revision'],'item_id'=>$row['id']];
         }
         return $out;
+    }
+
+    /** Same existing JTL manufacturer name/ID rule as the existing article path. */
+    public static function confirmManufacturer(array $p,array $original,array $references):array
+    {
+        if(!in_array($p['state']??null,['review','missing'],true)||!isset($p['fields']['Hersteller'])||
+            trim((string)($original['Hersteller']??''))!=='')return $p;
+        $name=(string)$p['fields']['Hersteller'];
+        $match=HubManufacturerPolicy::resolve($name,$references);
+        if($match===null){
+            unset($p['fields']['Hersteller'],$p['sources']['Hersteller'],$p['draft']['Hersteller']);
+            $p['manufacturer_review']='Kein eindeutiger vorhandener JTL-Hersteller zu '.$name.'; Pflichtfeld offen.';
+        }else{
+            $p['draft']['Hersteller']=$match['name'];$p['fields']['Hersteller']=$match['name'];
+            $p['sources']['Hersteller'].=' · JTL-Hersteller '.$match['name'].' (ID '.$match['id'].')';
+        }
+        $p['missing']=array_values(array_filter(ScanResearch::REQUIRED,fn($f)=>trim((string)($p['draft'][$f]??''))===''));
+        $p['state']=$p['missing']===[]?'review':'missing';
+        return $p;
     }
 
     /** Every supported export field, including optional and deliberately unfilled fields. */
