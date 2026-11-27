@@ -9,7 +9,7 @@
         <tbody>
         @foreach($decisionOptions as $field=>$options)
             <tr wire:key="{{ $decisionKey }}-{{ sha1($field) }}">
-                <td style="border:1px solid #8199b0;padding:10px;font-weight:600;vertical-align:top">{{ $field }}</td>
+                <td style="border:1px solid #8199b0;padding:10px;font-weight:600;vertical-align:top">{{ $decisionLabels[$field]??$field }}</td>
                 <td style="border:1px solid #8199b0;padding:10px;vertical-align:top;white-space:pre-wrap;overflow-wrap:anywhere;max-width:240px">{{ $decisionCurrent[$field]??'Nicht befüllt' }}</td>
                 <td style="border:1px solid #8199b0;padding:10px;vertical-align:top;overflow-wrap:anywhere;max-width:600px">
                     @foreach($options as $token=>$option)
@@ -24,7 +24,7 @@
                     @endforeach
                 </td>
                 <td style="border:1px solid #8199b0;padding:10px;vertical-align:top;min-width:180px">
-                    <select aria-label="{{ $field }} übernehmen?" wire:model.live="{{ $decisionModel }}.{{ $field }}" style="width:100%;min-height:40px;border:1px solid #8199b0;border-radius:7px">
+                    <select aria-label="{{ $decisionLabels[$field]??$field }} übernehmen?" wire:model.live="{{ $decisionModel }}.{{ $decisionLabels[$field]??$field }}" style="width:100%;min-height:40px;border:1px solid #8199b0;border-radius:7px">
                         <option value="">Nein · unverändert</option>
                         @foreach($options as $token=>$option)
                             <option value="{{ $token }}">Ja @if(count($options)>1) · {{ mb_strimwidth($option['value'],0,95,' …') }} @endif</option>
