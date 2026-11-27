@@ -121,7 +121,8 @@ final class ArticleLookup extends Page
         ];
         if (count($matches)===1 && ($this->lookup['jtl_status']??'')==='current_snapshot' && is_array($raw['matches'][0]??null)) {
             $this->articleRelated=RelatedSourceEvidence::present($raw['matches'][0]);
-            try{$this->articleStock=app(\App\Services\HubStockReader::class)->readArticle($matches[0]['jtl_article_id'],(string)($raw['snapshot_at']??''));}catch(\Throwable){$this->articleStock=['ok'=>false];}
+            try{$stockRead=app(\App\Services\HubStockReader::class)->readArticle($matches[0]['jtl_article_id'],(string)($raw['snapshot_at']??''));}catch(\Throwable){$stockRead=['ok'=>false];}
+            $this->articleStock=\App\Services\HubStockReader::workspace($stockRead,$this->articleRelated);
         }
         if (($this->lookup['jtl_status']??'')==='current_snapshot' &&
             count($matches)===1 &&
