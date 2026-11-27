@@ -127,17 +127,24 @@
             <section class="hw24-panel" aria-labelledby="hw24-search-heading">
                 <div class="hw24-panel-head"><h3 id="hw24-search-heading">01 · Artikel finden</h3><span class="hw24-chip">JTL · nur lesend</span></div>
                 <div class="hw24-panel-body">
-                    <p class="hw24-description">Suche mit EAN, HAN oder JTL-Artikelnummer. Die Abfrage liest ausschließlich den bestehenden JTL-MariaDB-Spiegel.</p>
+                    <p class="hw24-description">Suche mit EAN, HAN, JTL-Artikelnummer, Produktname oder ASIN. Die Abfrage liest ausschließlich den bestehenden JTL-MariaDB-Spiegel.</p>
                     <form wire:submit="findArticle" class="hw24-form">
                         <label class="hw24-search-label" for="hw24-article-identifier">
-                            EAN, HAN oder JTL-Artikelnummer
-                            <input id="hw24-article-identifier" class="hw24-input" type="search" maxlength="64" wire:model="identifier"
+                            EAN, HAN, JTL-Artikelnummer, Name oder ASIN
+                            <input id="hw24-article-identifier" class="hw24-input" type="search" maxlength="100" wire:model="identifier"
                                 autocomplete="off" placeholder="z. B. 3474630337398">
                         </label>
                         <div class="hw24-call-to-action">
                             <x-filament::button title="Artikel im vorhandenen JTL-Spiegel anhand des Suchbegriffs laden." type="submit" wire:loading.attr="disabled" wire:target="findArticle">Artikel laden</x-filament::button>
+                            @if(\App\Filament\Pages\QueryAuditWorkbench::canAccess())<x-filament::button color="gray" type="button" wire:click="searchNameOrAsin" wire:loading.attr="disabled">Name / ASIN suchen</x-filament::button>@endif
                         </div>
                     </form>
+                    @if($nameSearchMessage!=='')<p role="status">{{ $nameSearchMessage }}</p>@endif
+                    @if($nameMatches)
+                        <div class="hw24-table-wrap"><table class="hw24-result-table"><thead><tr><th>Artikelname</th><th>Artikelnummer</th><th>Hersteller</th><th>EAN</th><th>ASIN</th><th>Auswahl</th></tr></thead><tbody>
+                        @foreach($nameMatches as $index=>$match)<tr><td>{{ $match['artikelname'] }}</td><td>{{ $match['artikelnummer'] }}</td><td>{{ $match['hersteller'] }}</td><td>{{ $match['ean'] }}</td><td>{{ $match['asin'] }}</td><td><button class="hw24-link" wire:click="loadNameMatch({{ $index }})">Artikel laden</button></td></tr>@endforeach
+                        </tbody></table></div>
+                    @endif
                     @error('identifier') <p class="hw24-error" role="alert">{{ $message }}</p> @enderror
                     @if($lookup !== [])
                         <div class="hw24-meta" aria-live="polite">
@@ -310,19 +317,20 @@
                     <div class="hw24-toolbar">
                         <x-filament::button wire:click="queueExistingArticle" wire:loading.attr="disabled" :disabled="$this->verifiedEan()===null">Gemeinsame Recherche anmelden</x-filament::button>
                         <x-filament::button color="gray" wire:click="refreshArticleResearch" wire:loading.attr="disabled" :disabled="$this->verifiedEan()===null">Archivdaten aktualisieren</x-filament::button>
-                        <x-filament::button color="gray" wire:click="readAmazon" wire:loading.attr="disabled" :disabled="$this->verifiedEan()===null">Amazon-Katalog abrufen</x-filament::button>
+                        <x-filament::button color="gray" wire:click="readAmazon" wire:loading.attr="disabled" :disabled="$this->researchEan()===null">Amazon-Katalog abrufen</x-filament::button>
                         @if(\App\Filament\Pages\QueryAuditWorkbench::canAccess())
                             <x-filament::button color="gray" wire:click="showArticleOffers" wire:loading.attr="disabled">Amazon-Händler &amp; Buy Box</x-filament::button>
                             <x-filament::button color="gray" wire:click="readAiArchive" wire:loading.attr="disabled" :disabled="$this->verifiedEan()===null">KI-Archiv abrufen</x-filament::button>
                         @endif
                     </div>
                     @if($pflegeMessage!=='')<p role="status">{{ $pflegeMessage }}</p>@endif
+                    @if($this->verifiedEan()===null && $this->researchEan()!==null)<p>GTIN fehlt. Amazon-Suche nutzt die prüfziffergültige Artikelnummer lediglich als Suchhinweis. Übernahme nur bei bestätigtem GTIN- und ASIN-Treffer.</p>@endif
                     @if($articleCatalog)
                         <details open><summary>Amazon-Katalog · {{ count($articleCatalog['items']??[]) }} angezeigte Treffer</summary>
                             @foreach($articleCatalog['items']??[] as $candidate)
                                 <p><strong>{{ $candidate['title'] }}</strong> · ASIN {{ $candidate['asin'] }} · {{ $candidate['manufacturer']?:'Hersteller offen' }} · {{ $candidate['gtin_match']?'GTIN stimmt überein':'GTIN nicht bestätigt' }} · {{ $candidate['pack_kind'] }}</p>
                             @endforeach
-                            <p>Für die Übernahme wird der bestätigte gemeinsame Rechercheauftrag benötigt. Kein ungeprüfter Katalogwert wird exportiert.</p>
+                            <p>Eindeutige archivierte Treffer können direkt über „Recherchewerte aufbereiten“ übernommen werden. Kein ungeprüfter Katalogwert wird exportiert.</p>
                         </details>
                     @endif
                     @if(\App\Filament\Pages\QueryAuditWorkbench::canAccess())
