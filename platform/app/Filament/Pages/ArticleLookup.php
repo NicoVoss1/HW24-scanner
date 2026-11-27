@@ -79,6 +79,7 @@ final class ArticleLookup extends Page
     public function searchNameOrAsin(HubArticleMirror $mirror):void
     {
         abort_unless(QueryAuditWorkbench::canAccess(),403);
+        $this->reset(['lookup','fieldReview','referenceReview','referenceEan','articleStock','articleOffers','articleCatalog','manualAiResult','confirmArticleAi','updateOptions','updateIdentity','updateReview','updateSelection','confirmUpdateExport','updateMessage','amazon','ai','existingEvidence','articleRelated','sourceState','sourceRows','sourceNextOffset','sourceQuery','seoSuggestions','peerReview','queueReview','sharedResearchReview','categoryProposal','pflegeMessage']);
         $this->nameMatches=[];$this->nameSearchMessage='';$this->resetErrorBag('identifier');
         try{
             $r=$mirror->searchCandidates($this->identifier);
@@ -95,7 +96,7 @@ final class ArticleLookup extends Page
     }
     public function findArticle(LegacyReadBridge $bridge,HubArticleMirror $mirror): void
     {
-        $this->reset(['lookup', 'amazon', 'ai','articleStock','articleOffers','manualAiResult','confirmArticleAi','articleCatalog', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery', 'existingEvidence', 'articleRelated','fieldReview','referenceReview','referenceEan','seoSuggestions','peerReview','queueReview','sharedResearchReview','categoryProposal','pflegeMessage','updateOptions','updateIdentity','updateReview','updateSelection','confirmUpdateExport','updateMessage']);
+        $this->reset(['nameMatches','nameSearchMessage','lookup', 'amazon', 'ai','articleStock','articleOffers','manualAiResult','confirmArticleAi','articleCatalog', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery', 'existingEvidence', 'articleRelated','fieldReview','referenceReview','referenceEan','seoSuggestions','peerReview','queueReview','sharedResearchReview','categoryProposal','pflegeMessage','updateOptions','updateIdentity','updateReview','updateSelection','confirmUpdateExport','updateMessage']);
         $id = trim($this->identifier);
         if (! preg_match('/^[\pL\pN][\pL\pN._\/-]{1,63}$/uD', $id)) {
             $this->addError('identifier', 'Bitte EAN, HAN oder JTL-Artikelnummer eingeben.');
