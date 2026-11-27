@@ -11,18 +11,11 @@
                 <h3 style="font-size:18px;font-weight:700">Historische Artikelpflege · Zeile {{ $editRow }} · Revision {{ $editRevision }}</h3>
                 <p>Ausschließlich vorhandene Auswahlwerte. Standardfelder verwenden die vorhandenen Listenwerte; produktbezogene Felder nur Werte desselben Artikels. GTIN und Formelzellen bleiben geschützt. Fehlt ein geeigneter Wert, ist Recherche erforderlich.</p>
                 <form wire:submit="saveEdit">
-                    <div class="hw24-edit-grid">
-                        @foreach($editColumns as $c)
-                            <label>{{ \App\Filament\Pages\ReferenceTableWorkbench::excelColumn((int)$c['position']) }} · {{ $c['name']?:'(ohne Überschrift)' }}
-                                <select wire:model="editValues.{{ $c['position'] }}" aria-label="{{ $c['name']?:'Auswahlwert' }}">
-                                    @foreach($editOptions[(string)$c['position']]??[] as $option)
-                                        <option value="{{ $option['token'] }}">{{ $option['label'] }}</option>
-                                    @endforeach
-                                </select>
-                                @if(count($editOptions[(string)$c['position']]??[])<=1)<small>Keine weitere belegte Auswahl · Recherche erforderlich, falls der Wert fehlt.</small>@endif
-                            </label>
-                        @endforeach
-                    </div>
+                    @include('filament.partials.hub-field-decisions',[
+                        'decisionOptions'=>$editOptions,'decisionModel'=>'editValues','decisionKey'=>'historical-'.$editSheet.'-'.$editRow,
+                        'decisionCurrent'=>$editCurrent,'decisionLabels'=>collect($editColumns)->mapWithKeys(fn($c)=>[(string)$c['position']=>\App\Filament\Pages\ReferenceTableWorkbench::excelColumn((int)$c['position']).' · '.($c['name']?:'(ohne Überschrift)')])->all(),
+                    ])
+                    <p>Felder ohne weitere Auswahl bleiben unverändert. Neue Produktwerte müssen zuerst recherchiert werden.</p>
                     <div class="hw24-pagebar"><button class="hw24-btn" type="submit" wire:loading.attr="disabled">Änderungen speichern</button><button class="hw24-btn" type="button" wire:click="cancelEdit">Ohne Speichern schließen</button></div>
                 </form>
                 <details style="margin-top:16px"><summary>Änderungshistorie dieser Zeile (bis zu 100 letzte Feldänderungen)</summary>
@@ -65,7 +58,13 @@
                     <tbody>
                         @forelse($rows as $r)
                         <tr wire:key="reference-row-{{ $selected['id'] }}-{{ $r['row_number'] }}" class="{{ ($r['status']??'')==='LP geb.'?'hw24-status-lp':(($r['status']??'')==='WE geb.'?'hw24-status-we':'') }}">
-                            <td>{{ $r['row_number'] }} @unless($ameise)<button type="button" class="hw24-btn" wire:click="openEdit({{ $selected['id'] }},{{ $r['row_number'] }})" wire:loading.attr="disabled" @disabled($editRow>0)>Pflegen</button>@endunless</td>
+                            <td>{{ $r['row_number'] }}
+                                @php($lookupPos=$ameise?collect($allColumns)->firstWhere('name','Artikelnummer')['position']??null:null)
+                                @php($lookupValue=$ameise?($r['values'][(string)$lookupPos]??''):($r['values']['5']??$r['values']['4']??''))
+                                @if($ameise && $lookupValue!=='')
+                                    <a style="display:block;text-decoration:underline;margin:6px 0" href="{{ \App\Filament\Pages\ArticleLookup::getUrl(['q'=>$lookupValue]) }}">Artikelpflege öffnen</a>
+                                @endif
+                                @unless($ameise)<button type="button" class="hw24-btn" wire:click="openEdit({{ $selected['id'] }},{{ $r['row_number'] }})" wire:loading.attr="disabled" @disabled($editRow>0)>Pflegen</button>@endunless</td>
                             @foreach($columns as $c)
                             @php($value=$r['values'][(string)$c['position']]??'')
                             <td>@if(mb_strlen($value)>160)<details><summary>{{ mb_substr($value,0,160) }} …</summary><div style="white-space:pre-wrap">{{ $value }}</div></details>@else{{ $value }}@endif</td>
