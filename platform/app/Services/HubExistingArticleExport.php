@@ -5,7 +5,7 @@ namespace App\Services;
 /** Existing JTL article only. Sparse, explicitly selected update CSV, never a create file. */
 final class HubExistingArticleExport
 {
-    public const FIELDS=['GTIN','Hersteller','HAN','ASIN','Artikelname','Kurzbeschreibung','Beschreibung','Titel-Tag (SEO)','Meta-Description (SEO)','Artikelgewicht','Inhalt/Menge','Maßeinheit'];
+    public const FIELDS=['GTIN','ASIN',...HubArticleFieldEditor::MANUAL,...HubArticleFieldEditor::FLAGS,...HubArticleFieldEditor::REFERENCE];
     public const REPLACEABLE=['Artikelname','Kurzbeschreibung','Beschreibung','Titel-Tag (SEO)','Meta-Description (SEO)'];
     public static function candidates(array $current,array $article,array $catalog,array $ai,array $references,array $seo,array $manufacturers=[]):array
     {
