@@ -36,6 +36,19 @@ final class HubResearchEvidence
             'at'=>$archive['fetched_at_utc']??null];
     }
 
+    /** Existing recent single-item archive, independently checked without a provider call. */
+    public static function latestCatalog(PDO $db,string $ean):?array
+    {
+        $key=ResearchQueue::canonical($ean);
+        $q=$db->prepare("SELECT * FROM hw24_hub_catalog_reuse WHERE LPAD(searched_ean,14,'0')=? ORDER BY fetched_at_utc DESC,snapshot_id DESC LIMIT 2");
+        $q->execute([$key]);$rows=$q->fetchAll(PDO::FETCH_ASSOC);
+        if(!$rows)return null;
+        $r=$rows[0];
+        $job=['status'=>'completed','evidence'=>['catalog_state'=>'cache','catalog_snapshot_id'=>(int)$r['snapshot_id']]];
+        if(count($rows)>1&&(int)$rows[1]['snapshot_id']===(int)$r['snapshot_id'])return null;
+        return self::catalogItem($ean,$job,$r);
+    }
+
     /** One explicit catalog response can be reused directly after verifying its archive. */
     public static function directCatalog(string $ean,array $result,PDO $db):?array
     {
