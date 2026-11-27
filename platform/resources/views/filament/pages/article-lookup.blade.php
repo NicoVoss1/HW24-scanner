@@ -329,7 +329,7 @@
                                     @endforeach
                                 </div>
                                 <label style="display:flex;gap:8px;align-items:center;margin:12px 0"><input type="checkbox" wire:model.live="confirmUpdateExport"> Ich habe die ausgewählten Werte geprüft und importiere ausschließlich als Aktualisierung vorhandener Artikel.</label>
-                                <x-filament::button wire:click="downloadExistingUpdate" wire:loading.attr="disabled" @disabled(!$confirmUpdateExport)>Ameise-Aktualisierungsdatei herunterladen</x-filament::button>
+                                <x-filament::button wire:click="downloadExistingUpdate" wire:loading.attr="disabled"  :disabled="!$confirmUpdateExport">Ameise-Aktualisierungsdatei herunterladen</x-filament::button>
                             @endif
                         </section>
                     @endif
