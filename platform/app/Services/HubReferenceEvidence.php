@@ -52,6 +52,15 @@ final class HubReferenceEvidence
             $q=$db->prepare("SELECT row_number,values_json FROM $projection WHERE sheet_id=? AND (ltrim(CAST(json_extract(values_json,'$.\"5\"') AS TEXT),'0')=? OR ltrim(CAST(json_extract(values_json,'$.\"4\"') AS TEXT),'0')=?) LIMIT 51");
             $q->execute([$meta['id'],$key,$key]);
             $map=['5'=>'GTIN','6'=>'ASIN','8'=>'Artikelname','9'=>'Kurzbeschreibung','10'=>'Beschreibung','49'=>'Hersteller','56'=>'HAN'];
+            // Additional exact original header matches are review evidence only.
+            // Ignore duplicate headings and do not infer semantic equivalence.
+            $columns=$db->prepare('SELECT position,name FROM workbook_columns WHERE sheet_id=?');$columns->execute([$meta['id']]);
+            $headers=$columns->fetchAll(PDO::FETCH_ASSOC);
+            $counts=array_count_values(array_column($headers,'name'));
+            foreach($headers as $c){
+                if(($counts[$c['name']]??0)===1&&in_array($c['name'],ScanResearch::FIELDS,true)&&
+                   !isset($map[(string)$c['position']])&&!in_array($c['name'],$map,true))$map[(string)$c['position']]=$c['name'];
+            }
         }else throw new \InvalidArgumentException('Unknown reference source');
         $rows=[];$count=0;
         foreach($q as $r){
