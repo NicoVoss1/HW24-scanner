@@ -52,6 +52,16 @@ final class HubFieldPolicy
     {
         return array_values(array_filter($required??self::required(),fn($f)=>!is_scalar($draft[$f]??null)||trim((string)$draft[$f])===''));
     }
+    /** Existing updates must leave every mandatory field confirmed or explicitly selected. */
+    public static function missingAfterUpdate(array $current,array $patch,?array $required=null):array
+    {
+        $required??=self::required();
+        return array_values(array_filter($required,static function($f)use($current,$patch){
+            if(is_string($patch[$f]??null)&&trim($patch[$f])!=='')return false;
+            return !in_array($current[$f]['state']??null,['value','observed_reference'],true)||
+                trim((string)($current[$f]['value']??''))==='';
+        }));
+    }
     /** Full current field checklist, not proof that unmapped JTL values are absent. */
     public static function review(array $current,array $options=[],?array $required=null):array
     {
