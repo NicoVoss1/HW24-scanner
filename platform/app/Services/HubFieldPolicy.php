@@ -58,6 +58,8 @@ final class HubFieldPolicy
         $required??=self::required();
         return array_values(array_filter($required,static function($f)use($current,$patch){
             if(is_string($patch[$f]??null)&&trim($patch[$f])!=='')return false;
+            if($f==='Brutto-VK'&&($current[$f]['state']??null)==='calculated'&&!isset($patch['Steuerklasse'])&&
+                trim((string)($patch['Netto-VK']??$current['Netto-VK']['value']??''))!=='')return false;
             return !in_array($current[$f]['state']??null,['value','observed_reference'],true)||
                 trim((string)($current[$f]['value']??''))==='';
         }));
