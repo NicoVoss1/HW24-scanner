@@ -5,7 +5,7 @@ namespace App\Services;
 /** Existing JTL article only. Sparse, explicitly selected update CSV, never a create file. */
 final class HubExistingArticleExport
 {
-    public const FIELDS=['Hersteller','HAN','ASIN','Artikelname','Kurzbeschreibung','Beschreibung','Titel-Tag (SEO)','Meta-Description (SEO)','Artikelgewicht','Inhalt/Menge','Maßeinheit'];
+    public const FIELDS=['GTIN','Hersteller','HAN','ASIN','Artikelname','Kurzbeschreibung','Beschreibung','Titel-Tag (SEO)','Meta-Description (SEO)','Artikelgewicht','Inhalt/Menge','Maßeinheit'];
     public const REPLACEABLE=['Artikelname','Kurzbeschreibung','Beschreibung','Titel-Tag (SEO)','Meta-Description (SEO)'];
     public static function candidates(array $current,array $article,array $catalog,array $ai,array $references,array $seo,array $manufacturers=[]):array
     {
@@ -49,13 +49,22 @@ final class HubExistingArticleExport
             if(!empty($h['Hersteller'])&&!empty($h['ASIN'])&&($h['ASIN']===$asin||($catalogIdentity&&$h['ASIN']===($p['asin']??null))))
                 $brandEvidence[]=['name'=>$h['Hersteller'],'source'=>'Historische Artikeldaten #'.($historical['archive']??'?').' · Zeile '.$historical['rows'][0]['row']];
         }
+        $resolvedBrand=null;
         if($brandEvidence&&trim((string)($article['hersteller']??''))===''){
             $first=$brandEvidence[0]['name'];$agree=true;
             foreach($brandEvidence as $e)if(!HubManufacturerPolicy::equivalent($first,$e['name']))$agree=false;
             $brand=$agree?HubManufacturerPolicy::resolve($first,$manufacturers):null;
             if($brand!==null){
+                $resolvedBrand=$brand['name'];
                 $add('Hersteller',$brand['name'],implode(' + ',array_column($brandEvidence,'source')).' · JTL-Hersteller '.$brand['name'].' (ID '.$brand['id'].')');
             }
+        }
+        if($catalogIdentity&&$resolvedBrand!==null&&HubManufacturerPolicy::equivalent($resolvedBrand,(string)($p['manufacturer']??'')))$identity=true;
+        // A GTIN-shaped SKU is a search hint only. The caller must independently
+        // verify the exact catalog EAN and matching stored ASIN before supplying it.
+        $gtin=$catalog['verified_missing_gtin']??null;
+        if($catalogIdentity&&is_string($gtin)&&$asin!==''&&$asin===($p['asin']??null)){
+            try{ResearchQueue::canonical($gtin);$add('GTIN',$gtin,'Amazon-Katalogarchiv #'.($catalog['id']??'?').' · GTIN und bestehende ASIN bestätigt');}catch(\Throwable){}
         }
         if($identity){
             $origin='Amazon-Katalogarchiv #'.($catalog['id']??'?');
@@ -81,7 +90,7 @@ final class HubExistingArticleExport
                 $add($f,$r['fields'][$f]??null,($source==='ameise'?'Ameise-Archiv':'Historische Artikeldaten').' #'.($ref['archive']??'?').' · Zeile '.$r['row']);
         }
         foreach($seo as $f=>$v)$add($f,$v,'HW24-SEO-Basisregel');
-        foreach(HubTemplateDefaults::emptyTexts(['Artikelname'=>$article['artikelname']??'']) as $f=>$v)$add($f,$v,'HW24-Regel: eigener Artikelname');
+        foreach(HubTemplateDefaults::emptyTexts(['Artikelname'=>$article['artikelname']??'']) as $f=>$v)if(($current[$f]['state']??null)==='empty_snapshot')$add($f,$v,'HW24-Regel: eigener Artikelname');
         return $out;
     }
 
