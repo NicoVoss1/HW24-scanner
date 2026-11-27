@@ -20,6 +20,12 @@ final class HubHistoricalEditsTest extends TestCase
         $db->prepare('INSERT INTO workbook_rows VALUES(1,5,?,?,?)')->execute([
             json_encode((object)['5'=>'0615908418057','8'=>'Alt','9'=>'Cache','56'=>'000123']),
             json_encode((object)['9'=>['text'=>'H5']]),'']);
+        $db->prepare('INSERT INTO workbook_rows VALUES(1,6,?,?,?)')->execute([
+            json_encode((object)['5'=>'0615908418057','8'=>'Neu','56'=>'000045']),
+            '{}','']);
+        $db->prepare('INSERT INTO workbook_rows VALUES(1,7,?,?,?)')->execute([
+            json_encode((object)['5'=>'4021609029274','8'=>'Fremder Artikel','56'=>'999999','63'=>'LP geb.']),
+            '{}','LP geb.']);
         return $db;
     }
     public function test_edits_preserve_original_audit_and_are_used_by_research():void
@@ -37,8 +43,8 @@ final class HubHistoricalEditsTest extends TestCase
         self::assertSame('000045',$r['rows'][0]['fields']['HAN']);
         self::assertSame(3,(int)$db->query('SELECT COUNT(*) FROM workbook_edit_events')->fetchColumn());
         self::assertSame(1,E::save($db,1,5,1,['8'=>'Neu'],'7'));
-        self::assertSame(2,E::save($db,1,5,1,['8'=>''],'7'));
-        self::assertSame('',E::row($db,1,5)['values']['8']);
+        self::assertSame(2,E::save($db,1,5,1,['8'=>'Alt'],'7'));
+        self::assertSame('Alt',E::row($db,1,5)['values']['8']);
     }
     public function test_stale_revision_cannot_overwrite():void
     {
@@ -53,6 +59,21 @@ final class HubHistoricalEditsTest extends TestCase
             try{E::save($db,1,5,0,['8'=>'Neu',$pos=>'Falsch'],'7');self::fail('Protected field accepted');}
             catch(\RuntimeException){}
             self::assertSame('Alt',E::row($db,1,5)['values']['8']);
+            self::assertSame(0,E::row($db,1,5)['revision']);
+        }
+    }
+    public function test_dropdowns_reject_free_text_and_other_product_identity():void
+    {
+        $db=$this->db();
+        $options=E::choices($db,1,5);
+        self::assertContains('Neu',$options[8]);
+        self::assertContains('000045',$options[56]);
+        self::assertContains('LP geb.',$options[63]);
+        self::assertNotContains('Fremder Artikel',$options[8]);
+        self::assertNotContains('999999',$options[56]);
+        foreach([['8'=>'Freitext'],['56'=>'999999'],['63'=>'erfunden']] as $invalid){
+            try{E::save($db,1,5,0,$invalid,'7');self::fail('Unbelegte Auswahl akzeptiert');}
+            catch(\RuntimeException){}
             self::assertSame(0,E::row($db,1,5)['revision']);
         }
     }
