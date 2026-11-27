@@ -28,6 +28,20 @@ final class HubStockReader
         return $out;
     }
 
+    /** Existing article by exact JTL ID, including articles without GTIN. */
+    public function readArticle(string $id,string $snapshot):array
+    {
+        if(!ctype_digit($id)||(int)$id<1||$snapshot==='')throw new RuntimeException('Invalid stock identity');
+        $db=HubPeerMirror::connect();
+        $db->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');$db->beginTransaction();
+        try{
+            $m=$db->query('SELECT source_id,last_completed_utc,last_row_count,age_minutes FROM hw24_hub_mirror_state ORDER BY last_completed_utc DESC LIMIT 1')->fetch(PDO::FETCH_ASSOC);
+            if(!$m||(int)$m['age_minutes']<0||(int)$m['age_minutes']>45||$snapshot!==(string)$m['last_completed_utc'])throw new RuntimeException('Stock snapshot changed');
+            $q=$db->prepare('SELECT jtl_article_id,truncated_flag,rows_type,row_count,total_stock,available_stock,in_orders,incoming FROM hw24_hub_stock_source WHERE source_id=? AND jtl_article_id=? LIMIT 2');
+            $q->execute([$m['source_id'],$id]);$rows=$q->fetchAll(PDO::FETCH_ASSOC);$db->commit();
+            return ['ok'=>count($rows)===1,'at'=>ScanEntryPresentation::germanDate($snapshot),'item'=>self::present($rows)];
+        }catch(\Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
+    }
     public function read(array $eans): array
     {
         $db=HubPeerMirror::connect();
