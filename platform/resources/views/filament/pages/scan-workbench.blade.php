@@ -435,8 +435,8 @@
                                                 @php($stock=$batchStock['items'][$item['ean']]??[])
                                                 @if(($stock['state']??null)==='existing')
                                                     <div style="margin-top:5px"><strong>In Wawi vorhanden</strong></div>
-                                                    <div class="hw24-sub">Wawi-Bestand: <strong>{{ $stock['total']??'Nicht belegt' }}</strong> · Verfügbar: <strong>{{ $stock['available']??'Nicht belegt' }}</strong></div>
-                                                    <div class="hw24-sub">In Aufträgen: {{ $stock['orders']??'Nicht belegt' }} · Im Zulauf: {{ $stock['incoming']??'Nicht belegt' }}</div>
+                                                    <div class="hw24-sub">Wawi-Bestand: <strong>{{ \App\Services\HubStockReader::display($stock['total']??null) }}</strong> · Verfügbar: <strong>{{ \App\Services\HubStockReader::display($stock['available']??null) }}</strong></div>
+                                                    <div class="hw24-sub">In Aufträgen: {{ \App\Services\HubStockReader::display($stock['orders']??null) }} · Im Zulauf: {{ \App\Services\HubStockReader::display($stock['incoming']??null) }}</div>
                                                     @if($item['resolution']!=='existing')<div class="hw24-sub">Abweichung vom gespeicherten Scanstatus – vor Freigabe prüfen.</div>@endif
                                                 @elseif(($stock['state']??null)==='absent')
                                                     <div><strong>Im aktuellen Wawi-Spiegel nicht vorhanden</strong></div>
@@ -547,7 +547,7 @@
                         <button title="Zum benachbarten Artikel wechseln; ungespeicherte Änderungen können verloren gehen." type="button" class="hw24-btn" wire:click="moveDraft(1)" wire:confirm="Zum nächsten Artikel wechseln? Nicht gespeicherte Änderungen werden verworfen." @disabled($editIndex===false||$editIndex>=count($editEans)-1)>Nächster Artikel →</button>
                     </nav>
                     <div class="hw24-action">
-                        <button title="Original-Stammdaten des Artikels aus dem JTL-Spiegel lesen." type="button" class="hw24-btn" wire:click="loadJtlFieldReview" wire:loading.attr="disabled" wire:target="loadJtlFieldReview">JTL-Stammdaten prüfen (nur lesen)</button>
+                        <button title="Original-Stammdaten des Artikels aus dem JTL-Spiegel lesen." type="button" class="hw24-btn" wire:click="loadJtlFieldReview" wire:loading.attr="disabled" wire:target="loadJtlFieldReview">JTL-Stammdaten, Bestand &amp; Lagerplätze prüfen</button>
                         <button title="Vergleichsartikel gleichen Herstellers und gleicher Warengruppe lesen." type="button" class="hw24-btn" wire:click="loadPeerReview" wire:loading.attr="disabled" wire:target="loadPeerReview">Vergleichsartikel aus JTL prüfen</button>
                         <button title="JTL und Amazon für diese EAN abfragen; möglicher neuer Amazon-Aufruf." type="button" class="hw24-btn" wire:click="researchOne('{{ $workingEan }}')" wire:loading.attr="disabled" wire:confirm="JTL und Amazon-Katalog für diese EAN abfragen?">JTL &amp; Amazon recherchieren</button>
                         <a class="hw24-link" target="_blank" rel="noopener noreferrer" href="{{ url('/admin/intelligence').'?ean='.rawurlencode($workingEan) }}">KI-Archiv und KI-Einzelprüfung öffnen</a>
@@ -573,6 +573,7 @@
                             <h3>JTL-Feldprüfung · keine Änderung in JTL</h3>
                             @if($jtlFieldReview['ok']??false)
                                 <p><strong>{{ $jtlFieldReview['name'] }}</strong></p>
+                                @if(isset($jtlFieldReview['stock']))@include('filament.partials.hub-stock-board',['stockData'=>$jtlFieldReview['stock'],'showBins'=>true])@endif
                                 <p>Spiegelstand: {{ $jtlFieldReview['snapshot_at']??'nicht belegt' }} · {{ $jtlFieldReview['filled'] }}/{{ $jtlFieldReview['total'] }} Werte in diesem Feldkatalog belegt.</p>
                                 <p>Leere Spiegelwerte und fehlende Zuordnungen beweisen keine fehlenden Werte in JTL. Nicht jedes Feld ist für jeden Artikel erforderlich. Keine automatische Übernahme oder Freigabe.</p>
                                 <dl class="hw24-facts">
