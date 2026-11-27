@@ -315,19 +315,11 @@
                             @if($updateMessage!=='')<p role="status">{{ $updateMessage }}</p>@endif
                             @if($updateOptions)
                                 <p>Artikelnummer {{ $updateIdentity['artikelnummer'] }} · EAN {{ $updateIdentity['ean'] }}</p>
-                                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:16px;margin:12px 0">
-                                    @foreach($updateOptions as $field=>$options)
-                                        <label style="display:block;font-weight:600">{{ $field }}
-                                            <select style="display:block;width:100%;margin-top:5px;border:1px solid #8199b0;border-radius:7px" wire:model.live="updateSelection.{{ $field }}">
-                                                <option value="">Nicht ändern</option>
-                                                @foreach($options as $token=>$option)<option value="{{ $token }}">{{ mb_strimwidth($option['value'],0,180,' …') }} · {{ $option['source'] }}</option>@endforeach
-                                            </select>
-                                            @if(isset($options[$updateSelection[$field]??'']))
-                                                <div style="font-size:13px;font-weight:400;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:8px">{{ $options[$updateSelection[$field]]['value'] }}</div>
-                                            @endif
-                                        </label>
-                                    @endforeach
-                                </div>
+                                @include('filament.partials.hub-field-decisions',[
+                                    'decisionOptions'=>$updateOptions,'decisionModel'=>'updateSelection','decisionKey'=>'existing-update',
+                                    'decisionCurrent'=>array_map(fn($v)=>$v['value']!==''?$v['value']:'Nicht befüllt',$fieldReview['fields']??[]),
+                                ])
+                                <x-filament::button color="gray" wire:click="clearExistingSelections">Alle Entscheidungen zurücksetzen</x-filament::button>
                                 <label style="display:flex;gap:8px;align-items:center;margin:12px 0"><input type="checkbox" wire:model.live="confirmUpdateExport"> Ich habe die ausgewählten Werte geprüft und importiere ausschließlich als Aktualisierung vorhandener Artikel.</label>
                                 <x-filament::button wire:click="downloadExistingUpdate" wire:loading.attr="disabled"  :disabled="!$confirmUpdateExport">Ameise-Aktualisierungsdatei herunterladen</x-filament::button>
                             @endif
