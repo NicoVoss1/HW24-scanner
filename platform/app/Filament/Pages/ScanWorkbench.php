@@ -733,7 +733,14 @@ final class ScanWorkbench extends Page
         $this->jtlFieldReview=[];
         $ean=$this->workingEan;
         if($ean===null||$this->rowFor($ean)===null)return;
-        $this->jtlFieldReview=ScanResearchPresentation::jtlFields($ean,$mirror->enrich($bridge->fetch('jtl.article',['q'=>$ean])),config('hw24_jtl_reference_observations',[]));
+        $response=$mirror->enrich($bridge->fetch('jtl.article',['q'=>$ean]));
+        $this->jtlFieldReview=ScanResearchPresentation::jtlFields($ean,$response,config('hw24_jtl_reference_observations',[]));
+        if(($this->jtlFieldReview['ok']??false)===true){
+            $raw=$response['data'];$row=$raw['matches'][0];
+            $related=\App\Domain\Jtl\RelatedSourceEvidence::present($row);
+            try{$stockRead=app(HubStockReader::class)->readArticle((string)($row['jtl_article_id']??''),(string)($raw['snapshot_at']??''));}catch(\Throwable){$stockRead=['ok'=>false];}
+            $this->jtlFieldReview['stock']=HubStockReader::workspace($stockRead,$related);
+        }
     }
 
     public function researchOne(string $ean,LegacyReadBridge $bridge): void
