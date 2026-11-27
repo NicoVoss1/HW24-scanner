@@ -18,7 +18,7 @@ final class ScanResearchPresentation
         return [
             'filled'=>count(array_filter(ScanResearch::FIELDS,fn($f)=>self::filled($draft[$f]??null))),
             'total'=>count(ScanResearch::FIELDS),
-            'missing_required'=>array_values(array_filter(ScanResearch::REQUIRED,fn($f)=>!self::filled($draft[$f]??null))),
+            'missing_required'=>array_values(array_filter(HubFieldPolicy::required(),fn($f)=>!self::filled($draft[$f]??null))),
         ];
     }
 
