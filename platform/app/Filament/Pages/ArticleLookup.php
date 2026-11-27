@@ -27,6 +27,11 @@ final class ArticleLookup extends Page
     protected string $view = 'filament.pages.article-lookup';
 
     public string $identifier = '';
+    #[Locked] public array $articleStock=[];
+    #[Locked] public array $articleOffers=[];
+    #[Locked] public array $manualAiResult=[];
+    public bool $confirmArticleAi=false;
+    #[Locked] public array $articleCatalog=[];
     #[Locked] public array $updateOptions=[];
     #[Locked] public array $updateIdentity=[];
     #[Locked] public array $updateReview=[];
@@ -71,7 +76,7 @@ final class ArticleLookup extends Page
 
     public function findArticle(LegacyReadBridge $bridge,HubArticleMirror $mirror): void
     {
-        $this->reset(['lookup', 'amazon', 'ai', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery', 'existingEvidence', 'articleRelated','fieldReview','referenceReview','referenceEan','seoSuggestions','peerReview','queueReview','sharedResearchReview','categoryProposal','pflegeMessage','updateOptions','updateIdentity','updateReview','updateSelection','confirmUpdateExport','updateMessage']);
+        $this->reset(['lookup', 'amazon', 'ai','articleStock','articleOffers','manualAiResult','confirmArticleAi','articleCatalog', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery', 'existingEvidence', 'articleRelated','fieldReview','referenceReview','referenceEan','seoSuggestions','peerReview','queueReview','sharedResearchReview','categoryProposal','pflegeMessage','updateOptions','updateIdentity','updateReview','updateSelection','confirmUpdateExport','updateMessage']);
         $id = trim($this->identifier);
         if (! preg_match('/^[\pL\pN][\pL\pN._\/-]{1,63}$/uD', $id)) {
             $this->addError('identifier', 'Bitte EAN, HAN oder JTL-Artikelnummer eingeben.');
@@ -96,6 +101,7 @@ final class ArticleLookup extends Page
         ];
         if (count($matches)===1 && ($this->lookup['jtl_status']??'')==='current_snapshot' && is_array($raw['matches'][0]??null)) {
             $this->articleRelated=RelatedSourceEvidence::present($raw['matches'][0]);
+            try{$this->articleStock=app(\App\Services\HubStockReader::class)->readArticle($matches[0]['jtl_article_id'],(string)($raw['snapshot_at']??''));}catch(\Throwable){$this->articleStock=['ok'=>false];}
         }
         if (($this->lookup['jtl_status']??'')==='current_snapshot' &&
             count($matches)===1 &&
@@ -358,6 +364,35 @@ final class ArticleLookup extends Page
         ];
     }
 
+    public function refreshArticleResearch():void
+    {
+        $ean=$this->verifiedEan();if($ean===null)return;
+        try{
+            $this->queueReview=ResearchQueueRuntime::queue()->statuses([$ean])[$ean]??[];
+            $this->readSharedResearch($ean);
+            if(QueryAuditWorkbench::canAccess())$this->referenceReview=\App\Services\HubReferenceEvidence::comparison($this->fieldReview['fields']??[],\App\Services\HubReferenceEvidence::lookup($ean));
+            $this->pflegeMessage='Gespeicherte Quellen aktualisiert. Recherchewerte erneut aufbereiten.';
+        }catch(\Throwable){$this->pflegeMessage='Recherchearchive nicht vollständig verfügbar.';}
+    }
+    public function showArticleOffers(LegacyReadBridge $bridge):void
+    {
+        abort_unless(QueryAuditWorkbench::canAccess(),403);
+        if(count($this->lookup['matches']??[])!==1)return;
+        $asin=$this->lookup['matches'][0]['asin']??null;
+        if(!is_string($asin)||!preg_match('/^[A-Z0-9]{10}$/D',$asin)){$this->articleOffers=['ok'=>false,'message'=>'Keine gespeicherte ASIN.'];return;}
+        try{$this->articleOffers=\App\Services\HubArticleResearchWorkspace::offers($asin,$bridge);}
+        catch(\Throwable){$this->articleOffers=['ok'=>false,'message'=>'Amazon-Angebote nicht bestätigt.'];}
+        $this->dispatch('hw24-article-offers-open');
+    }
+    public function runArticleAi(LegacyReadBridge $read,\App\Services\LegacyApprovedActionBridge $write,bool $web=false):void
+    {
+        abort_unless(QueryAuditWorkbench::canAccess(),403);
+        $confirmed=$this->confirmArticleAi;$this->confirmArticleAi=false;$ean=$this->verifiedEan();
+        if(!$confirmed||$ean===null||count($this->lookup['matches']??[])!==1){$this->manualAiResult=['ok'=>false,'message'=>'Eindeutiger Artikel und Kostenfreigabe erforderlich.'];return;}
+        try{$this->manualAiResult=\App\Services\HubArticleResearchWorkspace::aiOnce($ean,$this->lookup['matches'][0],$read,$write,$web);}
+        catch(\Throwable){$this->manualAiResult=['ok'=>false,'message'=>'KI-Auftrag nicht bestätigt; nicht ungeprüft wiederholen.'];}
+        $this->readAiArchive($read);
+    }
     public function readAmazon(LegacyReadBridge $bridge): void
     {
         $ean = $this->verifiedEan();
@@ -366,6 +401,7 @@ final class ArticleLookup extends Page
         // A live Amazon SP-API lookup is ONLY invoked when the operator clicks.
         $result = $bridge->fetch('amazon.catalog', ['ean' => $ean]);
         $raw = is_array($result['data'] ?? null) ? $result['data'] : [];
+        $this->articleCatalog=\App\Services\ScanResearch::fromResponses($ean,[],$result);
         $this->amazon = [
             'ok' => (bool) ($result['ok'] ?? false),
             'state' => (string) ($result['state'] ?? 'unavailable'),
