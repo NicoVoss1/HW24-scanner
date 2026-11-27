@@ -310,6 +310,10 @@
                             </div>
                             @if($batchPreparationMessage!=='')<p role="status">{{ $batchPreparationMessage }}</p>@endif
                             @if($batchPreparation!==[])
+                                <div class="hw24-action">
+                                    <button type="button" class="hw24-btn" wire:click="selectUniqueBatchDecisions">Alle eindeutigen Vorschläge auswählen</button>
+                                    <button type="button" class="hw24-btn" wire:click="clearBatchDecisions">Alle Entscheidungen zurücksetzen</button>
+                                </div>
                                 <div style="overflow-x:auto">
                                     @foreach($batchPreparation as $ean=>$proposal)
                                         <details style="padding:8px;border-bottom:1px solid #dbe5ef">
@@ -355,13 +359,18 @@
                                                     @endforeach
                                                 @endforeach
                                             @endif
-                                            @foreach($proposal['fields'] as $field=>$value)
-                                                <p><strong>{{ $field }}:</strong> {{ $value }} <small>({{ $proposal['sources'][$field] }})</small></p>
-                                            @endforeach
+                                            @php($decisions=\App\Services\HubFieldDecisions::options($proposal))
+                                            @if($decisions)
+                                                @include('filament.partials.hub-field-decisions',[
+                                                    'decisionOptions'=>$decisions,'decisionModel'=>'batchDecisions.'.hash('sha256',(string)$ean),
+                                                    'decisionKey'=>'scan-decision-'.hash('sha256',(string)$ean),
+                                                    'decisionCurrent'=>collect($items)->firstWhere('ean',(string)$ean)['draft']??[],
+                                                ])
+                                            @endif
                                         </details>
                                     @endforeach
                                 </div>
-                                <label><input type="checkbox" wire:model.live="confirmBatchPreparation"> Vorschläge geprüft; nur leere Felder ergänzen.</label>
+                                <label><input type="checkbox" wire:model.live="confirmBatchPreparation"> Ausgewählte Vorschläge geprüft; nur die mit Ja bestätigten Felder ergänzen.</label>
                                 <button title="Bis zu zehn bestätigte Entwürfe speichern; kein JTL-Import." type="button" class="hw24-btn" wire:click="savePreparedBatch" @disabled(!$confirmBatchPreparation) wire:loading.attr="disabled">Bis zu 10 Entwürfe speichern</button>
                             @endif
                         </div>
