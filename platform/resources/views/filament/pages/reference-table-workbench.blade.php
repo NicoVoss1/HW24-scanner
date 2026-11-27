@@ -61,7 +61,7 @@
                             <td>{{ $r['row_number'] }}
                                 @php($lookupPos=$ameise?collect($allColumns)->firstWhere('name','Artikelnummer')['position']??null:null)
                                 @php($lookupValue=$ameise?($r['values'][(string)$lookupPos]??''):($r['values']['5']??$r['values']['4']??''))
-                                @if($ameise && $lookupValue!=='')
+                                @if($lookupValue!=='' && ($ameise || str_starts_with($selected['name'],'JTL-Import aus AB 1Produkte_ALL')))
                                     <a style="display:block;text-decoration:underline;margin:6px 0" href="{{ \App\Filament\Pages\ArticleLookup::getUrl(['q'=>$lookupValue]) }}">Artikelpflege öffnen</a>
                                 @endif
                                 @unless($ameise)<button type="button" class="hw24-btn" wire:click="openEdit({{ $selected['id'] }},{{ $r['row_number'] }})" wire:loading.attr="disabled" @disabled($editRow>0)>Pflegen</button>@endunless</td>
