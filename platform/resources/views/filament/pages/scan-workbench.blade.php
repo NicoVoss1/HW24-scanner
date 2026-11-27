@@ -305,7 +305,7 @@
                             <h3>Artikel gemeinsam aufbereiten</h3>
                             <p>Gespeicherte Rechercheergebnisse wiederverwenden. Ohne Markierung alle offenen Neuanlagen (max. 200). Keine zweite Amazon-Abfrage, keine bezahlte KI.</p>
                             <div class="hw24-action">
-                                <button title="Gespeicherte Recherche, KI-Berichte und Vorlagen zu Entwurfsvorschlägen zusammenführen." type="button" class="hw24-btn" wire:click="prepareBatchDrafts" wire:loading.attr="disabled">Artikelentwürfe aufbereiten</button>
+                                <button title="Gespeicherte Recherche, KI-Berichte und Vorlagen zu Entwurfsvorschlägen zusammenführen." type="button" class="hw24-btn" wire:click="prepareBatchDrafts" wire:loading.attr="disabled">Recherchewerte aufbereiten</button>
                                 <button title="Gespeicherten Warteschlangenstatus lesen; keine neue Amazon-Abfrage." type="button" class="hw24-btn" wire:click="refreshPersistentResearch" wire:loading.attr="disabled">Recherche-Status aktualisieren</button>
                             </div>
                             @if($batchPreparationMessage!=='')<p role="status">{{ $batchPreparationMessage }}</p>@endif
