@@ -27,6 +27,11 @@ final class ArticleLookup extends Page
     protected string $view = 'filament.pages.article-lookup';
 
     public string $identifier = '';
+    #[Locked] public array $updateOptions=[];
+    #[Locked] public array $updateIdentity=[];
+    public array $updateSelection=[];
+    public bool $confirmUpdateExport=false;
+    public string $updateMessage='';
     #[Locked] public array $fieldReview = [];
     #[Locked] public array $referenceReview = [];
     #[Locked] public string $referenceEan = '';
@@ -65,7 +70,7 @@ final class ArticleLookup extends Page
 
     public function findArticle(LegacyReadBridge $bridge,HubArticleMirror $mirror): void
     {
-        $this->reset(['lookup', 'amazon', 'ai', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery', 'existingEvidence', 'articleRelated','fieldReview','referenceReview','referenceEan','seoSuggestions','peerReview','queueReview','sharedResearchReview','categoryProposal','pflegeMessage']);
+        $this->reset(['lookup', 'amazon', 'ai', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery', 'existingEvidence', 'articleRelated','fieldReview','referenceReview','referenceEan','seoSuggestions','peerReview','queueReview','sharedResearchReview','categoryProposal','pflegeMessage','updateOptions','updateIdentity','updateSelection','confirmUpdateExport','updateMessage']);
         $id = trim($this->identifier);
         if (! preg_match('/^[\pL\pN][\pL\pN._\/-]{1,63}$/uD', $id)) {
             $this->addError('identifier', 'Bitte EAN, HAN oder JTL-Artikelnummer eingeben.');
@@ -119,6 +124,82 @@ final class ArticleLookup extends Page
                     $this->fieldReview['fields']??[],\App\Services\HubReferenceEvidence::lookup($referenceEan));
             }catch(\Throwable){}
         }
+    }
+
+    /** Read current source and existing archives, never start a paid analysis. */
+    private function existingUpdateContext(LegacyReadBridge $bridge,HubArticleMirror $mirror,array $identity):array
+    {
+        $number=(string)($identity['artikelnummer']??'');
+        if($number==='')throw new \RuntimeException('Article number missing');
+        $response=$mirror->enrich($bridge->fetch('jtl.article',['q'=>$number]));
+        $raw=$response['data']??[];
+        if(($response['ok']??false)!==true||($raw['jtl_status']??null)!=='current_snapshot'||
+            ($raw['limited']??false)===true||count($raw['matches']??[])!==1)throw new \RuntimeException('Unique current article required');
+        $article=ArticleCard::fromMatch($raw['matches'][0]);
+        foreach(['jtl_article_id','artikelnummer','ean'] as $f)
+            if(($article[$f]??'')===''||$article[$f]!==($identity[$f]??null))throw new \RuntimeException('Identity changed');
+        $ean=$article['ean'];ResearchQueue::canonical($ean);
+        $review=ScanResearchPresentation::jtlFields($ean,$response,config('hw24_jtl_reference_observations',[]));
+        if(($review['ok']??false)!==true)throw new \RuntimeException('Field source unavailable');
+        $catalog=[];$ai=[];
+        if(config('hw24_research_queue.enabled')===true){
+            try{
+                $job=ResearchQueueRuntime::queue()->statuses([$ean])[$ean]??[];
+                $archive=HubResearchEvidence::archivedCatalog(HubPeerMirror::connect(),$job);
+                $catalog=HubResearchEvidence::catalogItem($ean,$job,$archive)??[];
+                if($catalog)$ai=app(HubAiEvidence::class)->read($ean,$catalog);
+            }catch(\Throwable){}
+        }
+        $seo=HubSeoDefaults::propose(['Artikelname'=>$raw['matches'][0]['artikelname']??'',
+            'Titel-Tag (SEO)'=>$raw['matches'][0]['seo_titel']??'','Meta-Description (SEO)'=>$raw['matches'][0]['seo_beschreibung']??'']);
+        return \App\Services\HubExistingArticleExport::candidates($review['fields'],$article,$catalog,$ai,
+            \App\Services\HubReferenceEvidence::lookup($ean),$seo);
+    }
+
+    public function prepareExistingUpdate(LegacyReadBridge $bridge,HubArticleMirror $mirror):void
+    {
+        abort_unless(QueryAuditWorkbench::canAccess(),403);
+        $this->reset(['updateOptions','updateIdentity','updateSelection','confirmUpdateExport','updateMessage']);
+        if(($this->fieldReview['ok']??false)!==true||count($this->lookup['matches']??[])!==1){$this->updateMessage='Bitte zuerst einen eindeutigen Bestandsartikel laden.';return;}
+        try{
+            $article=$this->lookup['matches'][0];
+            $identity=array_intersect_key($article,array_flip(['jtl_article_id','artikelnummer','ean']));
+            $this->updateOptions=$this->existingUpdateContext($bridge,$mirror,$identity);
+            $this->updateIdentity=$identity;
+            $this->updateMessage=$this->updateOptions?'Auswahl bereit. Nur belegte Vorschläge für leere Spiegelfelder.':'Keine exportierbaren Ergänzungen bestätigt. Recherche oder Feldzuordnung prüfen.';
+        }catch(\Throwable){$this->updateMessage='Aktueller Artikel oder Quellen nicht bestätigt. Kein Export.';}
+    }
+
+    public function selectUniqueUpdates():void
+    {
+        abort_unless(QueryAuditWorkbench::canAccess(),403);
+        $this->updateSelection=[];
+        foreach($this->updateOptions as $f=>$options)if(count($options)===1)$this->updateSelection[$f]=(string)array_key_first($options);
+        $this->confirmUpdateExport=false;
+    }
+
+    public function downloadExistingUpdate(LegacyReadBridge $bridge,HubArticleMirror $mirror)
+    {
+        abort_unless(QueryAuditWorkbench::canAccess(),403);
+        if(!$this->confirmUpdateExport||!$this->updateIdentity)return;
+        try{
+            $fresh=$this->existingUpdateContext($bridge,$mirror,$this->updateIdentity);
+            foreach($this->updateSelection as $f=>$token){
+                if($token==='')continue;
+                if(!is_string($token)||!isset($this->updateOptions[$f][$token],$fresh[$f][$token])||
+                    $fresh[$f][$token]!==$this->updateOptions[$f][$token])throw new \RuntimeException('Source or field changed');
+            }
+            $csv=\App\Services\HubExistingArticleExport::csv($this->updateIdentity['artikelnummer'],$this->updateSelection,$fresh);
+        }catch(\Throwable){
+            $this->confirmUpdateExport=false;
+            $this->updateMessage='Export gestoppt: Auswahl leer, Quelle oder JTL-Feld verändert. Vorschläge erneut laden.';
+            return;
+        }
+        $this->confirmUpdateExport=false;
+        $this->updateMessage='Prüf-CSV erstellt. In Ameise ausschließlich vorhandene Artikel aktualisieren; keine Neuanlage.';
+        return response()->streamDownload(static function()use($csv):void{echo $csv;},
+            'HW24_Ameise_Bestandsartikel_AKTUALISIERUNG.csv',
+            ['Content-Type'=>'text/csv; charset=UTF-8','Cache-Control'=>'private, no-store']);
     }
 
     private function readSharedResearch(string $ean): void
