@@ -12,7 +12,7 @@ final class HubBatchRelease
         if(($stock['state']??null)!=='absent')return 'Neuanlage im aktuellen JTL-Spiegel nicht eindeutig bestätigt';
         $draft=$row['draft']??[];
         if(($draft['GTIN']??null)!==($row['ean']??null))return 'GTIN stimmt nicht mit Scan überein';
-        $missing=array_values(array_filter(ScanResearch::REQUIRED,fn($f)=>trim((string)($draft[$f]??''))===''));
+        $missing=HubFieldPolicy::missing($draft);
         if($missing)return 'Basisfelder offen: '.implode(', ',$missing);
         if(HubCategoryPolicy::conflict((string)($draft['Artikelname']??''),(string)($draft['Warengruppe']??''),
             (string)($draft['Kategorie Ebene 1']??''),(string)($draft['Kategorie Ebene 2']??'')))
