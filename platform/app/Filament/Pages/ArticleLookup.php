@@ -153,8 +153,12 @@ final class ArticleLookup extends Page
         }
         $seo=HubSeoDefaults::propose(['Artikelname'=>$raw['matches'][0]['artikelname']??'',
             'Titel-Tag (SEO)'=>$raw['matches'][0]['seo_titel']??'','Meta-Description (SEO)'=>$raw['matches'][0]['seo_beschreibung']??'']);
+        $manufacturers=[];
+        try{
+            $manufacturers=\App\Services\HubManufacturerPolicy::currentReferences(HubPeerMirror::connect(),(string)($raw['snapshot_at']??''));
+        }catch(\Throwable){}
         return \App\Services\HubExistingArticleExport::candidates($review['fields'],$article,$catalog,$ai,
-            \App\Services\HubReferenceEvidence::lookup($ean),$seo);
+            \App\Services\HubReferenceEvidence::lookup($ean),$seo,$manufacturers);
     }
 
     public function prepareExistingUpdate(LegacyReadBridge $bridge,HubArticleMirror $mirror):void
