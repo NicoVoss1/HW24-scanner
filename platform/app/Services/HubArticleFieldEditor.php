@@ -62,7 +62,7 @@ final class HubArticleFieldEditor
     }
 
     /** Existing reference names or documented choices. Not a claim that the current JTL value is known. */
-    public static function referenceOptions(array $current,array $refs,array $observations,array $manufacturers=[]):array
+    public static function referenceOptions(array $current,array $refs,array $observations,array $manufacturers=[],array $lists=[]):array
     {
         $out=[];
         $add=static function(string $f,mixed $v,string $source)use(&$out,$current){
@@ -79,6 +79,8 @@ final class HubArticleFieldEditor
             if($f==='Hersteller')continue;
             $add($f,$r['fields'][$f]??null,'Ameise-Original desselben Artikels · Zeile '.$r['row']);
         }
+        foreach($lists as $f=>$values)if(in_array($f,self::REFERENCE,true)&&$f!=='Hersteller')
+            foreach($values as $v)$add($f,$v,'Vorhandener Auswahlwert aus Ameise-Originalexport · manuell prüfen');
         return $out;
     }
 }
