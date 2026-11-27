@@ -262,6 +262,7 @@ final class ScanWorkbench extends Page
 
     public array $draftFields = [];
     #[Locked] public array $batchPreparation = [];
+    public array $batchDecisions = [];
     #[Locked] public array $batchStock = [];
     #[Locked] public array $releaseCandidates = [];
     #[Locked] public array $releaseExceptions = [];
@@ -472,7 +473,7 @@ final class ScanWorkbench extends Page
     /** Prepare selected new items from stored evidence; no JTL or Amazon write. */
     public function prepareBatchDrafts(HubBatchPreparation $service): void
     {
-        $this->batchPreparation=[];$this->confirmBatchPreparation=false;
+        $this->batchPreparation=[];$this->batchDecisions=[];$this->confirmBatchPreparation=false;
         if(!$this->canQueueResearch()||auth()->id()===null)return;
         $rows=array_values(array_filter($this->items,fn($row)=>$row['resolution']==='new_candidate'&&
             !in_array($row['review'],['ready','removed'],true)&&
@@ -485,6 +486,24 @@ final class ScanWorkbench extends Page
         }catch(\Throwable){$this->batchPreparationMessage='Archivzugriff nicht verfügbar. Keine Entwürfe verändert.';}
     }
 
+    public function selectUniqueBatchDecisions():void
+    {
+        if(!$this->canWriteScan()||!$this->canQueueResearch()||auth()->id()===null)return;
+        $this->batchDecisions=[];
+        foreach($this->batchPreparation as $ean=>$p){
+            $key=hash('sha256',(string)$ean);
+            $this->batchDecisions[$key]=\App\Services\HubFieldDecisions::unique(\App\Services\HubFieldDecisions::options($p));
+        }
+        $this->confirmBatchPreparation=false;
+    }
+
+    public function clearBatchDecisions():void
+    {
+        $this->batchDecisions=[];$this->confirmBatchPreparation=false;
+    }
+
+    public function updatedBatchDecisions():void{$this->confirmBatchPreparation=false;}
+
     /** Save at most 10 reviewed patches per request; revision guarded by legacy API. */
     public function savePreparedBatch(LegacyApprovedActionBridge $bridge): void
     {
@@ -494,13 +513,17 @@ final class ScanWorkbench extends Page
         foreach($this->batchPreparation as $ean=>$p){
             if($saved+$failed>=10)break;
             if(!in_array($p['state']??null,['review','missing'],true)||empty($p['fields']))continue;
-            $ean=(string)$ean;$row=$this->rowFor($ean);
+            $ean=(string)$ean;$key=hash('sha256',$ean);
+            try{$patch=\App\Services\HubFieldDecisions::resolve(\App\Services\HubFieldDecisions::options($p),$this->batchDecisions[$key]??[]);}
+            catch(\Throwable){$failed++;break;}
+            if(!$patch['fields'])continue;
+            $row=$this->rowFor($ean);
             if(!$row||$row['resolution']!=='new_candidate'||in_array($row['review'],['removed','ready'],true)||
                 $row['id']!==$p['item_id']||$row['revision']!==$p['revision']){
-                $failed++;unset($this->batchPreparation[$ean]);continue;
+                $failed++;unset($this->batchPreparation[$ean],$this->batchDecisions[$key]);continue;
             }
             $r=$bridge->post('scan.edit',['op'=>'edit','batch_id'=>$this->selectedBatchId,'item_id'=>$row['id'],
-                'expected_revision'=>$row['revision'],'fields'=>$p['fields'],'field_sources'=>$p['sources'],'mark_ready'=>false]);
+                'expected_revision'=>$row['revision'],'fields'=>$patch['fields'],'field_sources'=>$patch['sources'],'mark_ready'=>false]);
             $d=$r['data']??[];
             if(($r['ok']??false)!==true||!is_array($d['draft']??null)||!is_numeric($d['revision']??null)||
                 ($d['review_state']??null)!=='draft'){
@@ -803,7 +826,7 @@ final class ScanWorkbench extends Page
 
     public function loadBatches(LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'batches', 'batchOverview', 'selectedBatchId', 'batchPreparation','batchStock','releaseCandidates','releaseExceptions','releaseDone','releaseMessage','confirmBatchRelease','batchPreparationMessage','confirmBatchPreparation','diagnostic', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','templateNumber','templateReview','templateCandidates','draftProvenance','confirmDraft','draftMessage']);
+        $this->reset(['items', 'batches', 'batchOverview', 'selectedBatchId', 'batchPreparation','batchDecisions','batchStock','releaseCandidates','releaseExceptions','releaseDone','releaseMessage','confirmBatchRelease','batchPreparationMessage','confirmBatchPreparation','diagnostic', 'exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','templateNumber','templateReview','templateCandidates','draftProvenance','confirmDraft','draftMessage']);
 
         $this->recycleBinAvailable=false;$this->showDeletedBatches=false;$this->deletedBatches=[];
         $result = $bridge->fetch('scan.batches', ['op' => 'batches']);
@@ -854,7 +877,7 @@ final class ScanWorkbench extends Page
 
     public function loadBatch(int $batchId, LegacyReadBridge $bridge): void
     {
-        $this->reset(['items', 'selectedBatchId', 'batchPreparation','batchStock','releaseCandidates','releaseExceptions','releaseDone','releaseMessage','confirmBatchRelease','batchPreparationMessage','confirmBatchPreparation','exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','templateNumber','templateReview','templateCandidates','draftProvenance','confirmDraft','draftMessage']);
+        $this->reset(['items', 'selectedBatchId', 'batchPreparation','batchDecisions','batchStock','releaseCandidates','releaseExceptions','releaseDone','releaseMessage','confirmBatchRelease','batchPreparationMessage','confirmBatchPreparation','exportState', 'batchAiMarkers', 'batchAiStatus','selectedEans','confirmResearch','persistentResearch','persistentResearchMessage','researchQueue','researchResults','researchOffset','researchMessage','workingEan','workingPrice','jtlFieldReview','peerReview','workingAi','confirmSingleAi','draftFields','templateNumber','templateReview','templateCandidates','draftProvenance','confirmDraft','draftMessage']);
         // Never let the browser request arbitrary batch IDs.
         $allowed = array_column($this->batches, 'id');
         if (!in_array($batchId, $allowed, true)) {
@@ -1006,7 +1029,7 @@ final class ScanWorkbench extends Page
         unset($old);
         if(!$found)array_unshift($this->items,$mapped);
         $this->items=array_slice($this->items,0,3000);
-        $this->exportState=[];$this->batchPreparation=[];$this->releaseCandidates=[];$this->confirmBatchRelease=false;
+        $this->exportState=[];$this->batchPreparation=[];$this->batchDecisions=[];$this->releaseCandidates=[];$this->confirmBatchRelease=false;
         $message='Gespeichert: '.$ean.' · '.$mapped['scans'].' Stück erfasst.';
         if($this->autoQueueResearch())$message.=$this->enqueueConfirmedResearch([$ean]);
         $this->actionState=['ok'=>true,'message'=>$message];
