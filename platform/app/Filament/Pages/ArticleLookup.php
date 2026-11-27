@@ -38,6 +38,9 @@ final class ArticleLookup extends Page
     #[Locked] public array $updateIdentity=[];
     #[Locked] public array $updateReview=[];
     public array $updateSelection=[];
+    public array $manualFields=[];
+    #[Locked] public int $amazonRetryAt=0;
+    #[Locked] public array $catalogEvidence=[];
     public bool $confirmUpdateExport=false;
     public string $updateMessage='';
     #[Locked] public array $fieldReview = [];
@@ -79,7 +82,7 @@ final class ArticleLookup extends Page
     public function searchNameOrAsin(HubArticleMirror $mirror):void
     {
         abort_unless(QueryAuditWorkbench::canAccess(),403);
-        $this->reset(['lookup','fieldReview','referenceReview','referenceEan','articleStock','articleOffers','articleCatalog','manualAiResult','confirmArticleAi','updateOptions','updateIdentity','updateReview','updateSelection','confirmUpdateExport','updateMessage','amazon','ai','existingEvidence','articleRelated','sourceState','sourceRows','sourceNextOffset','sourceQuery','seoSuggestions','peerReview','queueReview','sharedResearchReview','categoryProposal','pflegeMessage']);
+        $this->reset(['lookup','fieldReview','referenceReview','referenceEan','articleStock','articleOffers','articleCatalog','catalogEvidence','amazonRetryAt','manualAiResult','confirmArticleAi','updateOptions','updateIdentity','updateReview','updateSelection','manualFields','confirmUpdateExport','updateMessage','amazon','ai','existingEvidence','articleRelated','sourceState','sourceRows','sourceNextOffset','sourceQuery','seoSuggestions','peerReview','queueReview','sharedResearchReview','categoryProposal','pflegeMessage']);
         $this->nameMatches=[];$this->nameSearchMessage='';$this->resetErrorBag('identifier');
         try{
             $r=$mirror->searchCandidates($this->identifier);
@@ -96,7 +99,7 @@ final class ArticleLookup extends Page
     }
     public function findArticle(LegacyReadBridge $bridge,HubArticleMirror $mirror): void
     {
-        $this->reset(['nameMatches','nameSearchMessage','lookup', 'amazon', 'ai','articleStock','articleOffers','manualAiResult','confirmArticleAi','articleCatalog', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery', 'existingEvidence', 'articleRelated','fieldReview','referenceReview','referenceEan','seoSuggestions','peerReview','queueReview','sharedResearchReview','categoryProposal','pflegeMessage','updateOptions','updateIdentity','updateReview','updateSelection','confirmUpdateExport','updateMessage']);
+        $this->reset(['nameMatches','nameSearchMessage','lookup', 'amazon', 'ai','articleStock','articleOffers','manualAiResult','confirmArticleAi','articleCatalog','catalogEvidence','amazonRetryAt', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery', 'existingEvidence', 'articleRelated','fieldReview','referenceReview','referenceEan','seoSuggestions','peerReview','queueReview','sharedResearchReview','categoryProposal','pflegeMessage','updateOptions','updateIdentity','updateReview','updateSelection','manualFields','confirmUpdateExport','updateMessage']);
         $id = trim($this->identifier);
         if (! preg_match('/^[\pL\pN][\pL\pN._\/-]{1,63}$/uD', $id)) {
             $this->addError('identifier', 'Bitte EAN, HAN oder JTL-Artikelnummer eingeben.');
@@ -178,6 +181,17 @@ final class ArticleLookup extends Page
                 if($catalog)$ai=app(HubAiEvidence::class)->read($ean,$catalog);
             }catch(\Throwable){}
         }
+        if(!$catalog){
+            try{
+                $search=$ean!==''?$ean:$number;
+                $direct=HubResearchEvidence::latestCatalog(HubPeerMirror::connect(),$search);
+                if($direct!==null&&($ean!==''||(!empty($article['asin'])&&$article['asin']===$direct['item']['asin']))){
+                    $catalog=$direct;
+                    if($ean==='')$catalog['verified_missing_gtin']=$search;
+                    $ai=app(HubAiEvidence::class)->read($search,$catalog);
+                }
+            }catch(\Throwable){}
+        }
         if($this->articleCatalog){
             try{
                 $searchEan=$ean!==''?$ean:$number;
@@ -196,22 +210,42 @@ final class ArticleLookup extends Page
         try{
             $manufacturers=\App\Services\HubManufacturerPolicy::currentReferences(HubPeerMirror::connect(),(string)($raw['snapshot_at']??''));
         }catch(\Throwable){}
-        $options=\App\Services\HubExistingArticleExport::candidates($review['fields'],$article,$catalog,$ai,
-            ($ean!==''||isset($catalog['verified_missing_gtin']))?\App\Services\HubReferenceEvidence::lookup($ean!==''?$ean:$catalog['verified_missing_gtin']):[],$seo,$manufacturers);
-        return ['options'=>$options,'current'=>$review['fields']];
+        $refs=($ean!==''||isset($catalog['verified_missing_gtin']))?\App\Services\HubReferenceEvidence::lookup($ean!==''?$ean:$catalog['verified_missing_gtin']):[];
+        $same=\App\Services\HubReferenceEvidence::existingArticleRows($article['jtl_article_id'],$number);
+        if($same)$refs['ameise']=['state'=>'found','rows'=>$same,'archive'=>'Originalexport'];
+        $current=$review['fields'];$observations=config('hw24_jtl_reference_observations',[]);
+        if(isset($review['gross_calculation']['value'])&&($current['Brutto-VK']['state']??null)!=='value')
+            $current['Brutto-VK']=['state'=>'calculated','value'=>$review['gross_calculation']['value'],'source'=>$review['gross_calculation']['source']];
+        $options=\App\Services\HubExistingArticleExport::candidates($current,$article,$catalog,$ai,$refs,$seo,$manufacturers);
+        $draft=[];
+        foreach($current as $f=>$v)if(($v['state']??null)==='value')$draft[$f]=$v['value'];
+        $unitId=(int)($raw['matches'][0]['jtl_source_fields']['kMassEinheit']??0);
+        if(empty($draft['Maßeinheit']))$draft['Maßeinheit']=$observations['mass_unit_examples'][$unitId]['display_code']??'';
+        $template=[];
+        try{$template=$mirror->standardProposals(HubPeerMirror::connect(),$draft,$observations);}catch(\Throwable){}
+        $extra=\App\Services\HubArticleFieldEditor::templateOptions($current,$template);
+        $lists=\App\Services\HubReferenceEvidence::referenceLists();
+        $choices=\App\Services\HubArticleFieldEditor::referenceOptions($current,$same,$observations,$manufacturers,$lists);
+        foreach([$extra,$choices] as $set)foreach($set as $f=>$values)$options[$f]=($options[$f]??[])+$values;
+        return ['options'=>$options,'current'=>$current,'catalog'=>$catalog?['id'=>$catalog['id'],'at'=>$catalog['at'],'item'=>$catalog['item'],'facts'=>\App\Services\HubCatalogFacts::productFields($catalog)]:[]];
     }
 
     public function prepareExistingUpdate(LegacyReadBridge $bridge,HubArticleMirror $mirror):void
     {
         abort_unless(QueryAuditWorkbench::canAccess(),403);
-        $this->reset(['updateOptions','updateIdentity','updateReview','updateSelection','confirmUpdateExport','updateMessage']);
+        $previous=$this->updateIdentity;$oldOptions=$this->updateOptions;$oldSelection=$this->updateSelection;$oldManual=$this->manualFields;
+        $this->reset(['updateOptions','updateIdentity','updateReview','updateSelection','manualFields','confirmUpdateExport','updateMessage']);
         if(($this->fieldReview['ok']??false)!==true||count($this->lookup['matches']??[])!==1){$this->updateMessage='Bitte zuerst einen eindeutigen Bestandsartikel laden.';return;}
         try{
             $article=$this->lookup['matches'][0];
             $identity=array_intersect_key($article,array_flip(['jtl_article_id','artikelnummer','ean']));
             $context=$this->existingUpdateContext($bridge,$mirror,$identity);
             $this->updateOptions=$context['options'];$this->updateReview=$context['current'];
-            $this->updateIdentity=$identity;
+            $this->updateIdentity=$identity;$this->catalogEvidence=$context['catalog'];
+            if($previous===$identity){
+                foreach($oldSelection as $f=>$token)if(is_string($token)&&isset($oldOptions[$f][$token],$this->updateOptions[$f][$token])&&$oldOptions[$f][$token]===$this->updateOptions[$f][$token])$this->updateSelection[$f]=$token;
+                $this->manualFields=$oldManual;
+            }
             $this->updateMessage=$this->updateOptions?'Auswahl bereit. Ergänzungen und explizit zu prüfende Textkorrekturen mit Quelle.':'Keine exportierbaren Ergänzungen bestätigt. Recherche oder Feldzuordnung prüfen.';
         }catch(\Throwable){$this->updateMessage='Aktueller Artikel oder Quellen nicht bestätigt. Kein Export.';}
     }
@@ -226,10 +260,29 @@ final class ArticleLookup extends Page
     public function clearExistingSelections():void
     {
         abort_unless(QueryAuditWorkbench::canAccess(),403);
-        $this->updateSelection=[];$this->confirmUpdateExport=false;
+        $this->updateSelection=[];$this->manualFields=[];$this->confirmUpdateExport=false;
     }
 
     public function updatedUpdateSelection():void{$this->confirmUpdateExport=false;}
+    public function updatedManualFields():void{$this->confirmUpdateExport=false;}
+
+    /** One action: reuse sources, queue only missing catalog, show archived offers in place. */
+    public function researchAll(LegacyReadBridge $bridge,HubArticleMirror $mirror):void
+    {
+        abort_unless(QueryAuditWorkbench::canAccess(),403);
+        if(count($this->lookup['matches']??[])!==1)return;
+        $this->prepareExistingUpdate($bridge,$mirror);
+        if(!$this->updateIdentity)return;
+        if(!$this->catalogEvidence){
+            if($this->verifiedEan()!==null&&config('hw24_research_queue.enabled')===true)$this->queueExistingArticle();
+            elseif($this->researchEan()!==null){$this->readAmazon($bridge);$this->prepareExistingUpdate($bridge,$mirror);}
+        }
+        $asin=$this->lookup['matches'][0]['asin']??null;
+        if(is_string($asin)&&preg_match('/^[A-Z0-9]{10}$/D',$asin)){
+            try{$old=\App\Services\HubArticleResearchWorkspace::archivedOffers($asin,$bridge);if($old)$this->articleOffers=$old;}catch(\Throwable){}
+        }
+        $this->dispatch('hw24-focus-article-decisions');
+    }
 
     public function mount():void
     {
@@ -249,10 +302,17 @@ final class ArticleLookup extends Page
                 if(!is_string($token)||!isset($this->updateOptions[$f][$token],$fresh[$f][$token])||
                     $fresh[$f][$token]!==$this->updateOptions[$f][$token])throw new \RuntimeException('Source or field changed');
             }
-            $patch=\App\Services\HubFieldDecisions::resolve($fresh,$this->updateSelection);
+            $selection=$this->updateSelection;
+            $manual=\App\Services\HubArticleFieldEditor::manualOptions($context['current'],$this->manualFields);
+            foreach($manual as $f=>$opts){
+                if(($this->updateReview[$f]??null)!==($context['current'][$f]??null))throw new \RuntimeException('Manueller Altwert verändert');
+                if(!empty($selection[$f]))throw new \RuntimeException('Bitte pro Feld entweder Recherchewert oder manuelle Eingabe auswählen: '.$f);
+                $fresh[$f]=($fresh[$f]??[])+$opts;$selection[$f]=(string)array_key_first($opts);
+            }
+            $patch=\App\Services\HubFieldDecisions::resolve($fresh,$selection);
             $missing=\App\Services\HubFieldPolicy::missingAfterUpdate($context['current'],$patch['fields']);
             if($missing){$this->confirmUpdateExport=false;$this->updateMessage='Pflichtfelder offen: '.implode(', ',$missing).'. Kein vollständiger Aktualisierungsexport.';return;}
-            $csv=\App\Services\HubExistingArticleExport::csv($this->updateIdentity['artikelnummer'],$this->updateSelection,$fresh);
+            $csv=\App\Services\HubExistingArticleExport::csv($this->updateIdentity['artikelnummer'],$selection,$fresh);
         }catch(\Throwable){
             $this->confirmUpdateExport=false;
             $this->updateMessage='Export gestoppt: Auswahl leer, Quelle oder JTL-Feld verändert. Vorschläge erneut laden.';
@@ -442,12 +502,16 @@ final class ArticleLookup extends Page
     {
         $ean = $this->researchEan();
         if ($ean === null) return;
+        if($this->amazonRetryAt>time()){$this->pflegeMessage='Amazon wartet noch '.($this->amazonRetryAt-time()).' Sekunden. Gespeicherte Quellen bleiben verfügbar.';return;}
 
         // A live Amazon SP-API lookup is ONLY invoked when the operator clicks.
         $result = $bridge->fetch('amazon.catalog', ['ean' => $ean]);
         $raw = is_array($result['data'] ?? null) ? $result['data'] : [];
-        $this->articleCatalog=\App\Services\ScanResearch::fromResponses($ean,[],$result);
-        if(($raw['has_next_page']??null)!==false||count($raw['items']??[])!==1)$this->articleCatalog['more']=true;
+        if(($result['ok']??false)===true){
+            $this->articleCatalog=\App\Services\ScanResearch::fromResponses($ean,[],$result);
+            if(($raw['has_next_page']??null)!==false||count($raw['items']??[])!==1)$this->articleCatalog['more']=true;
+        }
+        if(($result['http_status']??null)===429)$this->amazonRetryAt=time()+max(15,(int)($result['retry_after_seconds']??60));
         $this->amazon = [
             'ok' => (bool) ($result['ok'] ?? false),
             'state' => (string) ($result['state'] ?? 'unavailable'),
@@ -456,6 +520,7 @@ final class ArticleLookup extends Page
             'source' => $raw['source'] ?? null,
             'error' => (string) ($raw['error'] ?? ''),
             'stage' => (string) ($raw['stage'] ?? ''),
+            'retry_after_seconds'=>max(0,$this->amazonRetryAt-time()),
         ];
     }
 
