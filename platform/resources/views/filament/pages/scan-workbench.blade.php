@@ -495,6 +495,7 @@
                                                 <button title="Artikelentwurf öffnen und einzelne Felder prüfen oder bearbeiten." type="button" class="hw24-btn" wire:click="openDraft('{{ $item['ean'] }}')">Artikel bearbeiten</button>
                                                 <button type="button" class="hw24-btn" title="Öffnet die KI-Ausnahmeprüfung für diese EAN und lädt vorhandene Berichte. Noch keine kostenpflichtige Abfrage." wire:click="openAiResearch('{{ $item['ean'] }}')" wire:loading.attr="disabled" wire:target="openAiResearch">OpenAI · KI recherchieren</button>
                                                 <a class="hw24-link" href="{{ url('/admin/intelligence').'?ean='.rawurlencode($item['ean']) }}">Recherche-Details öffnen</a>
+                                                @if(($item['resolution']??'')==='existing')<a class="hw24-link" href="{{ \App\Filament\Pages\ArticleLookup::getUrl(['q'=>$item['ean']]) }}">Artikelpflege öffnen</a>@endif
                                             @elseif($recycleBinAvailable && $this->canWriteScan())
                                                 <button type="button" class="hw24-btn" wire:click="restorePosition('{{ $item['ean'] }}')" wire:confirm="Position mit ursprünglicher erfasster Menge wiederherstellen?" wire:loading.attr="disabled">Position wiederherstellen</button>
                                             @endif
