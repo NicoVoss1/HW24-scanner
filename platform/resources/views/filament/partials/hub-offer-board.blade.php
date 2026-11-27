@@ -2,6 +2,8 @@
 @if(!($offers['ok']??false))
     <p>{{ $offers['message']??'Noch keine Angebote geladen.' }}</p>
 @else
+    @if(($offers['source']??'')==='archive')<p><strong>Gespeicherte Preisbeobachtung</strong> · kein aktueller Live-Preis · Archiv #{{ $offers['archive_id']??'?' }}</p>@endif
+    @if(!empty($offers['message']))<p role="status">{{ $offers['message'] }}</p>@endif
     <p><strong>Amazon · {{ $offers['asin'] }}</strong> · {{ $offers['retrieved_at']??'Zeitpunkt nicht belegt' }} · {{ $offers['returned'] }} sichtbare Angebote / {{ $offers['total_offers']??'?' }} gemeldet</p>
     <div style="display:flex;flex-wrap:wrap;gap:12px;margin:12px 0">
         @foreach(['buy_box'=>'Buy Box','lowest_summary'=>'Niedrigster Gesamtpreis (Amazon)','lowest_visible'=>'Niedrigster sichtbarer Gesamtpreis'] as $key=>$label)
