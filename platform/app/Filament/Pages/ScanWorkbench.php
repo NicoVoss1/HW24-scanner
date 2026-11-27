@@ -527,7 +527,7 @@ final class ScanWorkbench extends Page
             $d=$r['data']??[];
             if(($r['ok']??false)!==true||!is_array($d['draft']??null)||!is_numeric($d['revision']??null)||
                 ($d['review_state']??null)!=='draft'){
-                $failed++;unset($this->batchPreparation[$ean]);break;
+                $failed++;unset($this->batchPreparation[$ean],$this->batchDecisions[$key]);break;
             }
             foreach($this->items as &$stored){
                 if($stored['ean']!==$ean)continue;
@@ -536,7 +536,7 @@ final class ScanWorkbench extends Page
                 $stored['review']='draft';$stored['review_label']='Entwurf · in Bearbeitung';$stored['updated_at']=null;break;
             }
             unset($stored);
-            unset($this->batchPreparation[$ean]);$saved++;
+            unset($this->batchPreparation[$ean],$this->batchDecisions[$key]);$saved++;
         }
         $this->exportState=[];
         $this->batchPreparationMessage=$saved.' Entwürfe gespeichert, '.$failed.' Fehler/Konflikte. '.($failed?'Vor erneutem Speichern Stapel neu laden.':'Weitere Vorschläge können separat bestätigt werden.').' Keine JTL-Freigabe.';
