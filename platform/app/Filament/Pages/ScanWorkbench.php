@@ -471,8 +471,22 @@ final class ScanWorkbench extends Page
     }
 
     /** Prepare selected new items from stored evidence; no JTL or Amazon write. */
+    /** One explicit operator action, same queue and archive preparation; no immediate provider call. */
+    public function researchAllBatch(HubBatchPreparation $service):void
+    {
+        if(!$this->canQueueResearch()||auth()->id()===null)return;
+        $eans=[];
+        foreach($this->items as $row){
+            if($row['review']==='removed'||!self::validGtin($row['ean'])||($this->selectedEans!==[]&&!in_array($row['ean'],$this->selectedEans,true)))continue;
+            if($row['resolution']==='new_candidate'&&!in_array($row['review'],['ready','removed'],true))$eans[]=$row['ean'];
+        }
+        if(count($eans)>200){$this->batchPreparationMessage='Bitte maximal 200 offene Neuanlagen markieren.';return;}
+        if($eans)$this->persistentResearchMessage=trim($this->enqueueConfirmedResearch($eans));
+        $this->prepareBatchDrafts($service);
+    }
     public function prepareBatchDrafts(HubBatchPreparation $service): void
     {
+        $old=$this->batchPreparation;$decisions=$this->batchDecisions;
         $this->batchPreparation=[];$this->batchDecisions=[];$this->confirmBatchPreparation=false;
         if(!$this->canQueueResearch()||auth()->id()===null)return;
         $rows=array_values(array_filter($this->items,fn($row)=>$row['resolution']==='new_candidate'&&
@@ -482,6 +496,7 @@ final class ScanWorkbench extends Page
         $this->refreshPersistentResearch();
         try{
             $this->batchPreparation=$service->prepare($rows,$this->persistentResearch);
+            foreach($this->batchPreparation as $ean=>$p)if(isset($old[$ean])&&$old[$ean]===$p){$key=hash('sha256',(string)$ean);$this->batchDecisions[$key]=$decisions[$key]??[];}
             $this->batchPreparationMessage=count($this->batchPreparation).' Neuanlagen ausgewertet. Nur belegte Vorschläge; noch nicht gespeichert.';
         }catch(\Throwable){$this->batchPreparationMessage='Archivzugriff nicht verfügbar. Keine Entwürfe verändert.';}
     }
