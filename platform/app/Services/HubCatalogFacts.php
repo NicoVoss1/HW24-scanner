@@ -5,6 +5,29 @@ namespace App\Services;
 /** Only explicit single-item volume evidence. Do not equate pack count, mass and volume. */
 final class HubCatalogFacts
 {
+    /** Common product facts after the shared GTIN/single-pack catalog check.
+     * Operational defaults and own prices are deliberately excluded. */
+    public static function productFields(array $catalog):array
+    {
+        $p=$catalog['item']??[];$attrs=$catalog['attributes']??[];
+        if(($p['gtin_match']??false)!==true||($p['pack_kind']??null)!=='single')return [];
+        $out=[];
+        foreach(['ASIN'=>'asin','Artikelname'=>'title','Hersteller'=>'manufacturer'] as $field=>$key){
+            $v=$p[$key]??null;
+            if(is_string($v)&&trim($v)!=='')$out[$field]=['value'=>$v,'suffix'=>''];
+        }
+        $parts=[];
+        foreach(is_array($attrs['part_number']??null)?$attrs['part_number']:[] as $a){
+            if(!is_array($a)||isset($a['marketplace_id'])&&$a['marketplace_id']!=='A1PA6795UKMFR9')continue;
+            $v=$a['value']??null;
+            if(is_string($v)&&trim($v)!==''&&mb_strlen(trim($v))<=140)$parts[trim($v)]=true;
+        }
+        if(count($parts)===1)$out['HAN']=['value'=>(string)array_key_first($parts),'suffix'=>' part_number'];
+        $weight=self::itemWeight($attrs);
+        foreach($weight['fields'] as $f=>$v)$out[$f]=['value'=>$v,'suffix'=>' '.$weight['source']];
+        return $out;
+    }
+
     public static function volume(string $title,array $attributes,array $draft): array
     {
         $values=[];$origins=[];
