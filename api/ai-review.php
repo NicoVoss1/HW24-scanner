@@ -138,12 +138,14 @@ try {
  answer(503,['ok'=>false,'error'=>'review_storage_not_ready',
   'hint'=>'first_install_hw24_ai_reviews_v13']);
 }
-// Reuse any prior review of this GTIN for this authenticated account by default.
+// Reuse the latest report for this GTIN across the authenticated HW24
+// workspace. Original actor is retained on the immutable record; different
+// users must not pay twice for an identical already-archived product report.
 // The ledger lock protects against simultaneous paid duplicates from two browser tabs.
 try{
  $previousStmt=$reviewDb->prepare('SELECT id,model,review_json,input_json,usd_cost,created_at_utc
-  FROM hw24_ai_reviews WHERE actor=? AND ean=? ORDER BY id DESC LIMIT 1');
- $previousStmt->execute([$actor,$fields['ean']]);
+  FROM hw24_ai_reviews WHERE ean=? ORDER BY id DESC LIMIT 1');
+ $previousStmt->execute([$fields['ean']]);
  $previous=$previousStmt->fetch();
 }catch(Throwable $e){
  error_log('HW24 AI duplicate lookup unavailable: '.get_class($e));
@@ -168,7 +170,8 @@ if($previous&&!$forceRecheck){
    'input_changed'=>$changed,
    'usd_call'=>0,'original_usd_cost'=>(float)$previous['usd_cost'],
    'usd_month'=>round($total,6),'usd_budget'=>$budget,
-   'basis'=>'existing_archived_review','note'=>'Kein neuer OpenAI-Aufruf; Bericht aus MariaDB geladen']);
+   'basis'=>'shared_workspace_archived_review','scope'=>'shared_workspace',
+   'note'=>'Kein neuer OpenAI-Aufruf; gemeinsamer Bericht für alle berechtigten HW24-Benutzer geladen']);
 }
 // Rechecks are a deliberately separate cost-bearing action with additional user confirmation.
 if($total>=($budget-0.04))answer(429,['ok'=>false,'error'=>'monthly_budget_limit','usd_month'=>$total]);

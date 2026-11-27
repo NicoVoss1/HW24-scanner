@@ -54,9 +54,10 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
                 <label for="intel-ean" class="minor" style="display:block;font-weight:750;margin-bottom:6px">EAN, HAN oder JTL-Artikelnummer</label>
                 <div class="row">
                     <input class="input" id="intel-ean" type="search" wire:model="identifier" maxlength="64" autocomplete="off" placeholder="3474630337398">
-                    <button type="submit" class="action" wire:loading.attr="disabled" wire:target="findArticle">Artikel aus JTL laden</button>
+                    <button title="Artikel im vorhandenen JTL-Spiegel anhand des Suchbegriffs laden." type="submit" class="action" wire:loading.attr="disabled" wire:target="findArticle">Artikel aus JTL laden</button>
                 </div>
             </form>
+            <button title="Gültige EAN ohne vorhandenen JTL-Artikel zur Recherche verwenden." type="button" class="action secondary" style="margin-top:8px" wire:click="useUnidentifiedEan">Unbekannte EAN direkt recherchieren</button>
             @if($lookupState !== [])
                 <p role="status" class="warning {{ ($lookupState['ok'] ?? false) ? 'ok' : '' }}">
                     {{ $lookupState['message'] }}
@@ -65,10 +66,15 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
             @endif
             @if($article !== [])
                 <div class="item">
-                    <h4>{{ $article['name'] }}</h4>
+                    <h4>{{ $article['name'] ?: 'Noch nicht identifizierter Artikel' }}</h4>
                     <p>EAN {{ $article['ean'] }} · JTL-ID {{ $article['jtl_id'] ?: 'offen' }} · Artikelnummer {{ $article['sku'] ?: 'offen' }}</p>
                     <p>Hersteller {{ $article['brand'] ?: 'offen' }} · Warengruppe {{ $article['group'] ?: 'offen' }} · JTL-ASIN {{ $article['asin'] ?: 'offen' }}</p>
-                    <span class="badge">Aktueller JTL-Snapshot bestätigt</span>
+                    <span class="badge">{{ ($article['jtl_status']??'')==='current_snapshot'?'Aktueller JTL-Snapshot bestätigt':'Identität noch nicht bestätigt' }}</span>
+                    @if(($article['jtl_status']??'')!=='current_snapshot')
+                        <label class="minor">Produktname laut Verpackung oder geprüftem Katalogtreffer
+                            <input class="input" type="text" maxlength="600" wire:model="researchName">
+                        </label>
+                    @endif
                 </div>
             @endif
         </div>
@@ -78,8 +84,8 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
         <div class="body">
             <p class="minor">Eine Katalogprüfung kann den sechs Stunden gültigen HW24-Cache verwenden oder eine echte Amazon-SP-API-Abfrage mit serverseitiger Archivierung auslösen. Nur durch bewussten Klick.</p>
             <div class="row">
-                <button type="button" class="action" wire:click="loadAmazonCatalog" wire:loading.attr="disabled" wire:target="loadAmazonCatalog" @disabled($article === [])>Amazon nach EAN prüfen</button>
-                <button type="button" class="action secondary" wire:click="searchAmazonByName" wire:loading.attr="disabled" wire:target="searchAmazonByName" @disabled($article === [])>Zusätzlich nach Artikelname suchen</button>
+                <button title="Amazon-Katalog nach EAN prüfen und Produktidentität abgleichen." type="button" class="action" wire:click="loadAmazonCatalog" wire:loading.attr="disabled" wire:target="loadAmazonCatalog" @disabled($article === [])>Amazon nach EAN prüfen</button>
+                <button title="Zusätzliche Katalogtreffer anhand des Produktnamens suchen." type="button" class="action secondary" wire:click="searchAmazonByName" wire:loading.attr="disabled" wire:target="searchAmazonByName" @disabled($article === [])>Zusätzlich nach Artikelname suchen</button>
             </div>
             @if($catalog !== [])
                 <p class="warning {{ ($catalog['ok'] ?? false) ? 'ok' : '' }}" role="status">
@@ -95,7 +101,7 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
                         <p>ASIN {{ $item['asin'] }} · Marke {{ $item['brand'] ?: 'unbekannt' }} · Hersteller {{ $item['manufacturer'] ?: 'unbekannt' }}</p>
                         <div class="row">
                             <a href="https://www.amazon.de/dp/{{ $item['asin'] }}" target="_blank" rel="noopener noreferrer">Amazon-Produkt ansehen</a>
-                            <button type="button" class="action secondary" wire:click="loadAmazonPricing('{{ $item['asin'] }}')" wire:loading.attr="disabled" wire:target="loadAmazonPricing">Öffentliche Angebotspreise prüfen</button>
+                            <button title="Öffentliche Marktpreise der gewählten ASIN abrufen und archivieren." type="button" class="action secondary" wire:click="loadAmazonPricing('{{ $item['asin'] }}')" wire:loading.attr="disabled" wire:target="loadAmazonPricing">Öffentliche Angebotspreise prüfen</button>
                         </div>
                         <p>ASIN, Packung, GTIN und Artikelidentität müssen gesondert bestätigt werden. Kein Import in JTL.</p>
                     </div>
@@ -104,7 +110,7 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
             <div class="divider">
                 <h3 style="font-size:14px;font-weight:800">Gespeicherte Amazon-Katalog-Snapshots</h3>
                 <p class="minor">Historische Katalogrecherchen anzeigen, ohne erneut die Amazon-SP-API aufzurufen. Die zusätzliche Archiv-GET-API muss separat auf der geschützten LIVE-Domain abgenommen werden.</p>
-                <button type="button" class="action secondary" wire:click="loadAmazonArchive"
+                <button title="Gespeicherte Amazon-Rechercheergebnisse lesen." type="button" class="action secondary" wire:click="loadAmazonArchive"
                     wire:loading.attr="disabled" wire:target="loadAmazonArchive"
                     @disabled($article===[])>Amazon-Archiv laden</button>
                 @if($catalogArchive !== [])
@@ -142,6 +148,9 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
                             <p>{{ $price['fulfillment'] ?: 'Fulfillment unbekannt' }}</p>
                         </div>
                     @endforeach
+                    @if(isset($pricing['archive']))
+                        @include('filament.partials.amazon-price-history',['archive'=>$pricing['archive']])
+                    @endif
                     @if(($pricing['ok']??false)===true)
                         <div class="grid-amounts">
                             @foreach([
@@ -157,9 +166,14 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
                         </div>
                         <p class="technical">Stand: {{ $pricing['retrieved_at']??'unbekannt' }} UTC. {{ $pricing['returned']??0 }} Einzelangebote gelesen. Der günstigste Verkäufer kann von der Buy Box abweichen.</p>
                         <h3 style="font-size:14px;font-weight:800;margin-top:16px">Amazon-Händler im Vergleich</h3>
+                        @if(($pricing['seller_name_lookup']??'')==='seller_name_archive_unavailable')
+                            <p class="warning">Die gespeicherten Händlernamen konnten über die Legacy-Seller-API nicht geladen werden. Die Seller-IDs und Preise sind davon unabhängig vorhanden. Bitte Seller-Namen-Archiv und MariaDB-Zugriff prüfen.</p>
+                        @elseif(($pricing['verified_seller_names']??0)<count($pricing['sellers']??[]))
+                            <p class="minor">Nicht für alle Verkäufer existiert ein verifizierter Name im verbundenen Verkäuferarchiv. Unbekannte Namen werden nicht aus einer Seller-ID geraten.</p>
+                        @endif
                         @foreach(($pricing['sellers']??[]) as $seller)
                             <article class="item">
-                                <h4>{{ $seller['seller_name'] ?: 'Amazon-Verkäufer '.$seller['seller_id'] }}</h4>
+                                <h4>{{ $seller['seller_name'] ?: 'Händlername noch nicht verifiziert' }}</h4>
                                 @if($seller['winner'])
                                     <span class="badge">🏆 Buy-Box-Gewinner</span>
                                 @elseif($seller['eligible']===true)
@@ -178,7 +192,7 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
                         @if(($pricing['sellers']??[])===[])
                             <p class="warning">Amazon hat keine einzelnen Verkäufer übermittelt. Buy Box und niedrigster Summary-Preis können trotzdem getrennt vorliegen.</p>
                         @endif
-                        <p class="technical">Die alte Amazon-Pricing-API archiviert detaillierte Händlerpreise nicht dauerhaft. Nur die explizite Abfrage zeigt den Zeitpunkt und die aktuell gemeldeten Angebote. Händler sind nicht automatisch Großhandelslieferanten.</p>
+                        <p class="technical">Die aktuelle Preisabfrage und der optionale Archivstatus werden getrennt ausgewiesen. Händler sind nicht automatisch Großhandelslieferanten.</p>
                     @endif
                 </div>
             @endif
@@ -190,9 +204,17 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
         <div class="body">
             <p class="minor">Vorhandene Berichte lesen, Modell, Begründung, Produktvorschläge und historische Kosten nachvollziehen. Diese Aktion verursacht keine OpenAI-Kosten.</p>
             <div class="row">
-                <button type="button" class="action" wire:click="loadAiArchive" wire:loading.attr="disabled" wire:target="loadAiArchive" @disabled($article === [])>Gespeichertes KI-Archiv laden</button>
-                <span class="technical">Maximal zehn Berichte je Abruf</span>
+                <button title="Archivierte KI-Berichte dieser EAN ohne neue Kosten anzeigen." type="button" class="action" wire:click="loadAiArchive" wire:loading.attr="disabled" wire:target="loadAiArchive" @disabled($article === [])>KI-Archiv zur aktuellen EAN</button>
+                <button title="Letzte vorhandene KI-Analysen im Archiv anzeigen." type="button" class="action secondary" wire:click="loadAiArchiveAll" wire:loading.attr="disabled" wire:target="loadAiArchiveAll">Alle letzten KI-Prüfungen anzeigen</button>
+                <span class="technical">20 Berichte je Seite · kostenloser Archivabruf</span>
             </div>
+            <p class="minor">Die Gesamtübersicht funktioniert ohne EAN und löst keine neue OpenAI-Abfrage aus.
+                @if(($archiveState['scope']??null)==='shared_workspace')
+                    Alle berechtigten Mitarbeiter lesen denselben gemeinsamen HW24-Archivbestand.
+                @else
+                    Bis zur Aktivierung der gemeinsamen API ist die Anzeige möglicherweise noch auf das technische Legacy-Konto beschränkt.
+                @endif
+                Früher nicht übernommene Datenbanken werden nicht automatisch angezeigt.</p>
             @if($archiveState !== [])
                 <p class="warning {{ ($archiveState['ok'] ?? false) ? 'ok' : '' }}" role="status">
                     {{ $archiveState['message'] }} HTTP {{ $archiveState['http'] ?? '—' }}
@@ -200,8 +222,9 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
                 </p>
                 @foreach($reviews as $report)
                     <div class="item" wire:key="hw24-ai-{{ $report['id'] }}">
-                        <h4>Bericht #{{ $report['id'] }} · {{ $report['status'] }}</h4>
-                        <p>{{ $report['date'] }} UTC · {{ $report['model'] }} · Historische Kosten {{ $report['cost'] !== null ? number_format($report['cost'],6,',','.') . ' USD' : 'unbekannt' }}</p>
+                        <h4>Bericht #{{ $report['id'] }} · {{ $report['status'] }} · {{ $report['article_name'] ?: 'Produktname nicht gespeichert' }}</h4>
+                        <p>EAN {{ $report['ean'] ?: 'nicht hinterlegt' }} · {{ $report['date'] }} UTC · {{ $report['model'] }} · Gespeicherte Kostenberechnung {{ $report['cost'] !== null ? number_format($report['cost'],6,',','.') . ' USD' : 'unbekannt' }}</p>
+                        <p class="technical">Tokenverbrauch: {{ $report['tokens_input'] }} Eingabe · {{ $report['tokens_cached'] }} gecacht · {{ $report['tokens_output'] }} Ausgabe. Kosten sind aus API-Tokenverbrauch und konfigurierten Tarifen berechnet, keine bestätigte OpenAI-Rechnung.</p>
                         @if($report['reason']) <p><strong>Prüfbegründung:</strong> {{ $report['reason'] }}</p> @endif
                         @if($report['manufacturer'] || $report['title'] || $report['group'])
                             <p><strong>Vorschläge:</strong> Hersteller {{ $report['manufacturer'] ?: 'offen' }};
@@ -210,11 +233,14 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
                         @endif
                     </div>
                 @endforeach
+                @if(($archiveState['ok'] ?? false) && ($archiveState['more'] ?? null))
+                    <button title="Ältere gespeicherte KI-Berichte nachladen." type="button" class="action secondary" wire:click="loadOlderAiArchive" wire:loading.attr="disabled" wire:target="loadOlderAiArchive">Weitere ältere Archivberichte laden</button>
+                @endif
             @endif
             <div class="divider">
                 <h3 style="font-weight:800;font-size:14px">Neue KI-Prüfung bewusst starten</h3>
                 <p class="minor">Zuerst den aktuellen Kostenstatus prüfen. Eine neue Erstprüfung oder Neubewertung kann OpenAI-Gebühren verursachen und legt anschließend einen Bericht im bisherigen HW24-Archiv ab.</p>
-                <button type="button" class="action secondary" wire:click="inspectAiBudget" wire:loading.attr="disabled" wire:target="inspectAiBudget" @disabled($article === [])>KI-Kosten- und Archivstatus prüfen</button>
+                <button title="Aktuelles KI-Budget, Kosten und Archivbereitschaft prüfen." type="button" class="action secondary" wire:click="inspectAiBudget" wire:loading.attr="disabled" wire:target="inspectAiBudget" @disabled($article === [])>KI-Kosten- und Archivstatus prüfen</button>
                 @if($readiness !== [])
                     <div class="warning {{ ($readiness['ok'] ?? false) ? 'ok' : '' }}" role="status">
                         API HTTP {{ $readiness['http'] ?? '—' }} · KI {{ $readiness['enabled'] ? 'verfügbar' : 'nicht verfügbar' }}
@@ -233,7 +259,7 @@ html.dark .hw24-intelligence .item h4{color:#f8fafc}
                     <span>Nur bei bereits vorhandenem Bericht: Ich beauftrage eine erneute kostenpflichtige Prüfung.</span>
                 </label>
                 <div class="row">
-                    <button type="button" class="action" wire:click="runAiReview"
+                    <button title="Nach ausdrücklicher Freigabe eine KI-Analyse anfordern; kann Kosten auslösen." type="button" class="action" wire:click="runAiReview"
                         wire:confirm="Kostenpflichtige KI-Analyse wirklich ausdrücklich auslösen? Bitte Budget und vorhandene Berichte vorher prüfen."
                         wire:loading.attr="disabled" wire:target="runAiReview"
                         @disabled($article === [] || !($readiness['operator_enabled'] ?? false) || !($readiness['ok'] ?? false) || !($readiness['enabled'] ?? false) || !($readiness['archive_ready'] ?? false))>

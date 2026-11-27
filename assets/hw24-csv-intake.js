@@ -48,6 +48,54 @@ const aliases={
  kommentar:['kommentar','comment','comments','notiz','notes','scan kommentar','zusatzinfo']
 };
 const normalizedAliases=Object.fromEntries(Object.entries(aliases).map(([key,a])=>[key,new Set(a.map(normalize))]));
+// Explicit warehouse count format: filter individual physical units BEFORE
+// grouping identical GTINs. Ordinary product-list CSV retains old behavior.
+function classifyInventory(newPlace,oldPlace,comment){
+ const combined=[newPlace,oldPlace,comment].join(' ').toLowerCase();
+ if(/\b(?:schrott|mona|mone)\b/u.test(combined))return 'excluded';
+ if(/\bb[\s-]*ware\b/u.test(combined))return 'bware';
+ if(comment)return 'comment';
+ if(!newPlace)return 'comment';
+ return 'new';
+}
+function prepareInventory(dataRows,indexes,goodEAN,delimiter){
+ const groups=new Map(),invalid=[],duplicates=[],classified=[];
+ const counts={new:0,bware:0,comment:0,excluded:0};
+ for(let i=0;i<dataRows.length;i++){
+   const cells=dataRows[i],line=i+2;
+   const ean=v(cells[indexes.ean]).replace(/\s/g,'');
+   const padded=indexes.padded>=0?v(cells[indexes.padded]).replace(/\s/g,''):'';
+   const newPlace=v(cells[indexes.lagerplatz]),oldPlace=v(cells[indexes.oldPlace]);
+   const comment=v(cells[indexes.kommentar]);
+   const tag=classifyInventory(newPlace,oldPlace,comment);
+   if(!goodEAN(ean)||(padded&&(!/^\d{8,14}$/.test(padded)||padded.padStart(14,'0')!==ean.padStart(14,'0')))){
+     invalid.push({line,ean});classified.push({line,ean,padded,newPlace,oldPlace,comment,tag:'invalid'});continue;
+   }
+   counts[tag]++;
+   classified.push({line,ean,padded,newPlace,oldPlace,comment,tag});
+   if(tag!=='new')continue;
+   const key=ean.padStart(14,'0');
+   if(!groups.has(key))groups.set(key,{ean,count:0,places:new Map(),oldPlaces:new Map()});
+   else duplicates.push({line,ean});
+   const group=groups.get(key);
+   group.count++;
+   group.places.set(newPlace,(group.places.get(newPlace)||0)+1);
+   if(oldPlace)group.oldPlaces.set(oldPlace,(group.oldPlaces.get(oldPlace)||0)+1);
+ }
+ const items=[];
+ for(const group of groups.values()){
+   const describe=m=>[...m].map(([place,count])=>place+': '+count+' Stk').join(' | ');
+   const information='NEUWARE | Inventurmenge: '+group.count+' Stk | LP: '+describe(group.places)
+     +(group.oldPlaces.size?' | LP ALT: '+describe(group.oldPlaces):'');
+   const lagerplatz=group.places.size===1?[...group.places.keys()][0]:'';
+   if(information.length>450||lagerplatz.length>100)
+     throw Error('Lagerinformationen zu '+group.ean+' überschreiten das vorhandene Importfeld. Bitte separat aufbereiten; keine Daten wurden gespeichert.');
+   items.push({ean:group.ean,information,...(lagerplatz?{lagerplatz}:{})});
+ }
+ if(dataRows.length>5000)throw Error('Maximal 5.000 physische Scan-Zeilen pro Datei.');
+ return {delimiter,headerPresent:true,indexes,items,lineCount:dataRows.length,invalid,duplicates,inventory:true,counts,classified};
+}
+
 function prepare(text,goodEAN){
  const delimiter=detectDelimiter(text),rows=csvParse(text,delimiter);
  if(!rows.length)throw Error('CSV enthält keine Daten.');
@@ -60,6 +108,13 @@ function prepare(text,goodEAN){
  }
  const lookup=k=>headerPresent?head.findIndex(x=>normalizedAliases[k].has(x)):-1;
  const indexes={ean:eanIndex,lagerplatz:lookup('lagerplatz'),information:lookup('information'),kommentar:lookup('kommentar')};
+ // Detect the operator's original warehouse sheet, not a generic EAN list.
+ const newPlace=head.indexOf('lagerplatzneu'),oldPlace=head.indexOf('lpalt');
+ if(headerPresent&&(newPlace>=0||oldPlace>=0)){
+   if(newPlace<0||oldPlace<0||indexes.kommentar<0)
+     throw Error('Inventurformat benötigt Lagerplatz NEU, LP ALT und Kommentar.');
+   return prepareInventory(rows.slice(1),{...indexes,lagerplatz:newPlace,oldPlace,padded:head.indexOf('ean000')},goodEAN,delimiter);
+ }
  const collected=new Map(),bad=[],duplicates=[];
  const dataRows=rows.slice(headerPresent?1:0);
  for(let i=0;i<dataRows.length;i++){
@@ -87,7 +142,7 @@ if(!bridge||!enrich||!$('csvFile'))return;
 let prepared=null,offset=0,running=false,stopping=false;
 const preview=$('csvPreviewStatus'),progress=$('csvImportProgress');
 function paint(message,isError=false){progress.textContent=message;progress.className='note '+(isError?'error':'success')}
-function reset(){prepared=null;offset=0;stopping=false;$('csvImport').disabled=true;$('csvPause').disabled=true;$('csvColumns').replaceChildren();}
+function reset(){prepared=null;offset=0;stopping=false;$('csvImport').disabled=true;$('csvPause').disabled=true;$('csvColumns').replaceChildren();$('csvClassifiedExport').hidden=true;}
 $('csvFile').addEventListener('change',reset);
 $('csvEncoding').addEventListener('change',reset);
 $('csvPreview').onclick=async()=>{
@@ -107,7 +162,7 @@ $('csvPreview').onclick=async()=>{
    charset='windows-1252';csvText=new TextDecoder(charset).decode(buffer);
   }
   prepared=prepare(csvText,enrich.goodGtin);
-  if(!prepared.items.length)throw Error('Keine gültigen EANs gefunden. Prüfe Prüfziffern und Spalten.');
+  if(!prepared.items.length&&!prepared.inventory)throw Error('Keine gültigen EANs gefunden. Prüfe Prüfziffern und Spalten.');
   const columns=Object.entries(prepared.indexes).filter(([,index])=>index>=0)
     .map(([key])=>key).join(', ');
   preview.textContent=prepared.items.length+' eindeutige gültige EANs · '+
@@ -124,9 +179,27 @@ $('csvPreview').onclick=async()=>{
     '. Numerische EANs bitte in Excel als Text exportieren, nicht als wissenschaftliche Notation.';
    info.append(bad);
   }
-  $('csvImport').disabled=false;
-  paint('Vorschau bereit. Erst nach Bestätigung werden Daten in den aktiven Stapel importiert.');
+  if(prepared.inventory){
+   const c=prepared.counts;
+   const summary=document.createElement('p');
+   summary.textContent='Inventur: '+c.new+' Neuware-Stück · '+c.bware+' B-Ware · '+c.comment+
+     ' Kommentar/Prüfung · '+c.excluded+' ausgeschlossen. Nur Neuware wird in den aktiven Recherche-Stapel importiert. Mengen und Lagerplätze sind Importhinweise, keine Scan- oder WMS-Buchungen.';
+   info.append(summary);
+   $('csvClassifiedExport').hidden=false;
+  }
+  $('csvImport').disabled=!prepared.items.length;
+  paint(prepared.items.length?'Vorschau bereit. Erst nach Bestätigung werden Daten in den aktiven Stapel importiert.':'Keine freigegebene Neuware; klassifizierte Zeilen können exportiert werden.');
  }catch(e){preview.textContent='CSV-Prüfung: '+String(e.message);preview.className='note error';reset()}
+};
+$('csvClassifiedExport').onclick=()=>{
+ if(!prepared?.inventory)return;
+ // Spreadsheet-safe diagnostic export. Keep the original source unchanged.
+ const cell=x=>{let t=String(x??'');if(/^[=+@\-\t\r]/.test(t))t="'"+t;return '"'+t.replace(/"/g,'""')+'"';};
+ const header=['Quellzeile','EAN','EAN+000','Lagerplatz NEU','LP ALT','Kommentar','Tag'];
+ const rows=prepared.classified.map(x=>[x.line,x.ean,x.padded,x.newPlace,x.oldPlace,x.comment,x.tag]);
+ const csv='\uFEFF'+[header,...rows].map(r=>r.map(cell).join(';')).join('\r\n')+'\r\n';
+ const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+ const a=document.createElement('a');a.href=url;a.download='HW24_Inventur_Klassifiziert.csv';a.click();URL.revokeObjectURL(url);
 };
 $('csvPause').onclick=()=>{stopping=true;paint('Import stoppt nach dem laufenden Block von höchstens 25 EANs.')};
 $('csvImport').onclick=async()=>{

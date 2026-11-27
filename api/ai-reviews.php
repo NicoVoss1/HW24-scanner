@@ -2,7 +2,9 @@
 declare(strict_types=1);
 /**
  * HW24 AI archive. Immutable historical analysis, read-only, authenticated.
- * Data is scoped to the same actor who started the model review.
+ * Shared HW24 workspace: every authenticated team member reads the same
+ * product research. Original author remains immutable in the archive for
+ * future admin-only provenance and audit; never expose author identities here.
  * Private restricted DB credentials: hw24_private/scanlist-db.php.
  */
 header('Content-Type: application/json; charset=utf-8');
@@ -59,9 +61,9 @@ try{
    $marks=implode(',',array_fill(0,count($eans),'?'));
    $sql="SELECT a.ean,a.id,a.ai_status,a.model,a.created_at_utc,agg.review_count
     FROM (SELECT ean,MAX(id) AS latest_id,COUNT(*) AS review_count
-      FROM hw24_ai_reviews WHERE actor=? AND ean IN ($marks) GROUP BY ean) agg
+      FROM hw24_ai_reviews WHERE ean IN ($marks) GROUP BY ean) agg
     JOIN hw24_ai_reviews a ON a.id=agg.latest_id";
-   $q=$db->prepare($sql);$q->execute(array_merge([$actor],$eans));
+   $q=$db->prepare($sql);$q->execute($eans);
    $summaries=[];
    foreach($q->fetchAll() as $row){
     $summaries[$row['ean']]=['review_id'=>(int)$row['id'],
@@ -69,12 +71,13 @@ try{
        'at_utc'=>$row['created_at_utc'],'model'=>$row['model']];
    }
    send(200,['ok'=>true,'stored'=>true,'summary'=>true,
-     'source'=>'hw24_ai_reviews','summaries'=>$summaries]);
+     'source'=>'hw24_ai_reviews','scope'=>'shared_workspace',
+     'summaries'=>$summaries]);
  }
   $query='SELECT id,ean,article_name,model,ai_status,review_json,input_json,
         usd_cost,tokens_input,tokens_cached,tokens_output,created_at_utc
-        FROM hw24_ai_reviews WHERE actor=?';
- $params=[$actor];
+        FROM hw24_ai_reviews WHERE 1=1';
+ $params=[];
  if($ean!==''){$query.=' AND ean=?';$params[]=$ean;}
  if($before!==null){$query.=' AND id<?';$params[]=$before;}
  $query.=' ORDER BY id DESC LIMIT '.(int)$limit;
@@ -93,7 +96,7 @@ try{
       'cached'=>(int)$row['tokens_cached'],'output'=>(int)$row['tokens_output']],
    'created_at_utc'=>$row['created_at_utc']];
  }
- send(200,['ok'=>true,'stored'=>true,'scope'=>'authenticated_user',
+ send(200,['ok'=>true,'stored'=>true,'scope'=>'shared_workspace',
    'ean_filter'=>$ean,'count'=>count($reviews),
    'next_before_id'=>count($reviews)===$limit?(int)end($reviews)['id']:null,
    'reviews'=>$reviews]);

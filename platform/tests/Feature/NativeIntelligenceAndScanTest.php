@@ -40,10 +40,13 @@ final class NativeIntelligenceAndScanTest extends TestCase
         Http::preventStrayRequests();
         Livewire::test(IntelligenceWorkbench::class)
             ->assertSee('KI-Abfragen und Amazon-Recherche')
-            ->assertSee('Gespeichertes KI-Archiv laden')
+            ->assertSee('KI-Archiv zur aktuellen EAN')
+            ->assertSee('Alle letzten KI-Prüfungen anzeigen')
             ->assertSee('Neue KI-Prüfung ausdrücklich beauftragen');
         Livewire::test(ScanWorkbench::class)
-            ->assertSee('EAN speichern')
+            ->assertSee('EAN erfassen')
+            ->assertSee('AKTIVER SCAN-STAPEL')
+            ->assertSee('Fortlaufende Barcode-Erfassung')
             ->assertSee('JTL-Ameise-Prüfexport');
         Http::assertNothingSent();
     }
@@ -76,6 +79,71 @@ final class NativeIntelligenceAndScanTest extends TestCase
         Http::assertSentCount(2);
         Http::assertSent(fn($r)=>$r->method()==='GET'
             && str_contains($r->url(),'/api/ai-reviews.php'));
+    }
+
+    public function test_global_legacy_archive_can_be_browsed_without_an_ean_or_new_paid_request(): void
+    {
+        Http::fake(function($r){
+            if(str_contains($r->url(),'/api/ai-reviews.php'))return Http::response([
+                'ok'=>true,'scope'=>'authenticated_user','count'=>1,
+                'next_before_id'=>null,
+                'reviews'=>[[
+                    'id'=>91,'ean'=>'0615908424980','article_name'=>'Tigi Creative 60 ml',
+                    'status'=>'review','model'=>'gpt-test',
+                    'created_at_utc'=>'2026-11-20 10:01:00',
+                    'usd_cost'=>0.000617,
+                    'tokens'=>['input'=>130,'cached'=>10,'output'=>55],
+                    'review'=>['reason'=>'Testbegründung', 'productFacts'=>['manufacturer'=>'Tigi']],
+                ]],
+            ],200);
+            return Http::response(['ok'=>false],404);
+        });
+        Http::preventStrayRequests();
+        Livewire::test(IntelligenceWorkbench::class)
+            ->call('loadAiArchiveAll')
+            ->assertSet('archiveState.ok',true)
+            ->assertSet('archiveState.mode','all')
+            ->assertSet('archiveState.scope','legacy_authenticated_actor')
+            ->assertSet('reviews.0.ean','0615908424980')
+            ->assertSet('reviews.0.cost',0.000617)
+            ->assertSet('reviews.0.tokens_input',130)
+            ->assertSee('Tigi Creative 60 ml');
+        Http::assertSentCount(1);
+        Http::assertSent(fn($r)=>$r->method()==='GET'
+            && str_contains($r->url(),'/api/ai-reviews.php')
+            && !str_contains($r->url(),'ean=')
+            && !str_contains($r->url(),'before_id='));
+    }
+
+    public function test_global_archive_older_pagination_uses_cursor_without_paid_requests(): void
+    {
+        Http::fake(function($r){
+            if(!str_contains($r->url(),'/api/ai-reviews.php'))return Http::response(['ok'=>false],404);
+            if(str_contains($r->url(),'before_id=48'))return Http::response([
+                'ok'=>true,'next_before_id'=>null,
+                'reviews'=>[['id'=>29,'ean'=>'1234567890128','article_name'=>'Älteres Produkt',
+                    'model'=>'gpt-test','status'=>'review','created_at_utc'=>'2026-08-11 12:00:00',
+                    'usd_cost'=>0.0004,'tokens'=>['input'=>70,'cached'=>0,'output'=>20]]],
+            ],200);
+            return Http::response([
+                'ok'=>true,'next_before_id'=>48,
+                'reviews'=>[['id'=>52,'ean'=>'0615908424980','article_name'=>'Neueres Produkt',
+                    'model'=>'gpt-test','status'=>'review','created_at_utc'=>'2026-11-20 10:01:00',
+                    'usd_cost'=>0.0005,'tokens'=>['input'=>90,'cached'=>10,'output'=>30]]],
+            ],200);
+        });
+        Http::preventStrayRequests();
+        Livewire::test(IntelligenceWorkbench::class)
+            ->call('loadAiArchiveAll')
+            ->assertSet('archiveState.more',48)
+            ->call('loadOlderAiArchive')
+            ->assertSet('archiveState.more',null)
+            ->assertCount('reviews',2)
+            ->assertSee('Älteres Produkt');
+        Http::assertSentCount(2);
+        Http::assertSent(fn($r)=>$r->method()==='GET'
+            && str_contains($r->url(),'/api/ai-reviews.php')
+            && str_contains($r->url(),'before_id=48'));
     }
 
     public function test_amazon_catalogue_is_only_requested_after_explicit_click(): void

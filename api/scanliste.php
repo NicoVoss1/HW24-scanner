@@ -115,7 +115,16 @@ try {
                        artikelnummer,artikelname,review_state,draft_json,source_json,revision,
                        snapshot_at_utc,first_scanned_utc,last_scanned_utc,updated_at_utc
                        FROM hw24_scan_items WHERE batch_id=? ORDER BY id DESC LIMIT 3000');
-    $s->execute([$id]);respond(200,['ok'=>true,'items'=>array_map('rowData',$s->fetchAll())]);
+    $s->execute([$id]);$items=$s->fetchAll();
+    // A row's scan_count can also be initialized by CSV or edited manually.
+    // Actual scan events are the evidence for a scanner operation.
+    $events=$pdo->prepare('SELECT ean,COUNT(*) AS event_count FROM hw24_scan_events
+        WHERE batch_id=? GROUP BY ean');
+    $events->execute([$id]);$counts=[];
+    foreach($events->fetchAll() as $event)$counts[(string)$event['ean']]=(int)$event['event_count'];
+    foreach($items as &$item)$item['scan_event_count']=$counts[(string)$item['ean']]??0;
+    unset($item);
+    respond(200,['ok'=>true,'items'=>array_map('rowData',$items)]);
   }
   if($op==='export'&&$method==='GET'){
     $id=filter_var($_GET['batch_id']??null,FILTER_VALIDATE_INT);
@@ -288,12 +297,17 @@ try {
       review_state=IF(review_state="removed","scan_only",review_state),
       updated_at_utc=UTC_TIMESTAMP(6) WHERE id=?');
     $inserted=0;$existed=0;$restored=0;
+    // Use database UTC, not browser time. Never retroactively guess the time
+    // of an earlier import; a later confirmed import is separate evidence.
+    $importAt=(string)$pdo->query('SELECT UTC_TIMESTAMP(6)')->fetchColumn();
     foreach($validated as $entry){
       $ean=$entry['ean'];$meta=$entry['meta'];
       $find->execute([$batch,$ean]);$existing=$find->fetch();
       if(!$existing){
         $resolution=resolve($pdo,$ean);
-        $sources=$meta?['csv_meta'=>array_merge($meta,['origin'=>'CSV-Import'])]:[];
+        $sources=['csv_meta'=>array_merge($meta,[
+          'origin'=>'CSV-Import','imported_at_utc'=>$importAt,
+          'confirmed_at_utc'=>$importAt,'created_by_import'=>true])];
         $insert->execute([$batch,$ean,$resolution['resolution'],$resolution['jtl_article_id'],
           $resolution['artikelnummer'],$resolution['artikelname'],$resolution['snapshot_at_utc'],
           json_encode($sources,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
@@ -302,8 +316,13 @@ try {
       $current=json_decode((string)($existing['source_json']??''),true);
       if(!is_array($current))$current=[];
       // Never overwrite an earlier import note or manually curated field origin.
-      if($meta&&!isset($current['csv_meta']))
-        $current['csv_meta']=array_merge($meta,['origin'=>'CSV-Import']);
+      if(!isset($current['csv_meta'])||!is_array($current['csv_meta'])){
+        $current['csv_meta']=array_merge($meta,[
+          'origin'=>'CSV-Import','confirmed_at_utc'=>$importAt,'created_by_import'=>false]);
+      }elseif(!isset($current['csv_meta']['confirmed_at_utc'])){
+        // The old metadata proves an import, but its original time is unknown.
+        $current['csv_meta']['confirmed_at_utc']=$importAt;
+      }
       $edit->execute([json_encode($current,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
         (int)$existing['id']]);
       if($existing['review_state']==='removed'){

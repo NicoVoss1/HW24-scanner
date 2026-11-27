@@ -33,10 +33,13 @@ final class LegacyReadBridge
         'scan.items' => 'api/scanliste.php',
         'scan.export' => 'api/scanliste.php',
         'curated.article' => 'api/curated.php',
+        'history.article' => 'api/historie.php',
     ];
 
     public function fetch(string $service, array $parameters = []): array
     {
+        $started = hrtime(true);
+        $finish = static fn(array $result): array => BridgeQueryAudit::finish($service, $parameters, $started, $result);
         $path = self::PATHS[$service] ?? null;
         if ($path === null) throw new RuntimeException('HW24 unknown or forbidden API endpoint');
         $base = rtrim((string) config('hw24_legacy.base_url'), '/');
@@ -48,22 +51,31 @@ final class LegacyReadBridge
         if (parse_url($base, PHP_URL_SCHEME) !== 'https' ||
             parse_url($base, PHP_URL_HOST) !== 'artikelmanager.hairworld24.de' ||
             !$user || !$password) {
-            return ['ok'=>false,'service'=>$service,'state'=>'unconfigured','http_status'=>null,'data'=>null];
+            return $finish(['ok'=>false,'service'=>$service,'state'=>'unconfigured','http_status'=>null,'data'=>null]);
         }
         foreach ($parameters as $key=>$value) {
             if (!is_string($key) || !preg_match('/^[a-z_]{1,35}$/D',$key) || !is_scalar($value))
                 throw new RuntimeException('Invalid HW24 read parameter');
         }
+        $send=static function() use($user,$password,$base,$path,$parameters,$service): array {
         try {
             $response = Http::withBasicAuth($user, $password)->acceptJson()
                 ->timeout(12)->withoutRedirecting()->get($base.'/'.$path,$parameters);
             $status=$response->status();
             $json=$response->json();
+            $retryAfter=$response->header('Retry-After');
+            $retrySeconds=null;
+            if(is_string($retryAfter)&&preg_match('/^\d{1,6}$/D',$retryAfter)) {
+                $retrySeconds=min(86400,(int)$retryAfter);
+            } elseif(is_string($retryAfter)&&($stamp=strtotime($retryAfter))!==false) {
+                $retrySeconds=min(86400,max(0,$stamp-time()));
+            }
             return [
                 'ok'=>$response->successful() && is_array($json) && (($json['ok']??false)===true),
                 'service'=>$service,
                 'state'=>$response->successful()?'responded':'upstream_error',
                 'http_status'=>$status,
+                'retry_after_seconds'=>$retrySeconds,
                 'data'=>is_array($json)?$json:null,
             ];
         } catch (\Throwable $e) {
@@ -71,5 +83,7 @@ final class LegacyReadBridge
             return ['ok'=>false,'service'=>$service,'state'=>'upstream_unreachable',
                 'http_status'=>null,'data'=>null];
         }
+        };
+        return $finish(NativeAmazonGate::run($service,$send));
     }
 }

@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>HW24 · Einkaufscheckliste</title>
+<link rel="icon" href="assets/hw24-favicon.svg" type="image/svg+xml">
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#183650;background:#f1f6fb}
+*{box-sizing:border-box}body{margin:0}header{background:#11395e;color:#fff;padding:22px max(16px,calc((100vw - 1180px)/2))}
+header a{color:#d8ecff}header h1{font-size:clamp(1.4rem,3vw,2rem);margin:10px 0 4px}
+header p{font-size:14px;color:#e0eef9;max-width:870px;line-height:1.55}
+main{max-width:1180px;margin:14px auto;padding:0 12px 45px}
+section{border:1px solid #d4e2ec;background:white;border-radius:15px;padding:16px;margin:13px 0;box-shadow:0 3px 10px #173e6410}
+h2{font-size:1.17rem;margin:0 0 13px}p{line-height:1.55}
+.note{font-size:13px;color:#506b7e}.warn{color:#a64a19}.success{color:#176a48}
+.bar{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
+.field{flex:1 1 180px}.wide{flex:2 1 270px}
+label{font-weight:650;font-size:13px;display:block;margin-bottom:5px}
+input,select{font:inherit;width:100%;min-width:0;padding:11px;border:1px solid #a9becf;border-radius:9px;background:#fff}
+input:focus,select:focus{outline:3px solid #b7dff7}
+button{font:inherit;padding:11px 14px;border:0;border-radius:9px;background:#12629e;color:white;font-weight:700;cursor:pointer}
+button.secondary{background:#eaf2fa;color:#16547d;border:1px solid #b9d3e6}
+button:disabled{opacity:.48;cursor:not-allowed}
+input#ean{font-size:1.27rem;letter-spacing:.04em;padding:13px}
+.status{margin:10px 0;min-height:20px;font-weight:600}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:9px;margin:15px 0}
+.metric{border-radius:12px;border:1px solid #d3e3ee;padding:12px;background:#f7fbff}
+.metric small{color:#587187}.metric strong{font-size:1.42rem;display:block;margin:3px 0}
+.scroll{overflow:auto;border:1px solid #d7e4ef;border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:870px}
+th,td{text-align:left;vertical-align:middle;border-bottom:1px solid #e3edf2;padding:10px 8px;font-size:13px}
+th{background:#f0f6fc;white-space:nowrap}td small{color:#5b7186}
+td input,td select{padding:8px;font-size:13px}
+td .short{width:90px}td .money{width:105px}td button{padding:8px 11px;font-size:12px}
+.pill{display:inline-block;border-radius:20px;background:#e6eff7;padding:3px 8px;font-size:12px}
+.pill.new_candidate{background:#e1f3e6}.pill.unverified,.pill.multiple{background:#fff1d8}
+#purchaseCode{font-size:1.3rem;font-weight:800}
+@media(max-width:600px){section{padding:12px}.field{flex:1 1 100%}button{width:100%}}
+</style></head>
+<body><header><nav><a href="scanliste.html">← Bisherige Scanliste</a> · <a href="index.html">Artikelmanager</a></nav>
+<h1>📦 Einkaufscheckliste</h1>
+<p>Lieferant und Ansprechpartner auswählen, Einkaufs-ID erhalten, EAN mehrfach scannen und Stückkosten sowie Netto-/Bruttosummen erfassen. Wir nutzen die vorhandenen HW24-Scan-Stapel, nicht eine zweite Artikelverwaltung.</p></header>
+<main>
+<section><h2>1. Lieferantenkontakt und Einkaufs-ID</h2>
+<div class="bar"><div class="field wide"><label for="contactSelect">Bekannter Lieferantenkontakt</label><select id="contactSelect"><option value="">Kontakte laden …</option></select></div>
+<button id="startPurchase" type="button">Neuen Ankauf starten</button></div>
+<details style="margin-top:12px"><summary>Lieferantenkontakt erstmals hinterlegen</summary>
+<p class="note">Nur lokale Kontaktzuordnung. Eine direkte Synchronisation mit dem JTL-Lieferanten-/Kontaktstamm ist noch nicht verifiziert. Die Kürzel müssen je Konto eindeutig sein.</p>
+<div class="bar"><div class="field"><label for="supplier">Lieferant</label><input id="supplier" maxlength="180" placeholder="Lieferant aus JTL"></div>
+<div class="field"><label for="contact">Ansprechpartner</label><input id="contact" maxlength="180" placeholder="z. B. Maike Lüddecke"></div>
+<div class="field"><label for="prefix">Einkaufs-Kürzel</label><input id="prefix" maxlength="8" placeholder="ML, AB" autocapitalize="characters"></div>
+<div class="field"><label for="lastUsed">Letzte Einkaufsnummer diesen Monat</label><input id="lastUsed" type="number" inputmode="numeric" min="0" max="999998" placeholder="0, falls noch keine"></div>
+<button type="button" id="saveContact" class="secondary">Kontakt hinterlegen</button></div></details>
+<div class="bar" style="margin-top:14px"><div class="field wide"><label for="purchaseSelect">Vorhandene Ankäufe</label><select id="purchaseSelect"><option value="">Ankäufe laden …</option></select></div>
+<button id="refresh" type="button" class="secondary">Aktualisieren</button></div>
+<p id="purchaseCode" aria-live="polite">Noch kein Ankauf gewählt</p>
+<p class="note">Beispiel: <strong>ML202611-1</strong>, nächster Einkauf derselben Person im Monat <strong>ML202611-2</strong>. Die Nummer wird transaktionssicher serverseitig vergeben.</p>
+</section>
+<section><h2>JTL-Katalogsuche · vor dem Scannen prüfen</h2>
+<p class="note">Schnellsuche im bereits bestehenden JTL-Spiegel, ohne KI-Kosten und ohne Schreibzugriff. Suchbegriffe: Artikelname, Artikelnummer, EAN, HAN oder Hersteller. Der JTL-EK ist ein Quellfeld und nicht der EK dieses Ankaufs.</p>
+<form id="catalogSearchForm" class="bar"><div class="field wide"><label for="catalogQuery">Artikel / Name / Nummer / EAN / HAN</label><input id="catalogQuery" type="search" placeholder="mindestens 2 Zeichen"></div>
+<div class="field"><label for="catalogMaker">Hersteller enthält</label><input id="catalogMaker" placeholder="z. B. Wella"></div>
+<div class="field"><label for="catalogPriceMin">JTL Netto-EK von (€)</label><input id="catalogPriceMin" inputmode="decimal"></div>
+<div class="field"><label for="catalogPriceMax">JTL Netto-EK bis (€)</label><input id="catalogPriceMax" inputmode="decimal"></div>
+<button id="catalogSubmit" type="submit">JTL suchen</button></form>
+<p class="note" id="catalogSearchStatus" role="status">Noch keine Suche ausgeführt. Die Suche zeigt maximal 60 Treffer und kennzeichnet veraltete Spiegelstände.</p>
+<div id="catalogMatches" class="scroll"></div>
+</section>
+<section><h2>2. Ware scannen und automatisch zählen</h2>
+<form id="scanForm" class="bar"><div class="field wide"><label for="ean">EAN/GTIN mit Scanner oder Kamera-Scanner erfassen</label>
+<input id="ean" inputmode="numeric" type="search" autocomplete="off" placeholder="EAN scannen und Enter" required></div>
+<button id="scanButton" type="submit">+1 Stück erfassen</button></form>
+<div class="bar" style="margin-top:12px"><div class="field"><label for="defaultCost">Optional: gleicher Stück-EK netto für neue Positionen (€)</label><input id="defaultCost" inputmode="decimal" placeholder="z. B. 1,20"></div>
+<div class="field"><label for="defaultVat">Umsatzsteuer nach Einkaufsbeleg</label><select id="defaultVat"><option value="">Bitte auswählen</option><option value="19">19 %</option><option value="7">7 %</option><option value="0">0 %</option></select></div></div>
+<p class="note">Wird ein Produkt fünfmal gescannt, erscheint es einmal mit Menge 5. Ein Standardstückpreis wird nur beim erstmaligen Anlegen einer unbepreisten Position übernommen; vorhandene Preise werden nicht überschrieben. Der Umsatzsteuersatz muss anhand des Belegs stimmen.</p>
+<div id="pendingBox" hidden><p class="warn">Ein Scan konnte nicht bestätigt werden. Bitte zuerst denselben Vorgang mit identischer Ereignis-ID erneut senden, damit keine Doppelzählung entsteht.</p>
+<button type="button" id="retryPending" class="secondary">Ausstehenden Scan sicher wiederholen</button></div>
+<p class="status" id="scanStatus" role="status" aria-live="polite">Noch kein Ankauf ausgewählt.</p>
+<p class="note" id="amazonStatus">Amazon-Katalog: Neue/unbekannte EANs werden in einer dauerhaften Warteschlange gespeichert. Ein lokaler, gedrosselter Bearbeiter nutzt die vorhandene Amazon-API. Kein KI-Kostenaufruf.</p>
+<div class="bar" style="margin-top:8px"><button type="button" id="enqueueAll" class="secondary">Fehlende Produkte gesammelt vormerken</button>
+<button type="button" id="refreshArchivedCandidates" class="secondary">Gespeicherte Artikeldaten aktualisieren</button>
+<button type="button" id="resumeAmazon" class="secondary">▶ Amazon-Warteschlange abarbeiten</button>
+<button type="button" id="pauseAmazon" class="secondary" disabled>Bearbeitung pausieren</button></div>
+<label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-weight:500">
+<input type="checkbox" id="autoRunAmazon" checked style="width:auto">
+Amazon-Abfragen im geöffneten Browser automatisch schrittweise bearbeiten (mind. 10 Sekunden Abstand)</label>
+<p class="note" id="queueSummary">Warteschlange noch nicht geladen. Offene Anfragen bleiben auch nach dem Schließen des Browsers gespeichert; eine unbeaufsichtigte Server-Abarbeitung ist noch nicht aktiviert.</p></section>
+<section><h2>3. Stückzahlen und Einkaufswerte</h2>
+<div class="metrics"><div class="metric"><small>Unterschiedliche Artikel</small><strong id="uniqueCount">0</strong></div>
+<div class="metric"><small>Gesamtstückzahl</small><strong id="totalQuantity">0</strong></div>
+<div class="metric"><small>Gesamt EK netto</small><strong id="totalNet">0,00 €</strong></div>
+<div class="metric"><small>Gesamt EK brutto</small><strong id="totalGross">0,00 €</strong></div></div>
+<p class="warn note" id="unpricedNotice">Unbepreiste Positionen werden nicht als 0 € in den Gesamtsummen versteckt.</p>
+<div class="bar" style="margin:12px 0">
+<div class="field wide"><label for="purchaseSearch">Suche: Artikel, Name, Nummer, EAN, HAN</label><input id="purchaseSearch" type="search" placeholder="EAN / HAN / Artikelnummer / Produktname"></div>
+<div class="field"><label for="manufacturerFilter">Hersteller</label><select id="manufacturerFilter"><option value="">Alle Hersteller</option></select></div>
+<div class="field"><label for="jtlFilter">JTL-Artikelstatus</label><select id="jtlFilter"><option value="">Alle</option><option value="existing">Vorhanden</option><option value="new_candidate">Neuanlage prüfen</option><option value="multiple">EAN mehrfach</option><option value="unverified">Ungeprüft</option></select></div>
+<div class="field"><label for="priceMin">Stück-EK von (€)</label><input id="priceMin" inputmode="decimal" placeholder="z. B. 1,00"></div>
+<div class="field"><label for="priceMax">Stück-EK bis (€)</label><input id="priceMax" inputmode="decimal" placeholder="z. B. 2,00"></div>
+<div class="field"><label for="priceSort">Sortierung</label><select id="priceSort"><option value="scan">Scanreihenfolge</option><option value="price_up">EK aufsteigend</option><option value="price_down">EK absteigend</option><option value="name">Artikelname</option></select></div>
+</div>
+<p class="note" id="filterSummary">Die Kennzahlen oben beziehen sich auf den gesamten Ankauf, nicht nur die gefilterten Positionen.</p>
+<div class="scroll"><table><thead><tr><th>EAN / JTL-Status</th><th>Artikel / Hersteller / HAN</th><th>Menge</th><th>Stück-EK netto €</th><th>USt</th><th>Gesamt netto</th><th>Gesamt brutto</th><th>Quellen und Abfrage</th><th>Aktion</th></tr></thead><tbody id="rows"><tr><td colspan="9">Ankauf auswählen, um Positionen zu laden.</td></tr></tbody></table></div>
+<div class="bar" style="margin-top:13px"><button id="exportCsv" type="button" class="secondary" disabled>📄 Einkaufscheckliste als CSV exportieren</button>
+<a href="scanliste.html">Zur bisherigen Artikelpflege, Amazon-/KI-Recherche und Ameise-Prüfdatei</a></div>
+<p id="exportStatus" class="note" role="status"></p>
+</section>
+<section><h2>4. Quellen und Historie ohne Datenverlust</h2>
+<p class="note">Ein Artikel kann bereits in JTL stehen, mehrfach vorkommen oder noch nicht angelegt sein. Das prüft die vorhandene Scanlisten-API. Amazon-Katalogdaten sind Produktvorschläge, keine gesicherte Lieferantenrechnung. KI-Historie wird nur auf ausdrücklichen Knopfdruck gelesen; eine neue kostenpflichtige KI-Prüfung erfolgt ausschließlich im bestehenden Artikelmanager.</p>
+<div class="bar"><div class="field wide"><label for="sourceEan">EAN für historische Daten</label><input id="sourceEan" placeholder="EAN aus aktueller Liste"></div>
+<button id="historyButton" type="button" class="secondary">Gespeicherte Amazon-/KI-Historie prüfen</button>
+<button id="amazonButton" type="button" class="secondary">Amazon-Katalog gezielt erneut prüfen</button></div>
+<div id="sourceResults" class="note" role="status">Historische Werte bleiben in den bisherigen HW24-Archiven.</div>
+<div class="bar" style="margin-top:14px"><button type="button" id="aiCostRefresh" class="secondary">💰 Gespeicherte KI-Kosten für diesen Ankauf anzeigen</button>
+<button type="button" id="aiCostMore" class="secondary" hidden>Weitere KI-Abfragen anzeigen</button></div>
+<p class="note" id="aiCostSummary" role="status">Gespeicherte OpenAI-Kosten zu EANs im Ankauf sind noch nicht geladen.</p>
+<div id="aiCostRows" class="note"></div>
+<p class="note">PDF-, Bild- und Excel-Einkaufsbelege kommen im nächsten Ausbauschritt über eine separate Upload- und KI-Prüfschleuse mit Quellenansicht und Freigabe hinzu. Bis dahin können vorhandene EAN-CSV-Dateien in der bisherigen Scanliste eingelesen werden.</p>
+</section>
+</main>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id),v=x=>String(x??'').trim();
+const state={contacts:[],purchases:[],purchase:null,items:[],busy:false,
+ amazonJobs:new Map(),queueBusy:false,queuePaused:false,aiCostPurchase:null,aiCostCursor:null};
+const euro=n=>new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(Number(n||0)/100);
+const pendingKey='hw24_purchase_scan_pending_v1';
+const valEAN=x=>{x=v(x);if(!/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(x)||/^0+$/.test(x))return false;
+let s=0,w=3;for(let i=x.length-2;i>=0;i--){s+=Number(x[i])*w;w=w===3?1:3}
+return (10-s%10)%10===Number(x.at(-1))};
+const errorMsg=e=>String(e?.message||e||'Unbekannter Fehler').slice(0,220);
+function status(s,err=false){$('scanStatus').textContent=s;$('scanStatus').className='status '+(err?'warn':'success')}
+async function call(path,op,fields){
+ const post=fields!==undefined;
+ const url=path+(post?'':'?'+new URLSearchParams({op,...(fields||{})}));
+ const response=await fetch(url,post?{method:'POST',credentials:'same-origin',cache:'no-store',
+ headers:{'Content-Type':'application/json','X-HW24-Approval':'confirmed'},body:JSON.stringify({op,...fields})}:
+ {credentials:'same-origin',cache:'no-store'});
+ let data;try{data=await response.json()}catch(_){throw Error('Ungültige API-Antwort oder Anmeldung fehlt (HTTP '+response.status+')')}
+ if(!response.ok||!data.ok)throw Error(data.error||'HTTP '+response.status);
+ return data;
+}
+const read=(op,params={})=>fetch('api/purchase-intake.php?'+new URLSearchParams({op,...params}),
+ {credentials:'same-origin',cache:'no-store'}).then(async r=>{let j;try{j=await r.json()}catch(_){throw Error('Einkaufs-API antwortet nicht mit JSON')};
+ if(!r.ok||!j.ok)throw Error(j.error||'HTTP '+r.status);return j});
+const post=(op,data)=>call('api/purchase-intake.php',op,data);
+function el(tag,text,parent){const node=document.createElement(tag);if(text!==undefined)node.textContent=text;parent?.append(node);return node}
+async function searchCatalog(evt){
+ evt?.preventDefault();
+ const q=v($('catalogQuery').value),manufacturer=v($('catalogMaker').value);
+ if((q.length<2)&&(manufacturer.length<2)){
+   $('catalogSearchStatus').textContent='Bitte mindestens zwei Zeichen für Artikel oder Hersteller eingeben.';return
+ }
+ $('catalogSubmit').disabled=true;
+ const root=$('catalogMatches');root.replaceChildren();
+ $('catalogSearchStatus').textContent='JTL-Datenspiegel wird lesend durchsucht …';
+ try{
+   const data=await read('article_search',{q,manufacturer,
+      price_min:v($('catalogPriceMin').value),price_max:v($('catalogPriceMax').value)});
+   const age=data.age_minutes===null?'unbekannt':data.age_minutes+' Minuten';
+   $('catalogSearchStatus').textContent=data.jtl_status==='current_snapshot'?
+      'JTL-Spiegel aktuell: '+(data.count||0)+' Treffer · Stand '+data.snapshot_at_utc+
+      ' UTC · Alter '+age+(data.truncated?' · maximal 60 angezeigt':''):
+      '⚠ JTL-Spiegel '+(data.jtl_status||'nicht verfügbar')+
+      '. Treffer sind historische Hinweise, kein sicherer Existenz- oder Nichtbestandsnachweis.';
+   if(!data.matches?.length){
+     el('p','Keine passenden Zeilen im zuletzt bekannten JTL-Spiegel. Vor einer Neuanlage weiterhin Artikelnummer in JTL-Ameise prüfen.',root);
+     return;
+   }
+   const tbl=el('table',undefined,root),head=el('thead',undefined,tbl),tr=el('tr',undefined,head);
+   for(const name of ['Artikel / Bezeichnung','Hersteller','EAN / HAN','JTL Netto-EK (Quelle)','Aktion'])
+      el('th',name,tr);
+   const tbody=el('tbody',undefined,tbl);
+   for(const row of data.matches){
+     const tr=el('tr',undefined,tbody);
+     const article=el('td',undefined,tr);
+     el('strong',row.artikelname||'Bezeichnung unbekannt',article);
+     el('small',' · '+(row.artikelnummer||'Artikelnummer offen'),article);
+     el('td',row.hersteller||'Hersteller nicht belegt',tr);
+     el('td',(row.ean||'EAN offen')+(row.han?' · HAN '+row.han:''),tr);
+     el('td',row.netto_ek===null?'Unbekannt':
+       Number(row.netto_ek).toLocaleString('de-DE',{style:'currency',currency:'EUR'}),tr);
+     const td=el('td',undefined,tr),b=el('button','EAN zum Scanner',td);b.type='button';
+     b.className='secondary';b.disabled=!valEAN(row.ean);
+     b.onclick=()=>{$('ean').value=row.ean;$('ean').focus();
+       status('EAN aus JTL-Katalog in den Scanner übernommen, noch NICHT gebucht.')};
+   }
+ }catch(e){$('catalogSearchStatus').textContent='JTL-Suche nicht verfügbar: '+errorMsg(e)}
+ finally{$('catalogSubmit').disabled=false}
+}
+async function contacts(){
+ const r=await read('contacts');state.contacts=r.contacts||[];const select=$('contactSelect');select.replaceChildren();
+ el('option','Kontakt auswählen',select).value='';
+ for(const c of state.contacts){let o=el('option',c.supplier_label+' · '+c.contact_name+' ('+c.code_prefix+')',select);o.value=c.id}
+}
+async function purchases(selected){
+ const r=await read('purchases');state.purchases=r.purchases||[];
+ const pick=$('purchaseSelect');pick.replaceChildren();el('option','Ankauf auswählen',pick).value='';
+ for(const p of state.purchases){let o=el('option',p.code+' · '+p.contact+' · '+p.supplier,pick);o.value=p.id}
+ if(selected)pick.value=String(selected);
+ else if(state.purchase)pick.value=String(state.purchase.id);
+}
+function pending(){try{const x=JSON.parse(localStorage.getItem(pendingKey)||'null');
+ return x&&Number.isInteger(x.batch_id)&&x.batch_id>0&&valEAN(x.ean)&&/^[0-9a-f-]{36}$/i.test(x.event_key)?x:null}catch(_){return null}}
+function savePending(x){try{if(x)localStorage.setItem(pendingKey,JSON.stringify(x));else localStorage.removeItem(pendingKey)}catch(_){}}
+function paintPending(){$('pendingBox').hidden=!pending()}
+function euroFilterValue(text){
+ const x=v(text).replace(/\s/g,'');
+ if(!/^(?:0|[1-9][0-9]{0,6})(?:[,.][0-9]{1,2})?$/.test(x))return null;
+ const [units,cents='0']=x.split(/[,.]/);
+ return Number(units)*100+Number(cents.padEnd(2,'0'));
+}
+function filteredItems(items){
+ const q=v($('purchaseSearch').value).toLocaleLowerCase('de');
+ const maker=v($('manufacturerFilter').value);
+ const statusKey=v($('jtlFilter').value),min=euroFilterValue($('priceMin').value),
+       max=euroFilterValue($('priceMax').value),sort=$('priceSort').value;
+ const rows=items.filter(i=>{
+   if(!i.quantity)return false;
+   if(maker && (i.manufacturer||i.amazon_candidate?.manufacturer||'')!==maker)return false;
+   if(statusKey && i.resolution!==statusKey)return false;
+   if(q && ![i.ean,i.han,i.article_number,i.artikelnummer,
+       i.article_name_display,i.artikelname,i.manufacturer,i.amazon_candidate?.title,
+       i.amazon_candidate?.manufacturer,i.amazon_candidate?.brand,i.amazon_candidate?.asin]
+       .some(vv=>String(vv||'').toLocaleLowerCase('de').includes(q)))return false;
+   if(v($('priceMin').value) && (min===null||i.unit_net_cents===null||i.unit_net_cents<min))return false;
+   if(v($('priceMax').value) && (max===null||i.unit_net_cents===null||i.unit_net_cents>max))return false;
+   return true;
+ });
+ if(sort==='price_up'||sort==='price_down')
+   rows.sort((a,b)=>{
+     if(a.unit_net_cents===null)return b.unit_net_cents===null?0:1;
+     if(b.unit_net_cents===null)return -1;
+     return (a.unit_net_cents-b.unit_net_cents)*(sort==='price_up'?1:-1);
+   });
+ if(sort==='name')rows.sort((a,b)=>String(a.article_name_display||'').localeCompare(String(b.article_name_display||''),'de'));
+ return rows;
+}
+function refreshManufacturers(){
+ const pick=$('manufacturerFilter'),prev=pick.value;
+ const names=[...new Set(state.items.filter(x=>x.quantity).map(x=>x.manufacturer||x.amazon_candidate?.manufacturer||'').filter(Boolean))].sort((a,b)=>a.localeCompare(b,'de'));
+ pick.replaceChildren();el('option','Alle Hersteller',pick).value='';
+ for(const name of names)el('option',name,pick).value=name;
+ pick.value=names.includes(prev)?prev:'';
+}
+function render(){
+ const p=state.purchase;const totals=p?.totals||{};
+ $('purchaseCode').textContent=p?p.purchase.code+' · '+p.purchase.supplier+' / '+p.purchase.contact:'Noch kein Ankauf gewählt';
+ $('uniqueCount').textContent=totals.unique_products||0;
+ $('totalQuantity').textContent=totals.total_quantity||0;
+ $('totalNet').textContent=euro(totals.net_cents);
+ $('totalGross').textContent=euro(totals.gross_cents);
+ const u=totals.unpriced_quantity||0;
+ $('unpricedNotice').textContent=u>0?'⚠ '+u+' Stück ohne bestätigten Einkaufspreis. Die Summen zeigen nur bepreiste Positionen.':
+ '✓ Alle erfassten Stückzahlen besitzen einen bestätigten Einkaufspreis und einen USt-Satz. Die USt-Behandlung des Belegs bleibt zu prüfen.';
+ $('exportCsv').disabled=!p||!(p.items||[]).length;
+ const tbody=$('rows');tbody.replaceChildren();
+ if(!p||!p.items.length){const td=el('td','Noch keine Positionen',el('tr',undefined,tbody));td.colSpan=9;return}
+ const visible=filteredItems(p.items);
+ $('filterSummary').textContent=visible.length+' von '+p.items.filter(x=>x.quantity).length+
+ ' Artikeln sichtbar. Die Summen oben beziehen sich unverändert auf den gesamten Ankauf.';
+ if(!visible.length){const td=el('td','Keine Treffer für diese Filter.',el('tr',undefined,tbody));td.colSpan=9;return}
+ for(const item of visible){
+   const tr=el('tr',undefined,tbody);
+   const identity=el('td',undefined,tr);
+   el('strong',item.ean,identity);el('div',item.resolution==='existing'?'JTL vorhanden':
+       item.resolution==='new_candidate'?'Neuanlage prüfen':
+       item.resolution==='multiple'?'Mehrfachtreffer': 'JTL-Abgleich noch offen',identity).className='pill '+item.resolution;
+   const name=el('td',undefined,tr);el('span',item.article_name_display||'Bezeichnung offen',name);
+   if(item.article_number)el('div','ArtNr: '+item.article_number,name);
+   if(item.manufacturer)el('div','Hersteller: '+item.manufacturer+' ('+
+     (item.manufacturer_source==='jtl_mirror'?'JTL-Spiegel':'Scan-Entwurf')+')',name);
+   else el('small','Hersteller: noch nicht belegt',name);
+   if(item.han)el('small','HAN: '+item.han,name);
+   const candidate=item.amazon_candidate;
+   if(candidate?.status==='review_required'&&candidate.asin){
+     const suggestion=el('div','Amazon-Archiv · Vorschlag (nicht bestätigt)',name);
+     suggestion.className='note';
+     if(candidate.title)el('div',candidate.title,name);
+     if(candidate.manufacturer)el('small','Hersteller laut Amazon: '+candidate.manufacturer,name);
+     if(candidate.brand)el('div','Marke laut Amazon: '+candidate.brand,name);
+     el('small','ASIN: '+candidate.asin,name);
+   }
+   el('td',String(item.quantity),tr);
+   const priceCell=el('td',undefined,tr),unit=el('input',undefined,priceCell);
+   unit.type='text';unit.className='money';unit.inputMode='decimal';unit.placeholder='z. B. 1,20';
+   if(item.unit_net_cents!==null)unit.value=(item.unit_net_cents/100).toFixed(2).replace('.',',');
+   const vatCell=el('td',undefined,tr),vat=el('select',undefined,vatCell);vat.className='short';
+   el('option','USt?',vat).value='';
+   for(const rate of [19,7,0])el('option',rate+' %',vat).value=String(rate);
+   if(item.vat_percent!==null)vat.value=String(item.vat_percent);
+   el('td',item.line_net_cents===null?'offen':euro(item.line_net_cents),tr);
+   el('td',item.line_gross_cents===null?'offen':euro(item.line_gross_cents),tr);
+   const provenance=el('td',undefined,tr),job=state.amazonJobs.get(item.ean);
+   el('div','JTL: '+(item.resolution==='existing'?'vorhanden':item.resolution==='new_candidate'?
+       'kein Treffer im Scan-Snapshot':item.resolution==='multiple'?'mehrfach':'ungeprüft'),provenance);
+   if(p?.jtl_mirror?.snapshot_at_utc)
+     el('small','JTL-Quelle: '+p.jtl_mirror.snapshot_at_utc+' UTC'+
+       (p.jtl_mirror.is_fresh?' · aktuell':' · veraltet / nicht bestätigt'),provenance);
+   if(job){
+     el('div','Amazon: '+job.status+' · '+(job.last_source?
+        job.last_source+' (Browsermeldung, Snapshot verifiziert)':'Quelle noch nicht belegt'),provenance);
+     if(job.last_catalog_at_utc)el('small','Quelle: '+job.last_catalog_at_utc+' UTC',provenance);
+     el('small','erste Anfrage '+job.requested_at_utc+' UTC · Bearbeiter im Admin-Protokoll',provenance);
+   }else el('small','Amazon: noch kein protokollierter Warteschlangenauftrag',provenance);
+   if(candidate){
+     const labels={not_archived:'Kein gespeicherter Katalogtreffer',archive_unavailable:'Katalogarchiv nicht lesbar',
+       no_catalog_hit:'Archivierte Suche ohne Treffer',multiple_or_incomplete:'Mehrere oder unvollständige archivierte Treffer',
+       review_required:'Archivierter Vorschlag – Identität prüfen'};
+     el('div',labels[candidate.status]||'Amazon-Archivstatus unbekannt',provenance);
+     if(candidate.snapshot_id)el('small','Archiv #'+candidate.snapshot_id+' · '+candidate.fetched_at_utc+' UTC',provenance);
+   }
+   const historyButton=el('button','Abfrageverlauf',provenance);
+   historyButton.type='button';historyButton.className='secondary';historyButton.onclick=()=>{
+     $('sourceEan').value=item.ean;
+     history().catch(e=>$('sourceResults').textContent=errorMsg(e));
+   };
+   const act=el('td',undefined,tr),button=el('button','Preis sichern',act);
+   button.type='button';button.onclick=async()=>{
+     if(!/^\d{1,7}(?:[,.]\d{1,2})?$/.test(v(unit.value))||vat.value===''){
+       status('Stück-EK muss ein positiver Dezimalbetrag sein und die USt muss gewählt werden.',true);return}
+     button.disabled=true;
+     try{await post('price_set',{purchase_id:p.purchase.id,scan_item_id:Number(item.scan_item_id),
+       unit_net:v(unit.value),vat_percent:Number(vat.value),expected_cost_updated_at:item.cost_updated_at||null});
+       await detail(p.purchase.id);status('Einkaufspreis gespeichert; Netto und Brutto aktualisiert.')}
+     catch(e){status('Preis konnte nicht gespeichert werden: '+errorMsg(e),true);await detail(p.purchase.id).catch(()=>{})}
+     finally{button.disabled=false}
+   };
+ }
+}
+async function detail(id){
+ if(!id){state.purchase=null;render();return}
+ const previous=state.purchase?.purchase?.id;
+ const r=await read('detail',{purchase_id:id});state.purchase=r;state.items=r.items||[];
+ if(previous!==id){state.amazonJobs.clear();state.aiCostPurchase=null;state.aiCostCursor=null;}
+ refreshManufacturers();render();
+ $('purchaseSelect').value=String(id);
+ if(previous!==id){
+   refreshQueue().catch(e=>queueMessage('Warteschlange nicht verfügbar: '+errorMsg(e)));
+   loadAiCosts().catch(e=>$('aiCostSummary').textContent='KI-Archiv derzeit nicht lesbar: '+errorMsg(e));
+ }
+}
+async function createContact(){
+ const supplier=v($('supplier').value),contact=v($('contact').value),prefix=v($('prefix').value).toUpperCase();
+ const lastText=v($('lastUsed').value),last=Number(lastText);
+ if(!supplier||!contact||!/^[A-Z0-9]{2,8}$/.test(prefix)){status('Lieferant, Kontakt und eindeutiges Kürzel (2 bis 8 Zeichen) eingeben.',true);return}
+ if(lastText===''||!Number.isInteger(last)||last<0||last>999998){
+   status('Bitte die zuletzt verwendete Monatsnummer bestätigen: 0 bei keinem bisherigen Ankauf.',true);return}
+ if(!confirm('Kontakt '+contact+' unter '+prefix+' hinterlegen? Letzter bisheriger Ankauf in diesem Monat: -'+last+
+   '. Nächste neue ID wird -'+(last+1)+'. Dies erzeugt keinen JTL-Lieferantenkontakt.'))return;
+ try{const r=await post('contact_create',{supplier,contact,prefix,last_used_this_month:last});await contacts();
+ $('contactSelect').value=String(r.contact_id);status('Kontakt hinterlegt. Nächste reservierbare ID: '+r.first_code+'. JTL-Kontaktzuordnung bleibt separat.')}
+ catch(e){status('Kontakt nicht gespeichert: '+errorMsg(e),true)}
+}
+async function startPurchase(){
+ const id=Number($('contactSelect').value);
+ if(!id){status('Bitte zuerst einen Lieferantenkontakt auswählen.',true);return}
+ const name=state.contacts.find(x=>Number(x.id)===id);
+ if(!confirm('Neuen Ankauf für '+(name?.contact_name||'diesen Kontakt')+' anlegen? Die fortlaufende Nummer wird jetzt vergeben.'))return;
+ try{const r=await post('purchase_create',{contact_id:id});await purchases(r.purchase_id);await detail(r.purchase_id);
+ status('✓ Ankauf '+r.code+' angelegt. Jetzt EAN scannen oder vorhandene EAN-CSV in der Scanliste importieren.');
+ $('ean').focus()}
+ catch(e){status('Neuer Ankauf konnte nicht angelegt werden: '+errorMsg(e),true)}
+}
+async function saveScan(task){
+ const r=await call('api/scanliste.php','scan',{batch_id:task.batch_id,ean:task.ean,event_key:task.event_key});
+ savePending(null);paintPending(); // Server has ACKnowledged the idempotent event.
+ if(!state.purchase||Number(state.purchase.purchase.batch_id)!==task.batch_id){
+   status('✓ Scan für den ursprünglichen Ankauf gespeichert. Zum betreffenden Ankauf zurückwechseln.',true);return;
+ }
+ try{await detail(state.purchase.purchase.id)}
+ catch(e){status('✓ Scan bereits gespeichert. Nur die Anzeige konnte nicht neu geladen werden: '+errorMsg(e)+'. Bitte aktualisieren, nicht erneut scannen.',true);return}
+ const item=state.items.find(x=>x.ean===task.ean&&x.quantity>0);
+ const raw=v($('defaultCost').value),rate=v($('defaultVat').value);
+ let priceError='';
+ if(item&&item.unit_net_cents===null&&raw!==''&&rate!==''){
+   try{await post('price_set',{purchase_id:state.purchase.purchase.id,scan_item_id:Number(item.scan_item_id),
+       unit_net:raw,vat_percent:Number(rate),expected_cost_updated_at:null});await detail(state.purchase.purchase.id)}
+   catch(e){priceError=' · Stückpreis noch nicht gespeichert: '+errorMsg(e)}
+ }
+ if(item && (item.resolution!=='existing'||!item.manufacturer||!item.article_name_display)
+     && !state.amazonJobs.has(task.ean))
+   queueAmazon(task.ean).catch(e=>queueMessage('Scan wurde gespeichert, Amazon-Vormerkung offen: '+errorMsg(e)));
+ status('✓ '+task.ean+' gespeichert. Gesamtmenge dieser EAN: '+(state.items.find(x=>x.ean===task.ean)?.quantity||r.item?.scan_count||1)+priceError,Boolean(priceError));
+ $('ean').value='';$('ean').focus();
+}
+async function scan(evt){
+ evt?.preventDefault();if(state.busy||!state.purchase)return;
+ if(pending()){status('Ein Scan ist noch unbestätigt. Bitte zuerst „Ausstehenden Scan wiederholen“ wählen.',true);paintPending();return}
+ const ean=v($('ean').value);if(!valEAN(ean)){status('EAN/GTIN mit gültiger Prüfziffer erforderlich.',true);return}
+ const task={batch_id:state.purchase.purchase.batch_id,ean,event_key:crypto.randomUUID()};
+ savePending(task);paintPending();state.busy=true;$('scanButton').disabled=true;
+ try{await saveScan(task)}catch(e){status('Scan nicht bestätigt: '+errorMsg(e)+'. Mit derselben Ereignis-ID wiederholen.',true)}
+ finally{state.busy=false;$('scanButton').disabled=false;paintPending()}
+}
+async function retry(){
+ const task=pending();if(!task)return;
+ if(!state.purchase||Number(state.purchase.purchase.batch_id)!==task.batch_id){
+   status('Zuerst den ursprünglichen Ankauf mit Stapel-ID '+task.batch_id+' auswählen.',true);return;
+ }
+ state.busy=true;$('retryPending').disabled=true;
+ try{await saveScan(task)}catch(e){status('Erneutes Senden fehlgeschlagen: '+errorMsg(e),true)}
+ finally{state.busy=false;$('retryPending').disabled=false;paintPending()}
+}
+function queueMessage(message){$('amazonStatus').textContent=message}
+const queuePost=(op,data)=>call('api/purchase-enrichment.php',op,data);
+async function queueGet(op,params={}){
+ const r=await fetch('api/purchase-enrichment.php?'+new URLSearchParams({op,...params}),
+   {credentials:'same-origin',cache:'no-store'});
+ let data;try{data=await r.json()}catch(_){throw Error('Ungültige Queue-Antwort (HTTP '+r.status+')')}
+ if(!r.ok||!data.ok)throw Error(data.error||'HTTP '+r.status);
+ return data;
+}
+async function refreshQueue(){
+ if(!state.purchase){state.amazonJobs.clear();return}
+ const id=state.purchase.purchase.id;
+ const data=await queueGet('queue',{purchase_id:id});
+ if(!state.purchase||state.purchase.purchase.id!==id)return;
+ state.amazonJobs=new Map((data.jobs||[]).map(x=>[x.ean,x]));
+ const c=data.counts||{};
+ $('queueSummary').textContent='Amazon: '+(c.queued||0)+' vorgemerkt · '+(c.leased||0)+
+  ' in Bearbeitung · '+(c.retry||0)+' später erneut · '+(c.completed||0)+
+  ' abgeschlossen · '+(c.blocked||0)+' manuell prüfen · '+(c.missing||0)+
+  ' ohne Anfrage. Nach Browser-Schließen bleiben die Aufträge gespeichert.';
+ // Do not discard a manually edited, still unsaved purchase price when
+ // an unrelated background Amazon query completes.
+ const active=document.activeElement;
+ if(!active?.closest?.('#rows'))render();
+ if(!state.queueBusy&&!state.queuePaused&&$('autoRunAmazon').checked&&
+      ((c.queued||0)+(c.retry||0)>0))runAmazon();
+}
+async function queueAmazon(ean,manual=false){
+ const p=state.purchase;
+ if(!p||!p.items.some(i=>i.ean===ean&&i.quantity>0))
+   throw Error('Produkt gehört nicht zum aktuell ausgewählten Einkauf. Bitte zuerst scannen.');
+ const job=state.amazonJobs.get(ean);
+ if(manual&&job&&job.status==='completed'){
+   if(!confirm('Für '+ean+' trotz vorhandenem Amazon-Snapshot erneut abfragen?'))return;
+   await queuePost('requeue',{job_id:Number(job.id),purchase_id:p.purchase.id,confirm:true});
+ }else if(manual&&job&&job.status==='blocked'){
+   if(!confirm('Gesperrte Amazon-Abfrage '+ean+' ausdrücklich erneut versuchen?'))return;
+   await queuePost('requeue',{job_id:Number(job.id),purchase_id:p.purchase.id,confirm:true});
+ }else{
+   await queuePost('enqueue',{purchase_id:p.purchase.id,ean});
+ }
+ await refreshQueue();
+ queueMessage('Amazon-Anfrage für '+ean+' gespeichert oder bereits vorhanden. EAN-Scans können ohne Wartezeit weiterlaufen.');
+ if($('autoRunAmazon').checked)runAmazon();
+}
+async function enqueueAll(){
+ const p=state.purchase;if(!p)return;
+ if(!confirm('Alle noch nicht in JTL bestätigten Artikel dieses Einkaufs in der persistenten Amazon-Warteschlange vormerken? Keine sofortigen Massenabrufe.'))return;
+ $('enqueueAll').disabled=true;let after=0,added=0,visited=0;
+ try{
+   for(let part=0;part<35;part++){
+     const r=await queuePost('enqueue_batch',{purchase_id:p.purchase.id,after_item_id:after});
+     added+=Number(r.created||0);visited+=Number(r.received||0);after=Number(r.last_item_id||after);
+     queueMessage('Amazon-Warteschlange: '+visited+' Scanpositionen geprüft, '+added+' neu vorgemerkt …');
+     if(!r.has_more)break;
+   }
+   await refreshQueue();
+   queueMessage('✓ Sammelvormerkung: '+visited+' Positionen geprüft, '+added+' neue Amazon-Aufträge. Abfrage erfolgt einzeln mit Drosselung.');
+   if($('autoRunAmazon').checked)runAmazon();
+ }catch(e){queueMessage('Sammelvormerkung teilweise durchgeführt. Fortschritt bleibt gespeichert: '+errorMsg(e));}
+ finally{$('enqueueAll').disabled=false}
+}
+async function runAmazon(){
+ if(state.queueBusy||state.queuePaused||!state.purchase)return;
+ state.queueBusy=true;$('resumeAmazon').disabled=true;$('pauseAmazon').disabled=false;
+ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+ try{
+   while(!state.queuePaused&&state.purchase){
+     let lease;
+     try{lease=await queuePost('lease',{})}
+     catch(e){queueMessage('Amazon-Warteschlange nicht erreichbar: '+errorMsg(e));break}
+     if(!lease.ready){
+       if(lease.reason==='rate_limited'){await sleep(11000);continue}
+       queueMessage('Keine sofort fälligen Amazon-Aufträge. Später erneut starten; bereits vorgemerkte EANs bleiben gespeichert.');
+       break;
+     }
+     let response=null,source='',snapshot=null,errorCode='amazon_api_error',catalogOk=false;
+     queueMessage('Gemeinsame Amazon-Recherche: '+lease.ean+' wird über die vorhandene SP-API und den Cache geprüft. Ausführendes Konto wird im Admin-Audit gespeichert.');
+     try{
+       const r=await fetch('api/amazon.php?ean='+encodeURIComponent(lease.ean),
+          {credentials:'same-origin',cache:'no-store'});
+       response=await r.json();
+       if(!r.ok||!response.ok){
+         errorCode=Number(response?.upstream_status)===429||r.status===429?
+            'amazon_rate_limited':'amazon_api_error';
+         throw Error(response?.error||'Amazon HTTP '+r.status);
+       }
+       snapshot=response.snapshot_id;
+       source=response.source;
+       if(!Number.isInteger(Number(snapshot))||Number(snapshot)<1||!['live','cache'].includes(source)){
+         errorCode='invalid_response';throw Error('Unvollständiger Amazon-Snapshot');
+       }
+       catalogOk=true;
+     }catch(e){
+       if(errorCode==='amazon_api_error' && (e instanceof TypeError||e?.name==='AbortError'))
+         errorCode='network_error';
+       queueMessage('Amazon-Abfrage '+lease.ean+' nicht erfolgreich: '+errorMsg(e)+'. Terminierter Wiederholungsversuch wird protokolliert.');
+     }
+     try{
+       await queuePost('ack',{job_id:Number(lease.job_id),lease_token:lease.lease_token,
+         success:catalogOk,
+         ...(catalogOk?{snapshot_id:Number(snapshot),source}:
+              {error_code:errorCode})});
+     }catch(e){
+       queueMessage('Amazon-Verarbeitung nicht bestätigt: '+errorMsg(e)+'. Die serverseitige Lease wird später erneut geprüft.');
+       break;
+     }
+     try{await refreshQueue()}catch(e){queueMessage('Amazon-Ergebnis gespeichert. Anzeige-Aktualisierung offen: '+errorMsg(e))}
+     if(state.queuePaused)break;
+     await sleep(11000); // server additionally enforces ≥10 seconds per authenticated actor
+   }
+ }finally{
+   state.queueBusy=false;$('resumeAmazon').disabled=false;$('pauseAmazon').disabled=true;
+ }
+}
+async function loadAiCosts(append=false){
+ const p=state.purchase;if(!p){$('aiCostSummary').textContent='Bitte einen Einkauf wählen.';return}
+ const id=p.purchase.id;
+ if(append&&(!state.aiCostCursor||state.aiCostPurchase!==id))return;
+ const btn=$('aiCostMore');btn.disabled=true;
+ $('aiCostSummary').textContent='Gespeicherte KI-Ausgaben zum Ankauf werden gelesen …';
+ try{
+   const params={purchase_id:id};
+   if(append)params.before_id=String(state.aiCostCursor);
+   const data=await read('ai_costs',params);
+   if(!state.purchase||state.purchase.purchase.id!==id)return;
+   const t=data.totals||{},usd=Number(t.usd_total||0);
+   $('aiCostSummary').textContent='Historisch archiviert: '+(t.calls||0)+' OpenAI-Abfragen zu EANs dieses Einkaufs · '+
+     usd.toLocaleString('de-DE',{style:'currency',currency:'USD',minimumFractionDigits:4,maximumFractionDigits:6})+
+     ' · Tokens Eingabe '+(t.tokens_input||0)+', Cache '+(t.tokens_cached||0)+
+     ', Ausgabe '+(t.tokens_output||0)+
+     '. Gemeinsame EAN-Recherche aller berechtigten Mitarbeiter, nicht zwingend diesem Einkauf wirtschaftlich zuzurechnen.';
+   const root=$('aiCostRows');
+   if(!append)root.replaceChildren();
+   for(const r of data.reviews||[]){
+     el('p',String(r.created_at_utc||'Datum unbekannt')+' UTC · EAN '+r.ean+
+       ' · '+(r.model||'Modell offen')+' · '+(r.status||'Status offen')+
+       ' · '+Number(r.usd_cost||0).toLocaleString('de-DE',
+          {style:'currency',currency:'USD',minimumFractionDigits:4,maximumFractionDigits:6})+
+       ' · Tokens '+Number(r.tokens_input||0)+' / '+Number(r.tokens_cached||0)+' / '+
+       Number(r.tokens_output||0),root);
+   }
+   if(!root.childNodes.length)el('p','Noch keine archivierten OpenAI-Abfragen zu den EANs dieses Einkaufs.',root);
+   state.aiCostPurchase=id;
+   state.aiCostCursor=data.next_before_id||null;
+   btn.hidden=!data.has_more;
+ }finally{btn.disabled=false}
+}
+function csvCell(value){let s=String(value??'');if(/^[=+\-@\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}
+function exportCsv(){
+ const p=state.purchase;if(!p)return;
+ const header=['Einkauf-ID','Lieferant','Kontakt','EAN','JTL-Artikelnummer','JTL-Abgleich','Menge','Stück-EK netto','USt Prozent','Summe netto','Summe brutto'];
+ const rows=p.items.filter(x=>x.quantity>0).map(x=>[p.purchase.code,p.purchase.supplier,p.purchase.contact,x.ean,
+   x.artikelnummer||'',x.resolution,x.quantity,
+   x.unit_net_cents===null?'':(x.unit_net_cents/100).toFixed(2).replace('.',','),
+   x.vat_percent===null?'':x.vat_percent,
+   x.line_net_cents===null?'':(x.line_net_cents/100).toFixed(2).replace('.',','),
+   x.line_gross_cents===null?'':(x.line_gross_cents/100).toFixed(2).replace('.',',')]);
+ const text='\ufeff'+[header,...rows].map(r=>r.map(csvCell).join(';')).join('\r\n')+'\r\n';
+ const blob=new Blob([text],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='HW24_Ankauf_'+p.purchase.code+'_PRUEFLISTE.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);
+ $('exportStatus').textContent='Einkaufsliste exportiert. Keine JTL-Ameise- oder WMS-Buchungsdatei.';
+}
+async function history(){
+ const ean=v($('sourceEan').value),root=$('sourceResults');
+ if(!valEAN(ean)){root.textContent='Bitte gültige EAN eingeben.';return}
+ root.textContent='Gespeicherte Historie für '+ean+' wird ausschließlich lesend geprüft …';
+ const getJson=async path=>{const r=await fetch(path,{credentials:'same-origin',cache:'no-store'});
+   const d=await r.json();if(!r.ok||!d.ok)throw Error(d?.error||'HTTP '+r.status);return d};
+ const [ai,amazon,legacy,workAudit]=await Promise.allSettled([
+ getJson('api/ai-reviews.php?ean='+encodeURIComponent(ean)+'&limit=5'),
+ getJson('api/amazon-archive.php?ean='+encodeURIComponent(ean)+'&limit=5'),
+ getJson('api/historie.php?include_legacy=1&ean='+encodeURIComponent(ean)),
+ state.purchase?queueGet('events',{purchase_id:state.purchase.purchase.id,ean}):
+     Promise.reject(Error('Kein Einkauf ausgewählt'))
+ ]);
+ root.replaceChildren();el('strong','🔎 Quellenhistorie für '+ean,root);
+ const section=(label)=>{const box=el('section',undefined,root);box.style.margin='8px 0';box.style.padding='10px';
+  el('strong',label,box);return box};
+ const aiBox=section('Gespeicherte KI-Auswertungen');
+ if(ai.status==='fulfilled'){
+   const reviews=Array.isArray(ai.value.reviews)?ai.value.reviews:[];
+   if(!reviews.length)el('p','Keine gespeicherte KI-Auswertung für diese EAN.',aiBox);
+   for(const r of reviews.slice(0,5))el('p',[
+     r.created_at_utc||r.at_utc||'Zeit unbekannt',r.model||'Modell nicht genannt',
+     r.status||'Status unbekannt',
+     'gespeicherte Kosten: '+Number(r.usd_cost||0).toLocaleString('de-DE',
+       {style:'currency',currency:'USD',minimumFractionDigits:4,maximumFractionDigits:6}),
+     'Tokens: '+(r.tokens?.input??0)+' Eingabe / '+(r.tokens?.cached??0)+' Cache / '+
+                  (r.tokens?.output??0)+' Ausgabe',
+     r.article_name||'Kein Artikelname'
+   ].join(' · ').slice(0,430),aiBox);
+ }else el('p','KI-Archiv nicht erreichbar: '+errorMsg(ai.reason),aiBox);
+ const amBox=section('Historische Amazon-Katalogabfragen');
+ if(amazon.status==='fulfilled'){
+   const rows=Array.isArray(amazon.value.snapshots)?amazon.value.snapshots:[];
+   if(!rows.length)el('p','Noch keine archivierte Amazon-Katalogabfrage für diese EAN.',amBox);
+   for(const r of rows.slice(0,5))el('p',(r.fetched_at_utc||r.at_utc||'Zeit unbekannt')+
+       ' · Katalogtreffer: '+String(r.item_count??r.count??'?')+' · keine eigenen Angebotspreise',amBox);
+ }else el('p','Amazon-Archiv nicht erreichbar: '+errorMsg(amazon.reason),amBox);
+ const jobBox=section('HW24-Amazon-Abfragejournal · wer, wann, wo');
+ if(workAudit.status==='fulfilled'){
+   const evs=Array.isArray(workAudit.value.events)?workAudit.value.events:[];
+   if(!evs.length)el('p','Bisher keine erfasste Einkaufs-Warteschlangenaktion für diese EAN.',jobBox);
+   for(const ev of evs.slice(0,20))el('p',[
+      ev.occurred_at_utc||'Zeit offen',
+      ev.event_type||'Aktion offen',ev.source_kind||'Quelle noch unbekannt',
+      ev.detail_code||''
+   ].join(' · '),jobBox);
+ }else el('p','Einkaufs-Abfragejournal derzeit nicht lesbar: '+errorMsg(workAudit.reason),jobBox);
+ const oldBox=section('Historische Excel-/Artikelwerte');
+ if(legacy.status==='fulfilled'){
+   const rows=Array.isArray(legacy.value.matches)?legacy.value.matches:[];
+   if(!rows.length)el('p','Keine alten Excel-Belege für diese EAN gefunden.',oldBox);
+   for(const r of rows.slice(0,3)){
+     const line=el('p',undefined,oldBox);
+     el('strong',(r.sheet_name||'Tabellenblatt')+' · Zeile '+(r.excel_row||'?')+': ',line);
+     const fields=(Array.isArray(r.cells)?r.cells:[]).filter(c=>c.header_verified&&c.label&&c.value).slice(0,4);
+     el('span',fields.length?fields.map(c=>c.label+' = '+String(c.value).slice(0,80)).join(' · '):
+       'Historischer Rohbeleg ohne verifizierte Feldüberschriften',line);
+   }
+ }else el('p','Excel-Archiv nicht erreichbar: '+errorMsg(legacy.reason),oldBox);
+ el('p','Historische Beobachtungen sind keine aktuellen JTL-Felder. Nichts wurde überschrieben; eine neue kostenpflichtige KI-Prüfung muss separat bestätigt werden.',root);
+}
+async function init(){
+ paintPending();try{await contacts();await purchases();status('Einkaufscheckliste bereit. Kontakt auswählen oder neuen Kontakt anlegen.')}
+ catch(e){status('Einkaufsmodul noch nicht freigegeben oder Datenbanktabellen fehlen: '+errorMsg(e)+
+ '. Die bisherige Scanliste bleibt nutzbar.',true)}
+}
+for(const id of ['purchaseSearch','priceMin','priceMax'])$(id).addEventListener('input',render);
+for(const id of ['manufacturerFilter','jtlFilter','priceSort'])$(id).addEventListener('change',render);
+$('aiCostRefresh').onclick=()=>loadAiCosts().catch(e=>$('aiCostSummary').textContent='KI-Kosten nicht verfügbar: '+errorMsg(e));
+$('aiCostMore').onclick=()=>loadAiCosts(true).catch(e=>$('aiCostSummary').textContent='Weitere KI-Abfragen nicht verfügbar: '+errorMsg(e));
+$('catalogSearchForm').addEventListener('submit',searchCatalog);
+$('saveContact').onclick=createContact;$('startPurchase').onclick=startPurchase;
+$('purchaseSelect').onchange=ev=>detail(Number(ev.target.value)||0).catch(e=>status(errorMsg(e),true));
+$('refresh').onclick=async()=>{try{await contacts();await purchases();if(state.purchase)await detail(state.purchase.purchase.id);status('Aktualisiert.')}catch(e){status(errorMsg(e),true)}};
+$('scanForm').addEventListener('submit',scan);$('retryPending').onclick=retry;$('exportCsv').onclick=exportCsv;
+$('historyButton').onclick=()=>history().catch(e=>$('sourceResults').textContent=errorMsg(e));
+$('amazonButton').onclick=()=>{const ean=v($('sourceEan').value);
+ if(!valEAN(ean)){status('Gültige EAN eingeben.',true);return}
+ queueAmazon(ean,true).catch(e=>queueMessage('Amazon-Anfrage nicht vorgemerkt: '+errorMsg(e)))};
+$('enqueueAll').onclick=enqueueAll;
+$('refreshArchivedCandidates').onclick=async()=>{
+ if(!state.purchase)return;
+ if(!confirm('Ankaufsdaten neu laden? Bitte zuvor noch nicht gespeicherte Stückpreise sichern. Es werden keine externen APIs aufgerufen.'))return;
+ try{await detail(state.purchase.purchase.id);queueMessage('Vorhandene Artikeldaten aus dem gemeinsamen Archiv neu geladen.')}
+ catch(e){queueMessage('Archiv-/Ankaufsanzeige nicht aktualisiert: '+errorMsg(e))}
+};
+$('resumeAmazon').onclick=()=>{state.queuePaused=false;runAmazon()};
+$('pauseAmazon').onclick=()=>{state.queuePaused=true;queueMessage('Amazon-Bearbeitung pausiert. Angefangene Anfragen werden noch protokolliert.');};
+$('autoRunAmazon').onchange=()=>{if($('autoRunAmazon').checked){state.queuePaused=false;runAmazon()}else state.queuePaused=true};
+init();
+})();
+</script></body></html>

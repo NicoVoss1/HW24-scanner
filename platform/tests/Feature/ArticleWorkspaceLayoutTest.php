@@ -48,7 +48,10 @@ final class ArticleWorkspaceLayoutTest extends TestCase
             }
             self::assertStringContainsString($marker, $template);
         }
-        self::assertStringNotContainsString('wire:poll', $template);
+        // Only the pending shared job status may poll. No provider polling or automatic paid query.
+        self::assertSame(1,substr_count($template,'wire:poll'));
+        self::assertStringContainsString("@if(in_array(\$queueReview['status']??null,['queued','leased','retry'],true))",$template);
+        self::assertStringContainsString('wire:poll.15s="pollArticleResearch"',$template);
         self::assertStringNotContainsString('wire:init', $template);
         self::assertStringNotContainsString('chmod -R', $template);
         self::assertStringContainsString('Keine automatische EUR-Annahme', $template);
@@ -65,6 +68,8 @@ final class ArticleWorkspaceLayoutTest extends TestCase
             ->assertSee('01 · Artikel finden')
             ->assertSee('03 · JTL-Originalfelder und Kontopreise')
             ->assertSee('04 · Amazon Selling Partner API');
+        Http::assertNothingSent();
+        Livewire::test(ArticleLookup::class)->call('pollArticleResearch');
         Http::assertNothingSent();
     }
 }

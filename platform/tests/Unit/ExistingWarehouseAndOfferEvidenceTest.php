@@ -63,7 +63,7 @@ final class ExistingWarehouseAndOfferEvidenceTest extends TestCase
             ]],
         ]];
         $value=RelatedSourceEvidence::present($source);
-        self::assertSame('0',$value['stock']['total']);
+        self::assertNull($value['stock']['total']); // legacy flat zero is not a confirmed total
         self::assertNull($value['stock']['available']);
         self::assertNull($value['stock']['in_orders']);
         self::assertSame([],$value['wms']['bins']);

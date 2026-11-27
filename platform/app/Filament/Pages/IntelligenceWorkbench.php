@@ -7,6 +7,7 @@ use App\Domain\Jtl\ArticleCard;
 use App\Domain\Amazon\OfferEvidence;
 use App\Services\LegacyApprovedActionBridge;
 use App\Services\LegacyReadBridge;
+use App\Services\AmazonPriceArchiveRuntime;
 use Filament\Pages\Page;
 use Livewire\Attributes\Locked;
 
@@ -24,6 +25,7 @@ final class IntelligenceWorkbench extends Page
     protected string $view = 'filament.pages.intelligence-workbench';
 
     public string $identifier = '';
+    public string $researchName = '';
     public bool $confirmPaid = false;
     public bool $confirmRecheck = false;
 
@@ -45,6 +47,23 @@ final class IntelligenceWorkbench extends Page
             $this->identifier = $ean;
         }
         // Deliberately NO HTTP / OpenAI / Amazon call during mount.
+    }
+
+    private static function validGtin(string $ean): bool
+    {
+        if(!preg_match('/^(?:[0-9]{8}|[0-9]{12}|[0-9]{13}|[0-9]{14})$/D',$ean)||preg_match('/^0+$/D',$ean))return false;
+        $sum=0;$weight=3;
+        for($i=strlen($ean)-2;$i>=0;$i--){$sum+=(int)$ean[$i]*$weight;$weight=$weight===3?1:3;}
+        return (10-$sum%10)%10===(int)$ean[strlen($ean)-1];
+    }
+
+    public function useUnidentifiedEan(): void
+    {
+        $ean=trim($this->identifier);
+        if(!self::validGtin($ean))return;
+        $this->reset(['article','catalog','keywords','pricing','reviews','archiveState','readiness','reviewResult','catalogArchive','confirmPaid','confirmRecheck']);
+        $this->article=['ean'=>$ean,'name'=>'','brand'=>'','group'=>'','jtl_id'=>'','sku'=>'','asin'=>'','jtl_status'=>'unverified'];
+        $this->lookupState=['ok'=>true,'message'=>'Gültige GTIN zur Recherche übernommen. Kein bestätigter JTL-Artikel; Identität noch prüfen.'];
     }
 
     public function findArticle(LegacyReadBridge $bridge): void
@@ -80,6 +99,7 @@ final class IntelligenceWorkbench extends Page
             'jtl_id'=>(string)($item['jtl_article_id']??''),
             'sku'=>(string)($item['artikelnummer']??''),
             'asin'=>(string)($item['asin']??''),
+            'jtl_status'=>'current_snapshot',
         ];
         $this->lookupState=['ok'=>true,'message'=>'JTL-Referenzartikel eindeutig aus aktuellem Snapshot geladen.',
             'http'=>$r['http_status']??null];
@@ -158,7 +178,7 @@ final class IntelligenceWorkbench extends Page
     public function searchAmazonByName(LegacyReadBridge $bridge): void
     {
         if($this->ean()===null)return;
-        $name=preg_replace('/[^\p{L}\p{N} .,_\/()+\-]/u',' ',$this->article['name']??'');
+        $name=preg_replace('/[^\p{L}\p{N} .,_\/()+\-]/u',' ',($this->article['name']?:$this->researchName));
         $name=trim(preg_replace('/\s+/u',' ',(string)$name)??'');
         $name=mb_substr($name,0,120);
         if(mb_strlen($name)<3)return;
@@ -194,7 +214,8 @@ final class IntelligenceWorkbench extends Page
             $this->pricing=['ok'=>false,'message'=>'ASIN nicht in der zuvor geprüften Katalogauskunft enthalten.'];
             return;
         }
-        $r=$bridge->fetch('amazon.pricing',['asin'=>$asin]);
+        $capture=AmazonPriceArchiveRuntime::fetch($asin,$bridge);
+        $r=$capture['response'];
         $raw=is_array($r['data']??null)?$r['data']:[];
         $prices=[];
         foreach(['buybox_prices'=>'Buy Box','lowest_prices'=>'Niedrigster Angebotspreis'] as $key=>$label){
@@ -211,13 +232,21 @@ final class IntelligenceWorkbench extends Page
             }
         }
         $names=[];
+        $sellerNameLookup='not_checked';
         if(($r['ok']??false)===true){
             $ids=OfferEvidence::sellerIds($raw);
-            if($ids!==[]){
+            if($ids===[]){
+                $sellerNameLookup='no_seller_ids';
+            }else{
                 $namesResponse=$bridge->fetch('amazon.sellers',['ids'=>implode(',',$ids)]);
                 $namesRaw=is_array($namesResponse['data']??null)?$namesResponse['data']:[];
                 if(($namesResponse['ok']??false)===true && is_array($namesRaw['names']??null)){
                     $names=$namesRaw['names'];
+                    $sellerNameLookup='archive_loaded';
+                }else{
+                    // Pricing succeeds independently, but no seller name is
+                    // ever invented if the verified-name archive is offline.
+                    $sellerNameLookup='seller_name_archive_unavailable';
                 }
             }
         }
@@ -232,42 +261,109 @@ final class IntelligenceWorkbench extends Page
             'lowest_summary'=>$offerBoard['lowest_summary'],
             'lowest_visible'=>$offerBoard['lowest_visible'],
             'sellers'=>$offerBoard['offers'],
+            'seller_name_lookup'=>$sellerNameLookup,
+            'verified_seller_names'=>count(array_filter(
+                $offerBoard['offers'],static fn(array $offer): bool=>($offer['seller_name']??null)!==null
+            )),
             'winner_count'=>$offerBoard['winners'],
+            'archive'=>$capture['archive'],
             'message'=>'Amazon-Angebotsdaten mit Buy Box, günstigstem sichtbarem Gesamtpreis und Seller-Feedback. Keine automatische Lieferanten- oder eigene Angebotsidentität.'];
     }
 
+    /** Current product archive: explicitly reports shared vs legacy actor scope. */
     public function loadAiArchive(LegacyReadBridge $bridge): void
     {
         $ean=$this->ean();
         if($ean===null)return;
-        $this->reset(['reviews','archiveState','reviewResult','confirmPaid','confirmRecheck']);
-        $r=$bridge->fetch('ai.history',['ean'=>$ean,'limit'=>10]);
+        $this->loadAiArchivePage($bridge,$ean,null,false);
+    }
+
+    /**
+     * Browse all EANs. The deployed Legacy API explicitly declares whether
+     * its storage is shared_workspace or still legacy_authenticated_actor.
+     * Neither mode implies admin-only user action visibility.
+     */
+    public function loadAiArchiveAll(LegacyReadBridge $bridge): void
+    {
+        $this->loadAiArchivePage($bridge,null,null,false);
+    }
+
+    /** Page backwards without re-running OpenAI or querying another user's archive. */
+    public function loadOlderAiArchive(LegacyReadBridge $bridge): void
+    {
+        if(($this->archiveState['ok']??false)!==true)return;
+        $cursor=$this->archiveState['more']??null;
+        if(!is_int($cursor)||$cursor<1)return;
+        $ean=($this->archiveState['mode']??'')==='all'?null:$this->ean();
+        if(($this->archiveState['mode']??'')==='ean'&&$ean===null)return;
+        $this->loadAiArchivePage($bridge,$ean,$cursor,true);
+    }
+
+    private function loadAiArchivePage(
+        LegacyReadBridge $bridge,
+        ?string $ean,
+        ?int $beforeId,
+        bool $append
+    ): void {
+        if(!$append){
+            $this->reset(['reviews','archiveState','reviewResult','confirmPaid','confirmRecheck']);
+        }
+        $params=['limit'=>20];
+        if($ean!==null)$params['ean']=$ean;
+        if($beforeId!==null)$params['before_id']=$beforeId;
+        $r=$bridge->fetch('ai.history',$params);
         $raw=is_array($r['data']??null)?$r['data']:[];
-        if(($r['ok']??false)!==true || !is_array($raw['reviews']??null)){
-            $this->archiveState=['ok'=>false,'http'=>$r['http_status']??null,
-                'message'=>'KI-Archiv konnte nicht geladen werden. Keine neue KI-Anfrage erfolgt.'];
+        if(($r['ok']??false)!==true||!is_array($raw['reviews']??null)){
+            $this->archiveState=[
+                'ok'=>false,'http'=>$r['http_status']??null,
+                'count'=>count($this->reviews),
+                'mode'=>$ean===null?'all':'ean','more'=>null,
+                'message'=>'KI-Archiv derzeit nicht lesbar. Bisher geladene Berichte bleiben erhalten; es wurde keine neue KI-Abfrage gestartet.',
+            ];
             return;
         }
-        foreach(array_slice($raw['reviews'],0,10) as $row){
+        $known=array_fill_keys(array_column($this->reviews,'id'),true);
+        foreach(array_slice($raw['reviews'],0,20) as $row){
             if(!is_array($row))continue;
             $id=(int)($row['id']??0);
-            if($id<1)continue;
+            if($id<1||isset($known[$id]))continue;
+            $known[$id]=true;
             $body=is_array($row['review']??null)?$row['review']:[];
             $facts=is_array($body['productFacts']??null)?$body['productFacts']:[];
+            $tokens=is_array($row['tokens']??null)?$row['tokens']:[];
             $this->reviews[]=[
-                'id'=>$id,'status'=>mb_substr((string)($row['status']??''),0,45),
+                'id'=>$id,
+                'ean'=>mb_substr((string)($row['ean']??''),0,20),
+                'article_name'=>mb_substr((string)($row['article_name']??''),0,600),
+                'status'=>mb_substr((string)($row['status']??''),0,45),
                 'model'=>mb_substr((string)($row['model']??''),0,80),
                 'date'=>mb_substr((string)($row['created_at_utc']??''),0,40),
                 'cost'=>is_numeric($row['usd_cost']??null)?(float)$row['usd_cost']:null,
+                'tokens_input'=>max(0,(int)($tokens['input']??0)),
+                'tokens_cached'=>max(0,(int)($tokens['cached']??0)),
+                'tokens_output'=>max(0,(int)($tokens['output']??0)),
                 'reason'=>mb_substr((string)($body['reason']??''),0,2500),
                 'manufacturer'=>mb_substr((string)($facts['manufacturer']??''),0,180),
                 'title'=>mb_substr((string)($facts['suggestedTitle']??''),0,600),
                 'group'=>mb_substr((string)($body['suggestedWarengruppe']??''),0,150),
             ];
         }
-        $this->archiveState=['ok'=>true,'http'=>$r['http_status']??null,
-            'count'=>count($this->reviews),'more'=>$raw['next_before_id']??null,
-            'message'=>'Vorhandene Berichte ausschließlich aus dem historischen Archiv gelesen.'];
+        $next=$raw['next_before_id']??null;
+        $next=is_numeric($next)&&(int)$next>0?(int)$next:null;
+        $shared=($raw['scope']??'')==='shared_workspace';
+        $this->archiveState=[
+            'ok'=>true,'http'=>$r['http_status']??null,
+            'mode'=>$ean===null?'all':'ean',
+            'scope'=>$shared?'shared_workspace':'legacy_authenticated_actor',
+            'count'=>count($this->reviews),'more'=>$next,
+            'message'=>$shared
+                ?($ean===null
+                    ?'Gemeinsames HW24-KI-Archiv aller berechtigten Benutzer aus der angeschlossenen MariaDB. Früher nicht übernommene Datenbanken sind nicht enthalten.'
+                    :'Gemeinsame gespeicherte KI-Prüfungen zur ausgewählten EAN; unabhängig vom ursprünglichen Bearbeiter.')
+                :($ean===null
+                    ?'Die derzeit verbundene Legacy-API liefert nur die Prüfungen eines technischen Benutzers. Gemeinsame Archivversion noch nicht aktiviert.'
+                    :'KI-Prüfungen für diese EAN sind derzeit auf das verbundene Legacy-Konto beschränkt.'),
+        ];
     }
 
     public function inspectAiBudget(LegacyReadBridge $bridge): void
@@ -316,14 +412,20 @@ final class IntelligenceWorkbench extends Page
             $this->reviewResult=['ok'=>false,'message'=>'Keine Archiv-ID für die kostenpflichtige Neuprüfung gefunden.'];
             return;
         }
+        $name=trim((string)($this->article['name']??''));
+        if($name==='')$name=mb_substr(trim($this->researchName),0,600);
+        if($name===''){
+            $this->reviewResult=['ok'=>false,'message'=>'Bitte zuerst Produktname oder einen belegten Produktnamen eingeben. Keine kostenpflichtige Anfrage ohne Produktkontext.'];
+            return;
+        }
         $payload=[
             'ean'=>$ean,
-            'articleName'=>$this->article['name'],
+            'articleName'=>$name,
             'brand'=>$this->article['brand'],
             'warengruppe'=>$this->article['group'],
             'category'=>'',
             'unit'=>'',
-            'jtl_status'=>'current_snapshot',
+            'jtl_status'=>$this->article['jtl_status']??'unverified',
             'candidates'=>[], // Never auto-assume Amazon EAN/ASIN identity.
         ];
         $headers=$latest?[

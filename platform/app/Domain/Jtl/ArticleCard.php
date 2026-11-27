@@ -48,7 +48,7 @@ final class ArticleCard
             'artikelnummer' => self::text($row['artikelnummer'] ?? null, 100) ?? '',
             'ean' => $ean ?? '',
             'han' => self::text($row['han'] ?? null, 100) ?? '',
-            'artikelname' => self::text($row['artikelname'] ?? null, 300) ?? '',
+            'artikelname' => is_scalar($row['artikelname']??null) ? trim((string)$row['artikelname']) : '',
             'hersteller' => self::text($row['hersteller'] ?? null, 120) ?? '',
             'bestand' => self::decimal($row['bestand'] ?? null),
             'netto_vk' => self::decimal($row['netto_vk'] ?? null),

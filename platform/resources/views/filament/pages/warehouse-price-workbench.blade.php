@@ -65,11 +65,7 @@ html.dark .hw24-warehouse{--edge:#334155;--bg:#182638;--soft:#233249;--ink:#f1f5
      <div class="meta">EAN {{ $product['ean'] ?: 'offen' }} · JTL-Artikel-ID {{ $product['id'] }} · Artikelnummer {{ $product['sku'] ?: 'offen' }}</div>
      <div class="meta">Hersteller {{ $product['brand'] ?: 'offen' }} · Synchronisation {{ $product['sync'] ?: 'unbekannt' }} UTC</div>
     </div>
-    <div>
-     <h4>JTL-Stammbestand</h4>
-     <div class="value">{{ $product['stock']!==null ? number_format((float)$product['stock'],0,',','.') : 'Nicht bestätigt' }}</div>
-     <div class="meta">Gespiegelter Lagerbestand, keine belegte frei verfügbare Menge und kein Lagerplatzbestand.</div>
-    </div>
+
    </div>
   @endif
  </div>
@@ -79,60 +75,7 @@ html.dark .hw24-warehouse{--edge:#334155;--bg:#182638;--soft:#233249;--ink:#f1f5
 <section class="panel full" aria-labelledby="wms-legacy-mirror">
  <div class="panel-head" id="wms-legacy-mirror">02 · Vorhandene JTL-Bestände und WMS-Lagerplätze</div>
  <div class="panel-body">
-  <p class="small">Diese Werte stammen direkt aus den bereits vorhandenen <code>related_sources.bestand</code> und <code>related_sources.wms_lagerplaetze</code> der JTL-Artikelantwort, nicht aus neu berechneten Lagerbewegungen. Null ist ein echter Quellwert.</p>
-  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-top:7px">
-   @foreach([
-    ['Gesamtbestand', $related['stock']['total'] ?? null, 'fLagerbestand'],
-    ['Verfügbar', $related['stock']['available'] ?? null, 'fVerfuegbar'],
-    ['In Aufträgen', $related['stock']['in_orders'] ?? null, 'fInAuftraegen'],
-    ['Im Zulauf', $related['stock']['incoming'] ?? null, 'fZulauf'],
-   ] as [$name,$amount,$source])
-    <div class="price-row" style="display:block">
-     <div class="meta">{{ $name }}</div>
-     <div class="value">{{ $amount!==null ? number_format((float)$amount,0,',','.') : 'Nicht synchronisiert' }}</div>
-     <div class="meta">JTL · {{ $source }}</div>
-    </div>
-   @endforeach
-  </div>
-  <p class="small" style="margin-top:12px">„In Aufträgen“ umfasst nicht automatisch sämtliche Reservierungen. Verfügbar ist der JTL-Originalwert und wird nicht aus Gesamtbestand minus Aufträge geschätzt.</p>
-  @if(($related['wms']['confirmed']??false)===true)
-   <div class="actions">
-    <span class="tag">WMS-Quellspiegel bestätigt</span>
-    <span class="meta">{{ $related['wms']['count']??0 }} Lagerplätze · {{ $related['wms']['positive_bins']??0 }} mit positivem Bestand · {{ $related['wms']['locked_bins']??0 }} gesperrt</span>
-   </div>
-   @if(($related['wms']['truncated']??false)===true)
-    <p role="status" class="note">⚠ Die WMS-Lagerplatzliste ist begrenzt. Nicht als vollständige Inventurliste verwenden.</p>
-   @endif
-   @if(($related['wms']['bins']??[])!==[])
-    <div class="overflow">
-     <table class="list">
-      <thead><tr><th>Warenlager</th><th>WMS-Lagerplatz</th><th>Fachmenge</th><th>Fachstatus</th><th>Letzte Bewegung</th><th>Weitere Quellangaben</th></tr></thead>
-      <tbody>
-       @foreach($related['wms']['bins'] as $i=>$bin)
-        <tr wire:key="legacy-bin-{{ $i }}">
-         <td><strong>{{ $bin['warehouse'] }}</strong><div class="meta">{{ $bin['warehouse_id'] ? 'Lager-ID '.$bin['warehouse_id'] : '' }}</div></td>
-         <td>{{ $bin['bin'] }}<div class="meta">{{ $bin['bin_id'] ? 'Platz-ID '.$bin['bin_id'] : '' }}</div></td>
-         <td><strong>{{ $bin['quantity']!==null ? number_format((float)$bin['quantity'],0,',','.') : 'Nicht belegt' }}</strong></td>
-         <td>
-          @if($bin['locked']||$bin['shipping_locked'])
-           <span class="tag warn">🔒 {{ $bin['locked']?'Fach gesperrt':'Auslieferung gesperrt' }}</span>
-          @else
-           <span class="tag">Keine Sperre gemeldet</span>
-          @endif
-         </td>
-         <td>{{ $bin['last_movement'] ?: 'Nicht im Spiegel belegt' }}<div class="meta">{{ $bin['last_source'] ?: '' }}</div></td>
-         <td><div class="meta">{{ $bin['comment'] ?: '' }}</div><div class="meta">{{ $bin['type_id'] ? 'Platztyp-ID '.$bin['type_id'] : '' }} {{ $bin['status_id'] ? ' · Status-ID '.$bin['status_id'] : '' }}</div></td>
-        </tr>
-       @endforeach
-      </tbody>
-     </table>
-    </div>
-   @else
-    <p class="note">Der bestätigte WMS-Snapshot enthält für diesen Artikel keine zugeordneten Fachpositionen.</p>
-   @endif
-  @else
-   <p role="status" class="note">⚠ WMS-Lagerplatzspiegel zu diesem Artikel nicht bestätigt. Es werden keine Lagerorte oder Fachmengen erfunden. Die bisherige JTL-Synchronisation muss den vorhandenen <code>HW24_RelatedSources.wms_lagerplaetze</code>-Bereich bereitstellen.</p>
-  @endif
+  @include('filament.partials.hub-stock-board',['stockData'=>$articleStock,'showBins'=>true])
  </div>
 </section>
 @endif
