@@ -304,6 +304,16 @@
             <section class="hw24-panel" aria-label="Datenqualität und Pflegevorschläge">
                 <div class="hw24-panel-head"><h3>Datenqualität &amp; Pflegevorschläge</h3></div>
                 <div style="padding:16px;display:grid;gap:12px">
+                    @if(($lookup['jtl_status']??'')==='current_snapshot' && count($lookup['matches']??[])===1)
+                        @php($missingRequired=array_filter(\App\Services\ScanResearch::REQUIRED,fn($f)=>!in_array($fieldReview['fields'][$f]['state']??'unverified',['value','observed_reference'],true)))
+                        @if($missingRequired)
+                            <div role="status" class="hw24-alert">
+                                <strong>Pflichtfelder fehlen oder sind nicht bestätigt: {{ implode(', ',$missingRequired) }}</strong>
+                                @if(empty($lookup['matches'][0]['ean']))<p>Separate GTIN im aktuellen Spiegel nicht belegt. Eine numerische Artikelnummer ist nicht automatisch die GTIN. Produktidentität zuerst prüfen.</p>@endif
+                                @if(empty($lookup['matches'][0]['hersteller']))<p>Hersteller recherchieren und mit vorhandener JTL-Herstellerbezeichnung und ID abgleichen.</p>@endif
+                            </div>
+                        @endif
+                    @endif
                     @if(($fieldReview['ok']??false) && \App\Filament\Pages\QueryAuditWorkbench::canAccess())
                         <section style="border:1px solid #8199b0;border-radius:8px;padding:16px;margin:12px 0">
                             <h3 style="font-size:18px;font-weight:700">Bestandsartikel · Ameise-Aktualisierung</h3>
