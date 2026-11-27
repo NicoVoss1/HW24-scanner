@@ -127,16 +127,8 @@ final class HubBatchPreparation
             !HubManufacturerPolicy::equivalent((string)$draft['Hersteller'],$p['manufacturer']))
             return $out+['reason'=>'Herstellerkonflikt im Entwurf'];
         $add('GTIN',$ean,'Scan');
-        $add('ASIN',$p['asin'],$source);
-        $add('Artikelname',$p['title'],$source);
-        $add('Hersteller',$p['manufacturer'],$source);
+        foreach(HubCatalogFacts::productFields($catalog) as $f=>$fact)$add($f,$fact['value'],$source.$fact['suffix']);
         $attributes=$catalog['attributes'];
-        // Exact distinct part-number value, not a guessed model number.
-        $parts=[];
-        foreach(is_array($attributes['part_number']??null)?$attributes['part_number']:[] as $a){
-            if(is_array($a)&&is_string($a['value']??null)&&trim($a['value'])!==''&&mb_strlen(trim($a['value']))<=140)$parts[trim($a['value'])]=true;
-        }
-        if(count($parts)===1)$add('HAN',(string)array_key_first($parts),$source.' part_number');
         $volume=HubCatalogFacts::volume($p['title'],$attributes,$draft);
         if($volume['state']==='conflict'){
             $out['fields']=[];$out['sources']=[];$out['state']='waiting';
@@ -144,7 +136,6 @@ final class HubBatchPreparation
         }
         foreach($volume['fields'] as $f=>$v)$add($f,$v,$source.' '.$volume['source']);
         $weight=HubCatalogFacts::itemWeight($attributes);
-        foreach($weight['fields'] as $f=>$v)$add($f,$v,$source.' '.$weight['source']);
         if($weight['state']==='conflict')$out['weight_review']='Widersprüchliche Artikelgewichte im Katalog, keine Übernahme.';
         foreach(HubCategoryPolicy::suggest((string)($draft['Artikelname']??''),(string)($draft['Warengruppe']??''))??[] as $f=>$v)
             $add($f,$v,'HW24-Kategorieregel');
