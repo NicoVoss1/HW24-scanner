@@ -28,6 +28,33 @@ final class HubStockReader
         return $out;
     }
 
+    /** Display the validated stock projection, and compare the same snapshot's
+     * independent API projection. Do not silently substitute legacy totals. */
+    public static function workspace(array $read,array $related):array
+    {
+        $item=$read['item']??[];$stock=$related['stock']??[];
+        $out=['ok'=>($read['ok']??false)===true,'at'=>$read['at']??null,'conflicts'=>[],'item'=>[]];
+        foreach(['total'=>'total','available'=>'available','orders'=>'in_orders','incoming'=>'incoming'] as $k=>$other){
+            $v=$out['ok']?self::number($item[$k]??null):null;
+            $raw=($stock['source_confirmed']??false)===true?self::number($stock[$other]??null):null;
+            if($v!==null&&$raw!==null&&$v!==$raw){
+                $out['conflicts'][$k]=['mirror'=>$v,'api'=>$raw];$v=null;
+            }
+            $out['item'][$k]=$v;
+        }
+        $out['wms']=$related['wms']??[];
+        return $out;
+    }
+
+    /** Format decimal quantities without rounding to whole pieces. */
+    public static function display(mixed $v):string
+    {
+        $v=self::number($v);
+        if($v===null)return 'Nicht belegt';
+        $parts=explode('.',$v,2);
+        return preg_replace('/\B(?=(\d{3})+(?!\d))/','.', $parts[0]).(isset($parts[1])?','.$parts[1]:'');
+    }
+
     /** Existing article by exact JTL ID, including articles without GTIN. */
     public function readArticle(string $id,string $snapshot):array
     {
@@ -36,7 +63,10 @@ final class HubStockReader
         $db->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');$db->beginTransaction();
         try{
             $m=$db->query('SELECT source_id,last_completed_utc,last_row_count,age_minutes FROM hw24_hub_mirror_state ORDER BY last_completed_utc DESC LIMIT 1')->fetch(PDO::FETCH_ASSOC);
-            if(!$m||(int)$m['age_minutes']<0||(int)$m['age_minutes']>45||$snapshot!==(string)$m['last_completed_utc'])throw new RuntimeException('Stock snapshot changed');
+            if(!$m||(int)$m['age_minutes']<0||(int)$m['age_minutes']>45||(int)$m['last_row_count']<1||$snapshot!==(string)$m['last_completed_utc'])throw new RuntimeException('Stock snapshot changed');
+            $q=$db->prepare('SELECT COUNT(*) FROM hw24_hub_stock_source WHERE source_id=?');
+            $q->execute([$m['source_id']]);
+            if((int)$q->fetchColumn()!==(int)$m['last_row_count'])throw new RuntimeException('Mirror incomplete');
             $q=$db->prepare('SELECT jtl_article_id,truncated_flag,rows_type,row_count,total_stock,available_stock,in_orders,incoming FROM hw24_hub_stock_source WHERE source_id=? AND jtl_article_id=? LIMIT 2');
             $q->execute([$m['source_id'],$id]);$rows=$q->fetchAll(PDO::FETCH_ASSOC);$db->commit();
             return ['ok'=>count($rows)===1,'at'=>ScanEntryPresentation::germanDate($snapshot),'item'=>self::present($rows)];
