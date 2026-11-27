@@ -36,6 +36,7 @@ class ReferenceTableWorkbench extends Page
     #[Locked] public int $editRevision=0;
     #[Locked] public array $editColumns=[];
     #[Locked] public array $editOptions=[];
+    #[Locked] public array $editCurrent=[];
     #[Locked] public array $editAudit=[];
     public array $editValues=[];
     public string $editMessage='';
@@ -46,7 +47,7 @@ class ReferenceTableWorkbench extends Page
             $db=HubHistoricalEdits::connect();
             $r=HubHistoricalEdits::row($db,$sheet,$row);
             $audit=HubHistoricalEdits::events($db,$sheet,$row);
-            $columns=[];$values=[];$options=[];
+            $columns=[];$values=[];$options=[];$currentValues=[];
             $choices=HubHistoricalEdits::choices($db,$sheet,$row,$r);
             foreach($r['columns'] as $c){
                 $pos=(int)$c['position'];
@@ -54,18 +55,18 @@ class ReferenceTableWorkbench extends Page
                 $key=(string)$pos;$current=(string)($r['values'][$key]??'');
                 $available=$choices[$key]??[];
                 if(!in_array($current,$available,true))continue;
-                $columns[]=$c;$values[$key]=hash('sha256',$current);
-                $options[$key]=array_map(static fn(string $v)=>[
-                    'token'=>hash('sha256',$v),
-                    'label'=>$v===''?'Nicht belegt':(mb_strlen($v)>200?mb_substr($v,0,200).' …':$v),
-                ],$available);
+                $columns[]=$c;$values[$key]='';$currentValues[$key]=$current===''?'Nicht befüllt':$current;
+                $options[$key]=[];
+                foreach($available as $v)if($v!==$current)$options[$key][hash('sha256',$v)]=[
+                    'value'=>$v===''?'Nicht belegt (Wert leeren)':$v,'source'=>'Vorhandener historischer Auswahlwert',
+                ];
             }
             $this->editSheet=$sheet;$this->editRow=$row;$this->editRevision=$r['revision'];
-            $this->editColumns=$columns;$this->editOptions=$options;$this->editValues=$values;$this->editAudit=$audit;$this->editMessage='';
+            $this->editColumns=$columns;$this->editOptions=$options;$this->editValues=$values;$this->editCurrent=$currentValues;$this->editAudit=$audit;$this->editMessage='';
         }catch(\Throwable){$this->editMessage='Zeile konnte nicht sicher geladen werden.';}
     }
     public function cancelEdit():void{
-        $this->reset(['editSheet','editRow','editRevision','editColumns','editOptions','editValues','editAudit','editMessage']);
+        $this->reset(['editSheet','editRow','editRevision','editColumns','editOptions','editValues','editCurrent','editAudit','editMessage']);
     }
     public function saveEdit():void{
         abort_unless(static::canAccess()&&!static::AMEISE,403);
@@ -77,6 +78,8 @@ class ReferenceTableWorkbench extends Page
             $choices=HubHistoricalEdits::choices($db,$this->editSheet,$this->editRow,$r);
             $changes=[];
             foreach($this->editValues as $key=>$token){
+                if($token==='')continue;
+                if(!isset($this->editOptions[$key][$token]))throw new \RuntimeException('Selection not displayed');
                 if(!is_string($token)||!preg_match('/^[a-f0-9]{64}$/D',$token)||!isset($choices[$key]))throw new \RuntimeException('Invalid selection');
                 $matched=false;
                 foreach($choices[$key] as $v)if(hash_equals(hash('sha256',$v),$token)){
