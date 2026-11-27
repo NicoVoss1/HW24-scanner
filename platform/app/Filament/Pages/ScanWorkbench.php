@@ -290,7 +290,7 @@ final class ScanWorkbench extends Page
 
     public function missingDraftFields(): array
     {
-        return array_values(array_filter(ScanResearch::REQUIRED,fn($f)=>trim((string)($this->draftFields[$f]??''))===''));
+        return array_values(array_filter(\App\Services\HubFieldPolicy::required(),fn($f)=>trim((string)($this->draftFields[$f]??''))===''));
     }
 
     public bool $confirmDraft = false;
@@ -776,6 +776,9 @@ final class ScanWorkbench extends Page
             $this->draftMessage='Nur bestätigte Neuanlage-Kandidaten mit Schreibfreigabe und Bestätigung können hier gespeichert werden.';
             return;
         }
+        if($ready&&($missing=\App\Services\HubFieldPolicy::missing(array_replace($this->draftFields,['GTIN'=>$ean])))){
+            $this->draftMessage='Pflichtfelder offen: '.implode(', ',$missing);return;
+        }
         if($ready&&HubCategoryPolicy::conflict((string)($this->draftFields['Artikelname']??''),
             (string)($this->draftFields['Warengruppe']??''),(string)($this->draftFields['Kategorie Ebene 1']??''),
             (string)($this->draftFields['Kategorie Ebene 2']??''))){
@@ -1116,7 +1119,7 @@ final class ScanWorkbench extends Page
             count($raw['fields'])<1 || count($raw['fields'])>200 ||
             count($raw['fields'])!==(int)($raw['count']??-1)) return null;
         foreach($raw['fields'] as $entry) {
-            if (!is_array($entry) || !self::validGtin((string)($entry['GTIN']??'')))return null;
+            if (!is_array($entry) || !self::validGtin((string)($entry['GTIN']??'')) || \App\Services\HubFieldPolicy::missing($entry))return null;
         }
         return $raw['fields'];
     }
@@ -1147,8 +1150,8 @@ final class ScanWorkbench extends Page
         $whitelist=ScanResearch::FIELDS;
         $columns=[];
         foreach ($whitelist as $field) {
-            if($field!=='Artikelnummer'&&!in_array($field,ScanResearch::REQUIRED,true)&&!in_array($field,$this->selectedExportFields,true))continue;
-            if ($field==='Artikelnummer'||in_array($field,ScanResearch::REQUIRED,true)||
+            if($field!=='Artikelnummer'&&!in_array($field,\App\Services\HubFieldPolicy::required(),true)&&!in_array($field,$this->selectedExportFields,true))continue;
+            if ($field==='Artikelnummer'||in_array($field,\App\Services\HubFieldPolicy::required(),true)||
                 array_any($rows,static fn($r) => array_key_exists($field,$r) && trim((string)$r[$field])!=='')) {
                 $columns[]=$field;
             }
