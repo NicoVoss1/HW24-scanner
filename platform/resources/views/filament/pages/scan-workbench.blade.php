@@ -599,12 +599,21 @@
                                 <p>Verpackung: {{ match($candidate['pack_kind']??'unknown'){'single'=>'Einzelpack belegt','multipack'=>($candidate['pack_units']??'?').' Stück pro Pack','conflict'=>'Widersprüchliche Packungsangaben',default=>'Packungsgröße nicht belegt'} }}</p>
                                 @if($candidate['gtin_match'] && ($candidate['pack_kind']??'')!=='conflict')
                                     <button title="Bestätigte Katalogvorschläge in noch leere Entwurffelder übernehmen." type="button" class="hw24-btn" wire:click="useCatalogSuggestion('{{ $candidate['asin'] }}')" wire:confirm="Diesen Produktvorschlag in noch leere Entwurffelder übernehmen?">Vorschlag übernehmen</button>
-                                    <button title="Marktpreise und Buy Box prüfen; eigener Verkaufspreis bleibt unverändert." type="button" class="hw24-btn" wire:click="priceCandidate('{{ $candidate['asin'] }}')" wire:loading.attr="disabled">Buy Box / Marktpreise prüfen</button>
+                                    <button title="Marktpreise und Buy Box prüfen; eigener Verkaufspreis bleibt unverändert." type="button" class="hw24-btn" wire:click="priceCandidate('{{ $candidate['asin'] }}')" wire:loading.attr="disabled">Amazon-Händler &amp; Buy Box</button>
                                 @endif
                             </div>
                         @endforeach
                         @if($evidence['items']===[])<p>Kein nutzbarer Katalogtreffer. Produktname/Hersteller von der Verpackung erfassen und KI-Einzelrecherche nutzen.</p>@endif
                     @endif
+                    <div x-data="{open:false}" x-on:hw24-scan-offers-open.window="open=true" x-on:keydown.escape.window="open=false">
+                        <div x-show="open" x-cloak style="position:fixed;inset:0;z-index:1000;background:#0f172a99;padding:4vh 3vw;overflow:auto" x-on:click.self="open=false">
+                            <section role="dialog" aria-modal="true" aria-label="Amazon-Händlervergleich" class="hw24-grid" style="background:var(--grid-bg);color:var(--grid-text);padding:20px;border-radius:12px">
+                                @include('filament.pages.reference-grid-styles')
+                                <button type="button" class="hw24-btn" x-on:click="open=false">Schließen ×</button>
+                                @include('filament.partials.hub-offer-board',['offers'=>$workingPrice])
+                            </section>
+                        </div>
+                    </div>
                     @if($workingPrice!==[])
                         <p class="hw24-note">ASIN {{ $workingPrice['asin'] }} · {{ $workingPrice['ok']?'Amazon-Angebotsdaten':'Preisabfrage nicht erfolgreich' }} · Stand {{ $workingPrice['at']??'unbekannt' }} UTC
                             @foreach(['buy_box'=>'Buy Box / Marktpreisreferenz','lowest'=>'Niedrigstes Angebot'] as $key=>$label)
