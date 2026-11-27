@@ -23,15 +23,11 @@ final class HubExistingArticleExport
         };
         $p=$catalog['item']??[];
         $identity=($p['gtin_match']??false)===true&&($p['pack_kind']??null)==='single'&&
-            (($article['asin']??'')===''||$article['asin']===$p['asin'])&&
+            (trim((string)($article['asin']??''))===''||$article['asin']===$p['asin'])&&
             !empty($article['hersteller'])&&!empty($p['manufacturer'])&&HubManufacturerPolicy::equivalent($article['hersteller'],$p['manufacturer']);
         if($identity){
             $origin='Amazon-Katalogarchiv #'.($catalog['id']??'?');
-            $add('ASIN',$p['asin']??null,$origin);$add('Artikelname',$p['title']??null,$origin);
-            $parts=[];
-            foreach($catalog['attributes']['part_number']??[] as $a)if(is_string($a['value']??null)&&trim($a['value'])!=='')$parts[trim($a['value'])]=true;
-            if(count($parts)===1)$add('HAN',(string)array_key_first($parts),$origin.' · part_number');
-            foreach(HubCatalogFacts::itemWeight($catalog['attributes']??[])['fields'] as $f=>$v)$add($f,$v,$origin.' · Artikelgewicht');
+            foreach(HubCatalogFacts::productFields($catalog) as $f=>$fact)$add($f,$fact['value'],$origin.$fact['suffix']);
             // No volume/unit partial update without confirmed current paired value.
             if(($ai['state']??null)==='verified_review'&&($ai['content']['state']??null)==='review')
                 foreach($ai['content']['fields']??[] as $f=>$v)$add($f,$v,'KI-Archiv #'.($ai['id']??'?').' · prüfen');
