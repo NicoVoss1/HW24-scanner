@@ -31,4 +31,22 @@ final class HubExistingArticleExportTest extends TestCase
         $this->expectException(\RuntimeException::class);
         E::csv('00123',[],[]);
     }
+    public function test_missing_manufacturer_can_be_repaired_using_shared_reference_not_existing_brand():void
+    {
+        $current=['Hersteller'=>['state'=>'empty_snapshot','value'=>'']];
+        $a=['jtl_article_id'=>'12','hersteller'=>'','asin'=>'B01MZALQW6'];
+        $c=['id'=>3,'item'=>['gtin_match'=>true,'pack_kind'=>'single','asin'=>'B01MZALQW6','manufacturer'=>'Revlon Professional'],'attributes'=>[]];
+        $refs=[['hersteller'=>'Revlon','kHersteller'=>'7']];
+        $options=E::candidates($current,$a,$c,[],[],[],$refs);
+        self::assertSame('Revlon',array_values($options['Hersteller'])[0]['value']);
+        self::assertStringContainsString('ID 7',array_values($options['Hersteller'])[0]['source']);
+        self::assertSame([],E::candidates($current,$a,$c,[],[],[],[]));
+        $ambiguous=[...$refs,['hersteller'=>'Revlon','kHersteller'=>'8']];
+        self::assertSame([],E::candidates($current,$a,$c,[],[],[],$ambiguous));
+        $c['item']['asin']='B000000001';
+        self::assertSame([],E::candidates($current,$a,$c,[],[],[],$refs));
+        $c['item']['asin']='B01MZALQW6';
+        $current['Hersteller']=['state'=>'reference','value'=>'ID 9'];
+        self::assertSame([],E::candidates($current,$a,$c,[],[],[],$refs));
+    }
 }
