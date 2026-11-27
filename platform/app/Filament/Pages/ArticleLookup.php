@@ -136,6 +136,7 @@ final class ArticleLookup extends Page
         if(($response['ok']??false)!==true||($raw['jtl_status']??null)!=='current_snapshot'||
             ($raw['limited']??false)===true||count($raw['matches']??[])!==1)throw new \RuntimeException('Unique current article required');
         $article=ArticleCard::fromMatch($raw['matches'][0]);
+        if((string)($raw['matches'][0]['artikelnummer']??'')!==$number)throw new \RuntimeException('Exact article number required');
         foreach(['jtl_article_id','artikelnummer','ean'] as $f)
             if(($article[$f]??'')===''||$article[$f]!==($identity[$f]??null))throw new \RuntimeException('Identity changed');
         $ean=$article['ean'];ResearchQueue::canonical($ean);
