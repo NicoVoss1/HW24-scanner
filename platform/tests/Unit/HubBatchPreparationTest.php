@@ -46,4 +46,17 @@ final class HubBatchPreparationTest extends TestCase
         $a=$this->archive();$a['item_json']='{}';
         self::assertSame([],P::proposal($this->row(),$this->job(),$a)['fields']);
     }
+    public function test_all_export_fields_are_accounted_for_without_guessing_prices():void
+    {
+        $p=['state'=>'review','draft'=>['GTIN'=>'0615908418057','HAN'=>'000123'],'fields'=>['HAN'=>'000123'],'sources'=>['HAN'=>'Archiv']];
+        $c=\App\Services\HubBatchPreparation::coverage($p,['GTIN'=>'0615908418057']);
+        self::assertCount(41,$c);
+        self::assertSame('reserved',$c['Artikelnummer']['state']);
+        self::assertSame('existing',$c['GTIN']['state']);
+        self::assertSame('proposed',$c['HAN']['state']);
+        self::assertSame('Archiv',$c['HAN']['source']);
+        self::assertSame('missing',$c['Netto-VK']['state']);
+        $p['state']='waiting';
+        self::assertSame('missing',\App\Services\HubBatchPreparation::coverage($p)['HAN']['state']);
+    }
 }
