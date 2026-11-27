@@ -242,6 +242,7 @@ final class ArticleLookup extends Page
             $context=$this->existingUpdateContext($bridge,$mirror,$identity);
             $this->updateOptions=$context['options'];$this->updateReview=$context['current'];
             $this->updateIdentity=$identity;$this->catalogEvidence=$context['catalog'];
+            if($this->catalogEvidence)$this->existingEvidence['amazon']=['verified'=>true,'found'=>true,'snapshot_id'=>$this->catalogEvidence['id'],'at'=>$this->catalogEvidence['at'],'count'=>1];
             if($previous===$identity){
                 foreach($oldSelection as $f=>$token)if(is_string($token)&&isset($oldOptions[$f][$token],$this->updateOptions[$f][$token])&&$oldOptions[$f][$token]===$this->updateOptions[$f][$token])$this->updateSelection[$f]=$token;
                 foreach($oldManual as $f=>$value)if(($oldReview[$f]??null)===($this->updateReview[$f]??null))$this->manualFields[$f]=$value;
@@ -274,15 +275,37 @@ final class ArticleLookup extends Page
         if(count($this->lookup['matches']??[])!==1)return;
         $this->prepareExistingUpdate($bridge,$mirror);
         if(!$this->updateIdentity)return;
+        $directAttempt=false;
         if(!$this->catalogEvidence){
             if($this->verifiedEan()!==null&&config('hw24_research_queue.enabled')===true)$this->queueExistingArticle();
-            elseif($this->researchEan()!==null){$this->readAmazon($bridge);$this->prepareExistingUpdate($bridge,$mirror);}
+            elseif($this->researchEan()!==null){$directAttempt=true;$this->readAmazon($bridge);$this->prepareExistingUpdate($bridge,$mirror);}
         }
         $asin=$this->lookup['matches'][0]['asin']??null;
         if(is_string($asin)&&preg_match('/^[A-Z0-9]{10}$/D',$asin)){
-            try{$old=\App\Services\HubArticleResearchWorkspace::archivedOffers($asin,$bridge);if($old)$this->articleOffers=$old;}catch(\Throwable){}
+            try{
+                $old=\App\Services\HubArticleResearchWorkspace::archivedOffers($asin,$bridge);
+                if($old)$this->articleOffers=$old;
+                elseif(!$directAttempt&&($this->catalogEvidence['item']['asin']??null)===$asin&&$this->amazonRetryAt<=time())$this->articleOffers=\App\Services\HubArticleResearchWorkspace::offers($asin,$bridge);
+            }catch(\Throwable){}
         }
         $this->dispatch('hw24-focus-article-decisions');
+    }
+
+    /** Poll only a pending shared job. No repeated live catalog requests. */
+    public function pollArticleResearch(LegacyReadBridge $bridge,HubArticleMirror $mirror):void
+    {
+        if(!QueryAuditWorkbench::canAccess()||!in_array($this->queueReview['status']??null,['queued','leased','retry'],true))return;
+        $ean=$this->verifiedEan();if($ean===null)return;
+        try{
+            $this->queueReview=ResearchQueueRuntime::queue()->statuses([$ean])[$ean]??[];
+            if(($this->queueReview['status']??null)==='completed'){
+                $this->prepareExistingUpdate($bridge,$mirror);
+                $asin=$this->lookup['matches'][0]['asin']??($this->catalogEvidence['item']['asin']??null);
+                if(is_string($asin)&&preg_match('/^[A-Z0-9]{10}$/D',$asin)){
+                    $old=\App\Services\HubArticleResearchWorkspace::archivedOffers($asin,$bridge);if($old)$this->articleOffers=$old;
+                }
+            }
+        }catch(\Throwable){$this->pflegeMessage='Recherchefortschritt nicht bestätigt.';}
     }
 
     public function mount():void
