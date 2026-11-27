@@ -105,18 +105,17 @@ final class ArticleLookup extends Page
         }
         if (($this->lookup['jtl_status']??'')==='current_snapshot' &&
             count($matches)===1 &&
-            preg_match('/^(?:[0-9]{8}|[0-9]{12}|[0-9]{13}|[0-9]{14})$/D',
-                (string)($matches[0]['ean']??''))) {
+            ($this->verifiedEan()!==null||($matches[0]['ean']??'')==='')) {
             // Only cheap, read-only archival metadata after an explicit user search.
             // No amazon.catalog / amazon.pricing / OpenAI POST is called here.
             $ean=(string)$matches[0]['ean'];
-            $this->readExistingEvidence($bridge,$ean);
+            if($ean!=='')$this->readExistingEvidence($bridge,$ean);
             $this->fieldReview=ScanResearchPresentation::jtlFields($ean,$result,config('hw24_jtl_reference_observations',[]));
             $this->seoSuggestions=HubSeoDefaults::propose(['Artikelname'=>$raw['matches'][0]['artikelname']??'',
                 'Titel-Tag (SEO)'=>$raw['matches'][0]['seo_titel']??'',
                 'Meta-Description (SEO)'=>$raw['matches'][0]['seo_beschreibung']??'']);
             $this->categoryProposal=HubCategoryPolicy::suggest((string)($raw['matches'][0]['artikelname']??''),(string)($raw['matches'][0]['warengruppe_name']??''))??[];
-            if(config('hw24_research_queue.enabled')===true){
+            if($ean!==''&&config('hw24_research_queue.enabled')===true){
                 try{$this->queueReview=ResearchQueueRuntime::queue()->statuses([$ean])[$ean]??[];
                     $this->readSharedResearch($ean);
                 }catch(\Throwable){}
@@ -145,12 +144,12 @@ final class ArticleLookup extends Page
         $article=ArticleCard::fromMatch($raw['matches'][0]);
         if((string)($raw['matches'][0]['artikelnummer']??'')!==$number)throw new \RuntimeException('Exact article number required');
         foreach(['jtl_article_id','artikelnummer','ean'] as $f)
-            if(($article[$f]??'')===''||$article[$f]!==($identity[$f]??null))throw new \RuntimeException('Identity changed');
-        $ean=$article['ean'];ResearchQueue::canonical($ean);
+            if(($f!=='ean'&&($article[$f]??'')==='')||$article[$f]!==($identity[$f]??null))throw new \RuntimeException('Identity changed');
+        $ean=$article['ean'];if($ean!=='')ResearchQueue::canonical($ean);
         $review=ScanResearchPresentation::jtlFields($ean,$response,config('hw24_jtl_reference_observations',[]));
         if(($review['ok']??false)!==true)throw new \RuntimeException('Field source unavailable');
         $catalog=[];$ai=[];
-        if(config('hw24_research_queue.enabled')===true){
+        if($ean!==''&&config('hw24_research_queue.enabled')===true){
             try{
                 $job=ResearchQueueRuntime::queue()->statuses([$ean])[$ean]??[];
                 $archive=HubResearchEvidence::archivedCatalog(HubPeerMirror::connect(),$job);
@@ -160,8 +159,14 @@ final class ArticleLookup extends Page
         }
         if($this->articleCatalog){
             try{
-                $direct=HubResearchEvidence::directCatalog($ean,$this->articleCatalog,HubPeerMirror::connect());
-                if($direct!==null){$catalog=$direct;$ai=app(HubAiEvidence::class)->read($ean,$catalog);}
+                $searchEan=$ean!==''?$ean:$number;
+                ResearchQueue::canonical($searchEan);
+                $direct=HubResearchEvidence::directCatalog($searchEan,$this->articleCatalog,HubPeerMirror::connect());
+                if($direct!==null&&($ean!==''||(!empty($article['asin'])&&$article['asin']===$direct['item']['asin']))){
+                    $catalog=$direct;
+                    if($ean==='')$catalog['verified_missing_gtin']=$searchEan;
+                    $ai=app(HubAiEvidence::class)->read($searchEan,$catalog);
+                }
             }catch(\Throwable){}
         }
         $seo=HubSeoDefaults::propose(['Artikelname'=>$raw['matches'][0]['artikelname']??'',
@@ -171,7 +176,7 @@ final class ArticleLookup extends Page
             $manufacturers=\App\Services\HubManufacturerPolicy::currentReferences(HubPeerMirror::connect(),(string)($raw['snapshot_at']??''));
         }catch(\Throwable){}
         $options=\App\Services\HubExistingArticleExport::candidates($review['fields'],$article,$catalog,$ai,
-            \App\Services\HubReferenceEvidence::lookup($ean),$seo,$manufacturers);
+            ($ean!==''||isset($catalog['verified_missing_gtin']))?\App\Services\HubReferenceEvidence::lookup($ean!==''?$ean:$catalog['verified_missing_gtin']):[],$seo,$manufacturers);
         return ['options'=>$options,'current'=>$review['fields']];
     }
 
@@ -401,7 +406,7 @@ final class ArticleLookup extends Page
     }
     public function readAmazon(LegacyReadBridge $bridge): void
     {
-        $ean = $this->verifiedEan();
+        $ean = $this->researchEan();
         if ($ean === null) return;
 
         // A live Amazon SP-API lookup is ONLY invoked when the operator clicks.
@@ -437,10 +442,19 @@ final class ArticleLookup extends Page
         ];
     }
 
+    public function researchEan():?string
+    {
+        if(($ean=$this->verifiedEan())!==null)return $ean;
+        if(($this->lookup['jtl_status']??null)!=='current_snapshot'||count($this->lookup['matches']??[])!==1)return null;
+        $a=$this->lookup['matches'][0];$hint=$a['artikelnummer']??'';
+        if(($a['ean']??'')!==''||empty($a['asin']))return null;
+        try{ResearchQueue::canonical($hint);return $hint;}catch(\Throwable){return null;}
+    }
     public function verifiedEan(): ?string
     {
-        $ean = $this->lookup['ean'] ?? null;
-        return is_string($ean) && preg_match('/^(?:[0-9]{8}|[0-9]{12}|[0-9]{13}|[0-9]{14})$/D', $ean)
-            ? $ean : null;
+        if(($this->lookup['jtl_status']??null)!=='current_snapshot'||count($this->lookup['matches']??[])!==1)return null;
+        $ean=$this->lookup['ean']??null;
+        if(!is_string($ean))return null;
+        try{ResearchQueue::canonical($ean);return $ean;}catch(\Throwable){return null;}
     }
 }
