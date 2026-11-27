@@ -191,6 +191,13 @@
               <span class="hw24-chip">Nur bereits vorhandene Quellen · keine neue KI</span>
              </div>
              <div class="hw24-panel-body">
+              @if(\App\Filament\Pages\QueryAuditWorkbench::canAccess() && ($fieldReview['ok']??false))
+                  <div class="hw24-toolbar" style="margin-bottom:14px">
+                      <x-filament::button wire:click="researchAll" wire:loading.attr="disabled">Alle Daten recherchieren &amp; aufbereiten</x-filament::button>
+                      <x-filament::button color="gray" wire:click="showArticleOffers" wire:loading.attr="disabled">Amazon-Händler &amp; Buy Box</x-filament::button>
+                      <a class="hw24-link" href="#hw24-update-editor">Pflichtfelder direkt bearbeiten</a>
+                  </div>
+              @endif
               @include('filament.partials.hub-stock-board',['stockData'=>$articleStock,'showBins'=>true])
               <div class="hw24-price-grid">
                <div class="hw24-price-box">
@@ -282,9 +289,9 @@
                                     <strong>{{ $item['netto_vk'] !== null ? number_format((float) $item['netto_vk'], 2, ',', '.') : 'Nicht belegt' }}</strong>
                                 </div>
                                 <div class="hw24-price-box">
-                                    <small>VK brutto (JTL)</small>
-                                    <strong>{{ $item['brutto_vk'] !== null ? number_format((float) $item['brutto_vk'], 2, ',', '.') : 'Nicht bestätigt' }}</strong>
-                                    <p>{{ $item['brutto_vk'] !== null ? 'Quelle: ' . $item['brutto_vk_source'] : 'Gesicherte Steuer-/Preisquelle fehlt' }}</p>
+                                    <small>VK brutto · JTL / Berechnung</small>
+                                    <strong>{{ $item['brutto_vk'] !== null ? number_format((float) $item['brutto_vk'], 2, ',', '.') : ($fieldReview['gross_calculation']['value']??'Nicht bestätigt') }}</strong>
+                                    <p>{{ $item['brutto_vk'] !== null ? 'Quelle: ' . $item['brutto_vk_source'] : (isset($fieldReview['gross_calculation'])?'Berechnet · '.$fieldReview['gross_calculation']['rate'].' % · kein JTL-Originalpreis':'Gesicherte Steuer-/Preisquelle fehlt') }}</p>
                                 </div>
                                 <div class="hw24-price-box">
                                     <small>Währung</small>
@@ -313,6 +320,9 @@
                     </div>
                     @if($pflegeMessage!=='')<p role="status">{{ $pflegeMessage }}</p>@endif
                     @if($this->verifiedEan()===null && $this->researchEan()!==null)<p>GTIN fehlt. Amazon-Suche nutzt die prüfziffergültige Artikelnummer lediglich als Suchhinweis. Übernahme nur bei bestätigtem GTIN- und ASIN-Treffer.</p>@endif
+                    @if($articleOffers['ok']??false)
+                        <details open><summary>Amazon-Händler &amp; Buy Box · vorhandene Angebote</summary>@include('filament.partials.hub-offer-board',['offers'=>$articleOffers])</details>
+                    @endif
                     @if($articleCatalog)
                         <details open><summary>Amazon-Katalog · {{ count($articleCatalog['items']??[]) }} angezeigte Treffer</summary>
                             @foreach($articleCatalog['items']??[] as $candidate)
@@ -357,31 +367,35 @@
                         @endif
                     @endif
                     @if(($fieldReview['ok']??false) && \App\Filament\Pages\QueryAuditWorkbench::canAccess())
-                        <section style="border:1px solid #8199b0;border-radius:8px;padding:16px;margin:12px 0">
+                        <section id="hw24-update-editor" x-data x-on:hw24-focus-article-decisions.window="$el.scrollIntoView({behavior: 'smooth', block: 'start'})" style="border:1px solid #8199b0;border-radius:8px;padding:16px;margin:12px 0;scroll-margin-top:70px">
                             <h3 style="font-size:18px;font-weight:700">Bestandsartikel · Ameise-Aktualisierung</h3>
-                            <p>Belegte Ergänzungen und überprüfbare Textkorrekturen. Änderungen vorhandener Texte ausdrücklich einzeln auswählen; kein direkter JTL-Import.</p>
+                            <p>Alle Felder an einem Ort. Übernehmen per Auswahl oder manuelle Eingabe. Nicht bestätigte Istwerte bleiben gekennzeichnet; Änderungen müssen vor dem Export geprüft werden. Keine direkte JTL-Änderung.</p>
                             <div style="display:flex;flex-wrap:wrap;gap:10px;margin:10px 0">
-                                <x-filament::button wire:click="prepareExistingUpdate" wire:loading.attr="disabled">Recherchewerte aufbereiten</x-filament::button>
+                                <x-filament::button wire:click="researchAll" wire:loading.attr="disabled">Alle Daten recherchieren &amp; aufbereiten</x-filament::button>
+                                <x-filament::button color="gray" wire:click="prepareExistingUpdate" wire:loading.attr="disabled">Gespeicherte Quellen neu aufbereiten</x-filament::button>
                                 @if($updateOptions)<x-filament::button color="gray" wire:click="selectUniqueUpdates" wire:loading.attr="disabled">Alle eindeutigen Vorschläge auswählen</x-filament::button>@endif
                             </div>
                             @if($updateMessage!=='')<p role="status">{{ $updateMessage }}</p>@endif
+                            @if($catalogEvidence)
+                                <p><strong>Amazon-Katalogarchiv #{{ $catalogEvidence['id'] }}</strong> · {{ $catalogEvidence['at'] }} · {{ $catalogEvidence['item']['title'] }} · {{ $catalogEvidence['item']['asin'] }}</p>
+                                <details><summary>Geprüfte Amazon-Produktdaten</summary>@foreach($catalogEvidence['facts'] as $label=>$fact)<p>{{ $label }}: {{ $fact['value'] }}</p>@endforeach</details>
+                            @endif
                             @if($updateReview)
                                 @php
                                     $qualityRows=\App\Services\HubFieldPolicy::review($updateReview,$updateOptions);
+                                    $required=\App\Services\HubFieldPolicy::required();
+                                    $ordered=array_merge($required,array_diff(\App\Services\ScanResearch::FIELDS,$required));
+                                    $allOptions=[];$states=[];
+                                    foreach($ordered as $f){
+                                        $allOptions[$f]=$updateOptions[$f]??[];
+                                        $states[$f]=match($qualityRows[$f]['state']){'value','observed_reference'=>'Vorhanden','calculated'=>'Berechneter Wert · kein JTL-Original','empty_snapshot'=>'Noch keine belegte Ergänzung','reference'=>'Klartext prüfen',default=>'Quelle / Zuordnung offen'}.' · '.$qualityRows[$f]['source'];
+                                    }
                                 @endphp
-                                <details open><summary>Alle {{ count($qualityRows) }} Zielfelder · Pflichtfeldprüfung und Rechercheabdeckung</summary>
-                                    <div class="hw24-table-wrap"><table class="hw24-result-table"><thead><tr><th>Feld</th><th>Aktuell</th><th>Recherche / Status</th></tr></thead><tbody>
-                                    @foreach($qualityRows as $f=>$quality)
-                                        <tr><td>{{ $f }} @if($quality['required']) <strong>· Pflicht</strong>@endif</td><td style="overflow-wrap:anywhere;max-width:500px">{{ mb_strimwidth((string)$quality['value'],0,180,' …')?:'Nicht belegt' }}</td><td>{{ $quality['candidates']?$quality['candidates'].' Vorschlag/Vorschläge':match($quality['state']){'value','observed_reference'=>'Vorhanden','empty_snapshot'=>'Noch keine belegte Ergänzung','reference'=>'Klartext fehlt',default=>'Zuordnung / Quelle offen'} }} · {{ $quality['source'] }}</td></tr>
-                                    @endforeach
-                                    </tbody></table></div>
-                                </details>
-                            @endif
-                            @if($updateOptions)
-                                <p>Artikelnummer {{ $updateIdentity['artikelnummer'] }} · EAN {{ $updateIdentity['ean'] }}</p>
+                                <p><strong>{{ count($required) }} Pflichtfelder · {{ count($qualityRows) }} Zielfelder</strong> · Pflichtfelder zuerst. Änderungen werden erst mit dem Export freigegeben. Bei manueller Eingabe die Rechercheauswahl desselben Feldes auf Nein lassen.</p>
                                 @include('filament.partials.hub-field-decisions',[
-                                    'decisionOptions'=>$updateOptions,'decisionModel'=>'updateSelection','decisionKey'=>'existing-update',
-                                    'decisionCurrent'=>array_map(fn($v)=>$v['value']!==''?$v['value']:'Nicht befüllt',$fieldReview['fields']??[]),
+                                    'decisionOptions'=>$allOptions,'decisionModel'=>'updateSelection','decisionKey'=>'existing-update',
+                                    'decisionCurrent'=>array_map(fn($v)=>$v['value']!==''?$v['value']:'Nicht befüllt',$updateReview),
+                                    'decisionRequired'=>$required,'decisionStates'=>$states,'decisionManualModel'=>'manualFields',
                                 ])
                                 <x-filament::button color="gray" wire:click="clearExistingSelections">Alle Entscheidungen zurücksetzen</x-filament::button>
                                 <label style="display:flex;gap:8px;align-items:center;margin:12px 0"><input type="checkbox" wire:model.live="confirmUpdateExport"> Ich habe die ausgewählten Werte geprüft und importiere ausschließlich als Aktualisierung vorhandener Artikel.</label>
@@ -578,6 +592,7 @@
                             <span>Quelle: {{ $amazon['source'] ?? 'unbekannt' }}</span>
                             <span>Treffer: {{ $amazon['count'] ?? 'unbekannt' }}</span>
                         </div>
+                        @if(($amazon['retry_after_seconds']??0)>0)<p class="hw24-alert">Amazon pausiert · nächste manuelle Anfrage frühestens nach {{ $amazon['retry_after_seconds'] }} Sekunden. Gespeicherte Ergebnisse weiterverwenden.</p>@endif
                         @if($amazon['error'] !== '')<p class="hw24-alert">{{ $amazon['error'] }} ({{ $amazon['stage'] }})</p>@endif
                     @endif
                 </div>
