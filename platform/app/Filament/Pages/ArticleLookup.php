@@ -419,7 +419,20 @@ final class ArticleLookup extends Page
         abort_unless(QueryAuditWorkbench::canAccess(),403);
         $confirmed=$this->confirmArticleAi;$this->confirmArticleAi=false;$ean=$this->verifiedEan();
         if(!$confirmed||$ean===null||count($this->lookup['matches']??[])!==1){$this->manualAiResult=['ok'=>false,'message'=>'Eindeutiger Artikel und Kostenfreigabe erforderlich.'];return;}
-        try{$this->manualAiResult=\App\Services\HubArticleResearchWorkspace::aiOnce($ean,$this->lookup['matches'][0],$read,$write,$web);}
+        try{
+            $catalog=[];
+            if(!$web){
+                try{
+                    $db=HubPeerMirror::connect();
+                    $catalog=HubResearchEvidence::directCatalog($ean,$this->articleCatalog,$db)??[];
+                    if(!$catalog&&config('hw24_research_queue.enabled')===true){
+                        $job=ResearchQueueRuntime::queue()->statuses([$ean])[$ean]??[];
+                        $catalog=HubResearchEvidence::catalogItem($ean,$job,HubResearchEvidence::archivedCatalog($db,$job))??[];
+                    }
+                }catch(\Throwable){}
+            }
+            $this->manualAiResult=\App\Services\HubArticleResearchWorkspace::aiOnce($ean,$this->lookup['matches'][0],$read,$write,$web,$catalog);
+        }
         catch(\Throwable){$this->manualAiResult=['ok'=>false,'message'=>'KI-Auftrag nicht bestätigt; nicht ungeprüft wiederholen.'];}
         $this->readAiArchive($read);
     }
