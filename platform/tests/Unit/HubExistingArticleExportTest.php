@@ -5,7 +5,7 @@ use App\Services\HubExistingArticleExport as E;
 use PHPUnit\Framework\TestCase;
 final class HubExistingArticleExportTest extends TestCase
 {
-    public function test_only_empty_fields_and_same_article_references_are_exportable():void
+    public function test_explicit_text_corrections_and_same_article_references_are_exportable():void
     {
         $current=['HAN'=>['state'=>'empty_snapshot','value'=>''],'Beschreibung'=>['state'=>'value','value'=>'Eigener Text'],
             'Kurzbeschreibung'=>['state'=>'empty_snapshot','value'=>''],'ASIN'=>['state'=>'missing_source','value'=>'']];
@@ -16,7 +16,9 @@ final class HubExistingArticleExportTest extends TestCase
         ]]];
         $options=E::candidates($current,$a,[],[],$refs,[]);
         self::assertCount(1,$options['HAN']);
-        self::assertArrayNotHasKey('Beschreibung',$options);
+        self::assertTrue(array_values($options['Beschreibung'])[0]['replacement']);
+        self::assertSame('Eigener Text',array_values($options['Beschreibung'])[0]['old']);
+        self::assertArrayNotHasKey('Beschreibung',\App\Services\HubFieldDecisions::unique($options));
         self::assertArrayNotHasKey('ASIN',$options);
         $csv=E::csv('00123',['HAN'=>array_key_first($options['HAN'])],$options);
         self::assertSame("\xEF\xBB\xBF\"Artikelnummer\";\"HAN\"\r\n\"00123\";\"000123\"\r\n",$csv);
