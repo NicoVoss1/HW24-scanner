@@ -27,6 +27,8 @@ final class ArticleLookup extends Page
     protected string $view = 'filament.pages.article-lookup';
 
     public string $identifier = '';
+    #[Locked] public array $nameMatches=[];
+    public string $nameSearchMessage='';
     #[Locked] public array $articleStock=[];
     #[Locked] public array $articleOffers=[];
     #[Locked] public array $manualAiResult=[];
@@ -74,6 +76,23 @@ final class ArticleLookup extends Page
 
     public string $sourceQuery = '';
 
+    public function searchNameOrAsin(HubArticleMirror $mirror):void
+    {
+        abort_unless(QueryAuditWorkbench::canAccess(),403);
+        $this->nameMatches=[];$this->nameSearchMessage='';$this->resetErrorBag('identifier');
+        try{
+            $r=$mirror->searchCandidates($this->identifier);
+            $this->nameMatches=$r['rows'];$this->nameSearchMessage=count($this->nameMatches).' Treffer'.($r['limited']?' · bitte Suche eingrenzen':'');
+        }catch(\Throwable){$this->nameSearchMessage='Namens-/ASIN-Suche nicht bestätigt. Spiegel prüfen.';}
+    }
+    public function loadNameMatch(int $index,LegacyReadBridge $bridge,HubArticleMirror $mirror):void
+    {
+        abort_unless(QueryAuditWorkbench::canAccess(),403);
+        $number=$this->nameMatches[$index]['artikelnummer']??null;
+        if(!is_string($number)||$number==='')return;
+        $this->identifier=$number;$this->nameMatches=[];$this->nameSearchMessage='';
+        $this->findArticle($bridge,$mirror);
+    }
     public function findArticle(LegacyReadBridge $bridge,HubArticleMirror $mirror): void
     {
         $this->reset(['lookup', 'amazon', 'ai','articleStock','articleOffers','manualAiResult','confirmArticleAi','articleCatalog', 'sourceState', 'sourceRows', 'sourceNextOffset', 'sourceQuery', 'existingEvidence', 'articleRelated','fieldReview','referenceReview','referenceEan','seoSuggestions','peerReview','queueReview','sharedResearchReview','categoryProposal','pflegeMessage','updateOptions','updateIdentity','updateReview','updateSelection','confirmUpdateExport','updateMessage']);
