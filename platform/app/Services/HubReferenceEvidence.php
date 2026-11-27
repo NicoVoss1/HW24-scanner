@@ -35,6 +35,29 @@ final class HubReferenceEvidence
         return $out;
     }
 
+    /** Exact internal ID plus article number: works even if the archived GTIN is empty. */
+    public static function existingArticleRows(string $id,string $number):array
+    {
+        if(!ctype_digit($id)||(int)$id<1||$number==='')return [];
+        try{
+            $db=self::open('ameise');if(!$db)return [];
+            $meta=$db->query('SELECT id FROM ameise_exports ORDER BY export_date DESC,id DESC LIMIT 1')->fetch(PDO::FETCH_ASSOC);
+            if(!$meta)return [];
+            $q=$db->prepare('SELECT row_number,values_json FROM ameise_rows WHERE export_id=? AND article_id=? AND article_number=? LIMIT 51');
+            $q->execute([$meta['id'],$id,$number]);$rows=$q->fetchAll(PDO::FETCH_ASSOC);
+            if(count($rows)>50)return [];
+            $q=$db->prepare('SELECT position,name FROM ameise_columns WHERE export_id=?');$q->execute([$meta['id']]);
+            $cols=$q->fetchAll(PDO::FETCH_ASSOC);$counts=array_count_values(array_column($cols,'name'));$out=[];
+            foreach($rows as $r){
+                $raw=json_decode($r['values_json'],true,32,JSON_THROW_ON_ERROR);$fields=[];
+                foreach($cols as $c)if(($counts[$c['name']]??0)===1&&in_array($c['name'],ScanResearch::FIELDS,true)&&is_string($raw[(string)$c['position']]??null)&&trim($raw[(string)$c['position']])!=='')
+                    $fields[$c['name']]=$raw[(string)$c['position']];
+                $out[]=['row'=>(int)$r['row_number'],'article_id'=>$id,'fields'=>$fields];
+            }
+            return $out;
+        }catch(\Throwable){return [];}
+    }
+
     public static function read(PDO $db,string $source,string $ean): array
     {
         $canonical=ResearchQueue::canonical($ean);$key=ltrim($canonical,'0');
