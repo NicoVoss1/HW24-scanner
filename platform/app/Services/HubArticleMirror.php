@@ -13,6 +13,17 @@ final class HubArticleMirror
         if(!$m||(int)$m['age_minutes']<0||(int)$m['age_minutes']>45)throw new RuntimeException('Mirror stale');
         return $m;
     }
+    /** Read-only name/ASIN selection; load a chosen article through exact JTL lookup. */
+    public function searchCandidates(string $query):array
+    {
+        $query=trim($query);
+        if(mb_strlen($query)<3||mb_strlen($query)>100||preg_match('/[\x00-\x1f\x7f]/u',$query))throw new RuntimeException('Invalid search');
+        $db=HubPeerMirror::connect();$m=self::meta($db);
+        $like='%'.str_replace(['=','%','_'],['==','=%','=_'],$query).'%';
+        $q=$db->prepare("SELECT d.artikelnummer,d.artikelname,d.ean,d.hersteller,x.asin FROM hw24_hub_article_details d JOIN hw24_hub_history_extended x ON x.source_id=d.source_id AND x.jtl_article_id=d.jtl_article_id WHERE d.source_id=? AND (x.asin=? OR d.artikelname LIKE ? ESCAPE '=') ORDER BY d.artikelname,d.jtl_article_id LIMIT 21");
+        $q->execute([$m['source_id'],strtoupper($query),$like]);$rows=$q->fetchAll(PDO::FETCH_ASSOC);
+        return ['rows'=>array_slice($rows,0,20),'limited'=>count($rows)>20];
+    }
     public function enrich(array $response): array
     {
         $raw=$response['data']??[];
