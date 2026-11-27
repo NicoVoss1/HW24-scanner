@@ -59,4 +59,15 @@ final class HubBatchPreparationTest extends TestCase
         $p['state']='waiting';
         self::assertSame('missing',\App\Services\HubBatchPreparation::coverage($p)['HAN']['state']);
     }
+    public function test_new_article_uses_same_actual_manufacturer_reference_and_keeps_unresolved_required():void
+    {
+        $p=['state'=>'missing','fields'=>['Hersteller'=>'Revlon Professional'],'sources'=>['Hersteller'=>'Amazon'],
+            'draft'=>['Hersteller'=>'Revlon Professional'],'missing'=>[]];
+        $found=P::confirmManufacturer($p,[],[['hersteller'=>'Revlon','kHersteller'=>'7']]);
+        self::assertSame('Revlon',$found['fields']['Hersteller']);
+        self::assertStringContainsString('ID 7',$found['sources']['Hersteller']);
+        $missing=P::confirmManufacturer($p,[],[]);
+        self::assertArrayNotHasKey('Hersteller',$missing['fields']);
+        self::assertContains('Hersteller',$missing['missing']);
+    }
 }
