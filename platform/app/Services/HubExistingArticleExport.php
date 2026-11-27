@@ -60,12 +60,11 @@ final class HubExistingArticleExport
     public static function csv(string $number,array $selected,array $options):string
     {
         if(trim($number)===''||count($selected)>count(self::FIELDS))throw new \RuntimeException('Invalid article update');
+        $patch=HubFieldDecisions::resolve($options,$selected);
         $headers=['Artikelnummer'];$values=[$number];
         foreach(self::FIELDS as $f){
-            if(!isset($selected[$f])||$selected[$f]==='')continue;
-            $token=$selected[$f];
-            if(!is_string($token)||!isset($options[$f][$token]))throw new \RuntimeException('Unknown selection');
-            $v=$options[$f][$token]['value'];
+            if(!isset($patch['fields'][$f]))continue;
+            $v=$patch['fields'][$f];
             if(!is_string($v)||trim($v)==='')throw new \RuntimeException('Empty update');
             $headers[]=$f;$values[]=$v;
         }
