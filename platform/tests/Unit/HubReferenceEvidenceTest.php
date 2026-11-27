@@ -17,12 +17,16 @@ final class HubReferenceEvidenceTest extends TestCase
         $db=new PDO('sqlite::memory:',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
         $db->exec("CREATE TABLE workbook_sheets(id INTEGER,name TEXT,workbook_id INTEGER);
             INSERT INTO workbook_sheets VALUES(1,'JTL-Import aus AB 1Produkte_ALL',1);
+            CREATE TABLE workbook_columns(sheet_id INTEGER,position INTEGER,name TEXT);
+            INSERT INTO workbook_columns VALUES(1,20,'Herkunftsland'),(1,21,'Warengruppe'),(1,22,'Warengruppe');
             CREATE TABLE workbook_rows(sheet_id INTEGER,row_number INTEGER,values_json TEXT)");
         $q=$db->prepare('INSERT INTO workbook_rows VALUES(1,?,?)');
-        $q->execute([5,json_encode(['4'=>'615908418057','5'=>'0615908418057','56'=>'000123','8'=>'Test','49'=>'Goldwell'])]);
+        $q->execute([5,json_encode(['4'=>'615908418057','5'=>'0615908418057','56'=>'000123','8'=>'Test','49'=>'Goldwell','20'=>'DE','21'=>'Falsch','22'=>'Andere'])]);
         $r=R::read($db,'historical','0615908418057');
         self::assertSame('found',$r['state']);
         self::assertSame('000123',$r['rows'][0]['fields']['HAN']);
+        self::assertSame('DE',$r['rows'][0]['fields']['Herkunftsland']);
+        self::assertArrayNotHasKey('Warengruppe',$r['rows'][0]['fields']);
         $q->execute([6,json_encode(['4'=>'4021609029274','5'=>'0615908418057'])]);
         self::assertSame('ambiguous',R::read($db,'historical','0615908418057')['state']);
     }
