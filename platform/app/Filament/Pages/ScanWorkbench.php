@@ -762,7 +762,11 @@ final class ScanWorkbench extends Page
         if($ean===null||$this->rowFor($ean)===null)return;
         foreach($this->researchResults[$ean]['items']??[] as $candidate){
             if($candidate['asin']===$asin&&$candidate['gtin_match']&&($candidate['pack_kind']??'')!=='conflict'){
-                $this->workingPrice=ScanResearch::pricing($asin,$bridge);
+                try{
+                    $board=\App\Services\HubArticleResearchWorkspace::offers($asin,$bridge);
+                    $this->workingPrice=$board+['asin'=>$asin,'buy_box'=>null,'lowest'=>$board['lowest_summary']??$board['lowest_visible']??null,'at'=>$board['retrieved_at']??null];
+                }catch(\Throwable){$this->workingPrice=['ok'=>false,'asin'=>$asin,'buy_box'=>null,'lowest'=>null,'at'=>null];}
+                $this->dispatch('hw24-scan-offers-open');
                 return;
             }
         }
