@@ -7,7 +7,7 @@ use RuntimeException;
 /** One persisted workspace policy. Existing core requirements cannot be removed. */
 final class HubFieldPolicy
 {
-    private static function path():string {return storage_path('app/private/hw24-field-policy.json');}
+    private static function path():string {return storage_path('app/hw24-field-policy.json');}
     public static function normalize(array $fields):array
     {
         foreach($fields as $f)if(!is_string($f)||$f==='Artikelnummer'||!in_array($f,ScanResearch::FIELDS,true))throw new RuntimeException('Unsupported required field');
@@ -24,7 +24,10 @@ final class HubFieldPolicy
         if(!is_array($p)||!is_int($p['revision']??null)||$p['revision']<1||!is_array($p['required']??null))throw new RuntimeException('Invalid field policy');
         $p['required']=self::normalize($p['required']);return $p;
     }
-    public static function required():array{return self::read()['required'];}
+    public static function required():array{
+        if(!\Illuminate\Container\Container::getInstance()->bound('path.storage'))return self::normalize([]);
+        return self::read()['required'];
+    }
     public static function save(array $fields,int $expected,string $actor,?string $path=null):array
     {
         $fields=self::normalize($fields);$path??=self::path();$dir=dirname($path);
