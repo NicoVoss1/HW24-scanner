@@ -304,6 +304,35 @@
             <section class="hw24-panel" aria-label="Datenqualität und Pflegevorschläge">
                 <div class="hw24-panel-head"><h3>Datenqualität &amp; Pflegevorschläge</h3></div>
                 <div style="padding:16px;display:grid;gap:12px">
+                    @if(($fieldReview['ok']??false) && \App\Filament\Pages\QueryAuditWorkbench::canAccess())
+                        <section style="border:1px solid #8199b0;border-radius:8px;padding:16px;margin:12px 0">
+                            <h3 style="font-size:18px;font-weight:700">Bestandsartikel · Ameise-Aktualisierung</h3>
+                            <p>Nur belegte Vorschläge für derzeit leere Spiegelfelder. Keine Neuanlage, kein direkter JTL-Import. Vorhandene Werte bleiben erhalten.</p>
+                            <div style="display:flex;flex-wrap:wrap;gap:10px;margin:10px 0">
+                                <x-filament::button wire:click="prepareExistingUpdate" wire:loading.attr="disabled">Recherchewerte zur Übernahme laden</x-filament::button>
+                                @if($updateOptions)<x-filament::button color="gray" wire:click="selectUniqueUpdates" wire:loading.attr="disabled">Alle eindeutigen Vorschläge auswählen</x-filament::button>@endif
+                            </div>
+                            @if($updateMessage!=='')<p role="status">{{ $updateMessage }}</p>@endif
+                            @if($updateOptions)
+                                <p>Artikelnummer {{ $updateIdentity['artikelnummer'] }} · EAN {{ $updateIdentity['ean'] }}</p>
+                                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:16px;margin:12px 0">
+                                    @foreach($updateOptions as $field=>$options)
+                                        <label style="display:block;font-weight:600">{{ $field }}
+                                            <select style="display:block;width:100%;margin-top:5px;border:1px solid #8199b0;border-radius:7px" wire:model.live="updateSelection.{{ $field }}">
+                                                <option value="">Nicht ändern</option>
+                                                @foreach($options as $token=>$option)<option value="{{ $token }}">{{ mb_strimwidth($option['value'],0,180,' …') }} · {{ $option['source'] }}</option>@endforeach
+                                            </select>
+                                            @if(isset($options[$updateSelection[$field]??'']))
+                                                <div style="font-size:13px;font-weight:400;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:8px">{{ $options[$updateSelection[$field]]['value'] }}</div>
+                                            @endif
+                                        </label>
+                                    @endforeach
+                                </div>
+                                <label style="display:flex;gap:8px;align-items:center;margin:12px 0"><input type="checkbox" wire:model.live="confirmUpdateExport"> Ich habe die ausgewählten Werte geprüft und importiere ausschließlich als Aktualisierung vorhandener Artikel.</label>
+                                <x-filament::button wire:click="downloadExistingUpdate" wire:loading.attr="disabled" @disabled(!$confirmUpdateExport)>Ameise-Aktualisierungsdatei herunterladen</x-filament::button>
+                            @endif
+                        </section>
+                    @endif
                     @if($fieldReview['ok']??false)
                         <strong>{{ $fieldReview['filled'] }} / {{ $fieldReview['total'] }} geprüfte Zielfelder mit belegtem Wert</strong>
                         <p>Spiegelstand: {{ $fieldReview['snapshot_at']??'nicht belegt' }}. Nicht zugeordnet bedeutet nicht, dass das Feld in JTL fehlt.</p>
