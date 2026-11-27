@@ -27,4 +27,17 @@ final class HubCatalogFactsTest extends TestCase
         self::assertSame('missing',F::itemWeight(['item_package_weight'=>[['value'=>250,'unit'=>'grams']]])['state']);
         self::assertSame('missing',F::itemWeight(['item_weight'=>[['value'=>250,'unit'=>'grams','marketplace_id'=>'foreign']]])['state']);
     }
+    public function test_shared_product_facts_require_verified_identity_and_single_pack():void
+    {
+        $catalog=['item'=>['gtin_match'=>true,'pack_kind'=>'single','asin'=>'B01MZALQW6','title'=>'Shampoo','manufacturer'=>'Goldwell'],
+            'attributes'=>['part_number'=>[['value'=>'000123'],['value'=>'foreign','marketplace_id'=>'foreign']],
+                'item_weight'=>[['value'=>250,'unit'=>'grams']]]];
+        $f=F::productFields($catalog);
+        self::assertSame('000123',$f['HAN']['value']);
+        self::assertSame('0.25',$f['Artikelgewicht']['value']);
+        $catalog['attributes']['part_number'][]=['value'=>'000456'];
+        self::assertArrayNotHasKey('HAN',F::productFields($catalog));
+        $catalog['item']['pack_kind']='multipack';
+        self::assertSame([],F::productFields($catalog));
+    }
 }
