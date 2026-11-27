@@ -17,7 +17,7 @@
         @php
             $wms=$stockData['wms']??[];
         @endphp
-        <h4 style="font-size:16px;font-weight:700;margin:14px 0 6px">Warenlager und WMS-Lagerplätze</h4>
+        <h4 style="font-size:16px;font-weight:700;margin:14px 0 6px">Warenlager und WMS-Fächer (Lagerplätze)</h4>
         @if(($wms['confirmed']??false)===true)
             <p>{{ $wms['count']??0 }} angezeigte Lagerplätze · {{ $wms['positive_bins']??0 }} mit positivem Bestand. Fachmengen nicht zum Gesamtbestand addieren.</p>
             @if($wms['truncated']??false)<p role="alert">Lagerplatzliste nicht vollständig. Nur gelieferte Positionen angezeigt.</p>@endif
