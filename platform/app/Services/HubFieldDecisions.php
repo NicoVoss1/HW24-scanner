@@ -20,7 +20,7 @@ final class HubFieldDecisions
     public static function unique(array $options):array
     {
         $selected=[];
-        foreach($options as $field=>$choices)if(is_array($choices)&&count($choices)===1)$selected[$field]=(string)array_key_first($choices);
+        foreach($options as $field=>$choices)if(is_array($choices)&&count($choices)===1&&!((array_values($choices)[0]['replacement']??false)))$selected[$field]=(string)array_key_first($choices);
         return $selected;
     }
 
