@@ -372,9 +372,10 @@
                             <p>Alle Felder an einem Ort. Übernehmen per Auswahl oder manuelle Eingabe. Nicht bestätigte Istwerte bleiben gekennzeichnet; Änderungen müssen vor dem Export geprüft werden. Keine direkte JTL-Änderung.</p>
                             <div style="display:flex;flex-wrap:wrap;gap:10px;margin:10px 0">
                                 <x-filament::button wire:click="researchAll" wire:loading.attr="disabled">Alle Daten recherchieren &amp; aufbereiten</x-filament::button>
-                                <x-filament::button color="gray" wire:click="prepareExistingUpdate" wire:loading.attr="disabled">Gespeicherte Quellen neu aufbereiten</x-filament::button>
+                                <x-filament::button color="gray" wire:click="prepareExistingUpdate" wire:loading.attr="disabled">Gespeicherte Recherchewerte aufbereiten</x-filament::button>
                                 @if($updateOptions)<x-filament::button color="gray" wire:click="selectUniqueUpdates" wire:loading.attr="disabled">Alle eindeutigen Vorschläge auswählen</x-filament::button>@endif
                             </div>
+                            @if(in_array($queueReview['status']??null,['queued','leased','retry'],true))<p wire:poll.15s="pollArticleResearch" role="status">Gemeinsame Recherche wartet oder läuft. Neue Ergebnisse erscheinen nach Abschluss automatisch; kein weiteres Klicken erforderlich.</p>@endif
                             @if($updateMessage!=='')<p role="status">{{ $updateMessage }}</p>@endif
                             @if($catalogEvidence)
                                 <p><strong>Amazon-Katalogarchiv #{{ $catalogEvidence['id'] }}</strong> · {{ $catalogEvidence['at'] }} · {{ $catalogEvidence['item']['title'] }} · {{ $catalogEvidence['item']['asin'] }}</p>
