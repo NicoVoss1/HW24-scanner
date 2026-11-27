@@ -41,7 +41,7 @@ final class AdminPanelProvider extends PanelProvider
             ->maxContentWidth(\Filament\Support\Enums\Width::Full)
             ->renderHook(\Filament\View\PanelsRenderHook::HEAD_END, fn () => view('filament.partials.hub-workspace-styles'))
             ->colors(['primary' => Color::Blue])
-            ->pages([Dashboard::class, ArticleLookup::class, IntelligenceWorkbench::class, WarehousePriceWorkbench::class, ScanWorkbench::class, LegacyWorkspace::class, ArticleHistoryWorkbench::class, AmeiseReferenceWorkbench::class, ReferenceTableWorkbench::class, \App\Filament\Pages\FieldPolicyWorkbench::class, QueryAuditWorkbench::class])
+            ->pages([Dashboard::class, ArticleLookup::class, IntelligenceWorkbench::class, WarehousePriceWorkbench::class, ScanWorkbench::class, LegacyWorkspace::class, ArticleHistoryWorkbench::class, AmeiseReferenceWorkbench::class, ReferenceTableWorkbench::class, \App\Filament\Pages\FieldPolicyWorkbench::class, \App\Filament\Pages\InventoryQualityWorkbench::class, QueryAuditWorkbench::class])
             ->widgets([Hw24SystemOverview::class])
             ->middleware([
                 EncryptCookies::class,
