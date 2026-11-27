@@ -6,6 +6,7 @@ namespace App\Services;
 final class HubExistingArticleExport
 {
     public const FIELDS=['Hersteller','HAN','ASIN','Artikelname','Kurzbeschreibung','Beschreibung','Titel-Tag (SEO)','Meta-Description (SEO)','Artikelgewicht','Inhalt/Menge','Maßeinheit'];
+    public const REPLACEABLE=['Artikelname','Kurzbeschreibung','Beschreibung','Titel-Tag (SEO)','Meta-Description (SEO)'];
     public static function candidates(array $current,array $article,array $catalog,array $ai,array $references,array $seo,array $manufacturers=[]):array
     {
         $out=[];
@@ -13,13 +14,16 @@ final class HubExistingArticleExport
             if(!in_array($f,self::FIELDS,true)||!is_string($v)||trim($v)===''||mb_strlen($v)>30000)return;
             $old=$current[$f]??[];
             // Only confirmed empty snapshot fields. Unmapped and ID-only fields are not editable here.
-            if(($old['state']??null)!=='empty_snapshot' || trim((string)($old['value']??''))!=='')return;
+            $oldValue=trim((string)($old['value']??''));
+            $replacement=($old['state']??null)==='value'&&$oldValue!==''&&in_array($f,self::REPLACEABLE,true);
+            if(!$replacement&&(($old['state']??null)!=='empty_snapshot'||$oldValue!==''))return;
+            if($replacement&&$oldValue===trim($v))return;
             $v=trim($v);
             if(preg_match('/^[=+\-@]/u',$v)||preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u',$v))return;
             if($f==='ASIN'&&!preg_match('/^[A-Z0-9]{10}$/D',$v))return;
             if($f==='HAN'&&mb_strlen($v)>140)return;
             $token=hash('sha256',$f."\0".$v);
-            if(!isset($out[$f][$token]))$out[$f][$token]=['value'=>$v,'source'=>$source];
+            if(!isset($out[$f][$token]))$out[$f][$token]=['value'=>$v,'source'=>$source,'old'=>$oldValue,'replacement'=>$replacement];
         };
         $p=$catalog['item']??[];
         $identity=($p['gtin_match']??false)===true&&($p['pack_kind']??null)==='single'&&
