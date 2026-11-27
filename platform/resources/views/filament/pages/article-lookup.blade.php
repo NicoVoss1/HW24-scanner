@@ -170,7 +170,7 @@
                                                     <div class="hw24-table-small">Nr. {{ $row['artikelnummer'] ?: 'unbekannt' }} · {{ $row['hersteller'] ?: 'Hersteller offen' }}</div>
                                                 </td>
                                                 <td class="hw24-nowarp">{{ $row['ean'] }}</td>
-                                                <td>{{ is_numeric($row['bestand']) ? number_format((float) $row['bestand'], 0, ',', '.') : 'Nicht belegt' }}</td>
+                                                <td>{{ count($lookup['matches']??[])===1 ? \App\Services\HubStockReader::display($articleStock['item']['total']??null) : 'Einzelartikel prüfen' }}</td>
                                                 <td>{{ is_numeric($row['netto_vk']) ? number_format((float) $row['netto_vk'], 2, ',', '.') : 'Nicht belegt' }}
                                                     <div class="hw24-table-small">{{ $row['waehrung'] ?: 'Währung nicht bestätigt' }}</div>
                                                 </td>
@@ -191,17 +191,8 @@
               <span class="hw24-chip">Nur bereits vorhandene Quellen · keine neue KI</span>
              </div>
              <div class="hw24-panel-body">
+              @include('filament.partials.hub-stock-board',['stockData'=>$articleStock,'showBins'=>true])
               <div class="hw24-price-grid">
-               <div class="hw24-price-box">
-                <small>📦 JTL verfügbar</small>
-                <strong>{{ ($articleRelated['stock']['available']??null)!==null ? number_format((float)$articleRelated['stock']['available'],0,',','.') : 'Nicht synchronisiert' }}</strong>
-                <p>In Aufträgen: {{ ($articleRelated['stock']['in_orders']??null)!==null ? number_format((float)$articleRelated['stock']['in_orders'],0,',','.') : 'nicht belegt' }} · Zulauf: {{ ($articleRelated['stock']['incoming']??null)!==null ? number_format((float)$articleRelated['stock']['incoming'],0,',','.') : 'nicht belegt' }}</p>
-               </div>
-               <div class="hw24-price-box">
-                <small>🏬 WMS-Fächer</small>
-                <strong>{{ ($articleRelated['wms']['confirmed']??false)===true ? ($articleRelated['wms']['count']??0).' Lagerplätze' : 'Spiegel nicht bestätigt' }}</strong>
-                <p>Gesperrte Fächer: {{ ($articleRelated['wms']['confirmed']??false)===true ? ($articleRelated['wms']['locked_bins']??0) : 'unbekannt' }} · Fachdetails im WMS-Bereich</p>
-               </div>
                <div class="hw24-price-box">
                 <small>🧠 OpenAI KI-Archiv · benutzerbezogen</small>
                 @if(($existingEvidence['ai']['verified']??false)===true)
@@ -270,9 +261,6 @@
                                 </div>
                                 <div style="border:1px solid var(--hw24-border);border-top:0;border-radius:0 0 10px 10px;padding:15px">
                                     <dl class="hw24-fields">
-                                        @foreach(['total'=>'JTL-Lagerbestand','available'=>'Verfügbar','orders'=>'In Aufträgen','incoming'=>'Im Zulauf'] as $stockKey=>$stockLabel)
-                                        <div class="hw24-field"><dt>{{ $stockLabel }}</dt><dd>{{ $articleStock['item'][$stockKey]??'Nicht belegt' }}</dd><p class="hw24-note">JTL-Spiegel · {{ $articleStock['at']??'Quellstand nicht bestätigt' }}</p></div>
-                                        @endforeach
                                         <div class="hw24-field"><dt>Füllmenge / Maßmenge</dt><dd>{{ $massLabel }}</dd><p class="hw24-note">Originalwert, Einheit ungeprüft</p></div>
                                         <div class="hw24-field"><dt>Lieferstatus</dt><dd>{{ $item['lieferstatus_name'] ?: (($fieldReview['fields']['Lieferstatus']['state']??null)==='observed_reference'?$fieldReview['fields']['Lieferstatus']['value']:(!empty($item['lieferstatus_id']) ? 'ID ' . $item['lieferstatus_id'] . ' · Klartext offen' : 'Nicht belegt')) }}</dd></div>
                                         <div class="hw24-field"><dt>Steuerklasse</dt><dd>{{ $item['steuerklasse_name'] ?: (($fieldReview['fields']['Steuerklasse']['state']??null)==='observed_reference'?$fieldReview['fields']['Steuerklasse']['value']:(!empty($item['steuerklasse_id']) ? 'ID ' . $item['steuerklasse_id'] . ' · Klartext offen' : 'Nicht belegt')) }}</dd></div>
