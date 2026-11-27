@@ -312,7 +312,7 @@
                     <div class="hw24-toolbar">
                         <x-filament::button wire:click="queueExistingArticle" wire:loading.attr="disabled" :disabled="$this->verifiedEan()===null">Gemeinsame Recherche anmelden</x-filament::button>
                         <x-filament::button color="gray" wire:click="refreshArticleResearch" wire:loading.attr="disabled" :disabled="$this->verifiedEan()===null">Archivdaten aktualisieren</x-filament::button>
-                        <x-filament::button color="gray" wire:click="readAmazon" wire:loading.attr="disabled" :disabled="$this->researchEan()===null">Amazon-Katalog abrufen</x-filament::button>
+                        <x-filament::button color="gray" wire:click="readAmazonAndPrepare" wire:loading.attr="disabled" :disabled="$this->researchEan()===null">Amazon-Katalog abrufen &amp; aufbereiten</x-filament::button>
                         @if(\App\Filament\Pages\QueryAuditWorkbench::canAccess())
                             <x-filament::button color="gray" wire:click="showArticleOffers" wire:loading.attr="disabled">Amazon-Händler &amp; Buy Box</x-filament::button>
                             <x-filament::button color="gray" wire:click="readAiArchive" wire:loading.attr="disabled" :disabled="$this->verifiedEan()===null">KI-Archiv abrufen</x-filament::button>
@@ -391,7 +391,7 @@
                                         $states[$f]=match($qualityRows[$f]['state']){'value','observed_reference'=>'Vorhanden','calculated'=>'Berechneter Wert · kein JTL-Original','empty_snapshot'=>'Noch keine belegte Ergänzung','reference'=>'Klartext prüfen',default=>'Quelle / Zuordnung offen'}.' · '.$qualityRows[$f]['source'];
                                     }
                                 @endphp
-                                <p><strong>{{ count($required) }} Pflichtfelder · {{ count($qualityRows) }} Zielfelder</strong> · Pflichtfelder zuerst. Änderungen werden erst mit dem Export freigegeben. Bei manueller Eingabe die Rechercheauswahl desselben Feldes auf Nein lassen.</p>
+                                <p><strong>{{ count($required) }} Pflichtfelder · {{ count($qualityRows) }} Zielfelder</strong> · Pflichtfelder zuerst. Änderungen werden erst mit dem Export freigegeben. Bei nicht bestätigten Istwerten den Ameise-Import besonders prüfen. Bei manueller Eingabe die Rechercheauswahl desselben Feldes auf Nein lassen.</p>
                                 @include('filament.partials.hub-field-decisions',[
                                     'decisionOptions'=>$allOptions,'decisionModel'=>'updateSelection','decisionKey'=>'existing-update',
                                     'decisionCurrent'=>array_map(fn($v)=>$v['value']!==''?$v['value']:'Nicht befüllt',$updateReview),
