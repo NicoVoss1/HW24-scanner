@@ -263,7 +263,9 @@
                                 </div>
                                 <div style="border:1px solid var(--hw24-border);border-top:0;border-radius:0 0 10px 10px;padding:15px">
                                     <dl class="hw24-fields">
-                                        <div class="hw24-field"><dt>JTL-Lagerbestand</dt><dd>{{ is_numeric($item['bestand']) ? number_format((float) $item['bestand'], 0, ',', '.') : 'Nicht belegt' }}</dd><p class="hw24-note">Gespiegelter Bestand, nicht lieferbare Menge</p></div>
+                                        @foreach(['total'=>'JTL-Lagerbestand','available'=>'Verfügbar','orders'=>'In Aufträgen','incoming'=>'Im Zulauf'] as $stockKey=>$stockLabel)
+                                        <div class="hw24-field"><dt>{{ $stockLabel }}</dt><dd>{{ $articleStock['item'][$stockKey]??'Nicht belegt' }}</dd><p class="hw24-note">JTL-Spiegel · {{ $articleStock['at']??'Quellstand nicht bestätigt' }}</p></div>
+                                        @endforeach
                                         <div class="hw24-field"><dt>Füllmenge / Maßmenge</dt><dd>{{ $massLabel }}</dd><p class="hw24-note">Originalwert, Einheit ungeprüft</p></div>
                                         <div class="hw24-field"><dt>Lieferstatus</dt><dd>{{ $item['lieferstatus_name'] ?: (($fieldReview['fields']['Lieferstatus']['state']??null)==='observed_reference'?$fieldReview['fields']['Lieferstatus']['value']:(!empty($item['lieferstatus_id']) ? 'ID ' . $item['lieferstatus_id'] . ' · Klartext offen' : 'Nicht belegt')) }}</dd></div>
                                         <div class="hw24-field"><dt>Steuerklasse</dt><dd>{{ $item['steuerklasse_name'] ?: (($fieldReview['fields']['Steuerklasse']['state']??null)==='observed_reference'?$fieldReview['fields']['Steuerklasse']['value']:(!empty($item['steuerklasse_id']) ? 'ID ' . $item['steuerklasse_id'] . ' · Klartext offen' : 'Nicht belegt')) }}</dd></div>
@@ -301,6 +303,48 @@
                 </section>
             @endif
 
+            @if(($lookup['jtl_status']??'')==='current_snapshot' && count($lookup['matches']??[])===1)
+            <section class="hw24-panel">
+                <div class="hw24-panel-head"><h3>Recherche · direkt am Artikel</h3></div>
+                <div class="hw24-panel-body">
+                    <div class="hw24-toolbar">
+                        <x-filament::button wire:click="queueExistingArticle" wire:loading.attr="disabled" :disabled="$this->verifiedEan()===null">Gemeinsame Recherche anmelden</x-filament::button>
+                        <x-filament::button color="gray" wire:click="refreshArticleResearch" wire:loading.attr="disabled" :disabled="$this->verifiedEan()===null">Archivdaten aktualisieren</x-filament::button>
+                        <x-filament::button color="gray" wire:click="readAmazon" wire:loading.attr="disabled" :disabled="$this->verifiedEan()===null">Amazon-Katalog abrufen</x-filament::button>
+                        @if(\App\Filament\Pages\QueryAuditWorkbench::canAccess())
+                            <x-filament::button color="gray" wire:click="showArticleOffers" wire:loading.attr="disabled">Amazon-Händler &amp; Buy Box</x-filament::button>
+                            <x-filament::button color="gray" wire:click="readAiArchive" wire:loading.attr="disabled" :disabled="$this->verifiedEan()===null">KI-Archiv abrufen</x-filament::button>
+                        @endif
+                    </div>
+                    @if($pflegeMessage!=='')<p role="status">{{ $pflegeMessage }}</p>@endif
+                    @if($articleCatalog)
+                        <details open><summary>Amazon-Katalog · {{ count($articleCatalog['items']??[]) }} angezeigte Treffer</summary>
+                            @foreach($articleCatalog['items']??[] as $candidate)
+                                <p><strong>{{ $candidate['title'] }}</strong> · ASIN {{ $candidate['asin'] }} · {{ $candidate['manufacturer']?:'Hersteller offen' }} · {{ $candidate['gtin_match']?'GTIN stimmt überein':'GTIN nicht bestätigt' }} · {{ $candidate['pack_kind'] }}</p>
+                            @endforeach
+                            <p>Für die Übernahme wird der bestätigte gemeinsame Rechercheauftrag benötigt. Kein ungeprüfter Katalogwert wird exportiert.</p>
+                        </details>
+                    @endif
+                    @if(\App\Filament\Pages\QueryAuditWorkbench::canAccess())
+                        <details><summary>OpenAI · neue kostenpflichtige Recherche</summary>
+                            <p>Vor jedem Auftrag werden Freigabe, gemeinsames Archiv und aktuelles Budget geprüft. Vorhandene Berichte werden nicht doppelt berechnet.</p>
+                            <label style="display:flex;align-items:center;gap:8px;margin:10px 0"><input type="checkbox" wire:model.live="confirmArticleAi"> Eine kostenpflichtige Einzelabfrage ausdrücklich bestätigen</label>
+                            <x-filament::button wire:click="runArticleAi(false)" wire:loading.attr="disabled" :disabled="!$confirmArticleAi">OpenAI prüfen</x-filament::button>
+                            <x-filament::button color="gray" wire:click="runArticleAi(true)" wire:loading.attr="disabled" :disabled="!$confirmArticleAi">OpenAI-Webrecherche</x-filament::button>
+                            @if($manualAiResult)<p role="status">{{ $manualAiResult['message']??'' }}</p>@endif
+                        </details>
+                        <div x-data="{open:false}" x-on:hw24-article-offers-open.window="open=true" x-on:keydown.escape.window="open=false">
+                            <div x-show="open" x-cloak style="position:fixed;inset:0;z-index:1000;background:#0f172a99;padding:4vh 3vw;overflow:auto" x-on:click.self="open=false">
+                                <section role="dialog" aria-modal="true" aria-label="Amazon-Händlervergleich" style="background:var(--hw24-bg);color:var(--hw24-text);padding:20px;border-radius:12px;width:100%;margin:auto">
+                                    <div style="display:flex;justify-content:space-between;align-items:center"><h3 style="font-size:20px;font-weight:700">Amazon-Angebote</h3><button type="button" class="hw24-link" x-on:click="open=false">Schließen ×</button></div>
+                                    @include('filament.partials.hub-offer-board',['offers'=>$articleOffers])
+                                </section>
+                            </div>
+                        </div>
+                    @endif
+                </div>
+            </section>
+            @endif
             <section class="hw24-panel" aria-label="Datenqualität und Pflegevorschläge">
                 <div class="hw24-panel-head"><h3>Datenqualität &amp; Pflegevorschläge</h3></div>
                 <div style="padding:16px;display:grid;gap:12px">
@@ -319,12 +363,24 @@
                     @if(($fieldReview['ok']??false) && \App\Filament\Pages\QueryAuditWorkbench::canAccess())
                         <section style="border:1px solid #8199b0;border-radius:8px;padding:16px;margin:12px 0">
                             <h3 style="font-size:18px;font-weight:700">Bestandsartikel · Ameise-Aktualisierung</h3>
-                            <p>Nur belegte Vorschläge für derzeit leere Spiegelfelder. Keine Neuanlage, kein direkter JTL-Import. Vorhandene Werte bleiben erhalten.</p>
+                            <p>Belegte Ergänzungen und überprüfbare Textkorrekturen. Änderungen vorhandener Texte ausdrücklich einzeln auswählen; kein direkter JTL-Import.</p>
                             <div style="display:flex;flex-wrap:wrap;gap:10px;margin:10px 0">
                                 <x-filament::button wire:click="prepareExistingUpdate" wire:loading.attr="disabled">Recherchewerte aufbereiten</x-filament::button>
                                 @if($updateOptions)<x-filament::button color="gray" wire:click="selectUniqueUpdates" wire:loading.attr="disabled">Alle eindeutigen Vorschläge auswählen</x-filament::button>@endif
                             </div>
                             @if($updateMessage!=='')<p role="status">{{ $updateMessage }}</p>@endif
+                            @if($updateReview)
+                                @php
+                                    $qualityRows=\App\Services\HubFieldPolicy::review($updateReview,$updateOptions);
+                                @endphp
+                                <details open><summary>Alle {{ count($qualityRows) }} Zielfelder · Pflichtfeldprüfung und Rechercheabdeckung</summary>
+                                    <div class="hw24-table-wrap"><table class="hw24-result-table"><thead><tr><th>Feld</th><th>Aktuell</th><th>Recherche / Status</th></tr></thead><tbody>
+                                    @foreach($qualityRows as $f=>$quality)
+                                        <tr><td>{{ $f }} @if($quality['required']) <strong>· Pflicht</strong>@endif</td><td style="overflow-wrap:anywhere;max-width:500px">{{ mb_strimwidth((string)$quality['value'],0,180,' …')?:'Nicht belegt' }}</td><td>{{ $quality['candidates']?$quality['candidates'].' Vorschlag/Vorschläge':match($quality['state']){'value','observed_reference'=>'Vorhanden','empty_snapshot'=>'Noch keine belegte Ergänzung','reference'=>'Klartext fehlt',default=>'Zuordnung / Quelle offen'} }} · {{ $quality['source'] }}</td></tr>
+                                    @endforeach
+                                    </tbody></table></div>
+                                </details>
+                            @endif
                             @if($updateOptions)
                                 <p>Artikelnummer {{ $updateIdentity['artikelnummer'] }} · EAN {{ $updateIdentity['ean'] }}</p>
                                 @include('filament.partials.hub-field-decisions',[
