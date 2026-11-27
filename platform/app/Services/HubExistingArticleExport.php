@@ -6,7 +6,7 @@ namespace App\Services;
 final class HubExistingArticleExport
 {
     public const FIELDS=['GTIN','ASIN',...HubArticleFieldEditor::MANUAL,...HubArticleFieldEditor::FLAGS,...HubArticleFieldEditor::REFERENCE];
-    public const REPLACEABLE=['Artikelname','Kurzbeschreibung','Beschreibung','Titel-Tag (SEO)','Meta-Description (SEO)'];
+    public const REPLACEABLE=['Artikelgewicht','Artikelname','Kurzbeschreibung','Beschreibung','Titel-Tag (SEO)','Meta-Description (SEO)'];
     public static function candidates(array $current,array $article,array $catalog,array $ai,array $references,array $seo,array $manufacturers=[]):array
     {
         $out=[];
