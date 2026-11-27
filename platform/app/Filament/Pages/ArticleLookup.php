@@ -233,7 +233,7 @@ final class ArticleLookup extends Page
     public function prepareExistingUpdate(LegacyReadBridge $bridge,HubArticleMirror $mirror):void
     {
         abort_unless(QueryAuditWorkbench::canAccess(),403);
-        $previous=$this->updateIdentity;$oldOptions=$this->updateOptions;$oldSelection=$this->updateSelection;$oldManual=$this->manualFields;
+        $previous=$this->updateIdentity;$oldOptions=$this->updateOptions;$oldSelection=$this->updateSelection;$oldManual=$this->manualFields;$oldReview=$this->updateReview;
         $this->reset(['updateOptions','updateIdentity','updateReview','updateSelection','manualFields','confirmUpdateExport','updateMessage']);
         if(($this->fieldReview['ok']??false)!==true||count($this->lookup['matches']??[])!==1){$this->updateMessage='Bitte zuerst einen eindeutigen Bestandsartikel laden.';return;}
         try{
@@ -244,7 +244,7 @@ final class ArticleLookup extends Page
             $this->updateIdentity=$identity;$this->catalogEvidence=$context['catalog'];
             if($previous===$identity){
                 foreach($oldSelection as $f=>$token)if(is_string($token)&&isset($oldOptions[$f][$token],$this->updateOptions[$f][$token])&&$oldOptions[$f][$token]===$this->updateOptions[$f][$token])$this->updateSelection[$f]=$token;
-                $this->manualFields=$oldManual;
+                foreach($oldManual as $f=>$value)if(($oldReview[$f]??null)===($this->updateReview[$f]??null))$this->manualFields[$f]=$value;
             }
             $this->updateMessage=$this->updateOptions?'Auswahl bereit. Ergänzungen und explizit zu prüfende Textkorrekturen mit Quelle.':'Keine exportierbaren Ergänzungen bestätigt. Recherche oder Feldzuordnung prüfen.';
         }catch(\Throwable){$this->updateMessage='Aktueller Artikel oder Quellen nicht bestätigt. Kein Export.';}
@@ -253,7 +253,8 @@ final class ArticleLookup extends Page
     public function selectUniqueUpdates():void
     {
         abort_unless(QueryAuditWorkbench::canAccess(),403);
-        $this->updateSelection=\App\Services\HubFieldDecisions::unique($this->updateOptions);
+        $suggestions=\App\Services\HubFieldDecisions::unique($this->updateOptions);
+        foreach($suggestions as $f=>$token)if(trim((string)($this->manualFields[$f]??''))===''&&!isset($this->updateSelection[$f]))$this->updateSelection[$f]=$token;
         $this->confirmUpdateExport=false;
     }
 
@@ -303,10 +304,11 @@ final class ArticleLookup extends Page
                     $fresh[$f][$token]!==$this->updateOptions[$f][$token])throw new \RuntimeException('Source or field changed');
             }
             $selection=$this->updateSelection;
-            $manual=\App\Services\HubArticleFieldEditor::manualOptions($context['current'],$this->manualFields);
+            try{$manual=\App\Services\HubArticleFieldEditor::manualOptions($context['current'],$this->manualFields);}
+            catch(\RuntimeException $e){$this->confirmUpdateExport=false;$this->updateMessage='Manuelle Eingaben prüfen: '.$e->getMessage();return;}
             foreach($manual as $f=>$opts){
                 if(($this->updateReview[$f]??null)!==($context['current'][$f]??null))throw new \RuntimeException('Manueller Altwert verändert');
-                if(!empty($selection[$f]))throw new \RuntimeException('Bitte pro Feld entweder Recherchewert oder manuelle Eingabe auswählen: '.$f);
+                if(!empty($selection[$f])){$this->confirmUpdateExport=false;$this->updateMessage='Bitte pro Feld entweder Recherchewert oder manuelle Eingabe auswählen: '.$f;return;}
                 $fresh[$f]=($fresh[$f]??[])+$opts;$selection[$f]=(string)array_key_first($opts);
             }
             $patch=\App\Services\HubFieldDecisions::resolve($fresh,$selection);
@@ -470,8 +472,8 @@ final class ArticleLookup extends Page
     {
         abort_unless(QueryAuditWorkbench::canAccess(),403);
         if(count($this->lookup['matches']??[])!==1)return;
-        $asin=$this->lookup['matches'][0]['asin']??null;
-        if(!is_string($asin)||!preg_match('/^[A-Z0-9]{10}$/D',$asin)){$this->articleOffers=['ok'=>false,'message'=>'Keine gespeicherte ASIN.'];return;}
+        $asin=$this->lookup['matches'][0]['asin']??($this->catalogEvidence['item']['asin']??null);
+        if(!is_string($asin)||!preg_match('/^[A-Z0-9]{10}$/D',$asin)){$this->articleOffers=['ok'=>false,'message'=>'Keine bestätigte ASIN. Zuerst Artikel recherchieren.'];$this->dispatch('hw24-article-offers-open');return;}
         try{$this->articleOffers=\App\Services\HubArticleResearchWorkspace::offers($asin,$bridge);}
         catch(\Throwable){$this->articleOffers=['ok'=>false,'message'=>'Amazon-Angebote nicht bestätigt.'];}
         $this->dispatch('hw24-article-offers-open');
@@ -498,6 +500,13 @@ final class ArticleLookup extends Page
         catch(\Throwable){$this->manualAiResult=['ok'=>false,'message'=>'KI-Auftrag nicht bestätigt; nicht ungeprüft wiederholen.'];}
         $this->readAiArchive($read);
     }
+    public function readAmazonAndPrepare(LegacyReadBridge $bridge,HubArticleMirror $mirror):void
+    {
+        abort_unless(QueryAuditWorkbench::canAccess(),403);
+        $this->readAmazon($bridge);
+        $this->prepareExistingUpdate($bridge,$mirror);
+    }
+
     public function readAmazon(LegacyReadBridge $bridge): void
     {
         $ean = $this->researchEan();
