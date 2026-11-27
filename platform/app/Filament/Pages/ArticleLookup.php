@@ -158,6 +158,12 @@ final class ArticleLookup extends Page
                 if($catalog)$ai=app(HubAiEvidence::class)->read($ean,$catalog);
             }catch(\Throwable){}
         }
+        if($this->articleCatalog){
+            try{
+                $direct=HubResearchEvidence::directCatalog($ean,$this->articleCatalog,HubPeerMirror::connect());
+                if($direct!==null){$catalog=$direct;$ai=app(HubAiEvidence::class)->read($ean,$catalog);}
+            }catch(\Throwable){}
+        }
         $seo=HubSeoDefaults::propose(['Artikelname'=>$raw['matches'][0]['artikelname']??'',
             'Titel-Tag (SEO)'=>$raw['matches'][0]['seo_titel']??'','Meta-Description (SEO)'=>$raw['matches'][0]['seo_beschreibung']??'']);
         $manufacturers=[];
@@ -402,6 +408,7 @@ final class ArticleLookup extends Page
         $result = $bridge->fetch('amazon.catalog', ['ean' => $ean]);
         $raw = is_array($result['data'] ?? null) ? $result['data'] : [];
         $this->articleCatalog=\App\Services\ScanResearch::fromResponses($ean,[],$result);
+        if(($raw['has_next_page']??null)!==false||count($raw['items']??[])!==1)$this->articleCatalog['more']=true;
         $this->amazon = [
             'ok' => (bool) ($result['ok'] ?? false),
             'state' => (string) ($result['state'] ?? 'unavailable'),
