@@ -174,9 +174,22 @@ final class ArticleLookup extends Page
     public function selectUniqueUpdates():void
     {
         abort_unless(QueryAuditWorkbench::canAccess(),403);
-        $this->updateSelection=[];
-        foreach($this->updateOptions as $f=>$options)if(count($options)===1)$this->updateSelection[$f]=(string)array_key_first($options);
+        $this->updateSelection=\App\Services\HubFieldDecisions::unique($this->updateOptions);
         $this->confirmUpdateExport=false;
+    }
+
+    public function clearExistingSelections():void
+    {
+        abort_unless(QueryAuditWorkbench::canAccess(),403);
+        $this->updateSelection=[];$this->confirmUpdateExport=false;
+    }
+
+    public function updatedUpdateSelection():void{$this->confirmUpdateExport=false;}
+
+    public function mount():void
+    {
+        $q=request()->query('q');
+        if(is_string($q)&&preg_match('/^[\pL\pN][\pL\pN._\/-]{1,63}$/uD',$q))$this->identifier=$q;
     }
 
     public function downloadExistingUpdate(LegacyReadBridge $bridge,HubArticleMirror $mirror)
