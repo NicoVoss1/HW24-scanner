@@ -51,4 +51,21 @@ final class HubExistingArticleExportTest extends TestCase
         $current['Hersteller']=['state'=>'reference','value'=>'ID 9'];
         self::assertSame([],E::candidates($current,$a,$c,[],[],[],$refs));
     }
+    public function test_missing_gtin_needs_independently_verified_catalog_and_matching_asin():void
+    {
+        $current=['GTIN'=>['state'=>'empty_snapshot','value'=>''],'Hersteller'=>['state'=>'empty_snapshot','value'=>''],
+            'Artikelname'=>['state'=>'value','value'=>'Alter Name']];
+        $a=['jtl_article_id'=>'12','hersteller'=>'','asin'=>'B01MZALQW6','ean'=>'','artikelname'=>'Alter Name'];
+        $c=['id'=>3,'item'=>['gtin_match'=>true,'pack_kind'=>'single','asin'=>'B01MZALQW6','manufacturer'=>'Revlon Professional','title'=>'Neuer Name'],'attributes'=>[]];
+        $refs=[['hersteller'=>'Revlon','kHersteller'=>'7']];
+        $o=E::candidates($current,$a,$c,[],[],[],$refs);
+        self::assertArrayNotHasKey('GTIN',$o);
+        $c['verified_missing_gtin']='0615908418057';
+        $o=E::candidates($current,$a,$c,[],[],[],$refs);
+        self::assertSame('0615908418057',array_values($o['GTIN'])[0]['value']);
+        self::assertTrue(array_values($o['Artikelname'])[0]['replacement']);
+        self::assertArrayNotHasKey('Artikelname',\App\Services\HubFieldDecisions::unique($o));
+        $c['item']['asin']='B000000001';
+        self::assertArrayNotHasKey('GTIN',E::candidates($current,$a,$c,[],[],[],$refs));
+    }
 }
