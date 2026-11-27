@@ -20,7 +20,7 @@ final class HubArticleResearchWorkspace
         $board=OfferEvidence::present($raw,$names);
         return ['ok'=>true,'asin'=>$asin,'archive'=>$capture['archive']]+$board;
     }
-    public static function aiOnce(string $ean,array $article,LegacyReadBridge $read,LegacyApprovedActionBridge $write,bool $web):array
+    public static function aiOnce(string $ean,array $article,LegacyReadBridge $read,LegacyApprovedActionBridge $write,bool $web,array $catalog=[]):array
     {
         ResearchQueue::canonical($ean);
         if(config('hw24_legacy.ai_paid_enabled')!==true)return ['ok'=>false,'message'=>'Kostenpflichtige KI nicht freigegeben.'];
@@ -35,6 +35,18 @@ final class HubArticleResearchWorkspace
         $payload=['ean'=>$ean,'articleName'=>$name,'brand'=>mb_strcut((string)($article['hersteller']??''),0,180),
             'warengruppe'=>mb_strcut((string)($article['warengruppe_name']??''),0,150),'category'=>'','unit'=>'','jtl_status'=>'current_snapshot','candidates'=>[]];
         if($web)$payload['review_version']=3;
+        else{
+            $p=$catalog['item']??[];
+            if(($p['gtin_match']??false)!==true||($p['pack_kind']??null)!=='single'||
+                ($p['pack_units']??null)!==1||!preg_match('/^[A-Z0-9]{10}$/D',(string)($p['asin']??''))||
+                (!empty($article['asin'])&&$article['asin']!==$p['asin'])||
+                (!empty($article['hersteller'])&&!HubManufacturerPolicy::equivalent($article['hersteller'],(string)($p['manufacturer']??'')))||
+                !in_array(2,$budget['data']['review_versions']??[],true))
+                return ['ok'=>false,'message'=>'Für exportierbare KI-Textvorschläge ist ein bestätigter Amazon-Einzelartikel und die erweiterte KI-Schnittstelle erforderlich. Keine neue Kostenabfrage.'];
+            if(mb_strlen((string)$p['title'])>500||mb_strlen((string)($p['brand']??''))>180)return ['ok'=>false,'message'=>'Produktkontext zu lang; keine Kostenabfrage.'];
+            $payload['review_version']=2;$payload['product_facts']=HubAiContent::facts($catalog);
+            $payload['candidates']=[['asin'=>$p['asin'],'title'=>$p['title'],'brand'=>$p['brand']??'','eanConfirmed'=>true,'packKind'=>'single','packUnits'=>1]];
+        }
         $r=$write->post('ai.review',$payload);
         return ['ok'=>($r['ok']??false)===true,'message'=>($r['ok']??false)===true?'KI-Antwort erhalten. Archiv erneut prüfen.':'KI-Auftrag nicht bestätigt. Vor Wiederholung Archiv und Kosten kontrollieren.'];
     }
